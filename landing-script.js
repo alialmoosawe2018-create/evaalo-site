@@ -170,7 +170,7 @@ const translations = {
         terms: "Terms of Service",
         dataSecurity: "Data & Security",
         footerTagline: "Building the future of smart recruitment.",
-        comingSoon: "Coming Soon",
+        comingSoon: "Video",
         copyright: "© 2025 evaalo AI. All rights reserved."
     },
     ar: {
@@ -235,7 +235,7 @@ const translations = {
         terms: "شروط الخدمة",
         dataSecurity: "البيانات والأمان",
         footerTagline: "بناء مستقبل التوظيف الذكي.",
-        comingSoon: "قريباً",
+        comingSoon: "فيديو",
         copyright: "© 2025 evaalo AI. جميع الحقوق محفوظة."
     },
     ku: {
@@ -300,7 +300,7 @@ const translations = {
         terms: "مەرجەکانی خزمەتگوزاری",
         dataSecurity: "داتا و پاراستن",
         footerTagline: "بنیاتنانی داهاتووی دامەزراندنی زیرەک.",
-        comingSoon: "بەم زووانە",
+        comingSoon: "ڤیدیۆ",
         copyright: "© 2025 evaalo AI. هەموو مافێک پارێزراوە."
     }
 };
@@ -520,7 +520,7 @@ document.querySelectorAll('.feature-card, .process-step').forEach(element => {
 // ====================================
 
 function navigateToApplication() {
-    window.location.href = 'index.html';
+    window.location.href = 'form1.html';
 }
 
 applyNowBtn.addEventListener('click', navigateToApplication);
