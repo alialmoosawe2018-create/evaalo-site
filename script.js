@@ -741,8 +741,8 @@ coverLetterTextarea.addEventListener('input', () => {
 // Form Submission
 // ====================================
 
-// n8n Webhook URL
-const WEBHOOK_URL = "http://77.237.234.153:5678/webhook/44283984-b485-424b-8ce6-318fe9276f55";
+// n8n Webhook URL - Production
+const WEBHOOK_URL = "http://77.237.234.153:5678/webhook/f42eb384-b485-424b-8ce6-318fe972f6f5";
 
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -760,30 +760,31 @@ form.addEventListener('submit', async (e) => {
         
         console.log('Form submitted:', payload);
         
-        // Send to n8n webhook (fire-and-forget)
-        fetch(WEBHOOK_URL, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload),
-        })
-        .then(res => {
+        // Send to n8n webhook
+        try {
+            const res = await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload),
+            });
+            
             if (res.ok) {
-                console.log('✅ Webhook sent successfully!');
+                console.log('Webhook sent successfully!');
+                // Hide form and show success message
+                form.style.display = 'none';
+                document.querySelector('.form-header').style.display = 'none';
+                successMessage.style.display = 'block';
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
-                console.warn('⚠️ Webhook response:', res.status);
+                alert('Submission failed. Please try again.');
+                console.error('Webhook response not OK:', res.status);
             }
-        })
-        .catch(error => {
-            console.error('❌ Webhook error (this is OK, form still submitted):', error);
-        });
-        
-        // Show success message immediately (don't wait for webhook)
-        form.style.display = 'none';
-        document.querySelector('.form-header').style.display = 'none';
-        successMessage.style.display = 'block';
-        
-        // Scroll to top
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (error) {
+            alert('Submission failed. Please try again.');
+            console.error('Error sending to webhook:', error);
+        }
     }
 });
 
