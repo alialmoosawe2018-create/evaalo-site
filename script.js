@@ -750,31 +750,53 @@ form.addEventListener('submit', async (e) => {
     if (validateSection(currentSection)) {
         // Collect form data
         const formData = new FormData(form);
-        const payload = Object.fromEntries(formData.entries());
         
-        // Add additional metadata
-        payload.submittedAt = new Date().toISOString();
-        payload.language = currentLang;
-        payload.skills = skillsArray;
-        payload.languages = languagesArray;
+        // Add additional metadata to FormData
+        formData.append('submittedAt', new Date().toISOString());
+        formData.append('language', currentLang);
         
-        console.log('Form submitted:', payload);
+        // Add skills array (append each skill)
+        if (skillsArray && skillsArray.length > 0) {
+            skillsArray.forEach((skill, index) => {
+                formData.append(`skills[${index}]`, skill);
+            });
+        }
         
-        // Send to n8n webhook
+        // Add languages array (append each language)
+        if (languagesArray && languagesArray.length > 0) {
+            languagesArray.forEach((lang, index) => {
+                formData.append(`languages[${index}]`, lang);
+            });
+        }
+        
+        console.log('Form submitted with FormData');
+        // Log form data for debugging
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+        
+        // Send to n8n webhook using POST with FormData
+        // Note: Origin header is automatically set by browser (cannot be manually set)
+        // Browser will send: Origin: https://www.evaalo.com (or current domain)
         try {
             const res = await fetch(WEBHOOK_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(payload),
+                body: formData,
                 mode: 'cors'
             });
             
             // Log response for debugging
             console.log('Webhook response status:', res.status);
-            const responseData = await res.json().catch(() => ({}));
+            
+            // Try to parse JSON response, fallback to text if needed
+            let responseData = {};
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                responseData = await res.json().catch(() => ({}));
+            } else {
+                const text = await res.text().catch(() => '');
+                console.log('Webhook response text:', text);
+            }
             console.log('Webhook response data:', responseData);
             
             // Check if webhook returned success (200-299 status codes)
