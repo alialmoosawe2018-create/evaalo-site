@@ -742,7 +742,7 @@ coverLetterTextarea.addEventListener('input', () => {
 // ====================================
 
 // n8n Webhook URL
-const WEBHOOK_URL = "http://77.237.234.153:5678/webhook/f42eb384-b485-424b-8ce6-318fe972f6f5";
+const WEBHOOK_URL = "http://77.237.234.153:5678/webhook/44283984-b485-424b-8ce6-318fe9276f55";
 
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
