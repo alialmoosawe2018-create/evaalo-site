@@ -742,7 +742,7 @@ coverLetterTextarea.addEventListener('input', () => {
 // ====================================
 
 // n8n Webhook URL - Production
-const WEBHOOK_URL = "http://77.237.234.153:5678/webhook/623d0495-86c7-4642-94ef-a6dcceac0f47";
+const WEBHOOK_URL = "https://n8n.evaalo.com/webhook/623d0495-86c7-4642-94ef-a6dcceac0f47";
 
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
