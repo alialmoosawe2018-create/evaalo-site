@@ -748,51 +748,81 @@ form.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     if (validateSection(currentSection)) {
-        // Collect form data
+        // Collect form data and convert to JSON object
         const formData = new FormData(form);
+        const data = {};
         
-        // Add additional metadata to FormData
-        formData.append('submittedAt', new Date().toISOString());
-        formData.append('language', currentLang);
+        // Convert FormData to object
+        for (let [key, value] of formData.entries()) {
+            // Handle array-like fields (skills, languages)
+            if (key.startsWith('skills[') || key.startsWith('languages[')) {
+                const arrayKey = key.includes('skills') ? 'skills' : 'languages';
+                if (!data[arrayKey]) {
+                    data[arrayKey] = [];
+                }
+                data[arrayKey].push(value);
+            } else {
+                data[key] = value;
+            }
+        }
         
-        // Add skills array (append each skill)
+        // Add skills array if it exists
         if (skillsArray && skillsArray.length > 0) {
-            skillsArray.forEach((skill, index) => {
-                formData.append(`skills[${index}]`, skill);
-            });
+            data.skills = skillsArray;
         }
         
-        // Add languages array (append each language)
+        // Add languages array if it exists
         if (languagesArray && languagesArray.length > 0) {
-            languagesArray.forEach((lang, index) => {
-                formData.append(`languages[${index}]`, lang);
-            });
+            data.languages = languagesArray;
         }
         
-        console.log('Form submitted with FormData');
-        // Log form data for debugging
-        for (let pair of formData.entries()) {
-            console.log(pair[0] + ': ' + pair[1]);
+        // Add additional metadata
+        data.submittedAt = new Date().toISOString();
+        data.language = currentLang;
+        data.source = 'web-form';
+        
+        // Handle salary range
+        if (data.salaryMin || data.salaryMax) {
+            data.salary = {
+                min: data.salaryMin || null,
+                max: data.salaryMax || null,
+                currency: data.salaryCurrency || 'USD'
+            };
+            delete data.salaryMin;
+            delete data.salaryMax;
+            delete data.salaryCurrency;
         }
         
-        // Send to n8n webhook using POST with FormData
-        // Note: Origin header is automatically set by browser (cannot be manually set)
-        // Browser will send: Origin: https://www.evaalo.com (or current domain)
+        console.log('Form submitted with data:', data);
+        
+        // Send to n8n webhook using POST with JSON
         try {
             const res = await fetch(WEBHOOK_URL, {
                 method: 'POST',
-                body: formData,
-                mode: 'cors'
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(data),
+                mode: 'cors',
+                credentials: 'omit'
             });
             
             // Log response for debugging
             console.log('Webhook response status:', res.status);
+            console.log('Webhook response headers:', Object.fromEntries(res.headers.entries()));
             
             // Try to parse JSON response, fallback to text if needed
             let responseData = {};
             const contentType = res.headers.get('content-type');
             if (contentType && contentType.includes('application/json')) {
-                responseData = await res.json().catch(() => ({}));
+                try {
+                    responseData = await res.json();
+                } catch (parseError) {
+                    console.warn('Failed to parse JSON response:', parseError);
+                    const text = await res.text();
+                    console.log('Webhook response text:', text);
+                }
             } else {
                 const text = await res.text().catch(() => '');
                 console.log('Webhook response text:', text);
@@ -800,7 +830,7 @@ form.addEventListener('submit', async (e) => {
             console.log('Webhook response data:', responseData);
             
             // Check if webhook returned success (200-299 status codes)
-            if (res.ok || res.status === 200) {
+            if (res.ok) {
                 console.log('✅ Form submitted successfully to webhook!');
                 
                 // Hide form and show success message
@@ -815,23 +845,109 @@ form.addEventListener('submit', async (e) => {
                 localStorage.removeItem('formData');
             } else {
                 console.error('❌ Webhook returned non-OK status:', res.status);
+                const errorText = await res.text().catch(() => 'Unknown error');
+                console.error('Error response:', errorText);
+                
+                // Try fallback: submit as form data
+                console.log('Attempting fallback submission...');
+                try {
+                    const fallbackFormData = new FormData(form);
+                    fallbackFormData.append('submittedAt', data.submittedAt);
+                    fallbackFormData.append('language', data.language);
+                    
+                    if (data.skills && Array.isArray(data.skills)) {
+                        data.skills.forEach((skill, index) => {
+                            fallbackFormData.append(`skills[${index}]`, skill);
+                        });
+                    }
+                    
+                    if (data.languages && Array.isArray(data.languages)) {
+                        data.languages.forEach((lang, index) => {
+                            fallbackFormData.append(`languages[${index}]`, lang);
+                        });
+                    }
+                    
+                    const fallbackRes = await fetch(WEBHOOK_URL, {
+                        method: 'POST',
+                        body: fallbackFormData,
+                        mode: 'cors'
+                    });
+                    
+                    if (fallbackRes.ok) {
+                        console.log('✅ Fallback submission successful!');
+                        form.style.display = 'none';
+                        document.querySelector('.form-header').style.display = 'none';
+                        successMessage.style.display = 'block';
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        localStorage.removeItem('formData');
+                        return;
+                    }
+                } catch (fallbackError) {
+                    console.error('Fallback submission also failed:', fallbackError);
+                }
+                
                 alert('Submission failed. Please try again or contact support.');
             }
         } catch (error) {
-            // CORS or network error - but data might still be sent
             console.error('❌ Error sending to webhook:', error);
-            console.log('ℹ️ Note: This might be a CORS issue, but data may have been received by webhook');
+            console.error('Error details:', {
+                message: error.message,
+                name: error.name,
+                stack: error.stack
+            });
             
-            // Show success anyway since webhook might have received the data
-            alert('Form submitted! If you experience issues, please contact support.');
-            
-            // Hide form and show success message
-            form.style.display = 'none';
-            document.querySelector('.form-header').style.display = 'none';
-            successMessage.style.display = 'block';
-            
-            // Scroll to top
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Try fallback: direct form submission
+            console.log('Attempting direct form submission as fallback...');
+            const formElement = document.getElementById('applicationForm');
+            if (formElement) {
+                // Create a temporary form to submit
+                const tempForm = document.createElement('form');
+                tempForm.method = 'POST';
+                tempForm.action = WEBHOOK_URL;
+                tempForm.style.display = 'none';
+                
+                // Copy all form data
+                const formDataObj = new FormData(form);
+                for (let [key, value] of formDataObj.entries()) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = value;
+                    tempForm.appendChild(input);
+                }
+                
+                // Add metadata
+                const submittedAtInput = document.createElement('input');
+                submittedAtInput.type = 'hidden';
+                submittedAtInput.name = 'submittedAt';
+                submittedAtInput.value = new Date().toISOString();
+                tempForm.appendChild(submittedAtInput);
+                
+                const langInput = document.createElement('input');
+                langInput.type = 'hidden';
+                langInput.name = 'language';
+                langInput.value = currentLang;
+                tempForm.appendChild(langInput);
+                
+                document.body.appendChild(tempForm);
+                
+                // Show user message
+                alert('Form submitted! If you experience issues, please contact support.');
+                
+                // Hide form and show success message
+                form.style.display = 'none';
+                document.querySelector('.form-header').style.display = 'none';
+                successMessage.style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                localStorage.removeItem('formData');
+                
+                // Submit the fallback form
+                setTimeout(() => {
+                    tempForm.submit();
+                }, 100);
+            } else {
+                alert('Form submission error. Please try again or contact support.');
+            }
         }
     }
 });

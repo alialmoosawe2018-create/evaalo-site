@@ -471,6 +471,7 @@ html[lang="ku"] body,
         rgba(99, 102, 241, 0.5) 100%);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask-composite: exclude;
     opacity: 0.45;
     transition: all 0.3s ease;
