@@ -1719,23 +1719,23 @@ body.rtl-text .nav-links {
 
 .icon-highlights-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 32px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 40px;
 }
 
 .icon-card {
     position: relative;
-    background: transparent;
+    background: #ffffff;
     border-radius: 24px;
-    border: none;
+    border: 1px solid rgba(148, 163, 184, 0.18);
     box-shadow:
         0 14px 35px rgba(15, 23, 42, 0.12),
         0 4px 10px rgba(15, 23, 42, 0.06),
         inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    padding: 28px 24px;
+    padding: 28px 28px;
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 20px;
     transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
                 box-shadow 0.45s ease;
     transform-origin: center;
@@ -1743,7 +1743,7 @@ body.rtl-text .nav-links {
 
 .icon-card-graphic {
     position: relative;
-    width: 100%;
+    width: 140px;
     height: 140px;
     transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -1753,12 +1753,11 @@ body.rtl-text .nav-links {
     position: absolute;
     inset: 0;
     border-radius: 24px;
-    /* Modern gradient block that fully covers the icon area */
+    /* Base: modern yellow block like cards example */
     background: linear-gradient(135deg,
-        #e0f2fe 0%,
-        #dbeafe 35%,
-        #ede9fe 70%,
-        #fef9c3 100%);
+        #fef9c3 0%,
+        #fef3c7 40%,
+        #fee2b3 100%);
     box-shadow:
         0 18px 40px rgba(15, 23, 42, 0.2),
         0 6px 12px rgba(148, 163, 184, 0.5);
@@ -1783,6 +1782,23 @@ body.rtl-text .nav-links {
     transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+.icon-card-body {
+    flex: 1;
+}
+
+.icon-card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+
+.icon-card-text {
+    font-size: 0.95rem;
+    color: #475569;
+    line-height: 1.6;
+}
+
 /* Hover / smart interactions */
 .icon-card:hover {
     transform: translateY(-10px) scale(1.02);
@@ -1797,7 +1813,6 @@ body.rtl-text .nav-links {
 
 .icon-card:hover .icon-card-graphic::before {
     transform: skewX(-14deg) rotate(-5deg);
-    background: #fef3c7;
     box-shadow:
         0 24px 60px rgba(15, 23, 42, 0.25),
         0 10px 22px rgba(148, 163, 184, 0.6);
@@ -1805,6 +1820,29 @@ body.rtl-text .nav-links {
 
 .icon-card:hover .icon-card-image {
     transform: translateY(-2px) scale(1.04);
+}
+
+/* Wave / ripple effect when clicking the card */
+@keyframes iconWaveGradient {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.icon-card:active .icon-card-graphic::before {
+    background: linear-gradient(135deg,
+        #fef9c3 0%,
+        #e0f2fe 40%,
+        #ede9fe 70%,
+        #fee2b3 100%);
+    background-size: 200% 200%;
+    animation: iconWaveGradient 0.7s ease-out;
 }
 
 /* Subtle floating animation so cards feel alive even بدون hover */
@@ -1836,9 +1874,18 @@ body.rtl-text .nav-links {
         padding: 60px 16px 40px;
     }
 
+    .icon-highlights-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .icon-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
     .icon-card-graphic {
-        width: 100px;
-        height: 100px;
+        width: 120px;
+        height: 120px;
     }
 }
 
