@@ -58,7 +58,7 @@ html[lang="ku"] body,
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     margin-bottom: 15px;
 }
 
@@ -164,6 +164,7 @@ html[lang="ku"] body,
     font-family: inherit;
     white-space: nowrap;
     overflow: hidden;
+    margin-left: auto;
 }
 
 .language-dropdown-btn:hover {
