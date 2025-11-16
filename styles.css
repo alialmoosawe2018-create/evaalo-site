@@ -780,7 +780,9 @@ html[dir="rtl"] .salary-range {
 }
 
 html[dir="rtl"] .language-selector-wrapper {
-    justify-content: flex-start;
+    /* Keep logo on the left and language menu on the right, same as homepage */
+    flex-direction: row;
+    justify-content: space-between;
 }
 
 /* Keep dropdown always aligned to right edge of button, regardless of RTL */
