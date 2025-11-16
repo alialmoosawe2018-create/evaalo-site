@@ -1774,9 +1774,10 @@ body.rtl-text .nav-links {
     width: 88%;
     height: 88%;
     object-fit: contain;
-    mix-blend-mode: multiply;
-    opacity: 0.88;
-    filter: saturate(0.9) contrast(1.03);
+    /* Keep image rendering stable on mobile – avoid blend modes that قد تخفي الصورة */
+    mix-blend-mode: normal;
+    opacity: 1;
+    filter: saturate(1.05) contrast(1.05);
     display: block;
     margin: 0 auto;
     transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
