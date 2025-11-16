@@ -34,27 +34,6 @@ body {
     line-height: 1.6;
 }
 
-/* Top black/hero bar to match main homepage nav */
-.form-top-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    z-index: 900;
-    background: linear-gradient(135deg, 
-        rgba(99, 102, 241, 0.12) 0%, 
-        rgba(168, 85, 247, 0.1) 50%,
-        rgba(56, 189, 248, 0.08) 100%),
-        linear-gradient(135deg, rgba(20, 20, 35, 0.95) 0%, rgba(15, 15, 28, 0.96) 100%);
-    backdrop-filter: blur(25px) saturate(180%);
-    -webkit-backdrop-filter: blur(25px) saturate(180%);
-    border-bottom: 1.5px solid rgba(99, 102, 241, 0.15);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2),
-                0 2px 12px rgba(99, 102, 241, 0.08),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
 /* Apply Cairo font only for Arabic */
 body[dir="rtl"][lang="ar"],
 html[lang="ar"] body,
@@ -71,7 +50,7 @@ html[lang="ku"] body,
 
 .container {
     max-width: 800px;
-    margin: 80px auto 0;
+    margin: 0 auto;
 }
 
 /* Language Selector */
@@ -843,7 +822,8 @@ html[dir="rtl"] .language-option {
     .language-dropdown-menu {
         right: 0;
         left: auto;
-        min-width: 100%;
+        width: 100%;
+        max-width: 100%;
         /* Maintain fixed positioning on mobile */
         direction: ltr;
     }
