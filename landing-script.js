@@ -574,11 +574,13 @@ function scrollToStep(index) {
     if (!processStepsContainer || !processSteps[index]) return;
     
     if (isMobile()) {
-        // Mobile: scroll to specific step (one card at a time)
-        processSteps[index].scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'center'
+        // Mobile: smooth scroll to specific step
+        const containerWidth = processStepsContainer.offsetWidth;
+        const scrollLeft = index * containerWidth;
+        
+        processStepsContainer.scrollTo({
+            left: scrollLeft,
+            behavior: 'smooth'
         });
     } else {
         // Desktop: no scrolling needed, all cards visible
@@ -660,19 +662,24 @@ if (processPrevBtn && processNextBtn && processStepsContainer && processSteps.le
     }, { passive: true });
     
     // Handle scroll event to update indicators based on scroll position (mobile)
-    if (processStepsContainer && isMobile()) {
+    if (processStepsContainer) {
+        let scrollTimeout;
         processStepsContainer.addEventListener('scroll', () => {
             if (!isMobile()) return;
             
-            const containerWidth = processStepsContainer.offsetWidth;
-            const scrollLeft = processStepsContainer.scrollLeft;
-            const newIndex = Math.round(scrollLeft / containerWidth);
-            
-            if (newIndex !== currentProcessIndex && newIndex >= 0 && newIndex < processSteps.length) {
-                currentProcessIndex = newIndex;
-                updateStepIndicators();
-                updateProcessNavButtons();
-            }
+            // Debounce scroll events for better performance
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                const containerWidth = processStepsContainer.offsetWidth;
+                const scrollLeft = processStepsContainer.scrollLeft;
+                const newIndex = Math.round(scrollLeft / containerWidth);
+                
+                if (newIndex !== currentProcessIndex && newIndex >= 0 && newIndex < processSteps.length) {
+                    currentProcessIndex = newIndex;
+                    updateStepIndicators();
+                    updateProcessNavButtons();
+                }
+            }, 50);
         }, { passive: true });
     }
     
