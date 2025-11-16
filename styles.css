@@ -33,6 +33,27 @@ body {
     line-height: 1.6;
 }
 
+/* Top black/hero bar to match main homepage nav */
+.form-top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    z-index: 900;
+    background: linear-gradient(135deg, 
+        rgba(99, 102, 241, 0.12) 0%, 
+        rgba(168, 85, 247, 0.1) 50%,
+        rgba(56, 189, 248, 0.08) 100%),
+        linear-gradient(135deg, rgba(20, 20, 35, 0.95) 0%, rgba(15, 15, 28, 0.96) 100%);
+    backdrop-filter: blur(25px) saturate(180%);
+    -webkit-backdrop-filter: blur(25px) saturate(180%);
+    border-bottom: 1.5px solid rgba(99, 102, 241, 0.15);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2),
+                0 2px 12px rgba(99, 102, 241, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
 /* Apply Cairo font only for Arabic */
 body[dir="rtl"][lang="ar"],
 html[lang="ar"] body,
@@ -49,33 +70,50 @@ html[lang="ku"] body,
 
 .container {
     max-width: 800px;
-    margin: 0 auto;
+    margin: 80px auto 0;
 }
 
 /* Language Selector */
 .language-selector-wrapper {
     position: relative;
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 15px;
 }
 
+.form-logo-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.form-logo-image {
+    height: 40px;
+    width: auto;
+    display: block;
+}
+
 .language-dropdown-btn {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 8px;
-    padding: 10px 16px;
-    background: var(--card-bg);
-    border: 2px solid var(--border-color);
+    padding: 6px 14px;
+    background: rgba(34, 211, 238, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1.5px solid rgba(34, 211, 238, 0.3);
     border-radius: 8px;
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1a1a1a;
     cursor: pointer;
-    transition: var(--transition);
-    min-width: 140px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 120px;
     font-family: inherit;
+    white-space: nowrap;
+    overflow: hidden;
 }
 
 .language-dropdown-btn:hover {
@@ -115,11 +153,15 @@ html[lang="ku"] body,
     top: calc(100% + 8px);
     right: 0;
     left: auto;
-    background: var(--card-bg);
-    border: 2px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: var(--shadow-lg);
-    min-width: 180px;
+    background: #ffffff;
+    backdrop-filter: blur(10px);
+    border: 1.5px solid rgba(34, 211, 238, 0.3);
+    border-radius: 10px;
+    box-shadow: 
+        0 12px 30px rgba(0, 0, 0, 0.12),
+        0 4px 12px rgba(34, 211, 238, 0.15);
+    width: 140px;
+    max-width: 140px;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-8px) scale(0.98);
@@ -157,6 +199,7 @@ html[lang="ku"] body,
     font-family: inherit;
     /* Allow RTL text to display properly */
     unicode-bidi: embed;
+    white-space: nowrap;
 }
 
 .language-option:hover {
@@ -349,6 +392,67 @@ html[lang="ku"] body,
     font-size: 0.875rem;
     margin-top: 6px;
     min-height: 20px;
+}
+
+/* Smart Frame (gradient box like homepage) */
+.smart-frame {
+    position: relative;
+    margin-bottom: 25px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, 
+        rgba(255, 255, 255, 0.03) 0%, 
+        rgba(255, 255, 255, 0.01) 100%);
+    border: 1.5px solid transparent;
+    background-clip: padding-box;
+    overflow: hidden;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12),
+                0 1px 4px rgba(0, 0, 0, 0.06),
+                inset 0 0.5px 0 rgba(255, 255, 255, 0.04);
+}
+
+.smart-frame::before {
+    content: '';
+    position: absolute;
+    inset: -1.5px;
+    border-radius: 12px;
+    padding: 1.5px;
+    background: linear-gradient(135deg, 
+        rgba(99, 102, 241, 0.5) 0%, 
+        rgba(168, 85, 247, 0.4) 30%,
+        rgba(56, 189, 248, 0.35) 60%,
+        rgba(99, 102, 241, 0.5) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: 0.45;
+    background-size: 200% 200%;
+    animation: borderGradient 3s ease infinite;
+    pointer-events: none;
+}
+
+.smart-frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    background: radial-gradient(circle at 50% 50%, 
+        rgba(99, 102, 241, 0.12) 0%, 
+        rgba(168, 85, 247, 0.06) 40%,
+        transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.smart-frame:hover::before {
+    opacity: 0.7;
+    animation: borderGradient 2.5s ease infinite;
+}
+
+.smart-frame:hover::after {
+    opacity: 1;
 }
 
 .help-text {

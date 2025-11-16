@@ -924,7 +924,8 @@ body.rtl-text .nav-links {
     box-shadow: 
         0 12px 30px rgba(0, 0, 0, 0.12),
         0 4px 12px rgba(34, 211, 238, 0.15);
-    min-width: 140px;
+    width: 140px;
+    max-width: 140px;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-15px) scale(0.95);
@@ -994,6 +995,7 @@ body.rtl-text .nav-links {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: inherit;
     overflow: hidden;
+    white-space: nowrap;
 }
 
 .language-option::before {
