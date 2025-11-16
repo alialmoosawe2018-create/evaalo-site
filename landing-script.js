@@ -516,6 +516,63 @@ document.querySelectorAll('.feature-card, .process-step').forEach(element => {
 });
 
 // ====================================
+// Process Steps Navigation (Arrow Buttons)
+// ====================================
+
+const processPrevBtn = document.getElementById('processPrevBtn');
+const processNextBtn = document.getElementById('processNextBtn');
+const processSteps = document.querySelectorAll('.process-step');
+let currentProcessIndex = 0;
+
+function updateProcessNavButtons() {
+    if (!processPrevBtn || !processNextBtn || !processSteps.length) return;
+    
+    // Disable prev button at first step
+    if (currentProcessIndex === 0) {
+        processPrevBtn.disabled = true;
+    } else {
+        processPrevBtn.disabled = false;
+    }
+    
+    // Disable next button at last step
+    if (currentProcessIndex === processSteps.length - 1) {
+        processNextBtn.disabled = true;
+    } else {
+        processNextBtn.disabled = false;
+    }
+    
+    // Scroll to current step
+    if (processSteps[currentProcessIndex]) {
+        processSteps[currentProcessIndex].scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center'
+        });
+    }
+}
+
+if (processPrevBtn && processNextBtn && processSteps.length) {
+    // Previous button
+    processPrevBtn.addEventListener('click', () => {
+        if (currentProcessIndex > 0) {
+            currentProcessIndex--;
+            updateProcessNavButtons();
+        }
+    });
+    
+    // Next button
+    processNextBtn.addEventListener('click', () => {
+        if (currentProcessIndex < processSteps.length - 1) {
+            currentProcessIndex++;
+            updateProcessNavButtons();
+        }
+    });
+    
+    // Initialize buttons state
+    updateProcessNavButtons();
+}
+
+// ====================================
 // Navigation to Application Form
 // ====================================
 
