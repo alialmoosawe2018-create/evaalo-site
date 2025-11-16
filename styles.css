@@ -812,18 +812,27 @@ html[dir="rtl"] .language-option {
     }
 
     .language-selector-wrapper {
-        justify-content: flex-start;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .form-logo-link {
+        margin-bottom: 4px;
     }
 
     .language-dropdown-btn {
-        width: 100%;
+        width: 80%;
+        max-width: 280px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
     }
 
     .language-dropdown-menu {
-        right: 0;
-        left: auto;
-        width: 100%;
-        max-width: 100%;
+        right: auto;
+        left: 0;
+        width: 80%;
+        max-width: 280px;
         /* Maintain fixed positioning on mobile */
         direction: ltr;
     }
