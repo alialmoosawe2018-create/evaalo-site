@@ -3559,6 +3559,11 @@ body.rtl-text .nav-links {
     .process-nav-btn {
         display: none;
     }
+    
+    /* Hide indicators on desktop */
+    .process-step-indicators {
+        display: none;
+    }
 }
 
 .process-nav-btn {
@@ -4472,6 +4477,33 @@ html[dir="rtl"] .footer-links a:hover {
         min-width: 100%;
         scroll-snap-align: center;
         scroll-snap-stop: always;
+    }
+    
+    /* Step Indicators (Dots) - Mobile only */
+    .process-step-indicators {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin-top: 24px;
+        padding: 0 20px;
+    }
+    
+    .step-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(99, 102, 241, 0.3);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .step-indicator.active {
+        width: 24px;
+        height: 8px;
+        border-radius: 4px;
+        background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
     }
     
     .section-title {

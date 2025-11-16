@@ -523,6 +523,8 @@ const processPrevBtn = document.getElementById('processPrevBtn');
 const processNextBtn = document.getElementById('processNextBtn');
 const processStepsContainer = document.querySelector('.process-steps');
 const processSteps = document.querySelectorAll('.process-step');
+const processStepIndicators = document.getElementById('processStepIndicators');
+const stepIndicators = processStepIndicators ? processStepIndicators.querySelectorAll('.step-indicator') : [];
 let currentProcessIndex = 0;
 
 // Check if mobile
@@ -546,11 +548,26 @@ function updateProcessNavButtons() {
         } else {
             processNextBtn.disabled = false;
         }
+        
+        // Update step indicators
+        updateStepIndicators();
     } else {
         // Desktop: show all cards, no navigation buttons needed
         processPrevBtn.disabled = true;
         processNextBtn.disabled = true;
     }
+}
+
+function updateStepIndicators() {
+    if (!stepIndicators.length) return;
+    
+    stepIndicators.forEach((indicator, index) => {
+        if (index === currentProcessIndex) {
+            indicator.classList.add('active');
+        } else {
+            indicator.classList.remove('active');
+        }
+    });
 }
 
 function scrollToStep(index) {
@@ -642,6 +659,23 @@ if (processPrevBtn && processNextBtn && processStepsContainer && processSteps.le
         }
     }, { passive: true });
     
+    // Handle scroll event to update indicators based on scroll position (mobile)
+    if (processStepsContainer && isMobile()) {
+        processStepsContainer.addEventListener('scroll', () => {
+            if (!isMobile()) return;
+            
+            const containerWidth = processStepsContainer.offsetWidth;
+            const scrollLeft = processStepsContainer.scrollLeft;
+            const newIndex = Math.round(scrollLeft / containerWidth);
+            
+            if (newIndex !== currentProcessIndex && newIndex >= 0 && newIndex < processSteps.length) {
+                currentProcessIndex = newIndex;
+                updateStepIndicators();
+                updateProcessNavButtons();
+            }
+        }, { passive: true });
+    }
+    
     // Update on window resize
     window.addEventListener('resize', () => {
         updateProcessNavButtons();
@@ -654,6 +688,7 @@ if (processPrevBtn && processNextBtn && processStepsContainer && processSteps.le
     
     // Initialize
     updateProcessNavButtons();
+    updateStepIndicators();
     if (isMobile() && currentProcessIndex > 0) {
         scrollToStep(currentProcessIndex);
     }
