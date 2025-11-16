@@ -3540,7 +3540,25 @@ body.rtl-text .nav-links {
     flex-wrap: nowrap;
     gap: 20px;
     flex: 1;
-    overflow: hidden;
+    overflow: visible;
+}
+
+/* Desktop: Show all cards side by side - Wider and shorter for better proportion */
+@media (min-width: 1025px) {
+    .process-steps {
+        overflow: visible;
+        justify-content: space-between;
+        gap: 24px;
+    }
+    
+    .process-step {
+        flex: 1;
+        padding: 36px 40px 32px;
+    }
+    
+    .process-nav-btn {
+        display: none;
+    }
 }
 
 .process-nav-btn {
@@ -3595,9 +3613,10 @@ body.rtl-text .nav-links {
         0 12px 48px rgba(99, 102, 241, 0.1),
         0 6px 24px rgba(0, 0, 0, 0.04),
         inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    transition: var(--transition-base);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s ease;
     position: relative;
     border: 1.5px solid rgba(99, 102, 241, 0.12);
+    flex-shrink: 0;
 }
 
 .process-step:hover {
@@ -4419,23 +4438,40 @@ html[dir="rtl"] .footer-links a:hover {
     }
     
     .process-steps-wrapper {
-        gap: 12px;
+        gap: 0;
+        overflow: hidden;
     }
     
+    /* Hide navigation buttons on mobile - use swipe instead */
     .process-nav-btn {
-        width: 40px;
-        height: 40px;
+        display: none;
     }
     
     .process-steps {
-        flex-wrap: wrap;
+        display: flex;
+        flex-wrap: nowrap;
         gap: 24px;
         position: relative;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        padding-bottom: 8px;
+    }
+    
+    .process-steps::-webkit-scrollbar {
+        display: none;
     }
     
     .process-step {
         padding: 32px 24px;
-        flex: 0 1 calc(50% - 12px);
+        flex: 0 0 100%;
+        max-width: 100%;
+        min-width: 100%;
+        scroll-snap-align: center;
+        scroll-snap-stop: always;
     }
     
     .section-title {

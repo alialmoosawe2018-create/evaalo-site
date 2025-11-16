@@ -516,60 +516,147 @@ document.querySelectorAll('.feature-card, .process-step').forEach(element => {
 });
 
 // ====================================
-// Process Steps Navigation (Arrow Buttons)
+// Process Steps Carousel (Mobile: Swipe, Desktop: 3 cards with arrows)
 // ====================================
 
 const processPrevBtn = document.getElementById('processPrevBtn');
 const processNextBtn = document.getElementById('processNextBtn');
+const processStepsContainer = document.querySelector('.process-steps');
 const processSteps = document.querySelectorAll('.process-step');
 let currentProcessIndex = 0;
+
+// Check if mobile
+function isMobile() {
+    return window.innerWidth <= 768;
+}
 
 function updateProcessNavButtons() {
     if (!processPrevBtn || !processNextBtn || !processSteps.length) return;
     
-    // Disable prev button at first step
-    if (currentProcessIndex === 0) {
+    if (isMobile()) {
+        // Mobile: full navigation through all steps
+        if (currentProcessIndex === 0) {
+            processPrevBtn.disabled = true;
+        } else {
+            processPrevBtn.disabled = false;
+        }
+        
+        if (currentProcessIndex >= processSteps.length - 1) {
+            processNextBtn.disabled = true;
+        } else {
+            processNextBtn.disabled = false;
+        }
+    } else {
+        // Desktop: show all cards, no navigation buttons needed
         processPrevBtn.disabled = true;
-    } else {
-        processPrevBtn.disabled = false;
-    }
-    
-    // Disable next button at last step
-    if (currentProcessIndex === processSteps.length - 1) {
         processNextBtn.disabled = true;
-    } else {
-        processNextBtn.disabled = false;
     }
+}
+
+function scrollToStep(index) {
+    if (!processStepsContainer || !processSteps[index]) return;
     
-    // Scroll to current step
-    if (processSteps[currentProcessIndex]) {
-        processSteps[currentProcessIndex].scrollIntoView({
+    if (isMobile()) {
+        // Mobile: scroll to specific step (one card at a time)
+        processSteps[index].scrollIntoView({
             behavior: 'smooth',
             block: 'nearest',
             inline: 'center'
         });
+    } else {
+        // Desktop: no scrolling needed, all cards visible
+        return;
     }
 }
 
-if (processPrevBtn && processNextBtn && processSteps.length) {
+// Desktop: Arrow buttons navigation
+if (processPrevBtn && processNextBtn && processStepsContainer && processSteps.length) {
     // Previous button
     processPrevBtn.addEventListener('click', () => {
         if (currentProcessIndex > 0) {
             currentProcessIndex--;
+            scrollToStep(currentProcessIndex);
             updateProcessNavButtons();
         }
     });
     
-    // Next button
+    // Next button (only on mobile)
     processNextBtn.addEventListener('click', () => {
-        if (currentProcessIndex < processSteps.length - 1) {
+        if (isMobile() && currentProcessIndex < processSteps.length - 1) {
             currentProcessIndex++;
+            scrollToStep(currentProcessIndex);
             updateProcessNavButtons();
         }
     });
     
-    // Initialize buttons state
+    // Mobile: Swipe detection (only on mobile)
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+    let isSwiping = false;
+    
+    processStepsContainer.addEventListener('touchstart', (e) => {
+        if (!isMobile()) return;
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+        isSwiping = true;
+    }, { passive: true });
+    
+    processStepsContainer.addEventListener('touchmove', (e) => {
+        if (!isMobile() || !isSwiping) return;
+        // Prevent default scrolling while swiping horizontally
+        const touchX = e.changedTouches[0].screenX;
+        const touchY = e.changedTouches[0].screenY;
+        const diffX = Math.abs(touchX - touchStartX);
+        const diffY = Math.abs(touchY - touchStartY);
+        
+        if (diffX > diffY && diffX > 10) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+    
+    processStepsContainer.addEventListener('touchend', (e) => {
+        if (!isMobile() || !isSwiping) return;
+        isSwiping = false;
+        
+        touchEndX = e.changedTouches[0].screenX;
+        touchEndY = e.changedTouches[0].screenY;
+        const diffX = touchStartX - touchEndX;
+        const diffY = touchStartY - touchEndY;
+        const swipeThreshold = 50;
+        
+        // Only trigger if horizontal swipe is dominant
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
+            if (diffX > 0 && currentProcessIndex < processSteps.length - 1) {
+                // Swipe left - next
+                currentProcessIndex++;
+                scrollToStep(currentProcessIndex);
+                updateProcessNavButtons();
+            } else if (diffX < 0 && currentProcessIndex > 0) {
+                // Swipe right - previous
+                currentProcessIndex--;
+                scrollToStep(currentProcessIndex);
+                updateProcessNavButtons();
+            }
+        }
+    }, { passive: true });
+    
+    // Update on window resize
+    window.addEventListener('resize', () => {
+        updateProcessNavButtons();
+        if (isMobile() && currentProcessIndex > 0) {
+            scrollToStep(currentProcessIndex);
+        } else if (!isMobile()) {
+            currentProcessIndex = 0;
+        }
+    });
+    
+    // Initialize
     updateProcessNavButtons();
+    if (isMobile() && currentProcessIndex > 0) {
+        scrollToStep(currentProcessIndex);
+    }
 }
 
 // ====================================
