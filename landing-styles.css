@@ -3553,6 +3553,29 @@ body.rtl-text .nav-links {
 
 /* Desktop: Show all cards side by side - Wider and shorter, single row */
 @media (min-width: 1025px) {
+    /* Hide Swiper on desktop */
+    .process-steps-swiper {
+        display: none !important;
+    }
+    
+    /* Show desktop layout */
+    #processStepsDesktop {
+        display: flex;
+        overflow: visible;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: nowrap;
+        padding: 0;
+        margin: 0;
+        width: 100%;
+    }
+    
+    #processStepsDesktop .process-step {
+        flex: 1;
+        padding: 24px 20px 20px;
+        min-width: 0;
+        margin: 0;
+    }
     .process-steps {
         overflow: visible;
         justify-content: space-between;
@@ -4492,54 +4515,43 @@ html[dir="rtl"] .footer-links a:hover {
         display: none;
     }
     
-    .process-steps {
-        display: flex;
-        flex-wrap: nowrap;
-        gap: 0;
-        position: relative;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scroll-snap-type: x mandatory;
-        -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-        padding: 0 20px;
-        width: 100%;
-        scroll-behavior: smooth;
-        /* Better momentum scrolling on iOS */
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior-x: contain;
-    }
-    
-    .process-steps::-webkit-scrollbar {
+    /* Hide desktop layout on mobile */
+    #processStepsDesktop {
         display: none;
     }
     
-    .process-step {
-        padding: 32px 20px;
-        flex: 0 0 calc(100% - 40px);
-        width: calc(100% - 40px);
-        max-width: calc(100% - 40px);
-        min-width: calc(100% - 40px);
-        scroll-snap-align: center;
-        scroll-snap-stop: always;
+    /* Swiper Container for Mobile */
+    .process-steps-swiper {
+        width: 100%;
+        padding: 0 20px;
+        overflow: visible;
+        margin: 0;
+        display: block !important;
+    }
+    
+    .process-steps-swiper .swiper-wrapper {
+        display: flex;
+        align-items: stretch;
+    }
+    
+    .process-steps-swiper .swiper-slide {
+        width: 100% !important;
+        flex-shrink: 0;
         box-sizing: border-box;
-        margin: 0 10px;
-        /* Smooth edges */
+        height: auto;
+    }
+    
+    .process-steps-swiper .process-step {
+        padding: 32px 20px;
+        width: 100%;
+        box-sizing: border-box;
         border-radius: 24px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
     }
     
-    .process-step:first-child {
-        margin-left: 0;
-        scroll-margin-left: 20px;
-    }
-    
-    .process-step:last-child {
-        margin-right: 0;
-        scroll-margin-right: 20px;
-    }
-    
-    /* Step Indicators (Dots) - Mobile only - Always visible */
+    /* Swiper Pagination - Custom Style */
     .process-step-indicators {
         display: flex !important;
         justify-content: center;
@@ -4549,9 +4561,13 @@ html[dir="rtl"] .footer-links a:hover {
         padding: 0 20px;
         width: 100%;
         box-sizing: border-box;
+        position: relative !important;
+        bottom: auto !important;
+        left: auto !important;
+        transform: none !important;
     }
     
-    .step-indicator {
+    .process-step-indicators .swiper-pagination-bullet {
         width: 8px;
         height: 8px;
         border-radius: 50%;
@@ -4559,9 +4575,11 @@ html[dir="rtl"] .footer-links a:hover {
         transition: all 0.3s ease;
         cursor: pointer;
         flex-shrink: 0;
+        opacity: 1;
+        margin: 0 5px !important;
     }
     
-    .step-indicator.active {
+    .process-step-indicators .swiper-pagination-bullet-active {
         width: 24px;
         height: 8px;
         border-radius: 4px;

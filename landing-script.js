@@ -516,192 +516,163 @@ document.querySelectorAll('.feature-card, .process-step').forEach(element => {
 });
 
 // ====================================
-// Process Steps Carousel (Mobile: Swipe, Desktop: 3 cards with arrows)
+// Process Steps Carousel - Swiper.js (Professional smooth swipe)
 // ====================================
 
+let processSwiper = null;
 const processPrevBtn = document.getElementById('processPrevBtn');
 const processNextBtn = document.getElementById('processNextBtn');
-const processStepsContainer = document.querySelector('.process-steps');
+const processStepsContainer = document.querySelector('.process-steps-swiper');
 const processSteps = document.querySelectorAll('.process-step');
-const processStepIndicators = document.getElementById('processStepIndicators');
-const stepIndicators = processStepIndicators ? processStepIndicators.querySelectorAll('.step-indicator') : [];
-let currentProcessIndex = 0;
 
 // Check if mobile
 function isMobile() {
     return window.innerWidth <= 768;
 }
 
-function updateProcessNavButtons() {
-    if (!processPrevBtn || !processNextBtn || !processSteps.length) return;
+function initProcessSwiper() {
+    if (!processStepsContainer || !isMobile()) {
+        // Desktop: destroy swiper if exists
+        if (processSwiper) {
+            processSwiper.destroy(true, true);
+            processSwiper = null;
+        }
+        return;
+    }
     
-    if (isMobile()) {
-        // Mobile: full navigation through all steps
-        if (currentProcessIndex === 0) {
+    // Destroy existing swiper if any
+    if (processSwiper) {
+        processSwiper.destroy(true, true);
+        processSwiper = null;
+    }
+    
+    // Initialize Swiper with professional smooth touch settings
+    processSwiper = new Swiper('.process-steps-swiper', {
+        slidesPerView: 1,
+        spaceBetween: 20,
+        speed: 300,
+        touchRatio: 1,
+        simulateTouch: true,
+        touchStartPreventDefault: false,
+        touchMoveStopPropagation: false,
+        grabCursor: true,
+        resistance: true,
+        resistanceRatio: 0.85,
+        longSwipesRatio: 0.5,
+        longSwipesMs: 300,
+        threshold: 5,
+        followFinger: true,
+        freeMode: false,
+        freeModeSticky: false,
+        nested: false,
+        watchSlidesProgress: true,
+        watchSlidesVisibility: true,
+        preventClicks: true,
+        preventClicksPropagation: true,
+        slideToClickedSlide: false,
+        pagination: {
+            el: '.process-step-indicators',
+            type: 'bullets',
+            clickable: true,
+            bulletActiveClass: 'swiper-pagination-bullet-active',
+            renderBullet: function (index, className) {
+                return '<span class="' + className + '"></span>';
+            },
+        },
+        on: {
+            init: function() {
+                updateProcessNavButtons();
+            },
+            slideChange: function() {
+                updateProcessNavButtons();
+            },
+            slideChangeTransitionStart: function() {
+                updateProcessNavButtons();
+            },
+            slideChangeTransitionEnd: function() {
+                updateProcessNavButtons();
+            },
+            reachBeginning: function() {
+                updateProcessNavButtons();
+            },
+            reachEnd: function() {
+                updateProcessNavButtons();
+            },
+        }
+    });
+    
+    updateProcessNavButtons();
+}
+
+function updateProcessNavButtons() {
+    if (!processPrevBtn || !processNextBtn) return;
+    
+    if (isMobile() && processSwiper) {
+        // Mobile: use Swiper active index
+        const activeIndex = processSwiper.activeIndex;
+        const totalSteps = processSwiper.slides.length;
+        
+        if (activeIndex === 0) {
             processPrevBtn.disabled = true;
         } else {
             processPrevBtn.disabled = false;
         }
         
-        if (currentProcessIndex >= processSteps.length - 1) {
+        if (activeIndex >= totalSteps - 1) {
             processNextBtn.disabled = true;
         } else {
             processNextBtn.disabled = false;
         }
-        
-        // Update step indicators
-        updateStepIndicators();
     } else {
         // Desktop: show all cards, no navigation buttons needed
-        processPrevBtn.disabled = true;
-        processNextBtn.disabled = true;
+        if (processPrevBtn) processPrevBtn.disabled = true;
+        if (processNextBtn) processNextBtn.disabled = true;
     }
 }
 
-function updateStepIndicators() {
-    if (!stepIndicators.length) return;
-    
-    stepIndicators.forEach((indicator, index) => {
-        if (index === currentProcessIndex) {
-            indicator.classList.add('active');
-        } else {
-            indicator.classList.remove('active');
-        }
-    });
-}
-
-function scrollToStep(index) {
-    if (!processStepsContainer || !processSteps[index]) return;
-    
-    if (isMobile()) {
-        // Mobile: smooth scroll to specific step with proper offset
-        const stepElement = processSteps[index];
-        const containerLeft = processStepsContainer.getBoundingClientRect().left;
-        const stepLeft = stepElement.getBoundingClientRect().left;
-        const currentScroll = processStepsContainer.scrollLeft;
-        const scrollLeft = currentScroll + (stepLeft - containerLeft - 20);
-        
-        processStepsContainer.scrollTo({
-            left: scrollLeft,
-            behavior: 'smooth'
-        });
+// Initialize Swiper on page load and resize
+if (processStepsContainer) {
+    // Initialize on load
+    if (typeof Swiper !== 'undefined') {
+        initProcessSwiper();
     } else {
-        // Desktop: no scrolling needed, all cards visible
-        return;
-    }
-}
-
-// Desktop: Arrow buttons navigation
-if (processPrevBtn && processNextBtn && processStepsContainer && processSteps.length) {
-    // Previous button
-    processPrevBtn.addEventListener('click', () => {
-        if (currentProcessIndex > 0) {
-            currentProcessIndex--;
-            scrollToStep(currentProcessIndex);
-            updateProcessNavButtons();
-        }
-    });
-    
-    // Next button (only on mobile)
-    processNextBtn.addEventListener('click', () => {
-        if (isMobile() && currentProcessIndex < processSteps.length - 1) {
-            currentProcessIndex++;
-            scrollToStep(currentProcessIndex);
-            updateProcessNavButtons();
-        }
-    });
-    
-    // Mobile: Swipe detection (only on mobile)
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchEndX = 0;
-    let touchEndY = 0;
-    let isSwiping = false;
-    
-    processStepsContainer.addEventListener('touchstart', (e) => {
-        if (!isMobile()) return;
-        touchStartX = e.changedTouches[0].screenX;
-        touchStartY = e.changedTouches[0].screenY;
-        isSwiping = true;
-    }, { passive: true });
-    
-    processStepsContainer.addEventListener('touchmove', (e) => {
-        if (!isMobile() || !isSwiping) return;
-        // Prevent default scrolling while swiping horizontally
-        const touchX = e.changedTouches[0].screenX;
-        const touchY = e.changedTouches[0].screenY;
-        const diffX = Math.abs(touchX - touchStartX);
-        const diffY = Math.abs(touchY - touchStartY);
-        
-        if (diffX > diffY && diffX > 10) {
-            e.preventDefault();
-        }
-    }, { passive: false });
-    
-    processStepsContainer.addEventListener('touchend', (e) => {
-        if (!isMobile() || !isSwiping) return;
-        isSwiping = false;
-        
-        touchEndX = e.changedTouches[0].screenX;
-        touchEndY = e.changedTouches[0].screenY;
-        const diffX = touchStartX - touchEndX;
-        const diffY = touchStartY - touchEndY;
-        const swipeThreshold = 50;
-        
-        // Only trigger if horizontal swipe is dominant
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
-            if (diffX > 0 && currentProcessIndex < processSteps.length - 1) {
-                // Swipe left - next
-                currentProcessIndex++;
-                scrollToStep(currentProcessIndex);
-                updateProcessNavButtons();
-            } else if (diffX < 0 && currentProcessIndex > 0) {
-                // Swipe right - previous
-                currentProcessIndex--;
-                scrollToStep(currentProcessIndex);
-                updateProcessNavButtons();
+        // Wait for Swiper to load
+        window.addEventListener('load', () => {
+            if (typeof Swiper !== 'undefined') {
+                initProcessSwiper();
             }
-        }
-    }, { passive: true });
+        });
+    }
     
-    // Handle scroll event to update indicators based on scroll position (mobile)
-    if (processStepsContainer) {
-        let scrollTimeout;
-        processStepsContainer.addEventListener('scroll', () => {
-            if (!isMobile()) return;
-            
-            // Debounce scroll events for better performance
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                const containerWidth = processStepsContainer.offsetWidth;
-                const scrollLeft = processStepsContainer.scrollLeft;
-                const newIndex = Math.round(scrollLeft / containerWidth);
-                
-                if (newIndex !== currentProcessIndex && newIndex >= 0 && newIndex < processSteps.length) {
-                    currentProcessIndex = newIndex;
-                    updateStepIndicators();
-                    updateProcessNavButtons();
-                }
-            }, 50);
-        }, { passive: true });
+    // Arrow buttons navigation
+    if (processPrevBtn) {
+        processPrevBtn.addEventListener('click', () => {
+            if (isMobile() && processSwiper) {
+                processSwiper.slidePrev();
+            }
+        });
+    }
+    
+    if (processNextBtn) {
+        processNextBtn.addEventListener('click', () => {
+            if (isMobile() && processSwiper) {
+                processSwiper.slideNext();
+            }
+        });
     }
     
     // Update on window resize
+    let resizeTimeout;
     window.addEventListener('resize', () => {
-        updateProcessNavButtons();
-        if (isMobile() && currentProcessIndex > 0) {
-            scrollToStep(currentProcessIndex);
-        } else if (!isMobile()) {
-            currentProcessIndex = 0;
-        }
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            initProcessSwiper();
+            updateProcessNavButtons();
+        }, 250);
     });
     
-    // Initialize
+    // Initial button state
     updateProcessNavButtons();
-    updateStepIndicators();
-    if (isMobile() && currentProcessIndex > 0) {
-        scrollToStep(currentProcessIndex);
-    }
 }
 
 // ====================================

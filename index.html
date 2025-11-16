@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="landing-styles.css">
+    <!-- Swiper CSS for smooth mobile carousel -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
@@ -546,81 +548,140 @@
                         <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
-                <div class="process-steps">
+                
+                <!-- Desktop: Original layout with connectors -->
+                <div class="process-steps" id="processStepsDesktop">
                     <div class="process-step">
-                    <div class="step-number">01</div>
-                    <div class="step-icon">
-                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M35 5H5V35H35V5Z" stroke="currentColor" stroke-width="2"/>
-                            <path d="M10 15H30M10 20H30M10 25H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
+                        <div class="step-number">01</div>
+                        <div class="step-icon">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M35 5H5V35H35V5Z" stroke="currentColor" stroke-width="2"/>
+                                <path d="M10 15H30M10 20H30M10 25H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title" data-translate="step1Title">Select the Interview Format</h3>
+                        <p class="step-description" data-translate="step1Description">
+                            Choose the evaluation type that fits the position: Written, Voice, or AI Video Interview.
+                        </p>
                     </div>
-                    <h3 class="step-title" data-translate="step1Title">Select the Interview Format</h3>
-                    <p class="step-description" data-translate="step1Description">
-                        Choose the evaluation type that fits the position: Written, Voice, or AI Video Interview.
-                    </p>
+                    
+                    <div class="process-connector"></div>
+                    
+                    <div class="process-step">
+                        <div class="step-number">02</div>
+                        <div class="step-icon">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title" data-translate="step2Title">Share the Interview Link</h3>
+                        <p class="step-description" data-translate="step2Description">
+                            Send one link to candidates — through email, WhatsApp, or your ATS.
+                        </p>
+                    </div>
+                    
+                    <div class="process-connector"></div>
+                    
+                    <div class="process-step">
+                        <div class="step-number">03</div>
+                        <div class="step-icon">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20 15C22.7614 15 25 12.7614 25 10C25 7.23858 22.7614 5 20 5C17.2386 5 15 7.23858 15 10C15 12.7614 17.2386 15 20 15Z" stroke="currentColor" stroke-width="2"/>
+                                <path d="M10 35V32C10 27.5817 13.5817 24 18 24H22C26.4183 24 30 27.5817 30 32V35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title" data-translate="step3Title">Candidate Completes the Interview</h3>
+                        <p class="step-description" data-translate="step3Description">
+                            Candidates respond on their own time — no scheduling, no HR coordination, zero waiting.
+                        </p>
+                    </div>
+                    
+                    <div class="process-connector"></div>
+                    
+                    <div class="process-step">
+                        <div class="step-number">04</div>
+                        <div class="step-icon">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M35 15L15 35L5 25" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M35 5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="step-title" data-translate="step4Title">AI Analyzes & Delivers the Report</h3>
+                        <p class="step-description" data-translate="step4Description">
+                            Our AI evaluates communication clarity, tone, confidence, reasoning, and job-fit. You receive a clear, ranked report to help you select the best candidate — faster and more accurately.
+                        </p>
+                    </div>
                 </div>
                 
-                <div class="process-connector"></div>
-                
-                <div class="process-step">
-                    <div class="step-number">02</div>
-                    <div class="step-icon">
-                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
+                <!-- Mobile: Swiper Container -->
+                <div class="swiper process-steps-swiper" id="processStepsSwiper">
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide process-step">
+                            <div class="step-number">01</div>
+                            <div class="step-icon">
+                                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M35 5H5V35H35V5Z" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M10 15H30M10 20H30M10 25H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <h3 class="step-title" data-translate="step1Title">Select the Interview Format</h3>
+                            <p class="step-description" data-translate="step1Description">
+                                Choose the evaluation type that fits the position: Written, Voice, or AI Video Interview.
+                            </p>
+                        </div>
+                        
+                        <div class="swiper-slide process-step">
+                            <div class="step-number">02</div>
+                            <div class="step-icon">
+                                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <h3 class="step-title" data-translate="step2Title">Share the Interview Link</h3>
+                            <p class="step-description" data-translate="step2Description">
+                                Send one link to candidates — through email, WhatsApp, or your ATS.
+                            </p>
+                        </div>
+                        
+                        <div class="swiper-slide process-step">
+                            <div class="step-number">03</div>
+                            <div class="step-icon">
+                                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20 15C22.7614 15 25 12.7614 25 10C25 7.23858 22.7614 5 20 5C17.2386 5 15 7.23858 15 10C15 12.7614 17.2386 15 20 15Z" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M10 35V32C10 27.5817 13.5817 24 18 24H22C26.4183 24 30 27.5817 30 32V35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <h3 class="step-title" data-translate="step3Title">Candidate Completes the Interview</h3>
+                            <p class="step-description" data-translate="step3Description">
+                                Candidates respond on their own time — no scheduling, no HR coordination, zero waiting.
+                            </p>
+                        </div>
+                        
+                        <div class="swiper-slide process-step">
+                            <div class="step-number">04</div>
+                            <div class="step-icon">
+                                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M35 15L15 35L5 25" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M35 5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <h3 class="step-title" data-translate="step4Title">AI Analyzes & Delivers the Report</h3>
+                            <p class="step-description" data-translate="step4Description">
+                                Our AI evaluates communication clarity, tone, confidence, reasoning, and job-fit. You receive a clear, ranked report to help you select the best candidate — faster and more accurately.
+                            </p>
+                        </div>
                     </div>
-                    <h3 class="step-title" data-translate="step2Title">Share the Interview Link</h3>
-                    <p class="step-description" data-translate="step2Description">
-                        Send one link to candidates — through email, WhatsApp, or your ATS.
-                    </p>
+                    <!-- Swiper Pagination (Dots) -->
+                    <div class="swiper-pagination process-step-indicators" id="processStepIndicators"></div>
                 </div>
                 
-                <div class="process-connector"></div>
-                
-                <div class="process-step">
-                    <div class="step-number">03</div>
-                    <div class="step-icon">
-                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M20 15C22.7614 15 25 12.7614 25 10C25 7.23858 22.7614 5 20 5C17.2386 5 15 7.23858 15 10C15 12.7614 17.2386 15 20 15Z" stroke="currentColor" stroke-width="2"/>
-                            <path d="M10 35V32C10 27.5817 13.5817 24 18 24H22C26.4183 24 30 27.5817 30 32V35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                    </div>
-                    <h3 class="step-title" data-translate="step3Title">Candidate Completes the Interview</h3>
-                    <p class="step-description" data-translate="step3Description">
-                        Candidates respond on their own time — no scheduling, no HR coordination, zero waiting.
-                    </p>
-                </div>
-                
-                <div class="process-connector"></div>
-                
-                <div class="process-step">
-                    <div class="step-number">04</div>
-                    <div class="step-icon">
-                        <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M35 15L15 35L5 25" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <path d="M35 5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </div>
-                    <h3 class="step-title" data-translate="step4Title">AI Analyzes & Delivers the Report</h3>
-                    <p class="step-description" data-translate="step4Description">
-                        Our AI evaluates communication clarity, tone, confidence, reasoning, and job-fit. You receive a clear, ranked report to help you select the best candidate — faster and more accurately.
-                    </p>
-                </div>
-            </div>
                 <button class="process-nav-btn process-nav-next" id="processNextBtn" aria-label="Next step">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M9 18L15 12L9 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
-            </div>
-            <!-- Mobile Step Indicators (Dots) -->
-            <div class="process-step-indicators" id="processStepIndicators">
-                <span class="step-indicator active" data-step="0"></span>
-                <span class="step-indicator" data-step="1"></span>
-                <span class="step-indicator" data-step="2"></span>
-                <span class="step-indicator" data-step="3"></span>
             </div>
         </div>
     </section>
@@ -758,6 +819,8 @@
         </div>
     </footer>
 
+    <!-- Swiper JS for smooth mobile carousel -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="landing-script.js"></script>
 </body>
 </html>
