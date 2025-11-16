@@ -4160,6 +4160,28 @@ html[dir="rtl"] .footer-links a:hover {
     .hero-description {
         font-size: 1.1rem;
     }
+
+    /* How evaalo Works: swipeable steps on mobile */
+    .process-steps {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        gap: 16px;
+        padding-bottom: 8px;
+    }
+
+    .process-step {
+        min-width: 100%;
+        max-width: 100%;
+        scroll-snap-align: center;
+        flex-shrink: 0;
+    }
+
+    .process-connector {
+        display: none;
+    }
     
     .hero-actions {
         align-items: center;
