@@ -574,9 +574,12 @@ function scrollToStep(index) {
     if (!processStepsContainer || !processSteps[index]) return;
     
     if (isMobile()) {
-        // Mobile: smooth scroll to specific step
-        const containerWidth = processStepsContainer.offsetWidth;
-        const scrollLeft = index * containerWidth;
+        // Mobile: smooth scroll to specific step with proper offset
+        const stepElement = processSteps[index];
+        const containerLeft = processStepsContainer.getBoundingClientRect().left;
+        const stepLeft = stepElement.getBoundingClientRect().left;
+        const currentScroll = processStepsContainer.scrollLeft;
+        const scrollLeft = currentScroll + (stepLeft - containerLeft - 20);
         
         processStepsContainer.scrollTo({
             left: scrollLeft,
