@@ -1912,7 +1912,16 @@
         height: 24px;
     }
 
-    /* Sidebar on Mobile - Hidden by default */
+    /* Sidebar on Mobile - Drawer Behavior */
+    .design-content {
+        display: block !important; /* Change from grid to block on mobile */
+    }
+    
+    .design-content > .design-sidebar {
+        display: none !important; /* Hide static sidebar in grid */
+    }
+    
+    /* Show fixed drawer sidebar */
     .design-sidebar {
         position: fixed !important;
         top: 0;
@@ -1920,21 +1929,110 @@
         width: 85%;
         max-width: 320px;
         height: 100vh;
-        z-index: 1002 !important; /* Higher than overlay */
+        z-index: 1002 !important;
         overflow-y: auto;
         overflow-x: hidden;
         transform: translateX(-100%);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
         background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
         backdrop-filter: blur(30px);
         pointer-events: auto !important;
         opacity: 1 !important;
-        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        visibility: visible !important;
+        display: block !important;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 0 !important;
+        padding: 30px 20px !important;
+        margin: 0 !important;
     }
 
     .design-sidebar.mobile-open {
-        transform: translateX(0);
+        transform: translateX(0) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+    }
+    
+    /* Ensure sidebar is completely hidden when closed */
+    .design-sidebar:not(.mobile-open) {
+        transform: translateX(-100%) !important;
+    }
+    
+    /* Ensure all sidebar content is visible and properly styled */
+    .design-sidebar.mobile-open .sidebar-section,
+    .design-sidebar.mobile-open .form-group,
+    .design-sidebar.mobile-open .form-input,
+    .design-sidebar.mobile-open .form-select,
+    .design-sidebar.mobile-open .form-label,
+    .design-sidebar.mobile-open .checkbox-label,
+    .design-sidebar.mobile-open .question-types,
+    .design-sidebar.mobile-open .question-type-btn,
+    .design-sidebar.mobile-open .sidebar-title,
+    .design-sidebar.mobile-open .custom-color-dropdown,
+    .design-sidebar.mobile-open .custom-category-dropdown,
+    .design-sidebar.mobile-open .sidebar-stats,
+    .design-sidebar.mobile-open .stat-item {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+        color: #F8FAFC !important;
+    }
+    
+    .design-sidebar.mobile-open .question-types {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    .design-sidebar.mobile-open .sidebar-title {
+        color: #FFFFFF !important;
+        font-size: 19px !important;
+        font-weight: 800 !important;
+    }
+    
+    .design-sidebar.mobile-open .form-label {
+        color: #CBD5E1 !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+    }
+    
+    .design-sidebar.mobile-open .form-input,
+    .design-sidebar.mobile-open .form-select {
+        background: #1E293B !important;
+        color: #F8FAFC !important;
+        border-color: #475569 !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-selected,
+    .design-sidebar.mobile-open .category-dropdown-selected {
+        background: #1E293B !important;
+        color: #F8FAFC !important;
+        border-color: #475569 !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-selected span,
+    .design-sidebar.mobile-open .category-dropdown-selected span {
+        color: #F8FAFC !important;
+    }
+    
+    .design-sidebar.mobile-open .question-type-btn {
+        background: #1E293B !important;
+        color: #F8FAFC !important;
+        border-color: #475569 !important;
+    }
+    
+    .design-sidebar.mobile-open .question-type-btn span {
+        color: #F8FAFC !important;
+    }
+    
+    .design-sidebar.mobile-open .checkbox-label {
+        background: #1E293B !important;
+        color: #F8FAFC !important;
+        border-color: #475569 !important;
+    }
+    
+    .design-sidebar.mobile-open .checkbox-label span {
+        color: #F8FAFC !important;
     }
 
     /* Ensure all interactive elements in sidebar are clickable */
