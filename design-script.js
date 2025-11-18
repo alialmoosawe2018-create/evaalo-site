@@ -417,21 +417,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Swipe gestures for mobile sidebar
     if (window.innerWidth <= 768 && designSidebar) {
-        // Swipe from right edge to open
+        // Swipe from left edge to open
         document.addEventListener('touchstart', function(e) {
             if (window.innerWidth > 768) return;
             
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             
-            // Check if touch started from right edge (within 20px)
-            if (touchStartX >= window.innerWidth - 20 && !designSidebar.classList.contains('mobile-open')) {
+            // Check if touch started from left edge (within 20px)
+            if (touchStartX <= 20 && !designSidebar.classList.contains('mobile-open')) {
                 isDragging = true;
                 sidebarStartX = 0;
             }
         }, { passive: true });
         
-        // Swipe on sidebar to close
+        // Swipe on sidebar to close (swipe left to close)
         designSidebar.addEventListener('touchstart', function(e) {
             if (window.innerWidth > 768) return;
             if (!designSidebar.classList.contains('mobile-open')) return;
@@ -439,7 +439,7 @@ document.addEventListener('DOMContentLoaded', function() {
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             isDragging = true;
-            sidebarStartX = designSidebar.getBoundingClientRect().right;
+            sidebarStartX = designSidebar.getBoundingClientRect().left;
         }, { passive: true });
         
         document.addEventListener('touchmove', function(e) {
@@ -455,12 +455,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 
                 if (!designSidebar.classList.contains('mobile-open')) {
-                    // Opening from right edge
-                    const translateX = Math.max(0, window.innerWidth - touchCurrentX);
+                    // Opening from left edge - swipe right to open
+                    const translateX = Math.min(0, -touchCurrentX);
                     designSidebar.style.transform = `translateX(${translateX}px)`;
                 } else {
                     // Closing by swiping left
-                    const translateX = Math.min(0, deltaX);
+                    const translateX = Math.min(0, -Math.abs(deltaX));
                     designSidebar.style.transform = `translateX(${translateX}px)`;
                 }
             }
@@ -474,16 +474,16 @@ document.addEventListener('DOMContentLoaded', function() {
             const threshold = 50;
             
             if (!designSidebar.classList.contains('mobile-open')) {
-                // Opening gesture
-                if (deltaX < -threshold) {
+                // Opening gesture - swipe right from left edge
+                if (deltaX > threshold) {
                     openMobileSidebar();
                 } else {
                     designSidebar.style.transform = '';
                     closeMobileSidebar();
                 }
             } else {
-                // Closing gesture
-                if (deltaX > threshold) {
+                // Closing gesture - swipe left to close
+                if (deltaX < -threshold) {
                     closeMobileSidebar();
                 } else {
                     designSidebar.style.transform = '';
@@ -1124,7 +1124,6 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         return labels[type] || type;
     }
-
 
     // Update Stats
     function updateStats() {
