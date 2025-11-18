@@ -515,19 +515,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }, { passive: false });
         
         // Touch end - snap to open/close
-        document.addEventListener('touchend', () => {
+        document.addEventListener('touchend', (e) => {
             if (window.innerWidth > 768 || !isDragging) return;
             
             isDragging = false;
+            
+            // Restore transition
             designSidebar.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
             
             // Determine if should open or close based on drag distance
             const threshold = -50; // 50% of sidebar width
             if (currentTranslate > threshold) {
                 // Open drawer
+                designSidebar.style.transform = 'translateX(0)';
                 openSidebar();
             } else {
-                // Close drawer
+                // Close drawer - ensure it closes completely
+                designSidebar.style.transform = 'translateX(-100%)';
                 closeSidebar();
             }
             
@@ -535,6 +539,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (sidebarOverlay) {
                 sidebarOverlay.style.opacity = '';
             }
+            
+            // Reset currentTranslate for next interaction
+            currentTranslate = designSidebar.classList.contains('mobile-open') ? 0 : -100;
         }, { passive: true });
         
         // Swipe to close when drawer is open
@@ -573,18 +580,25 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, { passive: false });
         
-        designSidebar.addEventListener('touchend', () => {
+        designSidebar.addEventListener('touchend', (e) => {
             if (window.innerWidth > 768 || !isDragging) return;
             
             isDragging = false;
+            
+            // Restore transition
             designSidebar.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
             
             // Close if dragged more than 30% to the left
             if (currentTranslate < -30) {
+                // Close completely
+                designSidebar.style.transform = 'translateX(-100%)';
                 closeSidebar();
+                currentTranslate = -100;
             } else {
                 // Snap back to open
+                designSidebar.style.transform = 'translateX(0)';
                 openSidebar();
+                currentTranslate = 0;
             }
             
             if (sidebarOverlay) {
