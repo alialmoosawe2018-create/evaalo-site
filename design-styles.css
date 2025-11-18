@@ -63,6 +63,8 @@
     padding: 0 30px;
     position: relative;
     z-index: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Header */
@@ -76,6 +78,8 @@
     backdrop-filter: blur(20px);
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .design-title {
@@ -127,6 +131,7 @@
     grid-template-columns: 320px 1fr;
     gap: 30px;
     min-height: calc(100vh - 250px);
+    align-items: start;
 }
 
 /* Sidebar */
@@ -830,6 +835,11 @@
     border: 1px solid rgba(255, 255, 255, 0.2);
     display: flex;
     flex-direction: column;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    position: relative;
+    align-self: start;
 }
 
 .editor-toolbar {
@@ -869,6 +879,9 @@
 .questions-container {
     padding: 30px;
     min-height: 400px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
 }
 
 .empty-state {
@@ -1511,12 +1524,19 @@
         flex-shrink: 0;
     }
 
-    .design-sidebar,
-    .design-main {
+    .design-sidebar {
         padding: 15px;
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
+    }
+    
+    .design-main {
+        padding: 0;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        margin: 0;
     }
 
     .design-content {
@@ -1902,7 +1922,7 @@
         justify-content: center;
         position: fixed;
         top: 90px;
-        right: 15px;
+        left: 15px;
         z-index: 10002;
         width: 48px;
         height: 48px;
