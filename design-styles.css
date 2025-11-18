@@ -1937,7 +1937,7 @@
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
         /* Use same background as desktop for consistency */
         background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
-        backdrop-filter: blur(30px);
+        backdrop-filter: none !important; /* Remove blur to prevent darkening dropdowns */
         pointer-events: auto !important;
         opacity: 1 !important;
         visibility: visible !important;
@@ -1950,7 +1950,7 @@
         scroll-behavior: smooth;
         /* Optimize for performance */
         will-change: transform;
-        transform: translateZ(0);
+        /* Remove translateZ(0) from here as it conflicts with translateX */
     }
     
     /* Smooth scrollbar styling for mobile */
@@ -2623,6 +2623,36 @@
     .design-main {
         width: 100%;
         margin-left: 0;
+    }
+    
+    /* FINAL OVERRIDES - Ensure dropdowns are always visible and above everything */
+    .design-sidebar.mobile-open .color-dropdown-menu,
+    .design-sidebar.mobile-open .category-dropdown-menu {
+        z-index: 9999 !important;
+        position: absolute !important;
+        background: #1E293B !important;
+        backdrop-filter: none !important;
+        filter: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: translateY(0) !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-menu.open,
+    .design-sidebar.mobile-open .category-dropdown-menu.open {
+        z-index: 9999 !important;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    .design-sidebar.mobile-open {
+        backdrop-filter: none !important;
+        z-index: 5000 !important;
+    }
+    
+    .sidebar-overlay.active {
+        z-index: 1001 !important;
     }
 }
 
