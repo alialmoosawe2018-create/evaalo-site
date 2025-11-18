@@ -91,6 +91,31 @@
                     <p class="design-subtitle">Create and customize your AI-powered interview</p>
                 </div>
                 <div class="header-actions">
+                    <button class="btn btn-secondary" id="modelBtn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 2.5L12.5 7.5L17.5 8.75L14.5 12.5L15.5 17.5L10 15L4.5 17.5L5.5 12.5L2.5 8.75L7.5 7.5L10 2.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+                        </svg>
+                        Model
+                    </button>
+                    <button class="btn btn-secondary" id="workflowBtn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="3" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="2"/>
+                            <rect x="12" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="2"/>
+                            <rect x="3" y="12" width="5" height="5" rx="1" stroke="currentColor" stroke-width="2"/>
+                            <rect x="12" y="12" width="5" height="5" rx="1" stroke="currentColor" stroke-width="2"/>
+                            <path d="M8 5.5H12M8 14.5H12M5.5 8V12M14.5 8V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        Workflow
+                    </button>
+                    <button class="btn btn-secondary" id="connectBtn">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 13.3333C11.8409 13.3333 13.3333 11.8409 13.3333 10C13.3333 8.15905 11.8409 6.66667 10 6.66667C8.15905 6.66667 6.66667 8.15905 6.66667 10C6.66667 11.8409 8.15905 13.3333 10 13.3333Z" stroke="currentColor" stroke-width="2"/>
+                            <path d="M3.33333 10C3.33333 10 5.83333 7.5 10 7.5C14.1667 7.5 16.6667 10 16.6667 10C16.6667 10 14.1667 12.5 10 12.5C5.83333 12.5 3.33333 10 3.33333 10Z" stroke="currentColor" stroke-width="2"/>
+                            <path d="M10 2.5V5.83333M10 14.1667V17.5M17.5 10H14.1667M5.83333 10H2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        Connect
+                    </button>
                     <button class="btn btn-secondary" id="previewBtn">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M10 3.33334C5.83337 3.33334 2.27504 5.73334 0.833374 9.16668C2.27504 12.6 5.83337 15 10 15C14.1667 15 17.725 12.6 19.1667 9.16668C17.725 5.73334 14.1667 3.33334 10 3.33334Z" stroke="currentColor" stroke-width="2"/>
@@ -315,8 +340,8 @@
                                         <span>Custom Interview</span>
                                     </div>
                                 </div>
+                                </div>
                             </div>
-                        </div>
 
                         <div class="form-group">
                             <label class="form-label">Time Limit (minutes)</label>
@@ -495,6 +520,153 @@
                                     <circle cx="14" cy="12" r="3" fill="currentColor"/>
                                 </svg>
                                 <span>Slider</span>
+                            </button>
+                            <button class="question-type-btn" data-type="contact-info">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Contact Info</span>
+                            </button>
+                            <button class="question-type-btn" data-type="address">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                                <span>Address</span>
+                            </button>
+                            <button class="question-type-btn" data-type="picture-choice">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Picture Choice</span>
+                            </button>
+                            <button class="question-type-btn" data-type="legal">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M12 6v6M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Legal</span>
+                            </button>
+                            <button class="question-type-btn" data-type="clarify-ai">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M9 9h.01M15 9h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M12 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span>Clarify with AI</span>
+                            </button>
+                            <button class="question-type-btn" data-type="faq-ai">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M9 9h.01M15 9h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>FAQ with AI</span>
+                            </button>
+                            <button class="question-type-btn" data-type="hubspot">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M12 1v6m0 6v6M23 12h-6m-6 0H1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>HubSpot</span>
+                            </button>
+                            <button class="question-type-btn" data-type="salesforce">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M18 10h-4V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2v-4h4a2 2 0 002-2v-4a2 2 0 00-2-2z" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                                <span>Salesforce</span>
+                            </button>
+                            <button class="question-type-btn" data-type="browse-apps">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+                                    <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+                                    <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+                                    <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                                <span>Browse all apps</span>
+                            </button>
+                            <button class="question-type-btn" data-type="stripe">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M3 10h18M9 6v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Stripe</span>
+                            </button>
+                            <button class="question-type-btn" data-type="google-drive">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span>Google Drive</span>
+                            </button>
+                            <button class="question-type-btn" data-type="calendly">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Calendly</span>
+                            </button>
+                            <button class="question-type-btn" data-type="nps">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Net Promoter Score</span>
+                            </button>
+                            <button class="question-type-btn" data-type="opinion-scale">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="3" y="10" width="18" height="4" rx="1" stroke="currentColor" stroke-width="2"/>
+                                    <circle cx="6" cy="12" r="2" fill="currentColor"/>
+                                    <circle cx="12" cy="12" r="2" fill="currentColor"/>
+                                    <circle cx="18" cy="12" r="2" fill="currentColor"/>
+                                </svg>
+                                <span>Opinion Scale</span>
+                            </button>
+                            <button class="question-type-btn" data-type="welcome-screen">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M8 8h8M8 12h8M8 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M12 2v4M12 18v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Welcome Screen</span>
+                            </button>
+                            <button class="question-type-btn" data-type="partial-submit">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M8 12h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Partial Submit Point</span>
+                            </button>
+                            <button class="question-type-btn" data-type="statement">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M4 12h16M4 8h16M4 16h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M8 4l-2 2 2 2M8 20l-2-2 2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <span>Statement</span>
+                            </button>
+                            <button class="question-type-btn" data-type="question-group">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M8 8h8M8 12h8M8 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M12 2v4M12 18v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Question Group</span>
+                            </button>
+                            <button class="question-type-btn" data-type="end-screen">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                                    <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>End Screen</span>
+                            </button>
+                            <button class="question-type-btn" data-type="redirect">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <span>Redirect to URL</span>
                             </button>
                         </div>
                     </div>

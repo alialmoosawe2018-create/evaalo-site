@@ -804,7 +804,14 @@ body.rtl-text .nav-links {
     color: #1a1a1a;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Fixed width and height - no expansion or shrinking */
     width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    height: 36px;
+    min-height: 36px;
+    max-height: 36px;
+    box-sizing: border-box;
     font-family: inherit;
     box-shadow: 
         0 2px 8px rgba(34, 211, 238, 0.15),
@@ -924,8 +931,13 @@ body.rtl-text .nav-links {
     box-shadow: 
         0 12px 30px rgba(0, 0, 0, 0.12),
         0 4px 12px rgba(34, 211, 238, 0.15);
+    /* Fixed width and height - no expansion or shrinking */
     width: 140px;
+    min-width: 140px;
     max-width: 140px;
+    height: auto;
+    min-height: 120px;
+    box-sizing: border-box;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-15px) scale(0.95);
@@ -983,7 +995,12 @@ body.rtl-text .nav-links {
     align-items: center;
     justify-content: space-between;
     width: 100%;
+    /* Fixed height for consistent sizing across all languages */
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
     padding: 10px 14px;
+    box-sizing: border-box;
     background: transparent;
     border: none;
     border-bottom: 1px solid rgba(226, 232, 240, 0.5);
@@ -1075,6 +1092,10 @@ body.rtl-text .nav-links {
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     z-index: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .language-code {

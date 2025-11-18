@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const questionsContainer = document.getElementById('questionsContainer');
     let sortable = null;
 
+
     // Elements
     const addQuestionBtn = document.getElementById('addQuestionBtn');
     const questionModal = document.getElementById('questionModal');
@@ -287,54 +288,110 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event Listeners
-    addQuestionBtn.addEventListener('click', () => {
-        editingQuestionIndex = null;
-        currentQuestionType = 'short-text';
-        openQuestionModal('short-text');
-    });
-
-    questionTypeBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const type = this.dataset.type;
-            // Video, Matrix, and Ranking coming soon
-            if (type !== 'video' && type !== 'matrix' && type !== 'ranking') {
-                editingQuestionIndex = null;
-                currentQuestionType = type;
-                openQuestionModal(type);
-            } else {
-                showToast(`${getTypeLabel(type)} coming soon!`);
-            }
+    if (addQuestionBtn) {
+        addQuestionBtn.addEventListener('click', () => {
+            editingQuestionIndex = null;
+            currentQuestionType = 'short-text';
+            openQuestionModal('short-text');
         });
-    });
+    }
 
-    closeModal.addEventListener('click', closeQuestionModal);
-    cancelBtn.addEventListener('click', closeQuestionModal);
-    closePreview.addEventListener('click', () => previewModal.classList.remove('show'));
-    closePreviewBtn.addEventListener('click', () => previewModal.classList.remove('show'));
-    closeShare.addEventListener('click', () => shareModal.classList.remove('show'));
+    // New header buttons (Model, Workflow, Connect)
+    const modelBtn = document.getElementById('modelBtn');
+    const workflowBtn = document.getElementById('workflowBtn');
+    const connectBtn = document.getElementById('connectBtn');
 
-    saveQuestionBtn.addEventListener('click', saveQuestion);
-    shareBtn.addEventListener('click', showShareModal);
-    previewBtn.addEventListener('click', showPreview);
-    saveBtn.addEventListener('click', saveInterview);
-    clearAllBtn.addEventListener('click', clearAll);
+    if (modelBtn) {
+        modelBtn.addEventListener('click', () => {
+            showToast('Model settings coming soon!');
+        });
+    }
+
+    if (workflowBtn) {
+        workflowBtn.addEventListener('click', () => {
+            showToast('Workflow editor coming soon!');
+        });
+    }
+
+    if (connectBtn) {
+        connectBtn.addEventListener('click', () => {
+            showToast('Connect integrations coming soon!');
+        });
+    }
+
+    if (questionTypeBtns && questionTypeBtns.length > 0) {
+        questionTypeBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const type = this.dataset.type;
+                // Types that are coming soon
+                const comingSoonTypes = ['video', 'matrix', 'ranking', 'hubspot', 'salesforce', 'browse-apps', 'stripe', 'google-drive', 'calendly'];
+                
+                if (!comingSoonTypes.includes(type)) {
+                    editingQuestionIndex = null;
+                    currentQuestionType = type;
+                    openQuestionModal(type);
+                } else {
+                    showToast(`${getTypeLabel(type)} coming soon!`);
+                }
+            });
+        });
+    }
+
+    if (closeModal) {
+        closeModal.addEventListener('click', closeQuestionModal);
+    }
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closeQuestionModal);
+    }
+    if (closePreview) {
+        closePreview.addEventListener('click', () => previewModal.classList.remove('show'));
+    }
+    if (closePreviewBtn) {
+        closePreviewBtn.addEventListener('click', () => previewModal.classList.remove('show'));
+    }
+    if (closeShare) {
+        closeShare.addEventListener('click', () => shareModal.classList.remove('show'));
+    }
+
+    if (saveQuestionBtn) {
+        saveQuestionBtn.addEventListener('click', saveQuestion);
+    }
+    if (shareBtn) {
+        shareBtn.addEventListener('click', showShareModal);
+    }
+    if (previewBtn) {
+        previewBtn.addEventListener('click', showPreview);
+    }
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveInterview);
+    }
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', clearAll);
+    }
 
     // Close modals on background click
-    questionModal.addEventListener('click', (e) => {
-        if (e.target === questionModal) closeQuestionModal();
-    });
-    previewModal.addEventListener('click', (e) => {
-        if (e.target === previewModal) previewModal.classList.remove('show');
-    });
-    shareModal.addEventListener('click', (e) => {
-        if (e.target === shareModal) shareModal.classList.remove('show');
-    });
+    if (questionModal) {
+        questionModal.addEventListener('click', (e) => {
+            if (e.target === questionModal) closeQuestionModal();
+        });
+    }
+    if (previewModal) {
+        previewModal.addEventListener('click', (e) => {
+            if (e.target === previewModal) previewModal.classList.remove('show');
+        });
+    }
+    if (shareModal) {
+        shareModal.addEventListener('click', (e) => {
+            if (e.target === shareModal) shareModal.classList.remove('show');
+        });
+    }
 
     // Share functionality
-    copyShareBtn.addEventListener('click', () => {
-        shareLink.select();
-        document.execCommand('copy');
-        copyShareBtn.innerHTML = `
+    if (copyShareBtn && shareLink) {
+        copyShareBtn.addEventListener('click', () => {
+            shareLink.select();
+            document.execCommand('copy');
+            copyShareBtn.innerHTML = `
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M13.3333 4L6 11.3333L2.66667 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -349,23 +406,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 Copy
             `;
         }, 2000);
-        showToast('Link copied to clipboard!');
-    });
+            showToast('Link copied to clipboard!');
+        });
+    }
 
-    shareEmail.addEventListener('click', () => {
-        const title = document.getElementById('interviewTitle').value || 'Interview';
-        const subject = encodeURIComponent(`${title} - Interview Link`);
-        const body = encodeURIComponent(`You've been invited to take an interview. Click here: ${shareLink.value}`);
-        window.open(`mailto:?subject=${subject}&body=${body}`);
-    });
+    if (shareEmail && shareLink) {
+        shareEmail.addEventListener('click', () => {
+            const title = document.getElementById('interviewTitle')?.value || 'Interview';
+            const subject = encodeURIComponent(`${title} - Interview Link`);
+            const body = encodeURIComponent(`You've been invited to take an interview. Click here: ${shareLink.value}`);
+            window.open(`mailto:?subject=${subject}&body=${body}`);
+        });
+    }
 
-    shareQR.addEventListener('click', () => {
-        showToast('QR Code generation coming soon!');
-    });
+    if (shareQR) {
+        shareQR.addEventListener('click', () => {
+            showToast('QR Code generation coming soon!');
+        });
+    }
 
-    shareDownload.addEventListener('click', () => {
-        downloadInterview();
-    });
+    if (shareDownload) {
+        shareDownload.addEventListener('click', () => {
+            downloadInterview();
+        });
+    }
 
     // Open Question Modal
     function openQuestionModal(type) {
@@ -950,9 +1014,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         } else if (question.type === 'voice') {
+            const maxDuration = question.maxDuration || 60;
             return `
                 <div style="margin-top: 15px;">
-                    <div class="voice-recorder-preview">
+                    <div class="voice-recorder-preview" data-max-duration="${maxDuration}">
                         <div class="recorder-status">Ready to record</div>
                         <button class="voice-record-btn" onclick="handleVoiceDemo(event)">
                             <svg class="mic-icon" width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -963,7 +1028,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </button>
                         <div class="recorder-info">
                             <div style="color: #94A3B8; font-size: 13px;">
-                                🎤 Max Duration: ${question.maxDuration || 60}s
+                                🎤 Max Duration: ${maxDuration}s
                                 ${question.requireTranscript ? ' | 📝 Transcript required' : ''}
                             </div>
                         </div>
@@ -1005,19 +1070,39 @@ document.addEventListener('DOMContentLoaded', function() {
             'dropdown': 'Dropdown',
             'rating': 'Rating Scale',
             'linear-scale': 'Linear Scale',
+            'opinion-scale': 'Opinion Scale',
             'yes-no': 'Yes/No',
             'date': 'Date',
             'time': 'Time',
             'email': 'Email',
-            'phone': 'Phone',
+            'phone': 'Phone Number',
+            'contact-info': 'Contact Info',
+            'address': 'Address',
             'number': 'Number',
-            'url': 'URL',
+            'url': 'Website URL',
             'file': 'File Upload',
             'voice': 'Voice Recording',
             'video': 'Video Recording',
+            'picture-choice': 'Picture Choice',
+            'legal': 'Legal',
+            'clarify-ai': 'Clarify with AI',
+            'faq-ai': 'FAQ with AI',
+            'hubspot': 'HubSpot',
+            'salesforce': 'Salesforce',
+            'browse-apps': 'Browse all apps',
+            'stripe': 'Stripe',
+            'google-drive': 'Google Drive',
+            'calendly': 'Calendly',
+            'nps': 'Net Promoter Score',
             'ranking': 'Ranking',
             'matrix': 'Matrix/Grid',
-            'slider': 'Slider'
+            'slider': 'Slider',
+            'welcome-screen': 'Welcome Screen',
+            'partial-submit': 'Partial Submit Point',
+            'statement': 'Statement',
+            'question-group': 'Question Group',
+            'end-screen': 'End Screen',
+            'redirect': 'Redirect to URL'
         };
         return labels[type] || type;
     }
@@ -1064,9 +1149,41 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Generate unique share link (in real app, this would be generated by backend)
-        const interviewId = Math.random().toString(36).substring(2, 15);
-        shareLink.value = `https://evaalo.ai/interview/${interviewId}`;
+        // Save interview data and generate share link
+        const interviewData = {
+            title: document.getElementById('interviewTitle').value || 'Untitled Interview',
+            category: localStorage.getItem('interviewCategory') || 'general',
+            timeLimit: document.getElementById('timeLimit').value,
+            passingScore: document.getElementById('passingScore').value,
+            randomizeQuestions: document.getElementById('randomizeQuestions').checked,
+            showResults: document.getElementById('showResults').checked,
+            enableAIAnalysis: document.getElementById('enableAIAnalysis').checked,
+            questions: questions,
+            settings: {
+                title: document.getElementById('interviewTitle').value || 'Untitled Interview',
+                category: localStorage.getItem('interviewCategory') || 'general',
+                timeLimit: document.getElementById('timeLimit').value,
+                passingScore: document.getElementById('passingScore').value,
+                randomizeQuestions: document.getElementById('randomizeQuestions').checked,
+                showResults: document.getElementById('showResults').checked,
+                enableAIAnalysis: document.getElementById('enableAIAnalysis').checked
+            },
+            createdAt: new Date().toISOString()
+        };
+
+        // Encode form data to base64 for URL sharing
+        const formDataString = JSON.stringify(interviewData);
+        const encodedData = btoa(encodeURIComponent(formDataString));
+        
+        // Generate share link with encoded data
+        const currentUrl = window.location.origin + window.location.pathname.replace('design.html', '');
+        const shareUrl = `${currentUrl}form-preview.html?data=${encodedData}`;
+        
+        shareLink.value = shareUrl;
+        
+        // Also save to localStorage as backup (for same browser)
+        const formId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem(`evaalo_form_${formId}`, formDataString);
         
         shareModal.classList.add('show');
     }
@@ -1252,60 +1369,131 @@ window.handleVoiceDemo = function(event) {
     
     if (!btn.classList.contains('recording') && !btn.classList.contains('recorded')) {
         // Start recording
-        btn.classList.add('recording');
-        status.textContent = 'Recording in progress...';
-        
-        // Hide the button text during recording
-        btn.style.pointerEvents = 'none';
-        
-        // Create timer
-        let seconds = 0;
-        const maxDuration = 60; // default
-        
-        // Add timer display
-        let timerDiv = preview.querySelector('.recording-timer');
-        if (!timerDiv) {
-            timerDiv = document.createElement('div');
-            timerDiv.className = 'recording-timer';
-            status.after(timerDiv);
+        startRecordingDemo(btn);
+    } else if (btn.classList.contains('recording')) {
+        // If already recording, clicking the button does nothing (use Stop button instead)
+        return;
+    }
+};
+
+// Start Recording Function
+window.startRecordingDemo = function(btn) {
+    const preview = btn.closest('.voice-recorder-preview');
+    const status = preview.querySelector('.recorder-status');
+    
+    // Start recording
+    btn.classList.add('recording');
+    btn.classList.remove('recorded');
+    status.textContent = 'Recording in progress...';
+    
+    // Enable button during recording (for visual feedback)
+    btn.style.pointerEvents = 'auto';
+    
+    // Get max duration from data attribute (set from question settings)
+    const maxDuration = parseInt(preview.getAttribute('data-max-duration')) || 60;
+    
+    // Create timer
+    let seconds = 0;
+    
+    // Add timer display
+    let timerDiv = preview.querySelector('.recording-timer');
+    if (!timerDiv) {
+        timerDiv = document.createElement('div');
+        timerDiv.className = 'recording-timer';
+        status.after(timerDiv);
+    }
+    timerDiv.style.display = 'block';
+    
+    // Add waveform visualization
+    let waveform = preview.querySelector('.waveform-preview');
+    if (!waveform) {
+        waveform = document.createElement('div');
+        waveform.className = 'waveform-preview';
+        for (let i = 0; i < 20; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'waveform-bar';
+            bar.style.height = '10px';
+            waveform.appendChild(bar);
         }
+        timerDiv.after(waveform);
+    }
+    waveform.style.display = 'flex';
+    
+    // Show Stop and Re-record buttons during recording
+    let recordingControls = preview.querySelector('.recording-controls');
+    if (!recordingControls) {
+        recordingControls = document.createElement('div');
+        recordingControls.className = 'recording-controls';
+        preview.appendChild(recordingControls);
+    }
+    
+    recordingControls.innerHTML = `
+        <button class="control-btn stop-btn" onclick="stopRecordingDemo(event)">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="12" height="12" rx="2" fill="currentColor"/>
+            </svg>
+            Stop
+        </button>
+        <button class="control-btn restart-btn" onclick="restartRecordingDemo(event)">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3.33333 10C3.33333 6.31746 6.31746 3.33333 10 3.33333C13.6825 3.33333 16.6667 6.31746 16.6667 10C16.6667 13.6825 13.6825 16.6667 10 16.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M10 6.66667V10L12.5 12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Re-record
+        </button>
+    `;
+    recordingControls.style.display = 'flex';
+    
+    // Timer interval
+    btn.recordingInterval = setInterval(() => {
+        seconds++;
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        timerDiv.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
         
-        // Add waveform visualization
-        let waveform = preview.querySelector('.waveform-preview');
-        if (!waveform) {
-            waveform = document.createElement('div');
-            waveform.className = 'waveform-preview';
-            for (let i = 0; i < 20; i++) {
-                const bar = document.createElement('div');
-                bar.className = 'waveform-bar';
-                bar.style.height = '10px';
-                waveform.appendChild(bar);
-            }
-            timerDiv.after(waveform);
-        }
+        // Animate waveform
+        const bars = waveform.querySelectorAll('.waveform-bar');
+        bars.forEach(bar => {
+            bar.style.height = `${Math.random() * 35 + 5}px`;
+        });
         
-        // Timer interval
-        btn.recordingInterval = setInterval(() => {
-            seconds++;
-            const mins = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            timerDiv.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-            
-            // Animate waveform
-            const bars = waveform.querySelectorAll('.waveform-bar');
-            bars.forEach(bar => {
-                bar.style.height = `${Math.random() * 35 + 5}px`;
-            });
-            
-            if (seconds >= maxDuration) {
-                window.finishRecordingDemo(btn);
-            }
-        }, 1000);
-        
-        // Auto-stop after 3 seconds for demo
-        setTimeout(() => {
+        // Stop recording when max duration is reached
+        if (seconds >= maxDuration) {
             window.finishRecordingDemo(btn);
-        }, 3000);
+        }
+    }, 1000);
+    
+    // Store seconds in button for access
+    btn.recordingSeconds = 0;
+    btn.recordingMaxDuration = maxDuration;
+};
+
+// Stop Recording Function
+window.stopRecordingDemo = function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const preview = event.currentTarget.closest('.voice-recorder-preview');
+    const btn = preview.querySelector('.voice-record-btn');
+    
+    if (btn && btn.classList.contains('recording')) {
+        window.finishRecordingDemo(btn);
+    }
+};
+
+// Restart Recording Function
+window.restartRecordingDemo = function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const preview = event.currentTarget.closest('.voice-recorder-preview');
+    const btn = preview.querySelector('.voice-record-btn');
+    
+    if (btn) {
+        // Reset everything
+        resetRecordingDemo(preview);
+        // Start recording again
+        window.startRecordingDemo(btn);
     }
 };
 
@@ -1316,20 +1504,20 @@ window.finishRecordingDemo = function(btn) {
     btn.classList.remove('recording');
     btn.classList.add('recorded');
     btn.style.pointerEvents = 'auto';
-    status.textContent = 'Recording complete!';
+    status.textContent = 'Recording stopped';
     
     if (btn.recordingInterval) {
         clearInterval(btn.recordingInterval);
+        btn.recordingInterval = null;
     }
     
-    // Hide recording button and waveform
-    btn.style.display = 'none';
+    // Hide waveform but keep timer visible
     const waveform = preview.querySelector('.waveform-preview');
     if (waveform) {
         waveform.style.display = 'none';
     }
     
-    // Show Send/Delete controls
+    // Update controls to show Re-record and Send/Delete options
     let controls = preview.querySelector('.recording-controls');
     if (!controls) {
         controls = document.createElement('div');
@@ -1338,6 +1526,13 @@ window.finishRecordingDemo = function(btn) {
     }
     
     controls.innerHTML = `
+        <button class="control-btn restart-btn" onclick="restartRecordingDemo(event)">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M3.33333 10C3.33333 6.31746 6.31746 3.33333 10 3.33333C13.6825 3.33333 16.6667 6.31746 16.6667 10C16.6667 13.6825 13.6825 16.6667 10 16.6667" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M10 6.66667V10L12.5 12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Re-record
+        </button>
         <button class="control-btn send-btn" onclick="sendRecordingDemo(event)">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M18.3333 1.66666L9.16667 10.8333M18.3333 1.66666L12.5 18.3333L9.16667 10.8333M18.3333 1.66666L1.66667 7.49999L9.16667 10.8333" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1404,12 +1599,21 @@ function resetRecordingDemo(preview) {
     status.textContent = 'Ready to record';
     status.style.color = '';
     
-    if (timer) timer.remove();
-    if (waveform) waveform.remove();
-    if (controls) controls.remove();
+    if (timer) {
+        timer.style.display = 'none';
+        timer.textContent = '';
+    }
+    if (waveform) {
+        waveform.style.display = 'none';
+    }
+    if (controls) {
+        controls.style.display = 'none';
+        controls.innerHTML = '';
+    }
     
     if (btn.recordingInterval) {
         clearInterval(btn.recordingInterval);
+        btn.recordingInterval = null;
     }
 }
 
