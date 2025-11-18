@@ -2000,8 +2000,21 @@
     /* Create a new stacking context for dropdowns to prevent backdrop-filter from affecting them */
     .design-sidebar.mobile-open .custom-color-dropdown,
     .design-sidebar.mobile-open .custom-category-dropdown {
+        position: relative !important;
         isolation: isolate !important;
-        z-index: 1 !important;
+        z-index: auto !important;
+    }
+    
+    /* Ensure dropdown menus are positioned correctly relative to their parent */
+    .design-sidebar.mobile-open .custom-color-dropdown .color-dropdown-menu,
+    .design-sidebar.mobile-open .custom-category-dropdown .category-dropdown-menu {
+        position: absolute !important; /* Back to absolute for proper positioning */
+        top: calc(100% + 8px) !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-top: 0 !important;
     }
     
     .design-sidebar.mobile-open .sidebar-section {
@@ -2368,12 +2381,13 @@
         top: calc(100% + 8px) !important;
         left: 0 !important;
         right: 0 !important;
+        width: 100% !important;
         background: #1E293B !important; /* Solid background, no transparency */
         border: 1px solid #475569 !important;
         border-radius: 12px !important;
         max-height: 320px !important;
         overflow-y: auto !important;
-        z-index: 1004 !important; /* Higher than sidebar (1002) and overlay (1001) */
+        z-index: 1005 !important; /* Higher than sidebar (1002) and overlay (1001) */
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
         pointer-events: auto !important;
         opacity: 1 !important;
@@ -2382,17 +2396,63 @@
         /* Remove any filters or blur */
         filter: none !important;
         backdrop-filter: none !important;
-        /* Remove transforms that affect visibility */
-        transform: translateY(0) !important;
-        /* Ensure no dark overlay */
+        /* Remove transforms that affect visibility - use translateZ for hardware acceleration */
+        transform: translateY(0) translateZ(0) !important;
+        /* Ensure no dark overlay - use solid color */
         background-color: #1E293B !important;
         background-image: none !important;
+        /* Prevent backdrop-filter from affecting this element */
+        isolation: isolate !important;
+        /* Ensure proper stacking and rendering */
+        will-change: transform !important;
     }
     
     .design-sidebar.mobile-open .category-dropdown-menu {
         max-height: 360px !important;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5),
                     0 0 0 1px rgba(99, 102, 241, 0.1) !important;
+    }
+    
+    /* Ensure dropdown items have proper colors and visibility */
+    .design-sidebar.mobile-open .color-dropdown-item,
+    .design-sidebar.mobile-open .category-dropdown-item {
+        background: transparent !important;
+        color: #E2E8F0 !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-item:hover,
+    .design-sidebar.mobile-open .category-dropdown-item:hover {
+        background: #0F172A !important;
+        color: #F8FAFC !important;
+    }
+    
+    /* Fix text color in dropdown items */
+    .design-sidebar.mobile-open .color-dropdown-item span,
+    .design-sidebar.mobile-open .category-dropdown-item span {
+        color: #E2E8F0 !important;
+        opacity: 1 !important;
+        filter: none !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-item:hover span,
+    .design-sidebar.mobile-open .category-dropdown-item:hover span {
+        color: #F8FAFC !important;
+    }
+    
+    /* Fix SVG icons in dropdown items - ensure they're visible */
+    .design-sidebar.mobile-open .color-dropdown-item svg,
+    .design-sidebar.mobile-open .category-dropdown-item svg,
+    .design-sidebar.mobile-open .category-dropdown-item .category-icon svg {
+        opacity: 1 !important;
+        visibility: visible !important;
+        filter: none !important;
+        color: #94A3B8 !important;
+        fill: none !important;
+        stroke: currentColor !important;
+    }
+    
+    .design-sidebar.mobile-open .category-dropdown-item:hover .category-icon svg {
+        color: #6366F1 !important;
     }
     
     .design-sidebar.mobile-open .color-dropdown-menu.open,
