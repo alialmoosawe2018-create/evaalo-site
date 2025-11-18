@@ -144,10 +144,6 @@
     transform: translateX(0);
 }
 
-/* Sidebar Toggle Button - Hidden on desktop */
-.sidebar-toggle-btn {
-    display: none;
-}
 
 .sidebar-section {
     margin-bottom: 30px;

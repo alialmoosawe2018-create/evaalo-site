@@ -347,7 +347,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 newNavMenuToggle.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Hamburger clicked in design-script.js');
                     newNavMenuWrapper.classList.toggle('active');
                 });
                 
@@ -369,14 +368,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             newNavMenuWrapper.classList.remove('active');
                         }
                     }
-                });
-                
-                console.log('Navigation menu initialized in design-script.js');
-            } else {
-                console.error('Navigation menu elements not found in design-script.js:', {
-                    navMenuToggle: !!newNavMenuToggle,
-                    navMenu: !!newNavMenu,
-                    navMenuWrapper: !!newNavMenuWrapper
                 });
             }
         }
@@ -1260,7 +1251,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 .replace(/\//g, '_')  // Replace / with _ (URL-safe)
                 .replace(/=+$/, '');  // Remove padding
         } catch (error) {
-            console.error('Error compressing data:', error);
             // Fallback: simple base64 encoding
             const simpleMinified = formDataString.replace(/\s+/g, '');
             compressedData = btoa(unescape(encodeURIComponent(simpleMinified)))
@@ -1350,7 +1340,6 @@ document.addEventListener('DOMContentLoaded', function() {
         showToast('Interview saved successfully!');
         
         // Could send to backend here
-        console.log('Interview Data:', interviewData);
     }
 
     // Clear All
