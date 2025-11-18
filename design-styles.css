@@ -2058,13 +2058,39 @@
         display: block;
     }
     
-    /* Ensure sidebar content is always interactive when open */
+    /* Ensure sidebar and all its content is always interactive when open */
     .design-sidebar.mobile-open {
         pointer-events: auto !important;
+        z-index: 1002 !important;
     }
     
     .design-sidebar.mobile-open * {
         pointer-events: auto !important;
+    }
+    
+    /* Ensure overlay doesn't block sidebar interactions */
+    .design-sidebar.mobile-open,
+    .design-sidebar.mobile-open * {
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* Make sure all interactive elements work */
+    .design-sidebar.mobile-open input,
+    .design-sidebar.mobile-open select,
+    .design-sidebar.mobile-open textarea,
+    .design-sidebar.mobile-open button,
+    .design-sidebar.mobile-open .checkbox-label,
+    .design-sidebar.mobile-open .custom-color-dropdown,
+    .design-sidebar.mobile-open .custom-category-dropdown,
+    .design-sidebar.mobile-open .question-type-btn,
+    .design-sidebar.mobile-open .form-group,
+    .design-sidebar.mobile-open .form-input,
+    .design-sidebar.mobile-open .form-select,
+    .design-sidebar.mobile-open .form-label {
+        pointer-events: auto !important;
+        touch-action: manipulation; /* Better touch handling */
+        -webkit-tap-highlight-color: rgba(59, 130, 246, 0.3); /* Visual feedback on tap */
     }
 
     /* Ensure main content is visible when sidebar is closed */

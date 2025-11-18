@@ -411,12 +411,47 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Close sidebar when clicking overlay
+    // Close sidebar when clicking overlay (but not when clicking inside sidebar)
     if (sidebarOverlay) {
-        sidebarOverlay.addEventListener('click', () => {
-            closeSidebar();
+        sidebarOverlay.addEventListener('click', (e) => {
+            // Only close if clicking directly on overlay, not on sidebar content
+            if (e.target === sidebarOverlay) {
+                closeSidebar();
+            }
         });
     }
+    
+    // Prevent sidebar from closing when clicking inside it
+    if (designSidebar) {
+        // Use event delegation to prevent closing when interacting with any element inside sidebar
+        designSidebar.addEventListener('click', (e) => {
+            // Stop all clicks inside sidebar from bubbling to document level
+            // This prevents the document click handler from closing the sidebar
+            e.stopPropagation();
+        }, true); // Use capture phase to catch events early
+        
+        designSidebar.addEventListener('touchstart', (e) => {
+            // Same for touch events
+            e.stopPropagation();
+        }, true); // Use capture phase
+    }
+    
+    // Close sidebar only when clicking outside (on mobile only)
+    document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 768) {
+            // Check if sidebar is open
+            if (designSidebar && designSidebar.classList.contains('mobile-open')) {
+                // Only close if clicking outside sidebar, toggle button, and overlay
+                const clickedInsideSidebar = designSidebar.contains(e.target);
+                const clickedOnToggle = sidebarToggleBtn && sidebarToggleBtn.contains(e.target);
+                const clickedOnOverlay = sidebarOverlay && (e.target === sidebarOverlay);
+                
+                if (!clickedInsideSidebar && !clickedOnToggle && clickedOnOverlay) {
+                    closeSidebar();
+                }
+            }
+        }
+    }, true); // Use capture phase to catch events early
     
     // Swipe Gestures for Mobile Drawer
     if (designSidebar) {
