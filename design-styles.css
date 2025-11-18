@@ -1935,7 +1935,8 @@
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
-        background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
+        /* Use same background as desktop for consistency */
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
         backdrop-filter: blur(30px);
         pointer-events: auto !important;
         opacity: 1 !important;
@@ -1945,6 +1946,31 @@
         border-radius: 0 !important;
         padding: 30px 20px !important;
         margin: 0 !important;
+        /* Smooth scrolling */
+        scroll-behavior: smooth;
+        /* Optimize for performance */
+        will-change: transform;
+        transform: translateZ(0);
+    }
+    
+    /* Smooth scrollbar styling for mobile */
+    .design-sidebar.mobile-open::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .design-sidebar.mobile-open::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.5);
+        border-radius: 3px;
+    }
+    
+    .design-sidebar.mobile-open::-webkit-scrollbar-thumb {
+        background: rgba(100, 116, 139, 0.5);
+        border-radius: 3px;
+        transition: background 0.3s ease;
+    }
+    
+    .design-sidebar.mobile-open::-webkit-scrollbar-thumb:hover {
+        background: rgba(100, 116, 139, 0.8);
     }
 
     .design-sidebar.mobile-open {
@@ -1959,9 +1985,38 @@
         transform: translateX(-100%) !important;
     }
     
-    /* Ensure all sidebar content is visible and properly styled */
-    .design-sidebar.mobile-open .sidebar-section,
-    .design-sidebar.mobile-open .form-group,
+    /* Ensure all sidebar content is visible and properly styled - Match desktop colors */
+    .design-sidebar.mobile-open {
+        /* Use exact same styling as desktop sidebar */
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+        backdrop-filter: blur(30px) !important;
+        border: 1px solid rgba(148, 163, 184, 0.2) !important;
+        border-radius: 20px !important;
+        padding: 30px !important;
+    }
+    
+    .design-sidebar.mobile-open .sidebar-section {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+        margin-bottom: 30px !important;
+        padding-bottom: 30px !important;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15) !important;
+    }
+    
+    .design-sidebar.mobile-open .sidebar-section:last-of-type {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+        border-bottom: none !important;
+    }
+    
+    .design-sidebar.mobile-open .form-group {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+        margin-bottom: 20px !important;
+    }
+    
     .design-sidebar.mobile-open .form-input,
     .design-sidebar.mobile-open .form-select,
     .design-sidebar.mobile-open .form-label,
@@ -1976,7 +2031,6 @@
         opacity: 1 !important;
         visibility: visible !important;
         display: block !important;
-        color: #F8FAFC !important;
     }
     
     .design-sidebar.mobile-open .question-types {
@@ -1984,70 +2038,119 @@
         flex-direction: column !important;
     }
     
+    /* Match desktop sidebar title styling */
     .design-sidebar.mobile-open .sidebar-title {
         color: #FFFFFF !important;
         font-size: 19px !important;
         font-weight: 800 !important;
+        margin-bottom: 24px !important;
+        letter-spacing: -0.02em !important;
     }
     
+    /* Match desktop form label styling */
     .design-sidebar.mobile-open .form-label {
         color: #CBD5E1 !important;
         font-size: 12px !important;
         font-weight: 700 !important;
+        margin-bottom: 8px !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.1em !important;
     }
     
+    /* Match desktop input styling */
     .design-sidebar.mobile-open .form-input,
     .design-sidebar.mobile-open .form-select {
         background: #1E293B !important;
         color: #F8FAFC !important;
-        border-color: #475569 !important;
+        border: 1px solid #475569 !important;
+        border-radius: 10px !important;
+        padding: 12px 14px !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        transition: all 0.3s ease !important;
     }
     
+    .design-sidebar.mobile-open .form-input:focus,
+    .design-sidebar.mobile-open .form-select:focus {
+        background: #0F172A !important;
+        border-color: #3B82F6 !important;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+        outline: none !important;
+    }
+    
+    /* Match desktop dropdown styling */
     .design-sidebar.mobile-open .color-dropdown-selected,
     .design-sidebar.mobile-open .category-dropdown-selected {
         background: #1E293B !important;
         color: #F8FAFC !important;
-        border-color: #475569 !important;
+        border: 1px solid #475569 !important;
+        border-radius: 10px !important;
+        padding: 12px 14px !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-selected:hover,
+    .design-sidebar.mobile-open .category-dropdown-selected:hover {
+        background: #0F172A !important;
+        border-color: #64748B !important;
     }
     
     .design-sidebar.mobile-open .color-dropdown-selected span,
     .design-sidebar.mobile-open .category-dropdown-selected span {
         color: #F8FAFC !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
     }
     
+    /* Match desktop question type button styling */
     .design-sidebar.mobile-open .question-type-btn {
         background: #1E293B !important;
         color: #F8FAFC !important;
-        border-color: #475569 !important;
+        border: 1px solid #475569 !important;
+        border-radius: 10px !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .design-sidebar.mobile-open .question-type-btn:hover {
+        background: linear-gradient(90deg, 
+            rgba(99, 102, 241, 0.08) 0%, 
+            rgba(168, 85, 247, 0.05) 100%) !important;
+        border-color: #6366F1 !important;
+        transform: translateX(3px) !important;
     }
     
     .design-sidebar.mobile-open .question-type-btn span {
         color: #F8FAFC !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
     }
     
+    /* Match desktop checkbox styling */
     .design-sidebar.mobile-open .checkbox-label {
         background: #1E293B !important;
         color: #F8FAFC !important;
-        border-color: #475569 !important;
+        border: 1px solid #475569 !important;
+        border-radius: 10px !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .design-sidebar.mobile-open .checkbox-label:hover {
+        background: #0F172A !important;
+        border-color: #64748B !important;
+        transform: translateX(2px) !important;
     }
     
     .design-sidebar.mobile-open .checkbox-label span {
         color: #F8FAFC !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
     }
     
-    /* Ensure all SVG icons are visible */
-    .design-sidebar.mobile-open svg,
-    .design-sidebar.mobile-open .question-type-btn svg,
-    .design-sidebar.mobile-open .dropdown-arrow,
-    .design-sidebar.mobile-open .category-icon svg,
-    .design-sidebar.mobile-open .color-box,
-    .design-sidebar.mobile-open .checkmark {
+    /* Ensure all SVG icons are visible with correct colors - Match desktop */
+    .design-sidebar.mobile-open svg {
         opacity: 1 !important;
         visibility: visible !important;
         display: inline-block !important;
-        color: #6366F1 !important;
-        fill: none !important;
-        stroke: currentColor !important;
     }
     
     .design-sidebar.mobile-open .question-type-btn svg {
@@ -2055,18 +2158,43 @@
         width: 24px !important;
         height: 24px !important;
         flex-shrink: 0 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.15)) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .design-sidebar.mobile-open .question-type-btn:hover svg {
+        color: #A855F7 !important;
+        filter: drop-shadow(0 3px 8px rgba(168, 85, 247, 0.3)) !important;
+        transform: scale(1.1) !important;
     }
     
     .design-sidebar.mobile-open .dropdown-arrow {
         color: #94A3B8 !important;
         width: 12px !important;
         height: 8px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: transform 0.3s ease !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-selected.open .dropdown-arrow,
+    .design-sidebar.mobile-open .category-dropdown-selected.open .dropdown-arrow {
+        transform: rotate(180deg) !important;
     }
     
     .design-sidebar.mobile-open .category-icon {
         color: #94A3B8 !important;
         width: 24px !important;
         height: 24px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: color 0.3s ease !important;
+    }
+    
+    .design-sidebar.mobile-open .category-dropdown-selected:hover .category-icon {
+        color: #6366F1 !important;
     }
     
     .design-sidebar.mobile-open .color-box {
@@ -2075,15 +2203,67 @@
         border-radius: 6px !important;
         display: block !important;
         opacity: 1 !important;
+        visibility: visible !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .design-sidebar.mobile-open .checkmark {
+        width: 20px !important;
+        height: 20px !important;
+        border: 2px solid #64748B !important;
+        border-radius: 5px !important;
+        background: #0F172A !important;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: all 0.3s ease !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .design-sidebar.mobile-open .checkbox-label input[type="checkbox"]:checked ~ .checkmark {
+        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+        border-color: #3B82F6 !important;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4) !important;
+    }
+    
+    .design-sidebar.mobile-open .checkbox-label input[type="checkbox"]:checked ~ .checkmark::after {
+        content: '' !important;
+        position: absolute !important;
+        left: 6px !important;
+        top: 2px !important;
+        width: 4px !important;
+        height: 9px !important;
+        border: solid white !important;
+        border-width: 0 2.5px 2.5px 0 !important;
+        transform: rotate(45deg) !important;
     }
 
     /* Ensure all interactive elements in sidebar are clickable */
     .design-sidebar.mobile-open {
         pointer-events: auto !important;
+        /* Smooth transitions for all interactions */
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
 
     .design-sidebar.mobile-open * {
         pointer-events: auto !important;
+    }
+    
+    /* Smooth transitions for all sidebar elements */
+    .design-sidebar.mobile-open .form-input,
+    .design-sidebar.mobile-open .form-select,
+    .design-sidebar.mobile-open .color-dropdown-selected,
+    .design-sidebar.mobile-open .category-dropdown-selected,
+    .design-sidebar.mobile-open .question-type-btn,
+    .design-sidebar.mobile-open .checkbox-label {
+        transition: all 0.3s ease !important;
+    }
+    
+    /* Smooth dropdown menu animations */
+    .design-sidebar.mobile-open .color-dropdown-menu,
+    .design-sidebar.mobile-open .category-dropdown-menu {
+        transition: all 0.3s ease !important;
     }
 
     /* Ensure form elements are fully interactive */
