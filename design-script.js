@@ -1,5 +1,15 @@
 // Design Platform Script
 document.addEventListener('DOMContentLoaded', function() {
+    // Ensure overlay is hidden on page load
+    const initialOverlay = document.querySelector('.sidebar-overlay');
+    if (initialOverlay) {
+        initialOverlay.classList.remove('active');
+        initialOverlay.style.display = 'none';
+    }
+    // Ensure body is not locked
+    document.body.style.overflow = '';
+    document.body.classList.remove('sidebar-open');
+    
     let questions = [];
     let editingQuestionIndex = null;
     let currentQuestionType = 'text';
@@ -332,6 +342,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(sidebarOverlay);
     }
     
+    // Ensure overlay is hidden by default
+    if (sidebarOverlay) {
+        sidebarOverlay.classList.remove('active');
+        sidebarOverlay.style.display = 'none';
+    }
+    
     // Open/Close functions
     function openSidebar() {
         if (designSidebar) {
@@ -392,6 +408,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 designSidebar.style.visibility = 'visible';
                 designSidebar.style.display = 'block';
             }
+            // Ensure overlay is hidden on mobile by default
+            if (sidebarOverlay) {
+                sidebarOverlay.classList.remove('active');
+                sidebarOverlay.style.display = 'none';
+            }
+            // Ensure body scroll is enabled
+            document.body.style.overflow = '';
+            document.body.classList.remove('sidebar-open');
         } else {
             if (sidebarToggleBtn) {
                 sidebarToggleBtn.style.display = 'none';
@@ -415,6 +439,49 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.overflow = '';
         }
     }
+    
+    // Prevent browser swipe navigation on mobile
+    // This prevents the page from navigating when swiping horizontally
+    let preventNavigationTouchStartX = 0;
+    let preventNavigationTouchStartY = 0;
+    let isPreventingNavigation = false;
+    let sidebarIsDragging = false; // Track if sidebar is being dragged
+    
+    document.addEventListener('touchstart', (e) => {
+        if (window.innerWidth <= 768) {
+            // Only track if not starting from left edge (for sidebar)
+            if (e.touches[0].clientX > 15) {
+                preventNavigationTouchStartX = e.touches[0].clientX;
+                preventNavigationTouchStartY = e.touches[0].clientY;
+                isPreventingNavigation = true;
+            } else {
+                isPreventingNavigation = false;
+            }
+        }
+    }, { passive: true });
+    
+    document.addEventListener('touchmove', (e) => {
+        if (window.innerWidth <= 768 && isPreventingNavigation) {
+            // Check if sidebar is open or being dragged
+            const sidebarOpen = designSidebar && designSidebar.classList.contains('mobile-open');
+            const isSidebarDrag = designSidebar && (e.target.closest('.design-sidebar') || sidebarOpen);
+            
+            if (!isSidebarDrag) {
+                const deltaX = Math.abs(e.touches[0].clientX - preventNavigationTouchStartX);
+                const deltaY = Math.abs(e.touches[0].clientY - preventNavigationTouchStartY);
+                
+                // If horizontal swipe is significant, prevent browser navigation
+                if (deltaX > 30 && deltaX > deltaY * 2) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }
+        }
+    }, { passive: false });
+    
+    document.addEventListener('touchend', () => {
+        isPreventingNavigation = false;
+    }, { passive: true });
     
     // Initial check
     updateSidebarToggle();
@@ -492,6 +559,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let minDragDistance = 0; // Track minimum drag distance to prevent accidental opens
         
         // Touch start - detect swipe from left edge ONLY
+        // Prevent browser swipe navigation by handling touch events
         document.addEventListener('touchstart', (e) => {
             if (window.innerWidth > 768) return; // Desktop only
             if (designSidebar.classList.contains('mobile-open')) return; // Don't interfere if already open
@@ -500,6 +568,7 @@ document.addEventListener('DOMContentLoaded', function() {
             touchStartY = e.touches[0].clientY;
             
             // Only allow opening from very left edge (within 15px) and only if sidebar is closed
+            // This prevents browser swipe navigation
             if (touchStartX <= 15 && !designSidebar.classList.contains('mobile-open')) {
                 // Check if touch is not on an interactive element
                 const target = e.target;
@@ -511,6 +580,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     isOpeningFromEdge = true;
                     currentTranslate = -100;
                     minDragDistance = 0;
+                    // Prevent browser swipe navigation
+                    e.stopPropagation();
                 }
             }
         }, { passive: true });
@@ -566,6 +637,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             isDragging = false;
+            sidebarIsDragging = false;
             isOpeningFromEdge = false;
             
             // Restore smooth transition
@@ -593,6 +665,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Reset for next interaction
             minDragDistance = 0;
             currentTranslate = -100;
+            
+            // Reset sidebar dragging flag after a delay
+            setTimeout(() => {
+                sidebarIsDragging = false;
+            }, 100);
         }, { passive: true });
         
         // Swipe to close when drawer is open
@@ -604,6 +681,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (designSidebar.classList.contains('mobile-open')) {
                 isDragging = true;
+                sidebarIsDragging = true;
                 currentTranslate = 0;
             }
         }, { passive: true });
@@ -638,6 +716,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (window.innerWidth > 768 || !isDragging) return;
             
             isDragging = false;
+            sidebarIsDragging = false;
             
             // Restore smooth transition
             designSidebar.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -672,6 +751,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Reset currentTranslate for next interaction
             currentTranslate = designSidebar.classList.contains('mobile-open') ? 0 : -100;
+            
+            // Reset sidebar dragging flag after a delay
+            setTimeout(() => {
+                sidebarIsDragging = false;
+            }, 100);
         }, { passive: true });
     }
 

@@ -1842,6 +1842,19 @@
         overflow-x: hidden;
         width: 100%;
         max-width: 100%;
+        /* Prevent browser swipe navigation */
+        overscroll-behavior-x: none;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Prevent swipe navigation gestures */
+    body {
+        touch-action: pan-y pinch-zoom; /* Allow vertical scroll and pinch zoom, but prevent horizontal swipe */
+    }
+    
+    /* Allow horizontal swipe only for sidebar drawer */
+    .design-sidebar {
+        touch-action: pan-y pan-x;
     }
 
     .design-page {
@@ -2099,15 +2112,19 @@
         bottom: 0;
         background: rgba(0, 0, 0, 0.6);
         z-index: 1001; /* Below sidebar but above content */
-        display: none;
+        display: none !important; /* Hidden by default - only show when sidebar is open */
         pointer-events: auto; /* Allow clicking to close */
         transition: opacity 0.3s ease;
         /* Ensure overlay covers all content and prevents seeing through */
         backdrop-filter: blur(2px);
+        opacity: 0;
+        visibility: hidden;
     }
 
     .sidebar-overlay.active {
-        display: block;
+        display: block !important;
+        opacity: 1;
+        visibility: visible;
     }
     
     /* Prevent main content from being visible through overlay */
