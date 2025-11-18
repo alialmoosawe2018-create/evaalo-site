@@ -365,8 +365,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 sidebarCloseBtn.style.display = 'flex';
             }
             if (designSidebar) {
-                // On mobile, sidebar should be hidden by default
+                // On mobile, sidebar should be hidden by default (drawer closed)
                 closeSidebar();
+                // Ensure sidebar is visible when rendered (not transparent)
+                designSidebar.style.opacity = '1';
+                designSidebar.style.visibility = 'visible';
+                designSidebar.style.display = 'block';
             }
         } else {
             if (sidebarToggleBtn) {
@@ -380,6 +384,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 closeSidebar();
                 designSidebar.style.transform = 'translateX(0)';
                 designSidebar.style.position = 'sticky';
+                designSidebar.style.opacity = '1';
+                designSidebar.style.visibility = 'visible';
+                designSidebar.style.display = 'block';
             }
             if (sidebarOverlay) {
                 sidebarOverlay.classList.remove('active');
