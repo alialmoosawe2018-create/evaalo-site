@@ -319,119 +319,68 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Navigation Menu Toggle
-    const navMenuToggle = document.getElementById('navMenuToggle');
-    const navMenu = document.getElementById('navMenu');
-    const navMenuWrapper = navMenuToggle ? navMenuToggle.closest('.nav-menu-wrapper') : null;
-    const navLinks = document.querySelectorAll('.nav-link');
-    
-    // Toggle navigation menu
-    if (navMenuToggle && navMenu && navMenuWrapper) {
-        navMenuToggle.addEventListener('click', function(e) {
-            e.stopPropagation();
-            navMenuWrapper.classList.toggle('active');
-        });
+    // Navigation Menu Toggle - Override landing-script.js if needed
+    setTimeout(function() {
+        const navMenuToggle = document.getElementById('navMenuToggle');
+        const navMenu = document.getElementById('navMenu');
+        const navMenuWrapper = navMenuToggle ? navMenuToggle.closest('.nav-menu-wrapper') : null;
+        const navLinks = document.querySelectorAll('.nav-link');
         
-        // Close menu when clicking on any nav link
-        navLinks.forEach(link => {
-            link.addEventListener('click', function() {
-                navMenuWrapper.classList.remove('active');
-            });
-        });
-        
-        // Close menu when clicking outside
-        document.addEventListener('click', function(e) {
-            if (navMenuWrapper && navMenuWrapper.classList.contains('active')) {
-                if (!navMenu.contains(e.target) && !navMenuToggle.contains(e.target)) {
-                    navMenuWrapper.classList.remove('active');
-                }
-            }
-        });
-    }
-
-    // Sidebar Toggle for Mobile
-    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
-    const designSidebar = document.getElementById('designSidebar');
-    
-    // Create overlay element for mobile sidebar
-    let sidebarOverlay = document.querySelector('.sidebar-overlay');
-    if (!sidebarOverlay) {
-        sidebarOverlay = document.createElement('div');
-        sidebarOverlay.className = 'sidebar-overlay';
-        document.body.appendChild(sidebarOverlay);
-    }
-    
-    // Show/hide toggle button based on screen size
-    function updateSidebarToggle() {
-        if (window.innerWidth <= 768) {
-            if (sidebarToggleBtn) {
-                sidebarToggleBtn.style.display = 'block';
-            }
-            if (designSidebar) {
-                // On mobile, sidebar should be hidden by default
-                designSidebar.classList.remove('mobile-open');
-            }
-            if (sidebarOverlay) {
-                sidebarOverlay.classList.remove('active');
-            }
-        } else {
-            if (sidebarToggleBtn) {
-                sidebarToggleBtn.style.display = 'none';
-            }
-            if (designSidebar) {
-                // On desktop, sidebar should always be visible
-                designSidebar.classList.remove('mobile-open');
-                designSidebar.style.transform = 'translateX(0)';
-                designSidebar.style.position = 'sticky';
-            }
-            if (sidebarOverlay) {
-                sidebarOverlay.classList.remove('active');
-            }
-        }
-    }
-    
-    // Initial check
-    updateSidebarToggle();
-    
-    // Update on resize
-    window.addEventListener('resize', updateSidebarToggle);
-    
-    // Toggle sidebar on button click
-    if (sidebarToggleBtn && designSidebar) {
-        sidebarToggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const isOpen = designSidebar.classList.contains('mobile-open');
-            designSidebar.classList.toggle('mobile-open');
+        // Remove any existing event listeners by cloning the button
+        if (navMenuToggle) {
+            const newToggle = navMenuToggle.cloneNode(true);
+            navMenuToggle.parentNode.replaceChild(newToggle, navMenuToggle);
             
-            if (isOpen) {
-                sidebarOverlay.classList.remove('active');
+            // Get the new reference
+            const newNavMenuToggle = document.getElementById('navMenuToggle');
+            const newNavMenu = document.getElementById('navMenu');
+            const newNavMenuWrapper = newNavMenuToggle ? newNavMenuToggle.closest('.nav-menu-wrapper') : null;
+            
+            if (newNavMenuToggle && newNavMenu && newNavMenuWrapper) {
+                // Ensure button is clickable
+                newNavMenuToggle.style.pointerEvents = 'auto';
+                newNavMenuToggle.style.cursor = 'pointer';
+                newNavMenuToggle.style.zIndex = '10001';
+                newNavMenuToggle.style.position = 'relative';
+                
+                // Add click event
+                newNavMenuToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Hamburger clicked in design-script.js');
+                    newNavMenuWrapper.classList.toggle('active');
+                });
+                
+                // Close menu when clicking on any nav link
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (newNavMenuWrapper) {
+                            newNavMenuWrapper.classList.remove('active');
+                        }
+                    });
+                });
+                
+                // Close menu when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (newNavMenuWrapper && newNavMenuWrapper.classList.contains('active')) {
+                        if (!newNavMenu.contains(e.target) && 
+                            !newNavMenuToggle.contains(e.target) && 
+                            !newNavMenuWrapper.contains(e.target)) {
+                            newNavMenuWrapper.classList.remove('active');
+                        }
+                    }
+                });
+                
+                console.log('Navigation menu initialized in design-script.js');
             } else {
-                sidebarOverlay.classList.add('active');
+                console.error('Navigation menu elements not found in design-script.js:', {
+                    navMenuToggle: !!newNavMenuToggle,
+                    navMenu: !!newNavMenu,
+                    navMenuWrapper: !!newNavMenuWrapper
+                });
             }
-        });
-        
-        // Close sidebar when clicking overlay
-        if (sidebarOverlay) {
-            sidebarOverlay.addEventListener('click', () => {
-                designSidebar.classList.remove('mobile-open');
-                sidebarOverlay.classList.remove('active');
-            });
         }
-        
-        // Close sidebar when clicking outside
-        document.addEventListener('click', (e) => {
-            if (window.innerWidth <= 768) {
-                if (designSidebar.classList.contains('mobile-open') &&
-                    !designSidebar.contains(e.target) &&
-                    !sidebarToggleBtn.contains(e.target) &&
-                    !sidebarOverlay.contains(e.target)) {
-                    designSidebar.classList.remove('mobile-open');
-                    sidebarOverlay.classList.remove('active');
-                }
-            }
-        });
-    }
-    
+    }, 100);
 
     if (questionTypeBtns && questionTypeBtns.length > 0) {
         questionTypeBtns.forEach(btn => {
