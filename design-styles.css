@@ -1471,18 +1471,29 @@
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        justify-content: stretch;
+        justify-content: flex-start;
+        order: 1; /* Maintain order */
     }
 
+    /* Maintain button order: Model, Workflow, Connect, Preview, Share, Save */
     .header-actions .btn {
-        flex: 1 1 calc(50% - 4px);
-        min-width: calc(50% - 4px);
+        flex: 0 1 calc(33.333% - 6px);
+        min-width: calc(33.333% - 6px);
+        max-width: calc(33.333% - 6px);
         padding: 10px 12px;
         font-size: 13px;
         justify-content: center;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    /* Maintain exact button order on mobile - same as desktop */
+    /* Order: Model (1), Workflow (2), Connect (3), Preview (4), Share (5), Save (6) */
+    .header-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
     }
 
     .header-actions .btn svg {
@@ -1689,17 +1700,23 @@
     }
 
     .header-actions {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
         gap: 8px;
+        justify-content: flex-start;
+        display: flex;
     }
 
     .header-actions .btn {
-        flex: 1;
-        width: 100%;
-        min-width: 100%;
-        padding: 12px 16px;
-        font-size: 14px;
+        flex: 0 1 calc(50% - 4px);
+        min-width: calc(50% - 4px);
+        max-width: calc(50% - 4px);
+        padding: 12px 10px;
+        font-size: 13px;
     }
+
+    /* Buttons maintain their natural HTML order */
+    /* No need for CSS order - HTML order is already correct */
 
     .design-sidebar,
     .design-main {
@@ -1903,29 +1920,98 @@
         width: 85%;
         max-width: 320px;
         height: 100vh;
-        z-index: 1000;
+        z-index: 1002 !important; /* Higher than overlay */
         overflow-y: auto;
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
-        background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
         backdrop-filter: blur(30px);
+        pointer-events: auto !important; /* Ensure sidebar is interactive */
+        opacity: 1 !important; /* Ensure sidebar is fully visible */
     }
 
     .design-sidebar.mobile-open {
         transform: translateX(0);
     }
 
-    /* Overlay when sidebar is open - will be added via JavaScript */
+    /* Ensure all interactive elements in sidebar are clickable */
+    .design-sidebar.mobile-open {
+        pointer-events: auto !important;
+    }
+
+    .design-sidebar.mobile-open * {
+        pointer-events: auto !important;
+    }
+
+    /* Ensure form elements are fully interactive */
+    .design-sidebar .form-input,
+    .design-sidebar .form-select,
+    .design-sidebar .form-label,
+    .design-sidebar .checkbox-label,
+    .design-sidebar .custom-color-dropdown,
+    .design-sidebar .custom-category-dropdown,
+    .design-sidebar .question-type-btn,
+    .design-sidebar button,
+    .design-sidebar input,
+    .design-sidebar select,
+    .design-sidebar textarea,
+    .design-sidebar .form-group {
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        z-index: 1;
+        position: relative;
+    }
+
+    /* Ensure inputs have proper styling */
+    .design-sidebar .form-input,
+    .design-sidebar input[type="text"],
+    .design-sidebar input[type="number"] {
+        background: rgba(30, 41, 59, 0.95) !important;
+        color: #F8FAFC !important;
+        border-color: rgba(100, 116, 139, 0.5) !important;
+    }
+
+    /* Ensure checkboxes are clickable */
+    .design-sidebar .checkbox-label {
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        cursor: pointer !important;
+        z-index: 1;
+        position: relative;
+    }
+
+    .design-sidebar .checkbox-label input[type="checkbox"] {
+        pointer-events: auto !important;
+        opacity: 1 !important;
+    }
+
+    /* Ensure dropdowns are clickable */
+    .design-sidebar .color-dropdown-selected,
+    .design-sidebar .category-dropdown-selected {
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        cursor: pointer !important;
+    }
+
+    .design-sidebar .color-dropdown-menu,
+    .design-sidebar .category-dropdown-menu {
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        z-index: 1003 !important; /* Above sidebar */
+    }
+
+    /* Overlay when sidebar is open - behind sidebar */
     .sidebar-overlay {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 998;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 1001; /* Below sidebar but above content */
         display: none;
+        pointer-events: auto; /* Allow clicking to close */
     }
 
     .sidebar-overlay.active {
