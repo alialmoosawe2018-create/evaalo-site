@@ -2034,6 +2034,48 @@
     .design-sidebar.mobile-open .checkbox-label span {
         color: #F8FAFC !important;
     }
+    
+    /* Ensure all SVG icons are visible */
+    .design-sidebar.mobile-open svg,
+    .design-sidebar.mobile-open .question-type-btn svg,
+    .design-sidebar.mobile-open .dropdown-arrow,
+    .design-sidebar.mobile-open .category-icon svg,
+    .design-sidebar.mobile-open .color-box,
+    .design-sidebar.mobile-open .checkmark {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: inline-block !important;
+        color: #6366F1 !important;
+        fill: none !important;
+        stroke: currentColor !important;
+    }
+    
+    .design-sidebar.mobile-open .question-type-btn svg {
+        color: #6366F1 !important;
+        width: 24px !important;
+        height: 24px !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .design-sidebar.mobile-open .dropdown-arrow {
+        color: #94A3B8 !important;
+        width: 12px !important;
+        height: 8px !important;
+    }
+    
+    .design-sidebar.mobile-open .category-icon {
+        color: #94A3B8 !important;
+        width: 24px !important;
+        height: 24px !important;
+    }
+    
+    .design-sidebar.mobile-open .color-box {
+        width: 28px !important;
+        height: 28px !important;
+        border-radius: 6px !important;
+        display: block !important;
+        opacity: 1 !important;
+    }
 
     /* Ensure all interactive elements in sidebar are clickable */
     .design-sidebar.mobile-open {
@@ -2045,60 +2087,106 @@
     }
 
     /* Ensure form elements are fully interactive */
-    .design-sidebar .form-input,
-    .design-sidebar .form-select,
-    .design-sidebar .form-label,
-    .design-sidebar .checkbox-label,
-    .design-sidebar .custom-color-dropdown,
-    .design-sidebar .custom-category-dropdown,
-    .design-sidebar .question-type-btn,
-    .design-sidebar button,
-    .design-sidebar input,
-    .design-sidebar select,
-    .design-sidebar textarea,
-    .design-sidebar .form-group {
+    .design-sidebar.mobile-open .form-input,
+    .design-sidebar.mobile-open .form-select,
+    .design-sidebar.mobile-open .form-label,
+    .design-sidebar.mobile-open .checkbox-label,
+    .design-sidebar.mobile-open .custom-color-dropdown,
+    .design-sidebar.mobile-open .custom-category-dropdown,
+    .design-sidebar.mobile-open .question-type-btn,
+    .design-sidebar.mobile-open button,
+    .design-sidebar.mobile-open input,
+    .design-sidebar.mobile-open select,
+    .design-sidebar.mobile-open textarea,
+    .design-sidebar.mobile-open .form-group,
+    .design-sidebar.mobile-open .color-dropdown-selected,
+    .design-sidebar.mobile-open .category-dropdown-selected {
         pointer-events: auto !important;
         opacity: 1 !important;
-        z-index: 1;
-        position: relative;
+        visibility: visible !important;
+        z-index: 2 !important;
+        position: relative !important;
+        cursor: pointer !important;
+    }
+    
+    .design-sidebar.mobile-open .question-type-btn {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 12px 14px !important;
     }
 
-    /* Ensure inputs have proper styling */
-    .design-sidebar .form-input,
-    .design-sidebar input[type="text"],
-    .design-sidebar input[type="number"] {
-        background: rgba(30, 41, 59, 0.95) !important;
+    /* Ensure inputs have proper styling on mobile */
+    .design-sidebar.mobile-open .form-input,
+    .design-sidebar.mobile-open input[type="text"],
+    .design-sidebar.mobile-open input[type="number"] {
+        background: #1E293B !important;
         color: #F8FAFC !important;
-        border-color: rgba(100, 116, 139, 0.5) !important;
+        border-color: #475569 !important;
+        border-width: 1px !important;
+        border-style: solid !important;
+        padding: 12px 14px !important;
+        border-radius: 10px !important;
     }
 
-    /* Ensure checkboxes are clickable */
-    .design-sidebar .checkbox-label {
+    /* Ensure checkboxes are clickable on mobile */
+    .design-sidebar.mobile-open .checkbox-label {
         pointer-events: auto !important;
         opacity: 1 !important;
+        visibility: visible !important;
         cursor: pointer !important;
-        z-index: 1;
-        position: relative;
+        z-index: 2 !important;
+        position: relative !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 12px 14px !important;
     }
 
-    .design-sidebar .checkbox-label input[type="checkbox"] {
+    .design-sidebar.mobile-open .checkbox-label input[type="checkbox"] {
         pointer-events: auto !important;
         opacity: 1 !important;
+        position: absolute !important;
+    }
+    
+    .design-sidebar.mobile-open .checkmark {
+        width: 20px !important;
+        height: 20px !important;
+        border: 2px solid #64748B !important;
+        border-radius: 5px !important;
+        background: #0F172A !important;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
 
-    /* Ensure dropdowns are clickable */
-    .design-sidebar .color-dropdown-selected,
-    .design-sidebar .category-dropdown-selected {
+    /* Ensure dropdowns are clickable on mobile */
+    .design-sidebar.mobile-open .color-dropdown-selected,
+    .design-sidebar.mobile-open .category-dropdown-selected {
         pointer-events: auto !important;
         opacity: 1 !important;
+        visibility: visible !important;
         cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 12px 14px !important;
     }
 
-    .design-sidebar .color-dropdown-menu,
-    .design-sidebar .category-dropdown-menu {
+    .design-sidebar.mobile-open .color-dropdown-menu,
+    .design-sidebar.mobile-open .category-dropdown-menu {
         pointer-events: auto !important;
         opacity: 1 !important;
+        visibility: visible !important;
         z-index: 1003 !important; /* Above sidebar */
+        display: block !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-menu.open,
+    .design-sidebar.mobile-open .category-dropdown-menu.open {
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
 
     /* Overlay when sidebar is open - behind sidebar (Mobile Only) */
