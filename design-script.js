@@ -1254,19 +1254,64 @@ document.addEventListener('DOMContentLoaded', function() {
             createdAt: new Date().toISOString()
         };
 
-        // Encode form data to base64 for URL sharing
-        const formDataString = JSON.stringify(interviewData);
-        const encodedData = btoa(encodeURIComponent(formDataString));
+        // Generate unique short form ID (8-10 characters)
+        const formId = Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(2, 8);
         
-        // Generate share link with encoded data
+        // Save form data to localStorage with formId and timestamp (for same device)
+        const formDataString = JSON.stringify(interviewData);
+        const formStorage = {
+            data: interviewData,
+            timestamp: Date.now(),
+            expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days
+        };
+        localStorage.setItem(`evaalo_form_${formId}`, JSON.stringify(formStorage));
+        
+        // Compress and encode data for URL (for cross-device sharing)
+        // Use formId for short link, data for actual content
+        let compressedData = '';
+        try {
+            // Advanced minification: remove all unnecessary whitespace only
+            // Keep JSON structure intact for proper parsing
+            const minified = JSON.stringify(interviewData).replace(/\s+/g, '');
+            
+            // Encode to base64 with URL-safe characters
+            compressedData = btoa(unescape(encodeURIComponent(minified)))
+                .replace(/\+/g, '-')  // Replace + with - (URL-safe)
+                .replace(/\//g, '_')  // Replace / with _ (URL-safe)
+                .replace(/=+$/, '');  // Remove padding
+        } catch (error) {
+            console.error('Error compressing data:', error);
+            // Fallback: simple base64 encoding
+            const simpleMinified = formDataString.replace(/\s+/g, '');
+            compressedData = btoa(unescape(encodeURIComponent(simpleMinified)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+        }
+        
+        // Generate share link
+        // Primary: formId only (works for same device)
+        // Fallback: formId + data (works across devices)
         const currentUrl = window.location.origin + window.location.pathname.replace('design.html', '');
-        const shareUrl = `${currentUrl}form-preview.html?data=${encodedData}`;
+        
+        // Always include data in URL for cross-device compatibility
+        // formId is kept for reference and localStorage lookup
+        const shareUrl = `${currentUrl}form-preview.html?id=${formId}&d=${compressedData}`;
         
         shareLink.value = shareUrl;
         
-        // Also save to localStorage as backup (for same browser)
-        const formId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-        localStorage.setItem(`evaalo_form_${formId}`, formDataString);
+        // Also save to a global forms list for management
+        let formsList = JSON.parse(localStorage.getItem('evaalo_forms_list') || '[]');
+        formsList.push({
+            id: formId,
+            title: interviewData.title,
+            createdAt: Date.now()
+        });
+        // Keep only last 50 forms
+        if (formsList.length > 50) {
+            formsList = formsList.slice(-50);
+        }
+        localStorage.setItem('evaalo_forms_list', JSON.stringify(formsList));
         
         shareModal.classList.add('show');
     }

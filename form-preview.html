@@ -160,39 +160,87 @@
     </div>
 
     <script>
-        // Get form data from URL
+        // Get form ID and data from URL
         const urlParams = new URLSearchParams(window.location.search);
-        const encodedData = urlParams.get('data');
-        const formId = urlParams.get('id'); // Fallback for localStorage
+        const formId = urlParams.get('id');
+        const encodedData = urlParams.get('data') || urlParams.get('d'); // Support both 'data' and 'd' (shortened)
 
         // Load form data
         function loadFormData() {
             let formData = null;
 
-            // Try to get from URL parameter first (works across devices)
-            if (encodedData) {
+            // Method 1: Try to get from localStorage using formId (primary method)
+            if (formId) {
                 try {
-                    const decodedData = decodeURIComponent(atob(encodedData));
-                    formData = JSON.parse(decodedData);
+                    const savedForm = localStorage.getItem(`evaalo_form_${formId}`);
+                    if (savedForm) {
+                        const formStorage = JSON.parse(savedForm);
+                        
+                        // Check if form has expired
+                        if (formStorage.expiresAt && Date.now() > formStorage.expiresAt) {
+                            showError('This form link has expired. Please request a new link.');
+                            return;
+                        }
+                        
+                        // Get form data from storage
+                        if (formStorage.data) {
+                            formData = formStorage.data;
+                        } else {
+                            // Legacy format - data is stored directly
+                            formData = formStorage;
+                        }
+                    }
                 } catch (error) {
-                    console.error('Error decoding URL data:', error);
+                    console.error('Error reading form from localStorage:', error);
                 }
             }
 
-            // Fallback to localStorage if URL data not available (same browser)
-            if (!formData && formId) {
-                const savedForm = localStorage.getItem(`evaalo_form_${formId}`);
-                if (savedForm) {
+            // Method 2: Try to get from URL data parameter (for cross-device sharing)
+            if (!formData && encodedData) {
+                try {
+                    // Decode URL-safe base64
+                    // Step 1: Replace URL-safe characters back to standard base64
+                    let base64Data = encodedData.replace(/-/g, '+').replace(/_/g, '/');
+                    
+                    // Step 2: Add padding if needed (base64 requires length to be multiple of 4)
+                    const padding = base64Data.length % 4;
+                    if (padding) {
+                        base64Data += '='.repeat(4 - padding);
+                    }
+                    
+                    // Step 3: Decode base64 to string
+                    let decodedString;
                     try {
-                        formData = JSON.parse(savedForm);
-                    } catch (error) {
-                        console.error('Error parsing localStorage data:', error);
+                        // Method 1: Standard decode
+                        decodedString = decodeURIComponent(escape(atob(base64Data)));
+                    } catch (e1) {
+                        // Method 2: Direct atob (if no special characters)
+                        decodedString = atob(base64Data);
+                    }
+                    
+                    // Step 4: Parse JSON
+                    formData = JSON.parse(decodedString);
+                } catch (error) {
+                    console.error('Error decoding URL data:', error);
+                    console.error('Encoded data length:', encodedData.length);
+                    console.error('Encoded data preview:', encodedData.substring(0, 50) + '...');
+                    
+                    // Try alternative decoding methods
+                    try {
+                        // Alternative 1: Direct base64 decode
+                        const base64Data = encodedData.replace(/-/g, '+').replace(/_/g, '/');
+                        const padding = base64Data.length % 4;
+                        const paddedData = base64Data + (padding ? '='.repeat(4 - padding) : '');
+                        const decodedString = atob(paddedData);
+                        formData = JSON.parse(decodedString);
+                    } catch (error2) {
+                        console.error('Alternative decoding also failed:', error2);
                     }
                 }
             }
 
             if (!formData) {
-                showError('Form not found. The form link may be invalid or expired.');
+                showError('Form not found. The form link may be invalid or expired. Please check the link and try again.');
                 return;
             }
 
@@ -439,4 +487,5 @@
     </script>
 </body>
 </html>
+
 
