@@ -1929,7 +1929,7 @@
         width: 85%;
         max-width: 320px;
         height: 100vh;
-        z-index: 1002 !important;
+        z-index: 5000 !important; /* Panel z-index - below dropdowns (9999) */
         overflow-y: auto;
         overflow-x: hidden;
         transform: translateX(-100%);
@@ -1989,12 +1989,16 @@
     .design-sidebar.mobile-open {
         /* Use exact same styling as desktop sidebar */
         background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
-        backdrop-filter: blur(30px) !important;
+        backdrop-filter: none !important; /* Remove blur to prevent darkening dropdowns */
         border: 1px solid rgba(148, 163, 184, 0.2) !important;
         border-radius: 20px !important;
         padding: 30px !important;
         /* Ensure dropdowns are not affected by sidebar backdrop-filter */
         isolation: isolate !important;
+        /* Remove any transform that affects dropdown visibility */
+        transform: translateX(0) !important;
+        filter: none !important;
+        opacity: 1 !important;
     }
     
     /* Create a new stacking context for dropdowns to prevent backdrop-filter from affecting them */
@@ -2387,7 +2391,7 @@
         border-radius: 12px !important;
         max-height: 320px !important;
         overflow-y: auto !important;
-        z-index: 1005 !important; /* Higher than sidebar (1002) and overlay (1001) */
+        z-index: 9999 !important; /* Dropdown above everything - panel is 5000, overlay is 1001 */
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
         pointer-events: auto !important;
         opacity: 1 !important;
@@ -2405,6 +2409,14 @@
         isolation: isolate !important;
         /* Ensure proper stacking and rendering */
         will-change: transform !important;
+        /* Force new stacking context - but keep absolute for proper positioning */
+    }
+    
+    /* When dropdown is open, ensure it's above everything */
+    .design-sidebar.mobile-open .color-dropdown-menu.open,
+    .design-sidebar.mobile-open .category-dropdown-menu.open {
+        z-index: 9999 !important;
+        position: absolute !important;
     }
     
     .design-sidebar.mobile-open .category-dropdown-menu {
@@ -2483,10 +2495,28 @@
         display: block;
     }
     
+    /* Fix: Overlay should not interfere with dropdowns - make it transparent when dropdowns are open */
+    .design-sidebar.mobile-open .custom-color-dropdown .color-dropdown-menu.open ~ *,
+    .design-sidebar.mobile-open .custom-category-dropdown .category-dropdown-menu.open ~ *,
+    .design-sidebar.mobile-open .color-dropdown-menu.open,
+    .design-sidebar.mobile-open .category-dropdown-menu.open {
+        /* When dropdown is open, overlay should not block it */
+    }
+    
+    /* Better solution: Make overlay not interfere with sidebar content */
+    /* Overlay should be behind sidebar, not blocking it */
+    .sidebar-overlay.active {
+        z-index: 1001 !important; /* Below sidebar (5000) and dropdowns (9999) */
+    }
+    
     /* Ensure sidebar and all its content is always interactive when open */
     .design-sidebar.mobile-open {
         pointer-events: auto !important;
-        z-index: 1002 !important; /* Above overlay */
+        z-index: 5000 !important; /* Panel z-index - above overlay (1001), below dropdowns (9999) */
+        /* Remove any transform/blur that affects dropdowns */
+        transform: translateX(0) !important;
+        filter: none !important;
+        backdrop-filter: none !important; /* Remove blur that darkens dropdowns */
     }
     
     .design-sidebar.mobile-open * {
