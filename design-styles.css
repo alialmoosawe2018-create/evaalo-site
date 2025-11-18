@@ -2654,6 +2654,106 @@
     .sidebar-overlay.active {
         z-index: 1001 !important;
     }
+    
+    /* FINAL ICON FIXES - Ensure all icons are visible in sidebar and dropdowns */
+    .design-sidebar.mobile-open .category-icon,
+    .design-sidebar.mobile-open .category-icon svg,
+    .design-sidebar.mobile-open .color-dropdown-item .color-box,
+    .design-sidebar.mobile-open .category-dropdown-item .category-icon,
+    .design-sidebar.mobile-open .category-dropdown-item .category-icon svg,
+    .design-sidebar.mobile-open .category-dropdown-selected .category-icon,
+    .design-sidebar.mobile-open .category-dropdown-selected .category-icon svg,
+    .design-sidebar.mobile-open .dropdown-arrow,
+    .design-sidebar.mobile-open .dropdown-arrow svg {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        filter: none !important;
+        transform: none !important;
+        color: #94A3B8 !important;
+        stroke: currentColor !important;
+        fill: none !important;
+    }
+    
+    .design-sidebar.mobile-open .category-icon svg,
+    .design-sidebar.mobile-open .category-dropdown-item .category-icon svg,
+    .design-sidebar.mobile-open .category-dropdown-selected .category-icon svg {
+        width: 20px !important;
+        height: 20px !important;
+    }
+    
+    .design-sidebar.mobile-open .category-dropdown-selected:hover .category-icon,
+    .design-sidebar.mobile-open .category-dropdown-selected:hover .category-icon svg,
+    .design-sidebar.mobile-open .category-dropdown-item:hover .category-icon,
+    .design-sidebar.mobile-open .category-dropdown-item:hover .category-icon svg {
+        color: #6366F1 !important;
+        stroke: currentColor !important;
+    }
+    
+    .design-sidebar.mobile-open .color-box {
+        width: 28px !important;
+        height: 28px !important;
+        border-radius: 6px !important;
+        display: block !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        flex-shrink: 0 !important;
+        filter: none !important;
+        transform: none !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    .design-sidebar.mobile-open .dropdown-arrow {
+        width: 12px !important;
+        height: 8px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: inline-block !important;
+        color: #94A3B8 !important;
+        filter: none !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-selected.open .dropdown-arrow,
+    .design-sidebar.mobile-open .category-dropdown-selected.open .dropdown-arrow {
+        transform: rotate(180deg) !important;
+    }
+    
+    /* Ensure question type button icons are visible */
+    .design-sidebar.mobile-open .question-type-btn svg,
+    .design-sidebar.mobile-open .question-type-btn svg path,
+    .design-sidebar.mobile-open .question-type-btn svg circle,
+    .design-sidebar.mobile-open .question-type-btn svg rect,
+    .design-sidebar.mobile-open .question-type-btn svg line {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: inline-block !important;
+        color: #6366F1 !important;
+        stroke: currentColor !important;
+        fill: none !important;
+        filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.15)) !important;
+    }
+    
+    /* Ensure all SVG elements in sidebar are visible */
+    .design-sidebar.mobile-open svg,
+    .design-sidebar.mobile-open svg path,
+    .design-sidebar.mobile-open svg circle,
+    .design-sidebar.mobile-open svg rect,
+    .design-sidebar.mobile-open svg line,
+    .design-sidebar.mobile-open svg polyline,
+    .design-sidebar.mobile-open svg polygon {
+        opacity: 1 !important;
+        visibility: visible !important;
+        stroke: currentColor !important;
+        fill: none !important;
+        filter: none !important;
+    }
+    
+    /* Override for specific icon types */
+    .design-sidebar.mobile-open .question-type-btn svg {
+        filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.15)) !important;
+    }
 }
 
 @keyframes fadeIn {
