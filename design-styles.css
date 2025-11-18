@@ -1517,15 +1517,10 @@
         overflow-x: hidden;
     }
 
-    /* On tablets (992px-768px), sidebar can be static but visible */
-    /* On mobile (768px and below), sidebar is hidden from grid and shown as fixed drawer */
     .design-sidebar {
         position: static;
         max-height: none;
         overflow: visible;
-        transform: translateX(0) !important; /* Ensure visible */
-        opacity: 1 !important; /* Ensure fully visible */
-        visibility: visible !important;
     }
 
     .design-main {
@@ -1842,19 +1837,6 @@
         overflow-x: hidden;
         width: 100%;
         max-width: 100%;
-        /* Prevent browser swipe navigation */
-        overscroll-behavior-x: none;
-        -webkit-overflow-scrolling: touch;
-    }
-    
-    /* Prevent swipe navigation gestures */
-    body {
-        touch-action: pan-y pinch-zoom; /* Allow vertical scroll and pinch zoom, but prevent horizontal swipe */
-    }
-    
-    /* Allow horizontal swipe only for sidebar drawer */
-    .design-sidebar {
-        touch-action: pan-y pan-x;
     }
 
     .design-page {
@@ -1936,16 +1918,6 @@
     }
 
     /* Sidebar on Mobile - Drawer Behavior */
-    /* First, hide the static sidebar from grid layout */
-    .design-content {
-        display: block !important; /* Change from grid to block to prevent duplicate rendering */
-    }
-    
-    .design-content > .design-sidebar {
-        display: none !important; /* Hide static sidebar in grid - only show fixed drawer */
-    }
-    
-    /* Now show the fixed drawer */
     .design-sidebar {
         position: fixed !important;
         top: 0;
@@ -1956,53 +1928,18 @@
         z-index: 1002 !important; /* Higher than overlay */
         overflow-y: auto;
         overflow-x: hidden;
-        transform: translateX(-100%); /* Hidden by default, opens with toggle */
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        /* Ensure smooth closing animation */
-        -webkit-transform: translateX(-100%);
-        -webkit-transition: -webkit-transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
         background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
         backdrop-filter: blur(30px);
         pointer-events: auto !important;
         opacity: 1 !important;
-        visibility: visible !important;
         -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-        will-change: transform; /* Optimize for animations */
-        display: block !important;
-        /* Remove conflicting styles from static sidebar */
-        border-radius: 0 !important;
-        padding: 30px 20px !important;
-        margin: 0 !important;
     }
 
     .design-sidebar.mobile-open {
-        transform: translateX(0) !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        display: block !important;
-    }
-    
-    /* Ensure sidebar is completely hidden when closed */
-    .design-sidebar:not(.mobile-open) {
-        transform: translateX(-100%) !important;
-        /* Keep opacity and visibility for smooth transitions */
-    }
-    
-    /* Ensure sidebar content is always visible and not transparent */
-    .design-sidebar .sidebar-section,
-    .design-sidebar .form-group,
-    .design-sidebar .form-input,
-    .design-sidebar .form-select,
-    .design-sidebar .form-label,
-    .design-sidebar .checkbox-label,
-    .design-sidebar .question-types,
-    .design-sidebar .question-type-btn,
-    .design-sidebar .sidebar-title,
-    .design-sidebar .custom-color-dropdown,
-    .design-sidebar .custom-category-dropdown {
-        opacity: 1 !important;
-        visibility: visible !important;
+        transform: translateX(0);
     }
 
     /* Close button visible on mobile when drawer is open */
@@ -2112,45 +2049,19 @@
         bottom: 0;
         background: rgba(0, 0, 0, 0.6);
         z-index: 1001; /* Below sidebar but above content */
-        display: none !important; /* Hidden by default - only show when sidebar is open */
+        display: none;
         pointer-events: auto; /* Allow clicking to close */
         transition: opacity 0.3s ease;
-        /* Ensure overlay covers all content and prevents seeing through */
-        backdrop-filter: blur(2px);
-        opacity: 0;
-        visibility: hidden;
     }
 
     .sidebar-overlay.active {
-        display: block !important;
-        opacity: 1;
-        visibility: visible;
-    }
-    
-    /* Prevent main content from being visible through overlay */
-    .design-main,
-    .design-content,
-    .design-container {
-        position: relative;
-        z-index: 1;
-    }
-    
-    /* When sidebar overlay is active, ensure main content stays behind */
-    .sidebar-overlay.active ~ *,
-    .sidebar-overlay.active + * {
-        z-index: 0;
-    }
-    
-    /* Alternative: use class on body when sidebar is open */
-    body.sidebar-open .design-main,
-    body.sidebar-open .design-content {
-        z-index: 0;
+        display: block;
     }
     
     /* Ensure sidebar and all its content is always interactive when open */
     .design-sidebar.mobile-open {
         pointer-events: auto !important;
-        z-index: 1002 !important;
+        z-index: 1002 !important; /* Above overlay */
     }
     
     .design-sidebar.mobile-open * {
@@ -2164,7 +2075,7 @@
         z-index: 1;
     }
     
-    /* Make sure all interactive elements work */
+    /* Make sure all interactive elements work inside sidebar */
     .design-sidebar.mobile-open input,
     .design-sidebar.mobile-open select,
     .design-sidebar.mobile-open textarea,
@@ -2176,10 +2087,16 @@
     .design-sidebar.mobile-open .form-group,
     .design-sidebar.mobile-open .form-input,
     .design-sidebar.mobile-open .form-select,
-    .design-sidebar.mobile-open .form-label {
+    .design-sidebar.mobile-open .form-label,
+    .design-sidebar.mobile-open .color-dropdown-selected,
+    .design-sidebar.mobile-open .category-dropdown-selected,
+    .design-sidebar.mobile-open .color-dropdown-menu,
+    .design-sidebar.mobile-open .category-dropdown-menu {
         pointer-events: auto !important;
         touch-action: manipulation; /* Better touch handling */
         -webkit-tap-highlight-color: rgba(59, 130, 246, 0.3); /* Visual feedback on tap */
+        z-index: 2 !important; /* Above sidebar background */
+        position: relative;
     }
 
     /* Ensure main content is visible when sidebar is closed */

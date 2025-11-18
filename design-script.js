@@ -1,15 +1,5 @@
 // Design Platform Script
 document.addEventListener('DOMContentLoaded', function() {
-    // Ensure overlay is hidden on page load
-    const initialOverlay = document.querySelector('.sidebar-overlay');
-    if (initialOverlay) {
-        initialOverlay.classList.remove('active');
-        initialOverlay.style.display = 'none';
-    }
-    // Ensure body is not locked
-    document.body.style.overflow = '';
-    document.body.classList.remove('sidebar-open');
-    
     let questions = [];
     let editingQuestionIndex = null;
     let currentQuestionType = 'text';
@@ -342,12 +332,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(sidebarOverlay);
     }
     
-    // Ensure overlay is hidden by default
-    if (sidebarOverlay) {
-        sidebarOverlay.classList.remove('active');
-        sidebarOverlay.style.display = 'none';
-    }
-    
     // Open/Close functions
     function openSidebar() {
         if (designSidebar) {
@@ -355,8 +339,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (sidebarOverlay) {
                 sidebarOverlay.classList.add('active');
             }
-            // Add class to body to control z-index of main content
-            document.body.classList.add('sidebar-open');
             // Prevent body scroll when drawer is open
             document.body.style.overflow = 'hidden';
         }
@@ -365,29 +347,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function closeSidebar() {
         if (designSidebar) {
             designSidebar.classList.remove('mobile-open');
-            // Ensure sidebar is completely hidden
-            designSidebar.style.transform = 'translateX(-100%)';
-            designSidebar.style.opacity = '1';
-            designSidebar.style.visibility = 'visible';
-            
             if (sidebarOverlay) {
                 sidebarOverlay.classList.remove('active');
-                sidebarOverlay.style.opacity = '';
             }
-            
-            // Remove class from body
-            document.body.classList.remove('sidebar-open');
-            
             // Restore body scroll
             document.body.style.overflow = '';
-            
-            // Clean up any inline styles after transition
-            setTimeout(() => {
-                if (designSidebar && !designSidebar.classList.contains('mobile-open')) {
-                    // Ensure no residual styles
-                    designSidebar.style.transform = 'translateX(-100%)';
-                }
-            }, 350);
         }
     }
     
@@ -401,21 +365,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 sidebarCloseBtn.style.display = 'flex';
             }
             if (designSidebar) {
-                // On mobile, sidebar should be hidden by default (drawer closed)
+                // On mobile, sidebar should be hidden by default
                 closeSidebar();
-                // Ensure sidebar is visible when rendered (not transparent)
-                designSidebar.style.opacity = '1';
-                designSidebar.style.visibility = 'visible';
-                designSidebar.style.display = 'block';
             }
-            // Ensure overlay is hidden on mobile by default
-            if (sidebarOverlay) {
-                sidebarOverlay.classList.remove('active');
-                sidebarOverlay.style.display = 'none';
-            }
-            // Ensure body scroll is enabled
-            document.body.style.overflow = '';
-            document.body.classList.remove('sidebar-open');
         } else {
             if (sidebarToggleBtn) {
                 sidebarToggleBtn.style.display = 'none';
@@ -428,9 +380,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 closeSidebar();
                 designSidebar.style.transform = 'translateX(0)';
                 designSidebar.style.position = 'sticky';
-                designSidebar.style.opacity = '1';
-                designSidebar.style.visibility = 'visible';
-                designSidebar.style.display = 'block';
             }
             if (sidebarOverlay) {
                 sidebarOverlay.classList.remove('active');
@@ -439,49 +388,6 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.overflow = '';
         }
     }
-    
-    // Prevent browser swipe navigation on mobile
-    // This prevents the page from navigating when swiping horizontally
-    let preventNavigationTouchStartX = 0;
-    let preventNavigationTouchStartY = 0;
-    let isPreventingNavigation = false;
-    let sidebarIsDragging = false; // Track if sidebar is being dragged
-    
-    document.addEventListener('touchstart', (e) => {
-        if (window.innerWidth <= 768) {
-            // Only track if not starting from left edge (for sidebar)
-            if (e.touches[0].clientX > 15) {
-                preventNavigationTouchStartX = e.touches[0].clientX;
-                preventNavigationTouchStartY = e.touches[0].clientY;
-                isPreventingNavigation = true;
-            } else {
-                isPreventingNavigation = false;
-            }
-        }
-    }, { passive: true });
-    
-    document.addEventListener('touchmove', (e) => {
-        if (window.innerWidth <= 768 && isPreventingNavigation) {
-            // Check if sidebar is open or being dragged
-            const sidebarOpen = designSidebar && designSidebar.classList.contains('mobile-open');
-            const isSidebarDrag = designSidebar && (e.target.closest('.design-sidebar') || sidebarOpen);
-            
-            if (!isSidebarDrag) {
-                const deltaX = Math.abs(e.touches[0].clientX - preventNavigationTouchStartX);
-                const deltaY = Math.abs(e.touches[0].clientY - preventNavigationTouchStartY);
-                
-                // If horizontal swipe is significant, prevent browser navigation
-                if (deltaX > 30 && deltaX > deltaY * 2) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            }
-        }
-    }, { passive: false });
-    
-    document.addEventListener('touchend', () => {
-        isPreventingNavigation = false;
-    }, { passive: true });
     
     // Initial check
     updateSidebarToggle();
@@ -505,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Close sidebar when clicking overlay (but not when clicking inside sidebar)
+    // Close sidebar when clicking overlay (but NOT when clicking inside sidebar)
     if (sidebarOverlay) {
         sidebarOverlay.addEventListener('click', (e) => {
             // Only close if clicking directly on overlay, not on sidebar content
@@ -517,35 +423,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Prevent sidebar from closing when clicking inside it
     if (designSidebar) {
-        // Use event delegation to prevent closing when interacting with any element inside sidebar
         designSidebar.addEventListener('click', (e) => {
-            // Stop all clicks inside sidebar from bubbling to document level
-            // This prevents the document click handler from closing the sidebar
+            // Stop event propagation to prevent closing when clicking inside sidebar
             e.stopPropagation();
-        }, true); // Use capture phase to catch events early
+        });
         
+        // Also prevent touch events from closing sidebar
         designSidebar.addEventListener('touchstart', (e) => {
-            // Same for touch events
             e.stopPropagation();
-        }, true); // Use capture phase
+        }, { passive: true });
+        
+        designSidebar.addEventListener('touchend', (e) => {
+            e.stopPropagation();
+        }, { passive: true });
     }
     
-    // Close sidebar only when clicking outside (on mobile only)
+    // Close sidebar when clicking outside (only on mobile)
     document.addEventListener('click', (e) => {
         if (window.innerWidth <= 768) {
             // Check if sidebar is open
             if (designSidebar && designSidebar.classList.contains('mobile-open')) {
-                // Only close if clicking outside sidebar, toggle button, and overlay
-                const clickedInsideSidebar = designSidebar.contains(e.target);
-                const clickedOnToggle = sidebarToggleBtn && sidebarToggleBtn.contains(e.target);
-                const clickedOnOverlay = sidebarOverlay && (e.target === sidebarOverlay);
-                
-                if (!clickedInsideSidebar && !clickedOnToggle && clickedOnOverlay) {
+                // Close only if clicking outside sidebar and outside toggle button
+                if (!designSidebar.contains(e.target) && 
+                    !sidebarToggleBtn.contains(e.target) &&
+                    !sidebarCloseBtn.contains(e.target) &&
+                    (!sidebarOverlay || e.target !== sidebarOverlay)) {
                     closeSidebar();
                 }
             }
         }
-    }, true); // Use capture phase to catch events early
+    });
     
     // Swipe Gestures for Mobile Drawer
     if (designSidebar) {
@@ -554,42 +461,26 @@ document.addEventListener('DOMContentLoaded', function() {
         let touchEndX = 0;
         let touchEndY = 0;
         let isDragging = false;
-        let isOpeningFromEdge = false; // Track if we're opening from left edge
         let currentTranslate = 0;
-        let minDragDistance = 0; // Track minimum drag distance to prevent accidental opens
+        let animationID = 0;
         
-        // Touch start - detect swipe from left edge ONLY
-        // Prevent browser swipe navigation by handling touch events
+        // Touch start - detect swipe from left edge
         document.addEventListener('touchstart', (e) => {
             if (window.innerWidth > 768) return; // Desktop only
-            if (designSidebar.classList.contains('mobile-open')) return; // Don't interfere if already open
             
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
             
-            // Only allow opening from very left edge (within 15px) and only if sidebar is closed
-            // This prevents browser swipe navigation
-            if (touchStartX <= 15 && !designSidebar.classList.contains('mobile-open')) {
-                // Check if touch is not on an interactive element
-                const target = e.target;
-                const isInteractive = target.matches('button, a, input, select, textarea, .btn, .question-type-btn') ||
-                                     target.closest('button, a, input, select, textarea, .btn, .question-type-btn');
-                
-                if (!isInteractive) {
-                    isDragging = true;
-                    isOpeningFromEdge = true;
-                    currentTranslate = -100;
-                    minDragDistance = 0;
-                    // Prevent browser swipe navigation
-                    e.stopPropagation();
-                }
+            // Check if touch started from left edge (within 20px)
+            if (touchStartX <= 20 && !designSidebar.classList.contains('mobile-open')) {
+                isDragging = true;
+                currentTranslate = -100;
             }
         }, { passive: true });
         
-        // Touch move - drag drawer open from left edge
+        // Touch move - drag drawer
         document.addEventListener('touchmove', (e) => {
-            if (window.innerWidth > 768 || !isDragging || !isOpeningFromEdge) return;
-            if (designSidebar.classList.contains('mobile-open')) return; // Don't interfere if already open
+            if (window.innerWidth > 768 || !isDragging) return;
             
             touchEndX = e.touches[0].clientX;
             touchEndY = e.touches[0].clientY;
@@ -598,14 +489,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const deltaY = Math.abs(touchEndY - touchStartY);
             
             // Only allow horizontal swipe (not vertical scrolling)
-            // Require minimum horizontal movement to prevent accidental opens
-            if (deltaX > 20 && Math.abs(deltaX) > deltaY * 1.5) {
+            if (Math.abs(deltaX) > deltaY && Math.abs(deltaX) > 10) {
                 e.preventDefault();
                 
                 // Calculate translate percentage
                 const sidebarWidth = designSidebar.offsetWidth;
                 currentTranslate = Math.max(-100, Math.min(0, (deltaX / sidebarWidth) * 100));
-                minDragDistance = Math.max(minDragDistance, deltaX);
                 
                 // Apply transform
                 designSidebar.style.transition = 'none';
@@ -616,44 +505,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     const opacity = Math.min(0.6, (100 + currentTranslate) / 100 * 0.6);
                     sidebarOverlay.style.opacity = opacity;
                 }
-            } else if (deltaY > 10 || Math.abs(deltaX) < 10) {
-                // If vertical movement or too little horizontal movement, cancel
-                isDragging = false;
-                isOpeningFromEdge = false;
-                designSidebar.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                designSidebar.style.transform = 'translateX(-100%)';
-                if (sidebarOverlay) {
-                    sidebarOverlay.style.opacity = '';
-                }
             }
         }, { passive: false });
         
         // Touch end - snap to open/close
-        document.addEventListener('touchend', (e) => {
-            if (window.innerWidth > 768 || !isDragging || !isOpeningFromEdge) {
-                isDragging = false;
-                isOpeningFromEdge = false;
-                return;
-            }
+        document.addEventListener('touchend', () => {
+            if (window.innerWidth > 768 || !isDragging) return;
             
             isDragging = false;
-            sidebarIsDragging = false;
-            isOpeningFromEdge = false;
-            
-            // Restore smooth transition
             designSidebar.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
             
-            // Only open if dragged at least 30% of sidebar width to prevent accidental opens
-            const threshold = -70; // 70% of sidebar width must be revealed
-            const minDragThreshold = 50; // Minimum pixels dragged
-            
-            if (currentTranslate > threshold && minDragDistance >= minDragThreshold) {
+            // Determine if should open or close based on drag distance
+            const threshold = -50; // 50% of sidebar width
+            if (currentTranslate > threshold) {
                 // Open drawer
-                designSidebar.style.transform = 'translateX(0)';
                 openSidebar();
             } else {
-                // Close drawer - snap back
-                designSidebar.style.transform = 'translateX(-100%)';
+                // Close drawer
                 closeSidebar();
             }
             
@@ -661,15 +529,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (sidebarOverlay) {
                 sidebarOverlay.style.opacity = '';
             }
-            
-            // Reset for next interaction
-            minDragDistance = 0;
-            currentTranslate = -100;
-            
-            // Reset sidebar dragging flag after a delay
-            setTimeout(() => {
-                sidebarIsDragging = false;
-            }, 100);
         }, { passive: true });
         
         // Swipe to close when drawer is open
@@ -681,7 +540,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (designSidebar.classList.contains('mobile-open')) {
                 isDragging = true;
-                sidebarIsDragging = true;
                 currentTranslate = 0;
             }
         }, { passive: true });
@@ -693,69 +551,39 @@ document.addEventListener('DOMContentLoaded', function() {
             const deltaX = touchEndX - touchStartX;
             
             // Only allow swipe left (negative deltaX) to close
-            if (deltaX < -5) { // Reduced threshold for more responsive dragging
+            if (deltaX < -10) {
                 e.preventDefault();
                 
                 const sidebarWidth = designSidebar.offsetWidth;
-                // Calculate translate percentage (negative = left, positive = right)
-                currentTranslate = Math.max(-100, Math.min(0, (deltaX / sidebarWidth) * 100));
+                currentTranslate = Math.max(-100, (deltaX / sidebarWidth) * 100);
                 
-                // Disable transition during drag for smooth following
                 designSidebar.style.transition = 'none';
                 designSidebar.style.transform = `translateX(${currentTranslate}%)`;
                 
-                // Update overlay opacity based on drag progress
                 if (sidebarOverlay) {
-                    const opacity = Math.max(0, Math.min(0.6, (100 + currentTranslate) / 100 * 0.6));
+                    const opacity = Math.max(0, (100 + currentTranslate) / 100 * 0.6);
                     sidebarOverlay.style.opacity = opacity;
                 }
             }
         }, { passive: false });
         
-        designSidebar.addEventListener('touchend', (e) => {
+        designSidebar.addEventListener('touchend', () => {
             if (window.innerWidth > 768 || !isDragging) return;
             
             isDragging = false;
-            sidebarIsDragging = false;
-            
-            // Restore smooth transition
             designSidebar.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
             
-            // Determine if should close or snap back based on drag distance and velocity
-            const threshold = -25; // 25% of sidebar width - more sensitive for closing
-            const velocity = Math.abs(currentTranslate); // Simple velocity check
-            
-            if (currentTranslate < threshold || velocity > 50) {
-                // Close completely - ensure it goes fully off screen
-                designSidebar.style.transform = 'translateX(-100%)';
+            // Close if dragged more than 30% to the left
+            if (currentTranslate < -30) {
                 closeSidebar();
-                
-                // Ensure sidebar is completely hidden after animation
-                setTimeout(() => {
-                    if (designSidebar && !designSidebar.classList.contains('mobile-open')) {
-                        designSidebar.style.transform = 'translateX(-100%)';
-                        designSidebar.style.opacity = '1';
-                        designSidebar.style.visibility = 'visible';
-                    }
-                }, 300); // Wait for transition to complete
             } else {
-                // Snap back to open position
-                designSidebar.style.transform = 'translateX(0)';
+                // Snap back to open
                 openSidebar();
             }
             
-            // Reset overlay opacity
             if (sidebarOverlay) {
                 sidebarOverlay.style.opacity = '';
             }
-            
-            // Reset currentTranslate for next interaction
-            currentTranslate = designSidebar.classList.contains('mobile-open') ? 0 : -100;
-            
-            // Reset sidebar dragging flag after a delay
-            setTimeout(() => {
-                sidebarIsDragging = false;
-            }, 100);
         }, { passive: true });
     }
 
