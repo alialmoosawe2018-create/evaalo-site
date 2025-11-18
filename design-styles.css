@@ -140,6 +140,13 @@
     position: sticky;
     top: 110px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    display: block;
+    transform: translateX(0);
+}
+
+/* Sidebar Toggle Button - Hidden on desktop */
+.sidebar-toggle-btn {
+    display: none;
 }
 
 .sidebar-section {
@@ -1415,37 +1422,114 @@
 
     .header-actions {
         width: 100%;
+        flex-wrap: wrap;
+        gap: 10px;
     }
 
     .header-actions .btn {
-        flex: 1;
+        flex: 1 1 calc(33.333% - 7px);
+        min-width: calc(33.333% - 7px);
+        padding: 10px 14px;
+        font-size: 13px;
     }
 }
 
 @media (max-width: 768px) {
+    .design-page {
+        padding: 80px 0 20px;
+    }
+
     .design-title {
-        font-size: 28px;
+        font-size: 24px;
+        margin-bottom: 5px;
+    }
+
+    .design-subtitle {
+        font-size: 14px;
     }
 
     .design-container {
-        padding: 0 15px;
+        padding: 0 10px;
+        max-width: 100%;
+        overflow-x: hidden;
     }
 
-    .design-header,
+    .design-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+        padding: 20px 15px;
+        margin-bottom: 20px;
+    }
+
+    .header-content {
+        width: 100%;
+    }
+
+    .header-actions {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: stretch;
+    }
+
+    .header-actions .btn {
+        flex: 1 1 calc(50% - 4px);
+        min-width: calc(50% - 4px);
+        padding: 10px 12px;
+        font-size: 13px;
+        justify-content: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .header-actions .btn svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+    }
+
     .design-sidebar,
     .design-main {
-        padding: 20px;
+        padding: 15px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .design-content {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    .design-sidebar {
+        position: static;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .design-main {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
     }
 
     .editor-toolbar {
-        padding: 15px 20px;
+        padding: 12px 15px;
         flex-wrap: wrap;
+        gap: 8px;
     }
 
     .toolbar-btn {
-        flex: 1;
-        min-width: calc(50% - 5px);
+        flex: 1 1 calc(50% - 4px);
+        min-width: calc(50% - 4px);
         justify-content: center;
+        padding: 10px 12px;
+        font-size: 13px;
     }
 
     .question-card {
@@ -1462,9 +1546,72 @@
         justify-content: flex-end;
     }
 
+    .question-types {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .question-type-btn {
+        padding: 12px 10px;
+        font-size: 13px;
+    }
+
+    .question-type-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .sidebar-section {
+        margin-bottom: 25px;
+        padding-bottom: 25px;
+    }
+
+    .form-elements-sidebar {
+        max-height: none;
+        overflow: visible;
+    }
+
+    .elements-list {
+        max-height: none;
+        overflow: visible;
+    }
+
+    .elements-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .form-element-item {
+        padding: 12px;
+        font-size: 13px;
+    }
+
+    .settings-content {
+        display: block !important;
+        visibility: visible !important;
+        max-height: none !important;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-label {
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+
+    .form-input,
+    .custom-color-dropdown,
+    .custom-category-dropdown {
+        font-size: 14px;
+        padding: 10px 12px;
+    }
+
     .modal-content {
         max-width: 100%;
         margin: 0 10px;
+        width: calc(100% - 20px);
     }
 
     .toast {
@@ -1524,27 +1671,122 @@
 }
 
 @media (max-width: 480px) {
+    .design-container {
+        padding: 0 8px;
+    }
+
+    .design-header {
+        padding: 15px 10px;
+        gap: 12px;
+    }
+
+    .design-title {
+        font-size: 20px;
+    }
+
+    .design-subtitle {
+        font-size: 12px;
+    }
+
+    .header-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .header-actions .btn {
+        flex: 1;
+        width: 100%;
+        min-width: 100%;
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+
+    .design-sidebar,
+    .design-main {
+        padding: 12px;
+    }
+
+    .sidebar-section {
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+    }
+
+    .sidebar-title {
+        font-size: 16px;
+    }
+
+    .question-types {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .question-type-btn {
+        padding: 12px;
+        font-size: 13px;
+    }
+
+    .toolbar-btn {
+        flex: 1 1 100%;
+        min-width: 100%;
+        margin-bottom: 8px;
+    }
+
+    .question-card {
+        padding: 15px;
+    }
+
+    .question-text {
+        font-size: 14px;
+    }
+
     .voice-recorder-preview {
-        padding: 18px;
+        padding: 15px;
     }
 
     .voice-record-btn {
-        width: 65px;
-        height: 65px;
+        width: 60px;
+        height: 60px;
         border-width: 3px;
     }
 
     .mic-icon {
-        width: 22px;
-        height: 22px;
+        width: 20px;
+        height: 20px;
     }
 
     .recorder-status {
-        font-size: 13px;
+        font-size: 12px;
     }
 
     .recording-timer {
-        font-size: 16px;
+        font-size: 14px;
+    }
+
+    .recording-controls {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .control-btn {
+        width: 100%;
+        padding: 12px;
+    }
+
+    .modal-content {
+        margin: 0 5px;
+        max-width: calc(100% - 10px);
+    }
+
+    .modal-header {
+        padding: 20px 15px;
+    }
+
+    .modal-body {
+        padding: 20px 15px;
+    }
+
+    .modal-footer {
+        padding: 15px;
     }
 
     .waveform-preview {
@@ -1566,7 +1808,135 @@
         max-width: none;
         padding: 12px 20px;
     }
+}
 
+/* Fix for horizontal overflow and layout issues on mobile */
+@media (max-width: 768px) {
+    * {
+        box-sizing: border-box;
+    }
+
+    html, body {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .design-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .design-container {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .design-content {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .design-main {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .questions-container {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .question-card {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .empty-state {
+        width: 100%;
+        padding: 40px 20px;
+    }
+
+    .editor-toolbar {
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* Sidebar Toggle Button */
+    .sidebar-toggle-btn {
+        display: block !important;
+        position: fixed;
+        top: 90px;
+        left: 15px;
+        z-index: 1001;
+        background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+        border: 2px solid rgba(59, 130, 246, 0.5);
+        padding: 12px;
+        border-radius: 12px;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        transition: all 0.3s ease;
+    }
+
+    .sidebar-toggle-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+    }
+
+    .sidebar-toggle-btn svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    /* Sidebar on Mobile - Hidden by default */
+    .design-sidebar {
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        width: 85%;
+        max-width: 320px;
+        height: 100vh;
+        z-index: 1000;
+        overflow-y: auto;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+        backdrop-filter: blur(30px);
+    }
+
+    .design-sidebar.mobile-open {
+        transform: translateX(0);
+    }
+
+    /* Overlay when sidebar is open - will be added via JavaScript */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 998;
+        display: none;
+    }
+
+    .sidebar-overlay.active {
+        display: block;
+    }
+
+    /* Ensure main content is visible when sidebar is closed */
+    .design-main {
+        width: 100%;
+        margin-left: 0;
+    }
 }
 
 @keyframes fadeIn {

@@ -319,6 +319,89 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Sidebar Toggle for Mobile
+    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+    const designSidebar = document.getElementById('designSidebar');
+    
+    // Create overlay element for mobile sidebar
+    let sidebarOverlay = document.querySelector('.sidebar-overlay');
+    if (!sidebarOverlay) {
+        sidebarOverlay = document.createElement('div');
+        sidebarOverlay.className = 'sidebar-overlay';
+        document.body.appendChild(sidebarOverlay);
+    }
+    
+    // Show/hide toggle button based on screen size
+    function updateSidebarToggle() {
+        if (window.innerWidth <= 768) {
+            if (sidebarToggleBtn) {
+                sidebarToggleBtn.style.display = 'block';
+            }
+            if (designSidebar) {
+                // On mobile, sidebar should be hidden by default
+                designSidebar.classList.remove('mobile-open');
+            }
+            if (sidebarOverlay) {
+                sidebarOverlay.classList.remove('active');
+            }
+        } else {
+            if (sidebarToggleBtn) {
+                sidebarToggleBtn.style.display = 'none';
+            }
+            if (designSidebar) {
+                // On desktop, sidebar should always be visible
+                designSidebar.classList.remove('mobile-open');
+                designSidebar.style.transform = 'translateX(0)';
+                designSidebar.style.position = 'sticky';
+            }
+            if (sidebarOverlay) {
+                sidebarOverlay.classList.remove('active');
+            }
+        }
+    }
+    
+    // Initial check
+    updateSidebarToggle();
+    
+    // Update on resize
+    window.addEventListener('resize', updateSidebarToggle);
+    
+    // Toggle sidebar on button click
+    if (sidebarToggleBtn && designSidebar) {
+        sidebarToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = designSidebar.classList.contains('mobile-open');
+            designSidebar.classList.toggle('mobile-open');
+            
+            if (isOpen) {
+                sidebarOverlay.classList.remove('active');
+            } else {
+                sidebarOverlay.classList.add('active');
+            }
+        });
+        
+        // Close sidebar when clicking overlay
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', () => {
+                designSidebar.classList.remove('mobile-open');
+                sidebarOverlay.classList.remove('active');
+            });
+        }
+        
+        // Close sidebar when clicking outside
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768) {
+                if (designSidebar.classList.contains('mobile-open') &&
+                    !designSidebar.contains(e.target) &&
+                    !sidebarToggleBtn.contains(e.target) &&
+                    !sidebarOverlay.contains(e.target)) {
+                    designSidebar.classList.remove('mobile-open');
+                    sidebarOverlay.classList.remove('active');
+                }
+            }
+        });
+    }
+
     if (questionTypeBtns && questionTypeBtns.length > 0) {
         questionTypeBtns.forEach(btn => {
             btn.addEventListener('click', function() {
