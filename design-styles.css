@@ -833,240 +833,6 @@
     letter-spacing: -0.03em;
 }
 
-/* Main Editor */
-.design-main {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(20px);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    position: relative;
-    align-self: start;
-    grid-column: 2 / 3;
-    grid-row: 1 / 2;
-    min-width: 0;
-}
-
-.editor-toolbar {
-    display: flex;
-    gap: 10px;
-    padding: 20px 30px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.toolbar-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 18px;
-    background: rgba(59, 130, 246, 0.12);
-    border: 2px solid rgba(59, 130, 246, 0.3);
-    border-radius: 10px;
-    color: #E2E8F0;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.toolbar-btn:hover {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: #3B82F6;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-}
-
-.toolbar-btn svg {
-    color: #3B82F6;
-}
-
-/* Questions Container */
-.questions-container {
-    padding: 30px;
-    min-height: 400px;
-    width: 100%;
-    max-width: 100%;
-    margin: 0 auto;
-}
-
-.empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 400px;
-    text-align: center;
-}
-
-.empty-state h3 {
-    font-size: 24px;
-    font-weight: 700;
-    color: #E2E8F0;
-    margin: 20px 0 10px;
-}
-
-.empty-state p {
-    font-size: 16px;
-    color: #94A3B8;
-    font-weight: 500;
-}
-
-/* Question Card */
-.question-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    padding: 25px;
-    margin-bottom: 20px;
-    cursor: move;
-    transition: all 0.3s ease;
-}
-
-.question-card:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(59, 130, 246, 0.5);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
-}
-
-.question-card.sortable-ghost {
-    opacity: 0.4;
-}
-
-.question-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 15px;
-}
-
-.question-number {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.question-drag-handle {
-    cursor: grab;
-    color: rgba(255, 255, 255, 0.4);
-}
-
-.question-drag-handle:active {
-    cursor: grabbing;
-}
-
-.question-badge {
-    padding: 6px 12px;
-    background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    color: #fff;
-}
-
-.question-type-label {
-    padding: 6px 12px;
-    background: rgba(59, 130, 246, 0.2);
-    border: 1px solid rgba(59, 130, 246, 0.3);
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #3B82F6;
-}
-
-.question-actions {
-    display: flex;
-    gap: 8px;
-}
-
-.question-action-btn {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.7);
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.question-action-btn:hover {
-    background: rgba(59, 130, 246, 0.2);
-    border-color: #3B82F6;
-    color: #3B82F6;
-}
-
-.question-action-btn.delete:hover {
-    background: rgba(239, 68, 68, 0.2);
-    border-color: #EF4444;
-    color: #EF4444;
-}
-
-.question-content {
-    margin-bottom: 15px;
-}
-
-.question-text {
-    font-size: 16px;
-    font-weight: 600;
-    color: #F8FAFC;
-    line-height: 1.7;
-    margin-bottom: 15px;
-    letter-spacing: -0.01em;
-}
-
-.question-options {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
-}
-
-.question-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 2px solid rgba(255, 255, 255, 0.15);
-    border-radius: 10px;
-    color: #E2E8F0;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.question-option.correct {
-    background: rgba(34, 197, 94, 0.15);
-    border-color: rgba(34, 197, 94, 0.4);
-    color: #86EFAC;
-}
-
-.question-meta {
-    display: flex;
-    gap: 20px;
-    padding-top: 15px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    font-size: 13px;
-    color: #94A3B8;
-    font-weight: 500;
-}
-
-.question-meta-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.question-meta-item svg {
-    color: #60A5FA;
-}
 
 /* Modal */
 .modal {
@@ -1440,26 +1206,22 @@
         grid-row: 1 / 2 !important;
     }
     
-    .design-main {
-        grid-column: 2 / 3 !important;
-        grid-row: 1 / 2 !important;
-    }
 }
 
 /* Desktop - Ensure grid positioning */
 @media (min-width: 993px) {
     .design-content {
+        display: grid !important;
         grid-template-columns: 320px 1fr !important;
+        gap: 30px !important;
+        align-items: start !important;
     }
     
     .design-sidebar {
         grid-column: 1 / 2 !important;
         grid-row: 1 / 2 !important;
-    }
-    
-    .design-main {
-        grid-column: 2 / 3 !important;
-        grid-row: 1 / 2 !important;
+        position: sticky !important;
+        top: 110px !important;
     }
 }
 
@@ -1470,13 +1232,6 @@
 
     .design-sidebar {
         position: static;
-        grid-column: 1 !important;
-        grid-row: auto !important;
-    }
-    
-    .design-main {
-        grid-column: 1 !important;
-        grid-row: auto !important;
     }
 
     .design-header {
@@ -1574,14 +1329,6 @@
         box-sizing: border-box;
     }
     
-    .design-main {
-        padding: 0;
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-        margin: 0;
-    }
-
     .design-content {
         grid-template-columns: 1fr;
         gap: 20px;
@@ -1593,40 +1340,6 @@
         position: static;
         max-height: none;
         overflow: visible;
-    }
-
-    .design-main {
-        width: 100%;
-        max-width: 100%;
-        overflow-x: hidden;
-    }
-
-    .editor-toolbar {
-        padding: 12px 15px;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    .toolbar-btn {
-        flex: 1 1 calc(50% - 4px);
-        min-width: calc(50% - 4px);
-        justify-content: center;
-        padding: 10px 12px;
-        font-size: 13px;
-    }
-
-    .question-card {
-        padding: 20px;
-    }
-
-    .question-header {
-        flex-direction: column;
-        gap: 15px;
-    }
-
-    .question-actions {
-        width: 100%;
-        justify-content: flex-end;
     }
 
     .question-types {
@@ -1790,8 +1503,7 @@
     /* Buttons maintain their natural HTML order */
     /* No need for CSS order - HTML order is already correct */
 
-    .design-sidebar,
-    .design-main {
+    .design-sidebar {
         padding: 12px;
     }
 
@@ -1814,19 +1526,6 @@
         font-size: 13px;
     }
 
-    .toolbar-btn {
-        flex: 1 1 100%;
-        min-width: 100%;
-        margin-bottom: 8px;
-    }
-
-    .question-card {
-        padding: 15px;
-    }
-
-    .question-text {
-        font-size: 14px;
-    }
 
     .voice-recorder-preview {
         padding: 15px;
@@ -1930,33 +1629,6 @@
         position: relative;
     }
 
-    .design-main {
-        width: 100%;
-        max-width: 100%;
-        overflow-x: hidden;
-    }
-
-    .questions-container {
-        width: 100%;
-        max-width: 100%;
-        overflow-x: hidden;
-    }
-
-    .question-card {
-        width: 100%;
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-
-    .empty-state {
-        width: 100%;
-        padding: 40px 20px;
-    }
-
-    .editor-toolbar {
-        width: 100%;
-        overflow-x: hidden;
-    }
 
     /* Mobile Sidebar Toggle Button */
     .mobile-sidebar-toggle {
@@ -2074,13 +1746,6 @@
         display: block !important;
     }
     
-    /* Ensure main content doesn't move when sidebar opens */
-    .design-main {
-        width: 100% !important;
-        margin-left: 0 !important;
-        transform: none !important;
-        transition: none !important;
-    }
 
     /* Ensure all sidebar content is interactive */
     .design-sidebar.mobile-open * {

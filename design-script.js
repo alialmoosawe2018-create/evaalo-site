@@ -4,13 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let editingQuestionIndex = null;
     let currentQuestionType = 'text';
 
-    // Initialize Sortable for drag and drop
-    const questionsContainer = document.getElementById('questionsContainer');
-    let sortable = null;
-
-
     // Elements
-    const addQuestionBtn = document.getElementById('addQuestionBtn');
     const questionModal = document.getElementById('questionModal');
     const closeModal = document.getElementById('closeModal');
     const cancelBtn = document.getElementById('cancelBtn');
@@ -18,7 +12,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const questionTypeBtns = document.querySelectorAll('.question-type-btn');
     const previewBtn = document.getElementById('previewBtn');
     const saveBtn = document.getElementById('saveBtn');
-    const clearAllBtn = document.getElementById('clearAllBtn');
     const previewModal = document.getElementById('previewModal');
     const closePreview = document.getElementById('closePreview');
     const closePreviewBtn = document.getElementById('closePreviewBtn');
@@ -288,13 +281,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event Listeners
-    if (addQuestionBtn) {
-        addQuestionBtn.addEventListener('click', () => {
-            editingQuestionIndex = null;
-            currentQuestionType = 'short-text';
-            openQuestionModal('short-text');
-        });
-    }
 
     // New header buttons (Model, Workflow, Connect)
     const modelBtn = document.getElementById('modelBtn');
@@ -587,9 +573,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (saveBtn) {
         saveBtn.addEventListener('click', saveInterview);
-    }
-    if (clearAllBtn) {
-        clearAllBtn.addEventListener('click', clearAll);
     }
 
     // Close modals on background click
@@ -1089,199 +1072,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         window.currentOptions = [];
         closeQuestionModal();
-        renderQuestions();
         updateStats();
         saveToStorage();
         showToast('Question saved successfully!');
     }
 
-    // Render Questions
-    function renderQuestions() {
-        if (questions.length === 0) {
-            questionsContainer.innerHTML = `
-                <div class="empty-state">
-                    <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="60" cy="60" r="50" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>
-                        <path d="M60 40v40M40 60h40" stroke="rgba(255,255,255,0.2)" stroke-width="4" stroke-linecap="round"/>
-                    </svg>
-                    <h3>No Questions Yet</h3>
-                    <p>Click "Add Question" or choose a question type to get started</p>
-                </div>
-            `;
-            if (sortable) sortable.destroy();
-            return;
-        }
-
-        questionsContainer.innerHTML = questions.map((q, index) => `
-            <div class="question-card" data-index="${index}">
-                <div class="question-header">
-                    <div class="question-number">
-                        <span class="question-drag-handle">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                        </span>
-                        <span class="question-badge">Q${index + 1}</span>
-                        <span class="question-type-label">${getTypeLabel(q.type)}</span>
-                    </div>
-                    <div class="question-actions">
-                        <button class="question-action-btn" onclick="editQuestion(${index})" title="Edit">
-                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8.25 3H3.75C3.15326 3 2.58097 3.23705 2.15901 3.65901C1.73705 4.08097 1.5 4.65326 1.5 5.25V14.25C1.5 14.8467 1.73705 15.419 2.15901 15.841C2.58097 16.2629 3.15326 16.5 3.75 16.5H12.75C13.3467 16.5 13.919 16.2629 14.341 15.841C14.7629 15.419 15 14.8467 15 14.25V9.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M13.875 1.875C14.3223 1.42774 14.9281 1.17667 15.5625 1.17667C16.1969 1.17667 16.8027 1.42774 17.25 1.875C17.6973 2.32226 17.9483 2.92806 17.9483 3.5625C17.9483 4.19694 17.6973 4.80274 17.25 5.25L9 13.5L6 14.25L6.75 11.25L15 3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                        <button class="question-action-btn" onclick="duplicateQuestion(${index})" title="Duplicate">
-                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M15 6.75H8.25C7.42157 6.75 6.75 7.42157 6.75 8.25V15C6.75 15.8284 7.42157 16.5 8.25 16.5H15C15.8284 16.5 16.5 15.8284 16.5 15V8.25C16.5 7.42157 15.8284 6.75 15 6.75Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M3.75 11.25H3C2.60218 11.25 2.22064 11.092 1.93934 10.8107C1.65804 10.5294 1.5 10.1478 1.5 9.75V3C1.5 2.60218 1.65804 2.22064 1.93934 1.93934C2.22064 1.65804 2.60218 1.5 3 1.5H9.75C10.1478 1.5 10.5294 1.65804 10.8107 1.93934C11.092 2.22064 11.25 2.60218 11.25 3V3.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                        <button class="question-action-btn delete" onclick="deleteQuestion(${index})" title="Delete">
-                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M2.25 4.5h13.5M14.25 4.5v10.5a1.5 1.5 0 01-1.5 1.5h-7.5a1.5 1.5 0 01-1.5-1.5V4.5m2.25 0V3a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5v1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="question-content">
-                    <p class="question-text">${q.text}</p>
-                    ${renderQuestionOptions(q)}
-                </div>
-                <div class="question-meta">
-                    ${q.timeLimit ? `
-                    <div class="question-meta-item">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
-                            <path d="M8 4v4l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
-                        ${q.timeLimit}s
-                    </div>
-                    ` : ''}
-                    <div class="question-meta-item">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M8 2l2 4 4 .5-3 3 .5 4-3.5-2-3.5 2 .5-4-3-3 4-.5 2-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-                        </svg>
-                        ${q.points} points
-                    </div>
-                </div>
-            </div>
-        `).join('');
-
-        // Initialize Sortable
-        if (sortable) sortable.destroy();
-        sortable = Sortable.create(questionsContainer, {
-            animation: 150,
-            handle: '.question-drag-handle',
-            ghostClass: 'sortable-ghost',
-            onEnd: function(evt) {
-                const item = questions.splice(evt.oldIndex, 1)[0];
-                questions.splice(evt.newIndex, 0, item);
-                renderQuestions();
-                saveToStorage();
-            }
-        });
-    }
-
-    // Render Question Options
-    function renderQuestionOptions(question) {
-        if ((question.type === 'multiple' || question.type === 'checkbox' || question.type === 'dropdown') && question.options) {
-            const icon = question.type === 'checkbox' ? 'square' : 'circle';
-            return `
-                <div class="question-options">
-                    ${question.options.map(opt => `
-                        <div class="question-option ${opt.correct ? 'correct' : ''}">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                ${icon === 'circle' ? `
-                                    <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
-                                    ${opt.correct ? '<path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' : ''}
-                                ` : `
-                                    <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                                    ${opt.correct ? '<path d="M4 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' : ''}
-                                `}
-                            </svg>
-                            ${opt.text}
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-        } else if (question.type === 'rating') {
-            return `
-                <div style="color: #94A3B8; font-size: 14px; margin-top: 10px;">
-                    ⭐ ${question.scale || 5} Star Rating
-                </div>
-            `;
-        } else if (question.type === 'linear-scale') {
-            return `
-                <div style="color: #94A3B8; font-size: 14px; margin-top: 10px;">
-                    📊 Scale: ${question.scale || '1-5'}
-                    ${question.lowLabel || question.highLabel ? `<br>${question.lowLabel || ''} ↔️ ${question.highLabel || ''}` : ''}
-                </div>
-            `;
-        } else if (question.type === 'yes-no') {
-            return `
-                <div style="color: #94A3B8; font-size: 14px; margin-top: 10px;">
-                    ${question.correctAnswer ? `✓ Correct Answer: ${question.correctAnswer.toUpperCase()}` : '❓ Not graded'}
-                </div>
-            `;
-        } else if (question.type === 'slider') {
-            return `
-                <div style="color: #94A3B8; font-size: 14px; margin-top: 10px;">
-                    🎚️ Range: ${question.sliderMin || 0} to ${question.sliderMax || 100} (step: ${question.sliderStep || 1})
-                </div>
-            `;
-        } else if (question.type === 'file') {
-            return `
-                <div style="color: #94A3B8; font-size: 14px; margin-top: 10px;">
-                    📎 Allowed: ${question.allowedTypes?.join(', ') || 'All files'} | Max: ${question.maxFileSize || 10}MB
-                </div>
-            `;
-        } else if (question.type === 'voice') {
-            const maxDuration = question.maxDuration || 60;
-            return `
-                <div style="margin-top: 15px;">
-                    <div class="voice-recorder-preview" data-max-duration="${maxDuration}">
-                        <div class="recorder-status">Ready to record</div>
-                        <button class="voice-record-btn" onclick="handleVoiceDemo(event)">
-                            <svg class="mic-icon" width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect x="11" y="4" width="6" height="12" rx="3" stroke="currentColor" stroke-width="2"/>
-                                <path d="M8 14v1a6 6 0 0012 0v-1M14 22v3M14 25h-4M14 25h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            <span class="record-text">Start Recording</span>
-                        </button>
-                        <div class="recorder-info">
-                            <div style="color: #94A3B8; font-size: 13px;">
-                                🎤 Max Duration: ${maxDuration}s
-                                ${question.requireTranscript ? ' | 📝 Transcript required' : ''}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else if (question.type === 'number') {
-            const range = question.minValue !== null || question.maxValue !== null 
-                ? `Range: ${question.minValue || 'Any'} - ${question.maxValue || 'Any'}`
-                : 'Any number';
-            return `
-                <div style="color: #94A3B8; font-size: 14px; margin-top: 10px;">
-                    🔢 ${range}
-                </div>
-            `;
-        } else if (question.charLimit) {
-            return `
-                <div style="color: #94A3B8; font-size: 14px; margin-top: 10px;">
-                    📝 Character limit: ${question.charLimit}
-                </div>
-            `;
-        } else if (question.validateFormat && (question.type === 'email' || question.type === 'phone' || question.type === 'url')) {
-            return `
-                <div style="color: #94A3B8; font-size: 14px; margin-top: 10px;">
-                    ✓ Format validation enabled
-                </div>
-            `;
-        }
-        return '';
-    }
 
     // Get Type Label
     function getTypeLabel(type) {
@@ -1330,31 +1125,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return labels[type] || type;
     }
 
-    // Global question management functions
-    window.editQuestion = function(index) {
-        editingQuestionIndex = index;
-        currentQuestionType = questions[index].type;
-        openQuestionModal(questions[index].type);
-    };
-
-    window.duplicateQuestion = function(index) {
-        const duplicate = JSON.parse(JSON.stringify(questions[index]));
-        questions.splice(index + 1, 0, duplicate);
-        renderQuestions();
-        updateStats();
-        saveToStorage();
-        showToast('Question duplicated!');
-    };
-
-    window.deleteQuestion = function(index) {
-        if (confirm('Are you sure you want to delete this question?')) {
-            questions.splice(index, 1);
-            renderQuestions();
-            updateStats();
-            saveToStorage();
-            showToast('Question deleted!');
-        }
-    };
 
     // Update Stats
     function updateStats() {
@@ -1477,7 +1247,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span style="padding: 6px 12px; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; color: #60A5FA; font-weight: 600; font-size: 12px;">${getTypeLabel(q.type)}</span>
                     </div>
                     <p style="color: #F8FAFC; font-size: 16px; font-weight: 600; margin-bottom: 15px; line-height: 1.6;">${q.text}</p>
-                    ${renderQuestionOptions(q)}
                     ${q.timeLimit || q.points ? `<p style="color: #94A3B8; font-size: 14px; margin-top: 10px;">${q.timeLimit ? `⏱️ ${q.timeLimit}s` : ''} ${q.points ? `⭐ ${q.points} points` : ''}</p>` : ''}
                 </div>
             `).join('')}
@@ -1511,16 +1280,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Could send to backend here
     }
 
-    // Clear All
-    function clearAll() {
-        if (confirm('Are you sure you want to clear all questions? This cannot be undone.')) {
-            questions = [];
-            renderQuestions();
-            updateStats();
-            saveToStorage();
-            showToast('All questions cleared!');
-        }
-    }
 
     // Download Interview
     function downloadInterview() {
@@ -1587,7 +1346,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (savedQuestions) {
             questions = JSON.parse(savedQuestions);
-            renderQuestions();
             updateStats();
         }
         
