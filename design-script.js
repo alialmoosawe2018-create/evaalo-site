@@ -319,6 +319,36 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Navigation Menu Toggle
+    const navMenuToggle = document.getElementById('navMenuToggle');
+    const navMenu = document.getElementById('navMenu');
+    const navMenuWrapper = navMenuToggle ? navMenuToggle.closest('.nav-menu-wrapper') : null;
+    const navLinks = document.querySelectorAll('.nav-link');
+    
+    // Toggle navigation menu
+    if (navMenuToggle && navMenu && navMenuWrapper) {
+        navMenuToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            navMenuWrapper.classList.toggle('active');
+        });
+        
+        // Close menu when clicking on any nav link
+        navLinks.forEach(link => {
+            link.addEventListener('click', function() {
+                navMenuWrapper.classList.remove('active');
+            });
+        });
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', function(e) {
+            if (navMenuWrapper && navMenuWrapper.classList.contains('active')) {
+                if (!navMenu.contains(e.target) && !navMenuToggle.contains(e.target)) {
+                    navMenuWrapper.classList.remove('active');
+                }
+            }
+        });
+    }
+
     // Sidebar Toggle for Mobile
     const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
     const designSidebar = document.getElementById('designSidebar');
