@@ -1921,12 +1921,6 @@
         display: none !important; /* Hidden on desktop */
     }
 
-    /* Remove sidebar from grid layout on mobile */
-    .design-content {
-        grid-template-columns: 1fr !important;
-        position: relative;
-    }
-    
     /* Sidebar on Mobile - Drawer Behavior */
     .design-sidebar {
         position: fixed !important;
@@ -1939,29 +1933,28 @@
         overflow-y: auto;
         overflow-x: hidden;
         transform: translateX(-100%); /* Hidden by default, opens with toggle */
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, visibility 0.3s ease;
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
         background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
         backdrop-filter: blur(30px);
         pointer-events: auto !important;
         opacity: 1 !important;
-        visibility: visible !important;
+        visibility: visible !important; /* Ensure always visible when rendered */
         -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
         will-change: transform; /* Optimize for animations */
-        display: block !important;
-        /* Remove any conflicting styles */
-        border-radius: 0 !important;
-        padding: 30px 20px !important;
-        margin: 0 !important;
-        /* Ensure no duplicate rendering */
-        contain: layout style paint;
+        display: block !important; /* Ensure sidebar is always displayed */
     }
 
     .design-sidebar.mobile-open {
         transform: translateX(0) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
     }
     
-    /* Ensure sidebar content is visible */
+    /* Ensure sidebar content is always visible and not transparent - even when closed */
+    .design-sidebar,
+    .design-sidebar *,
     .design-sidebar .sidebar-section,
     .design-sidebar .form-group,
     .design-sidebar .form-input,
@@ -1973,6 +1966,20 @@
     .design-sidebar .sidebar-title,
     .design-sidebar .custom-color-dropdown,
     .design-sidebar .custom-category-dropdown {
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    /* Ensure background is solid and visible */
+    .design-sidebar::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+        z-index: -1;
         opacity: 1 !important;
         visibility: visible !important;
     }
@@ -2087,8 +2094,6 @@
         display: none;
         pointer-events: auto; /* Allow clicking to close */
         transition: opacity 0.3s ease;
-        /* Prevent any layering issues */
-        will-change: opacity;
     }
 
     .sidebar-overlay.active {
@@ -2103,6 +2108,13 @@
     
     .design-sidebar.mobile-open * {
         pointer-events: auto !important;
+    }
+    
+    /* Ensure overlay doesn't block sidebar interactions */
+    .design-sidebar.mobile-open,
+    .design-sidebar.mobile-open * {
+        position: relative;
+        z-index: 1;
     }
     
     /* Make sure all interactive elements work */
@@ -2121,27 +2133,6 @@
         pointer-events: auto !important;
         touch-action: manipulation; /* Better touch handling */
         -webkit-tap-highlight-color: rgba(59, 130, 246, 0.3); /* Visual feedback on tap */
-    }
-    
-    /* Prevent main content from showing through */
-    .design-main {
-        position: relative;
-        z-index: 1;
-    }
-    
-    /* Ensure sidebar is removed from grid flow on mobile */
-    .design-content {
-        display: block !important; /* Change from grid to block on mobile */
-    }
-    
-    .design-content > .design-sidebar {
-        display: none !important; /* Hide static sidebar in grid - it's now a fixed drawer */
-    }
-    
-    .design-content > .design-main {
-        width: 100%;
-        margin: 0;
-        padding: 0;
     }
 
     /* Ensure main content is visible when sidebar is closed */
