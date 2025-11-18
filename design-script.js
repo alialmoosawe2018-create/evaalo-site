@@ -373,6 +373,175 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 100);
 
+    // Mobile Sidebar Slide Panel
+    const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
+    const mobileSidebarClose = document.getElementById('mobileSidebarClose');
+    const mobileSidebarOverlay = document.getElementById('mobileSidebarOverlay');
+    const designSidebar = document.getElementById('designSidebar');
+    
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let isDragging = false;
+    let sidebarStartX = 0;
+    
+    function openMobileSidebar() {
+        if (window.innerWidth <= 768) {
+            designSidebar.classList.add('mobile-open');
+            mobileSidebarOverlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+    
+    function closeMobileSidebar() {
+        designSidebar.classList.remove('mobile-open');
+        mobileSidebarOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    
+    // Toggle sidebar on button click
+    if (mobileSidebarToggle) {
+        mobileSidebarToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (window.innerWidth <= 768) {
+                if (designSidebar.classList.contains('mobile-open')) {
+                    closeMobileSidebar();
+                } else {
+                    openMobileSidebar();
+                }
+            }
+        });
+    }
+    
+    // Close sidebar on close button click
+    if (mobileSidebarClose) {
+        mobileSidebarClose.addEventListener('click', function(e) {
+            e.stopPropagation();
+            closeMobileSidebar();
+        });
+    }
+    
+    // Close sidebar on overlay click
+    if (mobileSidebarOverlay) {
+        mobileSidebarOverlay.addEventListener('click', function(e) {
+            if (e.target === mobileSidebarOverlay) {
+                closeMobileSidebar();
+            }
+        });
+    }
+    
+    // Swipe gestures for mobile sidebar
+    if (window.innerWidth <= 768 && designSidebar) {
+        // Swipe from right edge to open
+        document.addEventListener('touchstart', function(e) {
+            if (window.innerWidth > 768) return;
+            
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            
+            // Check if touch started from right edge (within 20px)
+            if (touchStartX >= window.innerWidth - 20 && !designSidebar.classList.contains('mobile-open')) {
+                isDragging = true;
+                sidebarStartX = 0;
+            }
+        }, { passive: true });
+        
+        // Swipe on sidebar to close
+        designSidebar.addEventListener('touchstart', function(e) {
+            if (window.innerWidth > 768) return;
+            if (!designSidebar.classList.contains('mobile-open')) return;
+            
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            isDragging = true;
+            sidebarStartX = designSidebar.getBoundingClientRect().right;
+        }, { passive: true });
+        
+        document.addEventListener('touchmove', function(e) {
+            if (window.innerWidth > 768 || !isDragging) return;
+            
+            const touchCurrentX = e.touches[0].clientX;
+            const touchCurrentY = e.touches[0].clientY;
+            const deltaX = touchCurrentX - touchStartX;
+            const deltaY = Math.abs(touchCurrentY - touchStartY);
+            
+            // Only process horizontal swipes
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+                e.preventDefault();
+                
+                if (!designSidebar.classList.contains('mobile-open')) {
+                    // Opening from right edge
+                    const translateX = Math.max(0, window.innerWidth - touchCurrentX);
+                    designSidebar.style.transform = `translateX(${translateX}px)`;
+                } else {
+                    // Closing by swiping left
+                    const translateX = Math.min(0, deltaX);
+                    designSidebar.style.transform = `translateX(${translateX}px)`;
+                }
+            }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', function(e) {
+            if (window.innerWidth > 768 || !isDragging) return;
+            
+            const touchEndX = e.changedTouches[0].clientX;
+            const deltaX = touchEndX - touchStartX;
+            const threshold = 50;
+            
+            if (!designSidebar.classList.contains('mobile-open')) {
+                // Opening gesture
+                if (deltaX < -threshold) {
+                    openMobileSidebar();
+                } else {
+                    designSidebar.style.transform = '';
+                    closeMobileSidebar();
+                }
+            } else {
+                // Closing gesture
+                if (deltaX > threshold) {
+                    closeMobileSidebar();
+                } else {
+                    designSidebar.style.transform = '';
+                    openMobileSidebar();
+                }
+            }
+            
+            isDragging = false;
+            designSidebar.style.transform = '';
+        }, { passive: true });
+    }
+    
+    // Hide/show toggle button based on screen size
+    function updateMobileSidebarToggle() {
+        if (window.innerWidth <= 768) {
+            if (mobileSidebarToggle) {
+                mobileSidebarToggle.style.display = 'flex';
+            }
+            if (designSidebar) {
+                designSidebar.classList.remove('mobile-open');
+            }
+            if (mobileSidebarOverlay) {
+                mobileSidebarOverlay.classList.remove('active');
+            }
+        } else {
+            if (mobileSidebarToggle) {
+                mobileSidebarToggle.style.display = 'none';
+            }
+            if (designSidebar) {
+                designSidebar.classList.remove('mobile-open');
+            }
+            if (mobileSidebarOverlay) {
+                mobileSidebarOverlay.classList.remove('active');
+            }
+            document.body.style.overflow = '';
+        }
+    }
+    
+    // Initial check
+    updateMobileSidebarToggle();
+    
+    // Update on resize
+    window.addEventListener('resize', updateMobileSidebarToggle);
+
     if (questionTypeBtns && questionTypeBtns.length > 0) {
         questionTypeBtns.forEach(btn => {
             btn.addEventListener('click', function() {

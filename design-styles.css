@@ -145,6 +145,19 @@
 }
 
 
+/* Mobile Sidebar Toggle Button - Hidden on Desktop */
+.mobile-sidebar-toggle {
+    display: none;
+}
+
+.mobile-sidebar-close {
+    display: none;
+}
+
+.mobile-sidebar-overlay {
+    display: none;
+}
+
 .sidebar-section {
     margin-bottom: 30px;
     padding-bottom: 30px;
@@ -1851,6 +1864,7 @@
         width: 100%;
         max-width: 100%;
         overflow-x: hidden;
+        position: relative;
     }
 
     .design-main {
@@ -1881,27 +1895,153 @@
         overflow-x: hidden;
     }
 
-    /* Hide sidebar completely on mobile */
+    /* Mobile Sidebar Toggle Button */
+    .mobile-sidebar-toggle {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        top: 90px;
+        right: 15px;
+        z-index: 10002;
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+        border: 2px solid rgba(59, 130, 246, 0.5);
+        border-radius: 12px;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        transition: all 0.3s ease;
+    }
+
+    .mobile-sidebar-toggle:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+    }
+
+    .mobile-sidebar-toggle svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    /* Mobile Sidebar Overlay */
+    .mobile-sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .mobile-sidebar-overlay.active {
+        display: block;
+        opacity: 1;
+    }
+
+    /* Mobile Sidebar - Slide Panel from Right */
     .design-sidebar {
-        display: none !important;
+        position: fixed !important;
+        top: 0;
+        right: 0;
+        width: 85%;
+        max-width: 320px;
+        height: 100vh;
+        z-index: 10001 !important;
+        overflow-y: auto;
+        overflow-x: hidden;
+        transform: translateX(100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5);
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-left: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 20px;
+        margin: 0;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
+
+    .design-sidebar.mobile-open {
+        transform: translateX(0) !important;
+    }
+
+    /* Mobile Sidebar Close Button */
+    .mobile-sidebar-close {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        color: #fff;
+        cursor: pointer;
+        z-index: 10003;
+        transition: all 0.3s ease;
+    }
+
+    .mobile-sidebar-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: rotate(90deg);
+    }
+
+    .mobile-sidebar-close svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Hide sidebar on desktop */
+    .design-content > .design-sidebar {
+        display: none;
     }
     
-    .sidebar-toggle-btn {
-        display: none !important;
-    }
-    
-    .sidebar-overlay {
-        display: none !important;
-    }
-    
-    /* Adjust layout for mobile without sidebar */
-    .design-content {
+    /* Show sidebar when mobile-open */
+    .design-sidebar.mobile-open {
         display: block !important;
     }
     
+    /* Ensure main content doesn't move when sidebar opens */
     .design-main {
         width: 100% !important;
         margin-left: 0 !important;
+        transform: none !important;
+        transition: none !important;
+    }
+
+    /* Ensure all sidebar content is interactive */
+    .design-sidebar.mobile-open * {
+        pointer-events: auto !important;
+    }
+
+    .design-sidebar.mobile-open input,
+    .design-sidebar.mobile-open select,
+    .design-sidebar.mobile-open textarea,
+    .design-sidebar.mobile-open button,
+    .design-sidebar.mobile-open .checkbox-label,
+    .design-sidebar.mobile-open .custom-color-dropdown,
+    .design-sidebar.mobile-open .custom-category-dropdown,
+    .design-sidebar.mobile-open .question-type-btn {
+        pointer-events: auto !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    /* Ensure dropdowns work correctly */
+    .design-sidebar.mobile-open .color-dropdown-menu,
+    .design-sidebar.mobile-open .category-dropdown-menu {
+        z-index: 10004 !important;
+        position: absolute !important;
     }
 }
 
