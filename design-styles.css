@@ -1517,7 +1517,8 @@
         overflow-x: hidden;
     }
 
-    /* On tablets, sidebar can be static but visible */
+    /* On tablets (992px-768px), sidebar can be static but visible */
+    /* On mobile (768px and below), sidebar is hidden from grid and shown as fixed drawer */
     .design-sidebar {
         position: static;
         max-height: none;
@@ -1922,6 +1923,16 @@
     }
 
     /* Sidebar on Mobile - Drawer Behavior */
+    /* First, hide the static sidebar from grid layout */
+    .design-content {
+        display: block !important; /* Change from grid to block to prevent duplicate rendering */
+    }
+    
+    .design-content > .design-sidebar {
+        display: none !important; /* Hide static sidebar in grid - only show fixed drawer */
+    }
+    
+    /* Now show the fixed drawer */
     .design-sidebar {
         position: fixed !important;
         top: 0;
@@ -1933,16 +1944,23 @@
         overflow-y: auto;
         overflow-x: hidden;
         transform: translateX(-100%); /* Hidden by default, opens with toggle */
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, visibility 0.3s ease;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        /* Ensure smooth closing animation */
+        -webkit-transform: translateX(-100%);
+        -webkit-transition: -webkit-transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
         background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
         backdrop-filter: blur(30px);
         pointer-events: auto !important;
         opacity: 1 !important;
-        visibility: visible !important; /* Ensure always visible when rendered */
+        visibility: visible !important;
         -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
         will-change: transform; /* Optimize for animations */
-        display: block !important; /* Ensure sidebar is always displayed */
+        display: block !important;
+        /* Remove conflicting styles from static sidebar */
+        border-radius: 0 !important;
+        padding: 30px 20px !important;
+        margin: 0 !important;
     }
 
     .design-sidebar.mobile-open {
@@ -1952,9 +1970,13 @@
         display: block !important;
     }
     
-    /* Ensure sidebar content is always visible and not transparent - even when closed */
-    .design-sidebar,
-    .design-sidebar *,
+    /* Ensure sidebar is completely hidden when closed */
+    .design-sidebar:not(.mobile-open) {
+        transform: translateX(-100%) !important;
+        /* Keep opacity and visibility for smooth transitions */
+    }
+    
+    /* Ensure sidebar content is always visible and not transparent */
     .design-sidebar .sidebar-section,
     .design-sidebar .form-group,
     .design-sidebar .form-input,
@@ -1966,20 +1988,6 @@
     .design-sidebar .sidebar-title,
     .design-sidebar .custom-color-dropdown,
     .design-sidebar .custom-category-dropdown {
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-    
-    /* Ensure background is solid and visible */
-    .design-sidebar::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%);
-        z-index: -1;
         opacity: 1 !important;
         visibility: visible !important;
     }
@@ -2094,10 +2102,32 @@
         display: none;
         pointer-events: auto; /* Allow clicking to close */
         transition: opacity 0.3s ease;
+        /* Ensure overlay covers all content and prevents seeing through */
+        backdrop-filter: blur(2px);
     }
 
     .sidebar-overlay.active {
         display: block;
+    }
+    
+    /* Prevent main content from being visible through overlay */
+    .design-main,
+    .design-content,
+    .design-container {
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* When sidebar overlay is active, ensure main content stays behind */
+    .sidebar-overlay.active ~ *,
+    .sidebar-overlay.active + * {
+        z-index: 0;
+    }
+    
+    /* Alternative: use class on body when sidebar is open */
+    body.sidebar-open .design-main,
+    body.sidebar-open .design-content {
+        z-index: 0;
     }
     
     /* Ensure sidebar and all its content is always interactive when open */
