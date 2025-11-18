@@ -1993,6 +1993,15 @@
         border: 1px solid rgba(148, 163, 184, 0.2) !important;
         border-radius: 20px !important;
         padding: 30px !important;
+        /* Ensure dropdowns are not affected by sidebar backdrop-filter */
+        isolation: isolate !important;
+    }
+    
+    /* Create a new stacking context for dropdowns to prevent backdrop-filter from affecting them */
+    .design-sidebar.mobile-open .custom-color-dropdown,
+    .design-sidebar.mobile-open .custom-category-dropdown {
+        isolation: isolate !important;
+        z-index: 1 !important;
     }
     
     .design-sidebar.mobile-open .sidebar-section {
@@ -2146,11 +2155,12 @@
         font-weight: 500 !important;
     }
     
-    /* Ensure all SVG icons are visible with correct colors - Match desktop */
+    /* Ensure all SVG icons are visible with correct colors - Match desktop exactly */
     .design-sidebar.mobile-open svg {
         opacity: 1 !important;
         visibility: visible !important;
         display: inline-block !important;
+        filter: none !important; /* Remove any filters that cause darkening */
     }
     
     .design-sidebar.mobile-open .question-type-btn svg {
@@ -2162,6 +2172,7 @@
         visibility: visible !important;
         filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.15)) !important;
         transition: all 0.3s ease !important;
+        transform: none !important; /* No transform that affects visibility */
     }
     
     .design-sidebar.mobile-open .question-type-btn:hover svg {
@@ -2170,33 +2181,7 @@
         transform: scale(1.1) !important;
     }
     
-    .design-sidebar.mobile-open .dropdown-arrow {
-        color: #94A3B8 !important;
-        width: 12px !important;
-        height: 8px !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        transition: transform 0.3s ease !important;
-    }
-    
-    .design-sidebar.mobile-open .color-dropdown-selected.open .dropdown-arrow,
-    .design-sidebar.mobile-open .category-dropdown-selected.open .dropdown-arrow {
-        transform: rotate(180deg) !important;
-    }
-    
-    .design-sidebar.mobile-open .category-icon {
-        color: #94A3B8 !important;
-        width: 24px !important;
-        height: 24px !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        transition: color 0.3s ease !important;
-    }
-    
-    .design-sidebar.mobile-open .category-dropdown-selected:hover .category-icon {
-        color: #6366F1 !important;
-    }
-    
+    /* Fix color box - ensure it's fully visible */
     .design-sidebar.mobile-open .color-box {
         width: 28px !important;
         height: 28px !important;
@@ -2206,6 +2191,29 @@
         visibility: visible !important;
         box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
         flex-shrink: 0 !important;
+        filter: none !important; /* No filters */
+        transform: none !important; /* No transforms */
+        background-color: inherit !important; /* Use the actual color */
+    }
+    
+    /* Fix category icon in dropdown selected */
+    .design-sidebar.mobile-open .category-icon {
+        color: #94A3B8 !important;
+        width: 24px !important;
+        height: 24px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: color 0.3s ease !important;
+        filter: none !important;
+        transform: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    .design-sidebar.mobile-open .category-dropdown-selected:hover .category-icon,
+    .design-sidebar.mobile-open .category-dropdown-item:hover .category-icon {
+        color: #6366F1 !important;
     }
     
     .design-sidebar.mobile-open .checkmark {
@@ -2353,13 +2361,38 @@
         padding: 12px 14px !important;
     }
 
+    /* Fix dropdown menus on mobile - Match desktop exactly */
     .design-sidebar.mobile-open .color-dropdown-menu,
     .design-sidebar.mobile-open .category-dropdown-menu {
+        position: absolute !important;
+        top: calc(100% + 8px) !important;
+        left: 0 !important;
+        right: 0 !important;
+        background: #1E293B !important; /* Solid background, no transparency */
+        border: 1px solid #475569 !important;
+        border-radius: 12px !important;
+        max-height: 320px !important;
+        overflow-y: auto !important;
+        z-index: 1004 !important; /* Higher than sidebar (1002) and overlay (1001) */
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
         pointer-events: auto !important;
         opacity: 1 !important;
         visibility: visible !important;
-        z-index: 1003 !important; /* Above sidebar */
         display: block !important;
+        /* Remove any filters or blur */
+        filter: none !important;
+        backdrop-filter: none !important;
+        /* Remove transforms that affect visibility */
+        transform: translateY(0) !important;
+        /* Ensure no dark overlay */
+        background-color: #1E293B !important;
+        background-image: none !important;
+    }
+    
+    .design-sidebar.mobile-open .category-dropdown-menu {
+        max-height: 360px !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5),
+                    0 0 0 1px rgba(99, 102, 241, 0.1) !important;
     }
     
     .design-sidebar.mobile-open .color-dropdown-menu.open,
@@ -2367,6 +2400,9 @@
         display: block !important;
         opacity: 1 !important;
         visibility: visible !important;
+        transform: translateY(0) !important;
+        filter: none !important;
+        backdrop-filter: none !important;
     }
 
     /* Overlay when sidebar is open - behind sidebar (Mobile Only) */
@@ -2398,11 +2434,7 @@
     }
     
     /* Ensure overlay doesn't block sidebar interactions */
-    .design-sidebar.mobile-open,
-    .design-sidebar.mobile-open * {
-        position: relative;
-        z-index: 1;
-    }
+    /* Note: Removed z-index: 1 from all elements to allow dropdowns to appear correctly */
     
     /* Make sure all interactive elements work inside sidebar */
     .design-sidebar.mobile-open input,
@@ -2419,13 +2451,82 @@
     .design-sidebar.mobile-open .form-label,
     .design-sidebar.mobile-open .color-dropdown-selected,
     .design-sidebar.mobile-open .category-dropdown-selected,
-    .design-sidebar.mobile-open .color-dropdown-menu,
-    .design-sidebar.mobile-open .category-dropdown-menu {
+    /* Fix dropdown items and icons on mobile */
+    .design-sidebar.mobile-open .color-dropdown-item,
+    .design-sidebar.mobile-open .category-dropdown-item {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 12px 14px !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
         pointer-events: auto !important;
-        touch-action: manipulation; /* Better touch handling */
-        -webkit-tap-highlight-color: rgba(59, 130, 246, 0.3); /* Visual feedback on tap */
-        z-index: 2 !important; /* Above sidebar background */
-        position: relative;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: rgba(59, 130, 246, 0.3) !important;
+        /* Ensure no opacity or filters */
+        opacity: 1 !important;
+        filter: none !important;
+        visibility: visible !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-item:hover,
+    .design-sidebar.mobile-open .category-dropdown-item:hover {
+        background: #0F172A !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-item span,
+    .design-sidebar.mobile-open .category-dropdown-item span {
+        color: #E2E8F0 !important;
+        font-size: 14px !important;
+        font-weight: 500 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-item:hover span,
+    .design-sidebar.mobile-open .category-dropdown-item:hover span {
+        color: #F8FAFC !important;
+    }
+    
+    /* Fix color box and icons in dropdowns */
+    .design-sidebar.mobile-open .color-dropdown-item .color-box,
+    .design-sidebar.mobile-open .category-dropdown-item .category-icon {
+        width: 28px !important;
+        height: 28px !important;
+        flex-shrink: 0 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+        filter: none !important;
+        transform: none !important;
+    }
+    
+    .design-sidebar.mobile-open .category-dropdown-item .category-icon {
+        width: 24px !important;
+        height: 24px !important;
+        color: #94A3B8 !important;
+    }
+    
+    .design-sidebar.mobile-open .category-dropdown-item:hover .category-icon {
+        color: #6366F1 !important;
+    }
+    
+    /* Fix dropdown arrow */
+    .design-sidebar.mobile-open .dropdown-arrow {
+        width: 12px !important;
+        height: 8px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: inline-block !important;
+        color: #94A3B8 !important;
+        filter: none !important;
+        transform: none !important;
+        transition: transform 0.3s ease !important;
+    }
+    
+    .design-sidebar.mobile-open .color-dropdown-selected.open .dropdown-arrow,
+    .design-sidebar.mobile-open .category-dropdown-selected.open .dropdown-arrow {
+        transform: rotate(180deg) !important;
     }
 
     /* Ensure main content is visible when sidebar is closed */
