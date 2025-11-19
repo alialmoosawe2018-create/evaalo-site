@@ -298,10 +298,38 @@ body.rtl-text .step-number {
     /* Show language selector on mobile, hide nav dropdown */
     .language-selector-wrapper {
         display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: fixed !important;
+        top: 85px !important;
+        right: 20px !important;
+        z-index: 1000 !important;
     }
     
     .nav-link-dropdown {
         display: none !important;
+    }
+    
+    /* Smaller icon sizes on mobile */
+    .hero-feature-item {
+        width: 90px;
+        min-width: 90px;
+        min-height: 100px;
+    }
+    
+    .hero-feature-item::before {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .hero-feature-item .feature-icon {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .hero-feature-item .feature-icon svg {
+        width: 54px;
+        height: 54px;
     }
 }
 
@@ -5057,8 +5085,35 @@ html[dir="rtl"] .footer-links a:hover {
 
 @media (max-width: 480px) {
     .language-selector-wrapper {
-        top: 75px;
-        right: 10px;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: fixed !important;
+        top: 75px !important;
+        right: 10px !important;
+        z-index: 1000 !important;
+    }
+    
+    /* Even smaller icon sizes on small mobile */
+    .hero-feature-item {
+        width: 80px;
+        min-width: 80px;
+        min-height: 90px;
+    }
+    
+    .hero-feature-item::before {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .hero-feature-item .feature-icon {
+        width: 55px;
+        height: 55px;
+    }
+    
+    .hero-feature-item .feature-icon svg {
+        width: 49px;
+        height: 49px;
     }
     
     .features {
