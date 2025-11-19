@@ -1645,29 +1645,34 @@
     /* Mobile Sidebar Toggle Button */
     .mobile-sidebar-toggle {
         display: flex !important;
-        align-items: center;
-        justify-content: center;
-        position: fixed;
-        top: 90px;
-        left: 15px;
-        z-index: 10002;
-        width: 48px;
-        height: 48px;
+        align-items: center !important;
+        justify-content: center !important;
+        position: fixed !important;
+        top: 90px !important;
+        left: 15px !important;
+        z-index: 10002 !important;
+        width: 48px !important;
+        height: 48px !important;
         background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
         border: none !important;
-        border-radius: 0;
+        border-radius: 0 !important;
         color: #fff;
-        cursor: pointer;
+        cursor: pointer !important;
         box-shadow: none !important;
         transition: all 0.3s ease;
-        overflow: visible;
-        padding: 0;
-        box-sizing: border-box;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
     }
 
     .mobile-sidebar-toggle:hover {
         transform: translateY(-2px);
         box-shadow: none !important;
+        background: transparent !important;
+        background-color: transparent !important;
     }
 
     .mobile-sidebar-toggle svg {
@@ -1688,18 +1693,23 @@
     /* Apply cyan gradient color to match language icon (#22d3ee) */
     .mobile-sidebar-toggle img,
     .mobile-sidebar-toggle-icon {
-        width: 24px;
-        height: 24px;
-        max-width: 24px;
-        max-height: 24px;
-        min-width: 24px;
-        min-height: 24px;
-        object-fit: contain;
-        display: block;
-        padding: 0;
-        box-sizing: border-box;
-        pointer-events: none;
-        user-select: none;
+        width: 24px !important;
+        height: 24px !important;
+        max-width: 24px !important;
+        max-height: 24px !important;
+        min-width: 24px !important;
+        min-height: 24px !important;
+        object-fit: contain !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+        pointer-events: none !important;
+        user-select: none !important;
+        position: relative !important;
+        z-index: 1 !important;
         filter: 
             brightness(0) 
             saturate(100%) 
@@ -1709,6 +1719,19 @@
             hue-rotate(158deg) 
             brightness(102%) 
             contrast(89%);
+    }
+    
+    /* Ensure no pseudo-elements block the image */
+    .mobile-sidebar-toggle::before,
+    .mobile-sidebar-toggle::after {
+        display: none !important;
+        content: none !important;
+    }
+    
+    .mobile-sidebar-toggle-icon::before,
+    .mobile-sidebar-toggle-icon::after {
+        display: none !important;
+        content: none !important;
     }
 
     /* Mobile Sidebar Overlay */
