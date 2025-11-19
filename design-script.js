@@ -1128,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update Stats
     function updateStats() {
         document.getElementById('questionCount').textContent = questions.length;
-        
+
         const totalTime = questions.reduce((sum, q) => sum + (q.timeLimit || 0), 0);
         const estimatedMinutes = Math.ceil(totalTime / 60);
         document.getElementById('estimatedTime').textContent = `${estimatedMinutes} min`;

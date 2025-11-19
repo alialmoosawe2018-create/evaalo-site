@@ -348,8 +348,53 @@ languageOptions.forEach(option => {
         changeLanguage(lang);
         
         // Close dropdown
-        languageDropdownBtn.setAttribute('aria-expanded', 'false');
-        languageDropdownMenu.classList.remove('active');
+        if (languageDropdownBtn) {
+            languageDropdownBtn.setAttribute('aria-expanded', 'false');
+        }
+        if (languageDropdownMenu) {
+            languageDropdownMenu.classList.remove('active');
+        }
+    });
+});
+
+// Language dropdown toggle (mobile)
+const navLanguageItem = document.getElementById('navLanguageItem');
+const navLanguageDropdown = document.getElementById('navLanguageDropdown');
+
+if (navLanguageItem) {
+    // Toggle dropdown on click (mobile)
+    navLanguageItem.addEventListener('click', (e) => {
+        // Don't toggle if clicking on a language option
+        if (e.target.closest('.nav-language-option')) {
+            return;
+        }
+        
+        // Toggle expanded class for mobile
+        navLanguageItem.classList.toggle('expanded');
+    });
+}
+
+// Language selection from nav menu (inside hamburger menu)
+const navLanguageOptions = document.querySelectorAll('.nav-language-option');
+navLanguageOptions.forEach(option => {
+    option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const lang = option.getAttribute('data-lang');
+        changeLanguage(lang);
+        
+        // Close dropdown
+        if (navLanguageItem) {
+            navLanguageItem.classList.remove('expanded');
+        }
+        
+        // Close nav menu after language selection (mobile only)
+        // On desktop, keep menu open after selection
+        if (window.innerWidth <= 768 && navMenuWrapper) {
+            navMenuWrapper.classList.remove('active');
+        }
+        if (window.innerWidth <= 768 && navMenuToggle) {
+            navMenuToggle.setAttribute('aria-expanded', 'false');
+        }
     });
 });
 
@@ -389,16 +434,28 @@ if (navMenuToggle && navMenuWrapper) {
 function changeLanguage(lang) {
     currentLang = lang;
     
-    // Update button text
+    // Update button text (if exists)
     const languageNames = {
         en: 'English',
         ar: 'العربية',
         ku: 'کوردی'
     };
-    languageBtnText.textContent = languageNames[lang];
+    if (languageBtnText) {
+        languageBtnText.textContent = languageNames[lang];
+    }
     
     // Update active state
     languageOptions.forEach(option => {
+        if (option.getAttribute('data-lang') === lang) {
+            option.classList.add('active');
+        } else {
+            option.classList.remove('active');
+        }
+    });
+    
+    // Update active state for nav language options (inside hamburger menu)
+    const navLanguageOptions = document.querySelectorAll('.nav-language-option');
+    navLanguageOptions.forEach(option => {
         if (option.getAttribute('data-lang') === lang) {
             option.classList.add('active');
         } else {
