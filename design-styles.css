@@ -1296,29 +1296,108 @@
 
     .header-actions {
         width: 100%;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        justify-content: flex-start;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        justify-content: center;
         order: 1;
     }
 
     .header-actions .btn {
-        flex: 0 1 calc(33.333% - 6px);
-        min-width: calc(33.333% - 6px);
-        max-width: calc(33.333% - 6px);
-        padding: 10px 12px;
-        font-size: 13px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
-        white-space: nowrap;
+        gap: 8px;
+        padding: 16px 12px;
+        min-height: 90px;
+        background: rgba(34, 211, 238, 0.15);
+        backdrop-filter: blur(10px);
+        border: 1.5px solid rgba(34, 211, 238, 0.3);
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #ffffff;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(34, 211, 238, 0.2);
+        position: relative;
         overflow: hidden;
-        text-overflow: ellipsis;
+        text-align: center;
+        line-height: 1.2;
+    }
+
+
+    .header-actions .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(34, 211, 238, 0.25);
+        background-size: 200% 100%;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 0;
+        border-radius: 12px;
+    }
+
+    .header-actions .btn:hover {
+        transform: translateY(-2px);
+        border-color: rgba(34, 211, 238, 0.5);
+        background: rgba(34, 211, 238, 0.25);
+        box-shadow: 
+            0 4px 12px rgba(34, 211, 238, 0.3),
+            inset 0 0.5px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .header-actions .btn:hover::before {
+        opacity: 1;
     }
 
     .header-actions .btn svg {
-        width: 16px;
-        height: 16px;
+        width: 24px;
+        height: 24px;
         flex-shrink: 0;
+        position: relative;
+        z-index: 1;
+        filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.4));
+        transition: transform 0.3s ease, filter 0.3s ease;
+    }
+
+    .header-actions .btn:hover svg {
+        transform: scale(1.1);
+        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
+    }
+
+    .header-actions .btn > * {
+        position: relative;
+        z-index: 1;
+    }
+
+    .header-actions .btn {
+        text-align: center;
+    }
+
+    /* Special styling for Share and Save buttons */
+    .header-actions .btn-share {
+        background: rgba(14, 165, 233, 0.2);
+        border-color: rgba(14, 165, 233, 0.4);
+    }
+
+    .header-actions .btn-share:hover {
+        background: rgba(14, 165, 233, 0.3);
+        border-color: rgba(14, 165, 233, 0.6);
+    }
+
+    .header-actions .btn-primary {
+        background: rgba(139, 92, 246, 0.2);
+        border-color: rgba(139, 92, 246, 0.4);
+    }
+
+    .header-actions .btn-primary:hover {
+        background: rgba(139, 92, 246, 0.3);
+        border-color: rgba(139, 92, 246, 0.6);
     }
 
     .design-sidebar {
@@ -1481,19 +1560,19 @@
     }
 
     .header-actions {
-        flex-direction: row;
-        flex-wrap: wrap;
+        grid-template-columns: repeat(2, 1fr);
         gap: 8px;
-        justify-content: flex-start;
-        display: flex;
     }
 
     .header-actions .btn {
-        flex: 0 1 calc(50% - 4px);
-        min-width: calc(50% - 4px);
-        max-width: calc(50% - 4px);
-        padding: 12px 10px;
-        font-size: 13px;
+        padding: 14px 10px;
+        min-height: 85px;
+        font-size: 11px;
+    }
+
+    .header-actions .btn svg {
+        width: 22px;
+        height: 22px;
     }
 
     /* Buttons maintain their natural HTML order */
