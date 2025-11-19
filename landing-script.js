@@ -487,6 +487,82 @@ navLanguageOptions.forEach(option => {
     });
 });
 
+// Mobile Language Icon (Hero Features) - Mobile Only
+const mobileLanguageIcon = document.getElementById('mobileLanguageIcon');
+const heroLanguageDropdown = document.getElementById('heroLanguageDropdown');
+const heroLanguageOptions = document.querySelectorAll('.hero-language-option');
+
+if (mobileLanguageIcon && heroLanguageDropdown) {
+    let heroLanguageIsOpening = false;
+    let heroLanguageClickOutsideHandler;
+    
+    // Toggle dropdown on click (mobile only)
+    mobileLanguageIcon.addEventListener('click', (e) => {
+        // Don't toggle if clicking on a language option
+        if (e.target.closest('.hero-language-option')) {
+            return;
+        }
+        
+        // Prevent default behavior
+        e.stopPropagation();
+        
+        // Check if we're on mobile
+        if (window.innerWidth > 768) {
+            return;
+        }
+        
+        // Toggle active class
+        const willBeActive = !mobileLanguageIcon.classList.contains('active');
+        mobileLanguageIcon.classList.toggle('active');
+        
+        // Force reflow to ensure CSS is applied
+        void mobileLanguageIcon.offsetHeight;
+        
+        if (willBeActive) {
+            // Opening dropdown
+            heroLanguageIsOpening = true;
+            
+            // Add click outside handler after a short delay
+            setTimeout(() => {
+                heroLanguageIsOpening = false;
+                if (!heroLanguageClickOutsideHandler) {
+                    heroLanguageClickOutsideHandler = (event) => {
+                        if (!mobileLanguageIcon.contains(event.target) && 
+                            mobileLanguageIcon.classList.contains('active') && 
+                            !heroLanguageIsOpening) {
+                            mobileLanguageIcon.classList.remove('active');
+                        }
+                    };
+                    document.addEventListener('click', heroLanguageClickOutsideHandler);
+                }
+            }, 50);
+        } else {
+            // Closing dropdown
+            if (heroLanguageClickOutsideHandler) {
+                document.removeEventListener('click', heroLanguageClickOutsideHandler);
+                heroLanguageClickOutsideHandler = null;
+            }
+        }
+    });
+    
+    // Language selection from hero icon dropdown
+    heroLanguageOptions.forEach(option => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const lang = option.getAttribute('data-lang');
+            changeLanguage(lang);
+            
+            // Close dropdown
+            mobileLanguageIcon.classList.remove('active');
+            if (heroLanguageClickOutsideHandler) {
+                document.removeEventListener('click', heroLanguageClickOutsideHandler);
+                heroLanguageClickOutsideHandler = null;
+            }
+        });
+    });
+}
+
 // ====================================
 // Navigation Menu Toggle
 // ====================================
