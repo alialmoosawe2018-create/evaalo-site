@@ -19,7 +19,41 @@
         <div class="nav-container">
             <a href="index.html#hero" class="nav-logo-img">
                 <img src="images/last logo.png" alt="evaalo Logo" class="logo-image">
+                <span class="logo-text">vaalo.Ai</span>
             </a>
+            
+            <!-- Desktop Navigation Links (Horizontal) -->
+            <div class="nav-links nav-links-desktop" id="navMenuDesktop">
+                <a href="index.html#hero" class="nav-link">Home</a>
+                <a href="index.html#features" class="nav-link">Features</a>
+                <a href="index.html#why-join-us" class="nav-link">Why Us</a>
+                <a href="index.html#process" class="nav-link">How evaalo Works</a>
+                <a href="design.html" class="nav-link active">Design</a>
+                <a href="form1.html" class="nav-link">Apply Now</a>
+                
+                <!-- Language Selector as main menu item with dropdown -->
+                <div class="nav-link nav-link-dropdown" id="navLanguageItemDesktop">
+                    <span>Language</span>
+                    <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <div class="nav-language-dropdown" id="navLanguageDropdownDesktop">
+                        <button class="nav-language-option" role="menuitem" data-lang="en">
+                            <span class="language-name">English</span>
+                        </button>
+                        <button class="nav-language-option" role="menuitem" data-lang="ar">
+                            <span class="language-name">العربية</span>
+                            <span class="language-code">(AR)</span>
+                        </button>
+                        <button class="nav-language-option" role="menuitem" data-lang="ku">
+                            <span class="language-name">کوردی</span>
+                            <span class="language-code">(KU)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Mobile Hamburger Menu -->
             <div class="nav-menu-wrapper">
                 <button class="nav-menu-toggle" id="navMenuToggle" aria-label="Navigation Menu">
                     <span class="hamburger-icon">
@@ -28,13 +62,13 @@
                         <span class="hamburger-line"></span>
                     </span>
                 </button>
-                <div class="nav-links" id="navMenu">
+                <div class="nav-links nav-links-mobile" id="navMenu">
                     <a href="index.html#hero" class="nav-link">Home</a>
                     <a href="index.html#features" class="nav-link">Features</a>
                     <a href="index.html#why-join-us" class="nav-link">Why Us</a>
                     <a href="index.html#process" class="nav-link">How evaalo Works</a>
                     <a href="design.html" class="nav-link active">Design</a>
-                    <a href="index.html" class="nav-link">Apply Now</a>
+                    <a href="form1.html" class="nav-link">Apply Now</a>
                     
                     <!-- Language Selector as main menu item with dropdown -->
                     <div class="nav-link nav-link-dropdown" id="navLanguageItem">

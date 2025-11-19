@@ -367,6 +367,9 @@ const navLanguageDropdownDesktop = document.getElementById('navLanguageDropdownD
 
 // Mobile language dropdown handler
 if (navLanguageItem) {
+    let isOpening = false;
+    let clickOutsideHandler;
+    
     // Toggle dropdown on click (mobile only)
     navLanguageItem.addEventListener('click', (e) => {
         // Don't toggle if clicking on a language option
@@ -378,36 +381,49 @@ if (navLanguageItem) {
         e.preventDefault();
         e.stopPropagation();
         
+        // Check if we're on mobile
+        if (window.innerWidth > 768) {
+            return;
+        }
+        
         // Toggle expanded class
-        const isExpanded = navLanguageItem.classList.contains('expanded');
+        const willBeExpanded = !navLanguageItem.classList.contains('expanded');
         navLanguageItem.classList.toggle('expanded');
         
         // Force reflow to ensure CSS is applied
         void navLanguageItem.offsetHeight;
         
-        // On mobile, ensure dropdown is visible
-        if (window.innerWidth <= 768) {
-            const dropdown = document.getElementById('navLanguageDropdown');
-            if (dropdown) {
-                dropdown.style.display = navLanguageItem.classList.contains('expanded') ? 'flex' : 'none';
+        const dropdown = document.getElementById('navLanguageDropdown');
+        if (dropdown) {
+            if (willBeExpanded) {
+                // Opening dropdown
+                isOpening = true;
+                dropdown.style.display = 'flex';
+                
+                // Add click outside handler after a short delay
                 setTimeout(() => {
-                    dropdown.style.display = '';
-                }, 10);
-            }
-        }
-    });
-    
-    // Close dropdown when clicking outside (mobile)
-    document.addEventListener('click', (e) => {
-        if (window.innerWidth <= 768) {
-            if (!navLanguageItem.contains(e.target) && navLanguageItem.classList.contains('expanded')) {
-                navLanguageItem.classList.remove('expanded');
-                const dropdown = document.getElementById('navLanguageDropdown');
-                if (dropdown) {
-                    dropdown.style.display = 'none';
-                    setTimeout(() => {
-                        dropdown.style.display = '';
-                    }, 300);
+                    isOpening = false;
+                    if (!clickOutsideHandler) {
+                        clickOutsideHandler = (event) => {
+                            if (!navLanguageItem.contains(event.target) && 
+                                navLanguageItem.classList.contains('expanded') && 
+                                !isOpening) {
+                                navLanguageItem.classList.remove('expanded');
+                                const dropdownEl = document.getElementById('navLanguageDropdown');
+                                if (dropdownEl) {
+                                    dropdownEl.style.display = 'none';
+                                }
+                            }
+                        };
+                        document.addEventListener('click', clickOutsideHandler);
+                    }
+                }, 50);
+            } else {
+                // Closing dropdown
+                dropdown.style.display = 'none';
+                if (clickOutsideHandler) {
+                    document.removeEventListener('click', clickOutsideHandler);
+                    clickOutsideHandler = null;
                 }
             }
         }
@@ -440,12 +456,17 @@ const navLanguageOptions = document.querySelectorAll('.nav-language-option');
 navLanguageOptions.forEach(option => {
     option.addEventListener('click', (e) => {
         e.stopPropagation();
+        e.preventDefault();
         const lang = option.getAttribute('data-lang');
         changeLanguage(lang);
         
         // Close mobile dropdown
         if (navLanguageItem) {
             navLanguageItem.classList.remove('expanded');
+            const dropdown = document.getElementById('navLanguageDropdown');
+            if (dropdown && window.innerWidth <= 768) {
+                dropdown.style.display = 'none';
+            }
         }
         
         // Close desktop dropdown
