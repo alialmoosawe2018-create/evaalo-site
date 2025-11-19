@@ -1695,12 +1695,12 @@
     /* Apply cyan gradient color to match language icon (#22d3ee) */
     .mobile-sidebar-toggle img,
     .mobile-sidebar-toggle-icon {
-        width: 40px !important;
-        height: 40px !important;
-        max-width: 40px !important;
-        max-height: 40px !important;
-        min-width: 40px !important;
-        min-height: 40px !important;
+        width: 36px !important;
+        height: 36px !important;
+        max-width: 36px !important;
+        max-height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
         object-fit: contain !important;
         display: block !important;
         visibility: visible !important;
@@ -1716,16 +1716,16 @@
         background-color: transparent !important;
         background-image: none !important;
         border: none !important;
-        /* Cyan color filter to match language icon */
+        /* Cyan color filter - adjusted for better visibility */
         filter: 
             brightness(0) 
             saturate(100%) 
-            invert(76%) 
-            sepia(98%) 
-            saturate(1352%) 
-            hue-rotate(158deg) 
-            brightness(102%) 
-            contrast(89%);
+            invert(80%) 
+            sepia(100%) 
+            saturate(1500%) 
+            hue-rotate(160deg) 
+            brightness(110%) 
+            contrast(95%);
     }
     
     /* Ensure no pseudo-elements block the image */
@@ -1746,10 +1746,10 @@
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
-        width: 40px !important;
-        height: 40px !important;
-        max-width: 40px !important;
-        max-height: 40px !important;
+        width: 36px !important;
+        height: 36px !important;
+        max-width: 36px !important;
+        max-height: 36px !important;
     }
     
     /* Hide any SVG that might still be in the button */
