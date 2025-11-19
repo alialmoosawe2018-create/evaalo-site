@@ -1709,7 +1709,12 @@
         pointer-events: none !important;
         user-select: none !important;
         position: relative !important;
-        z-index: 1 !important;
+        z-index: 10 !important;
+        background: none !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        border: none !important;
+        /* Cyan color filter to match language icon */
         filter: 
             brightness(0) 
             saturate(100%) 
@@ -1732,6 +1737,21 @@
     .mobile-sidebar-toggle-icon::after {
         display: none !important;
         content: none !important;
+    }
+    
+    /* Force image to be visible and loaded */
+    .mobile-sidebar-toggle img[src] {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: 24px !important;
+        height: 24px !important;
+    }
+    
+    /* Ensure button content is visible */
+    .mobile-sidebar-toggle * {
+        max-width: 100% !important;
+        max-height: 100% !important;
     }
 
     /* Mobile Sidebar Overlay */
