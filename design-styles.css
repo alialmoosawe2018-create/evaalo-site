@@ -1638,18 +1638,47 @@
         z-index: 10002;
         width: 48px;
         height: 48px;
-        background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-        border: 2px solid rgba(59, 130, 246, 0.5);
-        border-radius: 12px;
+        padding: 0;
+        background: rgba(34, 211, 238, 0.15);
+        backdrop-filter: blur(10px);
+        border: 1.5px solid rgba(34, 211, 238, 0.3);
+        border-radius: 8px;
         color: #fff;
         cursor: pointer;
-        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 8px rgba(34, 211, 238, 0.2);
+    }
+
+    .mobile-sidebar-toggle::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(34, 211, 238, 0.25);
+        background-size: 200% 100%;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+        border-radius: 8px;
     }
 
     .mobile-sidebar-toggle:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+        transform: translateY(-1px);
+        border-color: rgba(34, 211, 238, 0.5);
+        background: rgba(34, 211, 238, 0.25);
+        box-shadow: 
+            0 4px 12px rgba(34, 211, 238, 0.3),
+            inset 0 0.5px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .mobile-sidebar-toggle:hover::before {
+        opacity: 1;
+    }
+
+    .mobile-sidebar-toggle:active {
+        transform: translateY(0);
     }
 
     /* Show gear icon on mobile, hide hamburger */
@@ -1657,6 +1686,14 @@
         display: block;
         width: 24px;
         height: 24px;
+        flex-shrink: 0;
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.4));
+    }
+
+    .mobile-sidebar-toggle:hover .mobile-gear-icon {
+        transform: scale(1.05);
+        filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
     }
 
     .mobile-sidebar-toggle .mobile-hamburger-icon {
