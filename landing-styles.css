@@ -725,16 +725,44 @@ html[lang="ku"] body,
 
 /* Mobile: Show on tap/expand */
 @media (max-width: 768px) {
-    .nav-link-dropdown.expanded .nav-language-dropdown {
-        opacity: 1;
-        visibility: visible;
-        transform: translateY(0);
+    .nav-link-dropdown {
         position: relative;
-        margin-top: 8px;
-        box-shadow: none;
-        border: none;
-        background: transparent;
-        padding: 0;
+    }
+    
+    .nav-link-dropdown .nav-language-dropdown {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        min-width: 100% !important;
+    }
+    
+    .nav-link-dropdown.expanded .nav-language-dropdown {
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: translateY(0) !important;
+        position: relative !important;
+        margin-top: 8px !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        z-index: 1002 !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+    
+    .nav-link-dropdown.expanded .nav-language-option {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: flex !important;
     }
 }
 
@@ -754,6 +782,8 @@ html[lang="ku"] body,
     font-family: inherit;
     text-align: left;
     width: 100%;
+    opacity: 1;
+    visibility: visible;
 }
 
 .nav-language-option:hover {

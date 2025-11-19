@@ -362,15 +362,32 @@ const navLanguageItem = document.getElementById('navLanguageItem');
 const navLanguageDropdown = document.getElementById('navLanguageDropdown');
 
 if (navLanguageItem) {
-    // Toggle dropdown on click (mobile)
+    // Toggle dropdown on click (mobile and desktop)
     navLanguageItem.addEventListener('click', (e) => {
         // Don't toggle if clicking on a language option
         if (e.target.closest('.nav-language-option')) {
             return;
         }
         
-        // Toggle expanded class for mobile
+        // Prevent default link behavior
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Toggle expanded class
+        const isExpanded = navLanguageItem.classList.contains('expanded');
         navLanguageItem.classList.toggle('expanded');
+        
+        // Log for debugging (can be removed)
+        console.log('Language dropdown toggled:', !isExpanded);
+    });
+    
+    // Close dropdown when clicking outside (mobile)
+    document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 768) {
+            if (!navLanguageItem.contains(e.target) && navLanguageItem.classList.contains('expanded')) {
+                navLanguageItem.classList.remove('expanded');
+            }
+        }
     });
 }
 
