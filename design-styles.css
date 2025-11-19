@@ -1717,10 +1717,11 @@
         top: 90px;
         left: 15px;
         z-index: 10002;
+        /* Exact same size as Video icon */
         width: 70px;
         height: 70px;
         padding: 2px;
-        /* Same gradient and glow as Video icon */
+        /* Same background and border as Video icon (nth-child(3)) */
         background: linear-gradient(135deg, 
             rgba(255, 107, 107, 0.25) 0%, 
             rgba(255, 255, 255, 0.1) 100%);
@@ -1771,6 +1772,7 @@
 
     .mobile-sidebar-toggle:hover {
         transform: translateY(-12px);
+        /* Same hover styles as Video icon */
         border-color: rgba(255, 107, 107, 0.6);
         box-shadow: 
             0 12px 40px rgba(255, 107, 107, 0.4),
