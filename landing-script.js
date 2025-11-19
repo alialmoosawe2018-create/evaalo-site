@@ -377,8 +377,23 @@ if (navLanguageItem) {
         const isExpanded = navLanguageItem.classList.contains('expanded');
         navLanguageItem.classList.toggle('expanded');
         
-        // Log for debugging (can be removed)
+        // Force reflow to ensure CSS is applied
+        void navLanguageItem.offsetHeight;
+        
+        // Log for debugging
         console.log('Language dropdown toggled:', !isExpanded);
+        console.log('Is expanded:', navLanguageItem.classList.contains('expanded'));
+        
+        // On mobile, ensure dropdown is visible
+        if (window.innerWidth <= 768) {
+            const dropdown = document.getElementById('navLanguageDropdown');
+            if (dropdown) {
+                dropdown.style.display = navLanguageItem.classList.contains('expanded') ? 'flex' : 'none';
+                setTimeout(() => {
+                    dropdown.style.display = '';
+                }, 10);
+            }
+        }
     });
     
     // Close dropdown when clicking outside (mobile)
@@ -386,6 +401,13 @@ if (navLanguageItem) {
         if (window.innerWidth <= 768) {
             if (!navLanguageItem.contains(e.target) && navLanguageItem.classList.contains('expanded')) {
                 navLanguageItem.classList.remove('expanded');
+                const dropdown = document.getElementById('navLanguageDropdown');
+                if (dropdown) {
+                    dropdown.style.display = 'none';
+                    setTimeout(() => {
+                        dropdown.style.display = '';
+                    }, 300);
+                }
             }
         }
     });

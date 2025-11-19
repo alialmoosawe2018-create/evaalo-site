@@ -736,6 +736,8 @@ html[lang="ku"] body,
         right: auto !important;
         bottom: auto !important;
         min-width: 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
     
     .nav-link-dropdown.expanded .nav-language-dropdown {
@@ -746,6 +748,7 @@ html[lang="ku"] body,
         margin-top: 8px !important;
         margin-left: 0 !important;
         margin-right: 0 !important;
+        margin-bottom: 0 !important;
         box-shadow: none !important;
         border: none !important;
         background: transparent !important;
@@ -757,12 +760,62 @@ html[lang="ku"] body,
         height: auto !important;
         max-height: none !important;
         overflow: visible !important;
+        pointer-events: auto !important;
+        clip: auto !important;
+        clip-path: none !important;
+    }
+    
+    /* Force show on mobile when expanded */
+    @media (max-width: 768px) {
+        #navLanguageDropdown {
+            display: none;
+        }
+        
+        #navLanguageItem.expanded #navLanguageDropdown {
+            display: flex !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
     }
     
     .nav-link-dropdown.expanded .nav-language-option {
         opacity: 1 !important;
         visibility: visible !important;
         display: flex !important;
+        pointer-events: auto !important;
+        width: 100% !important;
+    }
+    
+    /* Ensure dropdown is not hidden by parent */
+    .nav-links .nav-link-dropdown.expanded {
+        overflow: visible !important;
+    }
+    
+    .nav-links .nav-link-dropdown.expanded .nav-language-dropdown {
+        position: relative !important;
+        margin-top: 8px !important;
+        margin-bottom: 8px !important;
+    }
+    
+    /* Override any conflicting styles */
+    .nav-links .nav-link-dropdown.expanded {
+        height: auto !important;
+        min-height: auto !important;
+    }
+    
+    /* Make sure dropdown is visible */
+    .nav-links:has(.nav-link-dropdown.expanded) {
+        overflow: visible !important;
+    }
+    
+    /* Alternative for browsers that don't support :has() */
+    .nav-links {
+        overflow: visible !important;
+    }
+    
+    /* Ensure nav-link-dropdown can expand */
+    .nav-links .nav-link-dropdown {
+        overflow: visible !important;
     }
 }
 
