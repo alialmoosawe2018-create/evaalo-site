@@ -1795,6 +1795,8 @@
         position: relative;
         z-index: 1;
         filter: drop-shadow(0 0 4px rgba(255, 107, 107, 0.4));
+        object-fit: contain;
+        image-rendering: -webkit-optimize-contrast;
     }
 
     .mobile-sidebar-toggle:hover .mobile-gear-icon {
@@ -1813,9 +1815,8 @@
     }
 
     /* Pulse effect on hover - same as Video icon */
-    .mobile-sidebar-toggle:hover .mobile-gear-icon path,
-    .mobile-sidebar-toggle:hover .mobile-gear-icon circle {
-        animation: iconPulse 0.8s ease-out;
+    .mobile-sidebar-toggle:hover .mobile-gear-icon {
+        animation: iconFloat 2s ease-in-out infinite, iconPulse 0.8s ease-out;
     }
 
     @keyframes iconPulse {
@@ -1823,13 +1824,8 @@
             opacity: 1; 
         }
         50% { 
-            opacity: 0.75; 
+            opacity: 0.85; 
         }
-    }
-
-    .mobile-sidebar-toggle svg {
-        width: 64px;
-        height: 64px;
     }
 
     .mobile-sidebar-toggle .mobile-hamburger-icon {
