@@ -160,16 +160,15 @@
     display: none;
 }
 
-/* Hide custom icon on desktop, show SVG */
-.mobile-menu-icon {
-    display: none !important;
-    visibility: hidden;
+/* Hide gear icon on desktop, show hamburger */
+.mobile-gear-icon {
+    display: none;
 }
 
-.mobile-menu-svg {
+.mobile-hamburger-icon {
     display: block;
-    visibility: visible;
 }
+
 
 .mobile-sidebar-close {
     display: none;
@@ -1557,15 +1556,6 @@
         padding: 12px;
     }
 
-    /* Ensure custom icon displays correctly on small screens */
-    .mobile-sidebar-toggle .mobile-menu-icon {
-        width: 36px;
-        height: 36px;
-        min-width: 36px;
-        min-height: 36px;
-        max-width: 36px;
-        max-height: 36px;
-    }
 
     .modal-content {
         margin: 0 5px;
@@ -1648,14 +1638,13 @@
         z-index: 10002;
         width: 48px;
         height: 48px;
-        background: transparent !important;
-        border: none !important;
+        background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+        border: 2px solid rgba(59, 130, 246, 0.5);
         border-radius: 12px;
         color: #fff;
         cursor: pointer;
-        box-shadow: none !important;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         transition: all 0.3s ease;
-        padding: 0;
     }
 
     .mobile-sidebar-toggle:hover {
@@ -1663,26 +1652,15 @@
         box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
     }
 
-    /* Hide SVG on mobile, show custom icon */
-    .mobile-sidebar-toggle .mobile-menu-svg {
-        display: none !important;
-        visibility: hidden !important;
+    /* Show gear icon on mobile, hide hamburger */
+    .mobile-sidebar-toggle .mobile-gear-icon {
+        display: block;
+        width: 24px;
+        height: 24px;
     }
 
-    .mobile-sidebar-toggle .mobile-menu-icon {
-        display: block !important;
-        width: 40px;
-        height: 40px;
-        min-width: 40px;
-        min-height: 40px;
-        max-width: 40px;
-        max-height: 40px;
-        object-fit: contain;
-        position: relative;
-        z-index: 2;
-        pointer-events: none;
-        visibility: visible !important;
-        opacity: 1 !important;
+    .mobile-sidebar-toggle .mobile-hamburger-icon {
+        display: none;
     }
 
     .mobile-sidebar-toggle svg {
