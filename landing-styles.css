@@ -331,6 +331,22 @@ body.rtl-text .step-number {
         width: 54px;
         height: 54px;
     }
+    
+    /* Language icon - same size as hero-feature icons on mobile */
+    .language-icon-button::before {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .language-feature-icon {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .language-feature-icon svg {
+        width: 54px;
+        height: 54px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -1386,7 +1402,7 @@ body.rtl-text .nav-links {
 }
 
 /* ====================================
-   Language Selector
+   Language Selector - Icon Style (like hero-feature-item)
    ==================================== */
 .language-selector-wrapper {
     position: fixed;
@@ -1395,142 +1411,109 @@ body.rtl-text .nav-links {
     z-index: 1000;
 }
 
-.language-dropdown-btn {
+.language-icon-button {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 6px 14px;
-    background: rgba(34, 211, 238, 0.15);
-    backdrop-filter: blur(10px);
-    border: 1.5px solid rgba(34, 211, 238, 0.3);
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #1a1a1a;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    /* Fixed width and height - no expansion or shrinking */
-    width: 120px;
-    min-width: 120px;
-    max-width: 120px;
-    height: 36px;
-    min-height: 36px;
-    max-height: 36px;
-    box-sizing: border-box;
-    font-family: inherit;
-    box-shadow: 
-        0 2px 8px rgba(34, 211, 238, 0.15),
-        inset 0 0.5px 0 rgba(255, 255, 255, 0.2);
-    overflow: hidden;
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    opacity: 0.95;
 }
 
-.language-dropdown-btn::before {
+/* Soft gradient/glow background behind icon - same as hero-feature-item */
+.language-icon-button::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(34, 211, 238, 0.25);
-    background-size: 200% 100%;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: -1;
-    border-radius: 8px;
-}
-
-.language-dropdown-btn::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
+    width: 95px;
+    height: 95px;
+    background: radial-gradient(circle, rgba(34, 211, 238, 0.2) 0%, transparent 70%);
     border-radius: 50%;
-    background: radial-gradient(circle, 
-        rgba(34, 211, 238, 0.2) 0%, 
-        rgba(34, 211, 238, 0.1) 40%,
-        transparent 70%);
-    transform: translate(-50%, -50%);
-    transition: width 0.5s ease, height 0.5s ease;
-    z-index: -1;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 4px 20px rgba(34, 211, 238, 0.25);
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 0;
+    filter: blur(8px);
+    animation: iconGlowPulse 3s ease-in-out infinite;
 }
 
-.language-dropdown-btn:hover {
-    border-color: rgba(34, 211, 238, 0.5);
-    transform: translateY(-1px);
-    background: rgba(34, 211, 238, 0.25);
-    box-shadow: 
-        0 4px 12px rgba(34, 211, 238, 0.3),
-        inset 0 0.5px 0 rgba(255, 255, 255, 0.3);
+.language-icon-button:hover::before {
+    box-shadow: 0 8px 35px rgba(34, 211, 238, 0.5);
+    transform: translateX(-50%) scale(1.15);
+    filter: blur(12px);
 }
 
-.language-dropdown-btn:hover::before {
+.language-icon-button:hover {
     opacity: 1;
+    transform: translateY(-12px);
 }
 
-.language-dropdown-btn:hover::after {
-    width: 180px;
-    height: 180px;
+.language-feature-icon {
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    padding: 2px;
+    border: 1.5px solid rgba(34, 211, 238, 0.4);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 70px;
+    height: 70px;
+    flex-shrink: 0;
+    margin: 0 auto;
+    background: linear-gradient(135deg, 
+        rgba(34, 211, 238, 0.25) 0%, 
+        rgba(255, 255, 255, 0.1) 100%);
 }
 
-.language-dropdown-btn:focus {
-    outline: none;
+.language-feature-icon svg {
+    flex-shrink: 0;
+    width: 64px;
+    height: 64px;
+}
+
+.language-icon-button:hover .language-feature-icon {
+    transform: scale(1.15) rotate(3deg);
+    backdrop-filter: blur(15px);
     border-color: rgba(34, 211, 238, 0.6);
     box-shadow: 
-        0 0 0 3px rgba(34, 211, 238, 0.1),
-        0 4px 12px rgba(34, 211, 238, 0.3);
-}
-
-.language-dropdown-btn[aria-expanded="true"] {
-    background: rgba(34, 211, 238, 0.25);
-    border-color: rgba(34, 211, 238, 0.5);
-    box-shadow: 
+        0 12px 40px rgba(34, 211, 238, 0.4),
         0 4px 12px rgba(34, 211, 238, 0.3),
-        inset 0 0.5px 0 rgba(255, 255, 255, 0.3);
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    background: linear-gradient(135deg, 
+        rgba(34, 211, 238, 0.35) 0%, 
+        rgba(255, 255, 255, 0.15) 100%);
 }
 
-.language-dropdown-btn[aria-expanded="true"] .language-dropdown-icon {
-    transform: rotate(180deg);
+.language-icon-button:focus {
+    outline: none;
 }
 
-.language-icon {
-    flex-shrink: 0;
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.4));
-}
-
-.language-dropdown-btn:hover .language-icon {
-    transform: rotate(180deg) scale(1.05);
-    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.5));
-}
-
-.language-btn-text {
-    flex: 1;
-    text-align: center;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    text-shadow: none;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.language-dropdown-icon {
-    width: 14px;
-    height: 10px;
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    flex-shrink: 0;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-    display: none;
+.language-icon-button[aria-expanded="true"] .language-feature-icon {
+    border-color: rgba(34, 211, 238, 0.6);
+    box-shadow: 
+        0 12px 40px rgba(34, 211, 238, 0.4),
+        0 4px 12px rgba(34, 211, 238, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .language-dropdown-menu {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 15px);
     right: 0;
+    left: auto;
     background: #ffffff;
     backdrop-filter: blur(10px);
     border: 1.5px solid rgba(34, 211, 238, 0.3);
@@ -5112,6 +5095,22 @@ html[dir="rtl"] .footer-links a:hover {
     }
     
     .hero-feature-item .feature-icon svg {
+        width: 49px;
+        height: 49px;
+    }
+    
+    /* Language icon - same size as hero-feature icons on small mobile */
+    .language-icon-button::before {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .language-feature-icon {
+        width: 55px;
+        height: 55px;
+    }
+    
+    .language-feature-icon svg {
         width: 49px;
         height: 49px;
     }
