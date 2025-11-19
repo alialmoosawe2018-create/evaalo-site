@@ -1660,6 +1660,9 @@
         cursor: pointer;
         box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         transition: all 0.3s ease;
+        overflow: hidden;
+        padding: 0;
+        box-sizing: border-box;
     }
 
     .mobile-sidebar-toggle:hover {
@@ -1672,8 +1675,16 @@
     .mobile-sidebar-toggle-icon {
         width: 24px;
         height: 24px;
+        max-width: 24px;
+        max-height: 24px;
+        min-width: 24px;
+        min-height: 24px;
         object-fit: contain;
         display: block;
+        padding: 4px;
+        box-sizing: border-box;
+        pointer-events: none;
+        user-select: none;
     }
 
     /* Mobile Sidebar Overlay */
