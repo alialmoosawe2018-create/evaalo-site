@@ -160,17 +160,6 @@
     display: none;
 }
 
-/* Custom menu icon image - general styles (applies to both desktop and mobile) */
-.mobile-sidebar-toggle .custom-menu-icon {
-    width: 24px;
-    height: 24px;
-    display: block;
-    object-fit: contain;
-    position: relative;
-    z-index: 2;
-    pointer-events: none;
-}
-
 .mobile-sidebar-close {
     display: none;
 }
@@ -1242,13 +1231,6 @@
     .design-sidebar {
         position: static;
     }
-    
-    /* Override for mobile - ensure sidebar can be fixed */
-    @media (max-width: 768px) {
-        .design-sidebar {
-            position: fixed !important;
-        }
-    }
 
     .design-header {
         flex-direction: column;
@@ -1308,10 +1290,9 @@
         flex-wrap: wrap;
         gap: 8px;
         justify-content: flex-start;
-        order: 1; /* Maintain order */
+        order: 1;
     }
 
-    /* Maintain button order: Model, Workflow, Connect, Preview, Share, Save */
     .header-actions .btn {
         flex: 0 1 calc(33.333% - 6px);
         min-width: calc(33.333% - 6px);
@@ -1322,14 +1303,6 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-    }
-
-    /* Maintain exact button order on mobile - same as desktop */
-    /* Order: Model (1), Workflow (2), Connect (3), Preview (4), Share (5), Save (6) */
-    .header-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
     }
 
     .header-actions .btn svg {
@@ -1343,6 +1316,9 @@
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
+        position: fixed !important;
+        max-height: none;
+        overflow: visible;
     }
     
     .design-content {
@@ -1350,19 +1326,6 @@
         gap: 20px;
         width: 100%;
         overflow-x: hidden;
-    }
-
-    .design-sidebar {
-        position: static;
-        max-height: none;
-        overflow: visible;
-    }
-    
-    /* Override for mobile - ensure sidebar can be fixed */
-    @media (max-width: 768px) {
-        .design-sidebar {
-            position: fixed !important;
-        }
     }
 
     .question-types {
@@ -1662,16 +1625,15 @@
         top: 90px;
         left: 15px;
         z-index: 10002;
-        width: 56px;
-        height: 56px;
-        background: transparent !important;
-        border: none !important;
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+        border: 2px solid rgba(59, 130, 246, 0.5);
         border-radius: 12px;
         color: #fff;
         cursor: pointer;
-        box-shadow: none !important;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         transition: all 0.3s ease;
-        padding: 0;
     }
 
     .mobile-sidebar-toggle:hover {
@@ -1682,19 +1644,6 @@
     .mobile-sidebar-toggle svg {
         width: 24px;
         height: 24px;
-    }
-
-    /* Custom menu icon image for mobile - larger size to prevent missing image symbol */
-    .mobile-sidebar-toggle .custom-menu-icon {
-        width: 44px;
-        height: 44px;
-        min-width: 44px;
-        min-height: 44px;
-        display: block;
-        object-fit: contain;
-        position: relative;
-        z-index: 2;
-        pointer-events: none;
     }
 
     /* Mobile Sidebar Overlay */
@@ -1879,4 +1828,3 @@
         transform: translateY(0);
     }
 }
-
