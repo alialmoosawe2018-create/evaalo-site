@@ -1672,6 +1672,15 @@
         height: 24px;
     }
 
+    .mobile-sidebar-toggle img {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+        display: block;
+        position: relative;
+        z-index: 1;
+    }
+
     /* Mobile Sidebar Overlay */
     .mobile-sidebar-overlay {
         display: none;
