@@ -627,15 +627,6 @@ html[lang="ku"] body,
     transform: rotate(-45deg) translate(7px, -7px);
 }
 
-.nav-menu-toggle img {
-    width: 24px;
-    height: 24px;
-    object-fit: contain;
-    display: block;
-    position: relative;
-    z-index: 1;
-}
-
 .nav-links {
     position: absolute;
     top: calc(100% + 12px);

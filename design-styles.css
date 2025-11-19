@@ -160,6 +160,17 @@
     display: none;
 }
 
+/* Custom menu icon image - general styles (applies to both desktop and mobile) */
+.mobile-sidebar-toggle .custom-menu-icon {
+    width: 24px;
+    height: 24px;
+    display: block;
+    object-fit: contain;
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+}
+
 .mobile-sidebar-close {
     display: none;
 }
@@ -1653,13 +1664,14 @@
         z-index: 10002;
         width: 48px;
         height: 48px;
-        background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
-        border: 2px solid rgba(59, 130, 246, 0.5);
+        background: transparent !important;
+        border: none !important;
         border-radius: 12px;
         color: #fff;
         cursor: pointer;
-        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        box-shadow: none !important;
         transition: all 0.3s ease;
+        padding: 0;
     }
 
     .mobile-sidebar-toggle:hover {
@@ -1672,13 +1684,15 @@
         height: 24px;
     }
 
-    .mobile-sidebar-toggle img {
+    /* Custom menu icon image for mobile - must be visible above any background */
+    .mobile-sidebar-toggle .custom-menu-icon {
         width: 24px;
         height: 24px;
-        object-fit: contain;
         display: block;
+        object-fit: contain;
         position: relative;
-        z-index: 1;
+        z-index: 2;
+        pointer-events: none;
     }
 
     /* Mobile Sidebar Overlay */
