@@ -1645,124 +1645,31 @@
     /* Mobile Sidebar Toggle Button */
     .mobile-sidebar-toggle {
         display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        position: fixed !important;
-        top: 90px !important;
-        left: 15px !important;
-        z-index: 10002 !important;
-        width: auto !important;
-        height: auto !important;
-        min-width: 48px !important;
-        min-height: 48px !important;
-        background: transparent !important;
-        background-color: transparent !important;
-        background-image: none !important;
-        border: none !important;
-        border-radius: 0 !important;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        top: 90px;
+        left: 15px;
+        z-index: 10002;
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+        border: 2px solid rgba(59, 130, 246, 0.5);
+        border-radius: 12px;
         color: #fff;
-        cursor: pointer !important;
-        box-shadow: none !important;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
         transition: all 0.3s ease;
-        overflow: visible !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        box-sizing: border-box !important;
     }
 
     .mobile-sidebar-toggle:hover {
         transform: translateY(-2px);
-        box-shadow: none !important;
-        background: transparent !important;
-        background-color: transparent !important;
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
     }
 
     .mobile-sidebar-toggle svg {
         width: 24px;
         height: 24px;
-        max-width: 24px;
-        max-height: 24px;
-        min-width: 24px;
-        min-height: 24px;
-        object-fit: contain;
-        display: block;
-        padding: 0;
-        box-sizing: border-box;
-        pointer-events: none;
-        user-select: none;
-    }
-    
-    /* Apply cyan gradient color to match language icon (#22d3ee) */
-    .mobile-sidebar-toggle img,
-    .mobile-sidebar-toggle-icon {
-        width: 36px !important;
-        height: 36px !important;
-        max-width: 36px !important;
-        max-height: 36px !important;
-        min-width: 36px !important;
-        min-height: 36px !important;
-        object-fit: contain !important;
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        box-sizing: border-box !important;
-        pointer-events: none !important;
-        user-select: none !important;
-        position: relative !important;
-        z-index: 10 !important;
-        background: none !important;
-        background-color: transparent !important;
-        background-image: none !important;
-        border: none !important;
-        /* Cyan color filter - adjusted for better visibility */
-        filter: 
-            brightness(0) 
-            saturate(100%) 
-            invert(80%) 
-            sepia(100%) 
-            saturate(1500%) 
-            hue-rotate(160deg) 
-            brightness(110%) 
-            contrast(95%);
-    }
-    
-    /* Ensure no pseudo-elements block the image */
-    .mobile-sidebar-toggle::before,
-    .mobile-sidebar-toggle::after {
-        display: none !important;
-        content: none !important;
-    }
-    
-    .mobile-sidebar-toggle-icon::before,
-    .mobile-sidebar-toggle-icon::after {
-        display: none !important;
-        content: none !important;
-    }
-    
-    /* Force image to be visible and loaded */
-    .mobile-sidebar-toggle img[src] {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        width: 36px !important;
-        height: 36px !important;
-        max-width: 36px !important;
-        max-height: 36px !important;
-    }
-    
-    /* Hide any SVG that might still be in the button */
-    .mobile-sidebar-toggle svg {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-    }
-    
-    /* Ensure button content is visible */
-    .mobile-sidebar-toggle * {
-        max-width: 100% !important;
-        max-height: 100% !important;
     }
 
     /* Mobile Sidebar Overlay */
