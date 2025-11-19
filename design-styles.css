@@ -1667,9 +1667,13 @@
         box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
     }
 
-    .mobile-sidebar-toggle svg {
+    .mobile-sidebar-toggle svg,
+    .mobile-sidebar-toggle img,
+    .mobile-sidebar-toggle-icon {
         width: 24px;
         height: 24px;
+        object-fit: contain;
+        display: block;
     }
 
     /* Mobile Sidebar Overlay */
