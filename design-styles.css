@@ -160,6 +160,15 @@
     display: none;
 }
 
+/* Hide custom icon on desktop, show SVG */
+.mobile-menu-icon {
+    display: none;
+}
+
+.mobile-menu-svg {
+    display: block;
+}
+
 .mobile-sidebar-close {
     display: none;
 }
@@ -1546,6 +1555,14 @@
         padding: 12px;
     }
 
+    /* Ensure custom icon displays correctly on small screens */
+    .mobile-sidebar-toggle .mobile-menu-icon {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        min-height: 28px;
+    }
+
     .modal-content {
         margin: 0 5px;
         max-width: calc(100% - 10px);
@@ -1639,6 +1656,23 @@
     .mobile-sidebar-toggle:hover {
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+    }
+
+    /* Hide SVG on mobile, show custom icon */
+    .mobile-sidebar-toggle .mobile-menu-svg {
+        display: none;
+    }
+
+    .mobile-sidebar-toggle .mobile-menu-icon {
+        display: block;
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+        object-fit: contain;
+        position: relative;
+        z-index: 1;
+        pointer-events: none;
     }
 
     .mobile-sidebar-toggle svg {
