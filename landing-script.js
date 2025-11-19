@@ -357,12 +357,17 @@ languageOptions.forEach(option => {
     });
 });
 
-// Language dropdown toggle (mobile)
+// Mobile language dropdown
 const navLanguageItem = document.getElementById('navLanguageItem');
 const navLanguageDropdown = document.getElementById('navLanguageDropdown');
 
+// Desktop language dropdown
+const navLanguageItemDesktop = document.getElementById('navLanguageItemDesktop');
+const navLanguageDropdownDesktop = document.getElementById('navLanguageDropdownDesktop');
+
+// Mobile language dropdown handler
 if (navLanguageItem) {
-    // Toggle dropdown on click (mobile and desktop)
+    // Toggle dropdown on click (mobile only)
     navLanguageItem.addEventListener('click', (e) => {
         // Don't toggle if clicking on a language option
         if (e.target.closest('.nav-language-option')) {
@@ -413,6 +418,27 @@ if (navLanguageItem) {
     });
 }
 
+// Desktop language dropdown handler (hover-based)
+if (navLanguageItemDesktop) {
+    // Show dropdown on hover
+    navLanguageItemDesktop.addEventListener('mouseenter', () => {
+        if (navLanguageDropdownDesktop) {
+            navLanguageDropdownDesktop.style.opacity = '1';
+            navLanguageDropdownDesktop.style.visibility = 'visible';
+            navLanguageDropdownDesktop.style.transform = 'translateY(0)';
+        }
+    });
+    
+    // Hide dropdown on mouse leave
+    navLanguageItemDesktop.addEventListener('mouseleave', () => {
+        if (navLanguageDropdownDesktop) {
+            navLanguageDropdownDesktop.style.opacity = '0';
+            navLanguageDropdownDesktop.style.visibility = 'hidden';
+            navLanguageDropdownDesktop.style.transform = 'translateY(-8px)';
+        }
+    });
+}
+
 // Language selection from nav menu (inside hamburger menu)
 const navLanguageOptions = document.querySelectorAll('.nav-language-option');
 navLanguageOptions.forEach(option => {
@@ -421,9 +447,16 @@ navLanguageOptions.forEach(option => {
         const lang = option.getAttribute('data-lang');
         changeLanguage(lang);
         
-        // Close dropdown
+        // Close mobile dropdown
         if (navLanguageItem) {
             navLanguageItem.classList.remove('expanded');
+        }
+        
+        // Close desktop dropdown
+        if (navLanguageDropdownDesktop) {
+            navLanguageDropdownDesktop.style.opacity = '0';
+            navLanguageDropdownDesktop.style.visibility = 'hidden';
+            navLanguageDropdownDesktop.style.transform = 'translateY(-8px)';
         }
         
         // Close nav menu after language selection (mobile only)
