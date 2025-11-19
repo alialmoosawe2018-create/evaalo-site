@@ -1165,6 +1165,47 @@ body.rtl-text .nav-links {
     
     .nav-logo-img {
         gap: 0;
+        /* Smart frame for logo on mobile - same as hamburger icon */
+        padding: 8px;
+        background: linear-gradient(135deg, 
+            rgba(99, 102, 241, 0.08) 0%, 
+            rgba(168, 85, 247, 0.08) 50%,
+            rgba(56, 189, 248, 0.06) 100%);
+        border: 1.5px solid rgba(99, 102, 241, 0.25);
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .nav-logo-img::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, 
+            rgba(99, 102, 241, 0.15) 0%, 
+            rgba(168, 85, 247, 0.12) 50%,
+            rgba(56, 189, 248, 0.1) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 0;
+    }
+    
+    .nav-logo-img:hover::before {
+        opacity: 1;
+    }
+    
+    .nav-logo-img:hover {
+        border-color: rgba(99, 102, 241, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3),
+                    0 2px 8px rgba(168, 85, 247, 0.2);
+    }
+    
+    .nav-logo-img .logo-image {
+        position: relative;
+        z-index: 1;
     }
     
     /* Hide logo text on mobile - show only image */
@@ -1235,6 +1276,47 @@ body.rtl-text .nav-links {
     
     .nav-logo-img {
         gap: 0;
+        /* Smart frame for logo on mobile - same as hamburger icon */
+        padding: 7px;
+        background: linear-gradient(135deg, 
+            rgba(99, 102, 241, 0.08) 0%, 
+            rgba(168, 85, 247, 0.08) 50%,
+            rgba(56, 189, 248, 0.06) 100%);
+        border: 1.5px solid rgba(99, 102, 241, 0.25);
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .nav-logo-img::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, 
+            rgba(99, 102, 241, 0.15) 0%, 
+            rgba(168, 85, 247, 0.12) 50%,
+            rgba(56, 189, 248, 0.1) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 0;
+    }
+    
+    .nav-logo-img:hover::before {
+        opacity: 1;
+    }
+    
+    .nav-logo-img:hover {
+        border-color: rgba(99, 102, 241, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3),
+                    0 2px 8px rgba(168, 85, 247, 0.2);
+    }
+    
+    .nav-logo-img .logo-image {
+        position: relative;
+        z-index: 1;
     }
     
     /* Hide logo text on mobile - show only image */
