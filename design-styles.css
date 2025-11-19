@@ -1651,8 +1651,10 @@
         top: 90px !important;
         left: 15px !important;
         z-index: 10002 !important;
-        width: 48px !important;
-        height: 48px !important;
+        width: auto !important;
+        height: auto !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
         background: transparent !important;
         background-color: transparent !important;
         background-image: none !important;
@@ -1693,12 +1695,12 @@
     /* Apply cyan gradient color to match language icon (#22d3ee) */
     .mobile-sidebar-toggle img,
     .mobile-sidebar-toggle-icon {
-        width: 32px !important;
-        height: 32px !important;
-        max-width: 32px !important;
-        max-height: 32px !important;
-        min-width: 32px !important;
-        min-height: 32px !important;
+        width: 40px !important;
+        height: 40px !important;
+        max-width: 40px !important;
+        max-height: 40px !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
         object-fit: contain !important;
         display: block !important;
         visibility: visible !important;
@@ -1714,8 +1716,8 @@
         background-color: transparent !important;
         background-image: none !important;
         border: none !important;
-        /* Cyan color filter to match language icon - temporarily removed to test */
-        /* filter: 
+        /* Cyan color filter to match language icon */
+        filter: 
             brightness(0) 
             saturate(100%) 
             invert(76%) 
@@ -1723,7 +1725,7 @@
             saturate(1352%) 
             hue-rotate(158deg) 
             brightness(102%) 
-            contrast(89%); */
+            contrast(89%);
     }
     
     /* Ensure no pseudo-elements block the image */
@@ -1744,8 +1746,10 @@
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
-        width: 32px !important;
-        height: 32px !important;
+        width: 40px !important;
+        height: 40px !important;
+        max-width: 40px !important;
+        max-height: 40px !important;
     }
     
     /* Hide any SVG that might still be in the button */
