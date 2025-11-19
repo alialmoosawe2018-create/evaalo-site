@@ -441,97 +441,51 @@ html[lang="ku"] body,
 .nav-logo-img {
     display: flex;
     align-items: center;
+    gap: 8px; /* Default gap for mobile */
     text-decoration: none;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 8px 14px;
-    border-radius: 12px;
-    background: linear-gradient(145deg, 
-        rgba(255, 255, 255, 0.03) 0%, 
-        rgba(255, 255, 255, 0.01) 100%);
-    border: 1.5px solid transparent;
-    background-clip: padding-box;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.18),
-                0 1px 4px rgba(0, 0, 0, 0.08),
-                inset 0 0.5px 0 rgba(255, 255, 255, 0.06);
-}
-
-/* Animated gradient border */
-.nav-logo-img::before {
-    content: '';
-    position: absolute;
-    inset: -1.5px;
-    border-radius: 12px;
-    padding: 1.5px;
-    background: linear-gradient(135deg, 
-        rgba(99, 102, 241, 0.5) 0%, 
-        rgba(168, 85, 247, 0.4) 30%,
-        rgba(56, 189, 248, 0.35) 60%,
-        rgba(99, 102, 241, 0.5) 100%);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    opacity: 0.45;
-    transition: all 0.3s ease;
-    background-size: 200% 200%;
-    animation: borderGradient 3s ease infinite;
-}
-
-@keyframes borderGradient {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-}
-
-/* Glow effect overlay */
-.nav-logo-img::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 12px;
-    background: radial-gradient(circle at 50% 50%, 
-        rgba(99, 102, 241, 0.12) 0%, 
-        rgba(168, 85, 247, 0.06) 40%,
-        transparent 70%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.nav-logo-img:hover::before {
-    opacity: 0.7;
-    animation: borderGradient 2.5s ease infinite;
-}
-
-.nav-logo-img:hover::after {
-    opacity: 1;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 
 .nav-logo-img:hover {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.22),
-                0 3px 12px rgba(168, 85, 247, 0.16),
-                0 1px 6px rgba(56, 189, 248, 0.12),
-                inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+    opacity: 0.8;
+    transform: translateY(-1px);
+}
+
+.logo-text {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, 
+        #6366F1 0%, 
+        #818cf8 20%, 
+        #22d3ee 40%, 
+        #06b6d4 60%,
+        #0891b2 80%,
+        #06b6d4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    white-space: nowrap;
+    letter-spacing: -0.5px;
 }
 
 .logo-image {
     height: 42px;
     width: auto;
     object-fit: contain;
-    filter: brightness(1.1) contrast(1.04) saturate(1.02);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: none;
+    transition: all 0.3s ease;
     position: relative;
     z-index: 1;
     image-rendering: -webkit-optimize-contrast;
 }
 
 .nav-logo-img:hover .logo-image {
-    filter: brightness(1.15) contrast(1.06) saturate(1.03) 
-            drop-shadow(0 0 18px rgba(99, 102, 241, 0.35))
-            drop-shadow(0 0 10px rgba(168, 85, 247, 0.25))
-            drop-shadow(0 0 4px rgba(56, 189, 248, 0.18));
-    transform: scale(1.04);
+    transform: scale(1.02);
 }
 
 /* Smooth animation on page load */
@@ -649,6 +603,15 @@ html[lang="ku"] body,
     /* Hide language selector in top-right corner on desktop */
     .language-selector-wrapper {
         display: none !important;
+    }
+    
+    /* Desktop logo styling - close gap and show text */
+    .nav-logo-img {
+        gap: 2px !important;
+    }
+    
+    .logo-text {
+        display: block !important;
     }
     
     .nav-links-desktop {
@@ -1209,8 +1172,12 @@ body.rtl-text .nav-links {
     }
     
     .nav-logo-img {
-        padding: 7px 12px;
-        border-radius: 10px;
+        gap: 0;
+    }
+    
+    /* Hide logo text on mobile - show only image */
+    .logo-text {
+        display: none !important;
     }
     
     .nav-container {
@@ -1269,8 +1236,12 @@ body.rtl-text .nav-links {
     }
     
     .nav-logo-img {
-        padding: 6px 11px;
-        border-radius: 10px;
+        gap: 0;
+    }
+    
+    /* Hide logo text on mobile - show only image */
+    .logo-text {
+        display: none !important;
     }
     
     .nav-menu-toggle {

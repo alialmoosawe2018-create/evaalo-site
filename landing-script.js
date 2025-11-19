@@ -385,10 +385,6 @@ if (navLanguageItem) {
         // Force reflow to ensure CSS is applied
         void navLanguageItem.offsetHeight;
         
-        // Log for debugging
-        console.log('Language dropdown toggled:', !isExpanded);
-        console.log('Is expanded:', navLanguageItem.classList.contains('expanded'));
-        
         // On mobile, ensure dropdown is visible
         if (window.innerWidth <= 768) {
             const dropdown = document.getElementById('navLanguageDropdown');
