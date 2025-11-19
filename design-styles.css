@@ -1662,8 +1662,8 @@
         top: 90px;
         left: 15px;
         z-index: 10002;
-        width: 48px;
-        height: 48px;
+        width: 56px;
+        height: 56px;
         background: transparent !important;
         border: none !important;
         border-radius: 12px;
@@ -1684,10 +1684,12 @@
         height: 24px;
     }
 
-    /* Custom menu icon image for mobile - must be visible above any background */
+    /* Custom menu icon image for mobile - larger size to prevent missing image symbol */
     .mobile-sidebar-toggle .custom-menu-icon {
-        width: 24px;
-        height: 24px;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
         display: block;
         object-fit: contain;
         position: relative;
