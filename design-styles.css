@@ -1311,11 +1311,11 @@
         align-items: center;
         justify-content: center;
         gap: 4px;
-        padding: 8px 4px;
+        padding: 8px 2px;
         min-height: 70px;
-        flex: 1 1 calc(16.666% - 5px);
-        min-width: calc(16.666% - 5px);
-        max-width: calc(16.666% - 5px);
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: none;
         background: rgba(34, 211, 238, 0.15);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(34, 211, 238, 0.3);
@@ -1584,18 +1584,18 @@
 
     .header-actions {
         flex-direction: row;
-        flex-wrap: wrap;
-        gap: 6px;
+        flex-wrap: nowrap;
+        gap: 4px;
     }
 
     .header-actions .btn {
-        padding: 6px 3px;
+        padding: 6px 2px;
         min-height: 65px;
         font-size: 8px;
         gap: 3px;
-        flex: 1 1 calc(16.666% - 4px);
-        min-width: calc(16.666% - 4px);
-        max-width: calc(16.666% - 4px);
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: none;
         border: 1px solid rgba(34, 211, 238, 0.3);
     }
 
