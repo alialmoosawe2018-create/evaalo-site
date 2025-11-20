@@ -1545,6 +1545,8 @@
     .mobile-sidebar-toggle {
         width: 55px !important;
         height: 55px !important;
+        top: 75px !important;
+        left: 10px !important;
     }
     
     .mobile-sidebar-toggle::before {
@@ -1741,8 +1743,8 @@
         align-items: center;
         justify-content: center;
         position: fixed;
-        top: 90px;
-        left: 15px;
+        top: 85px;
+        left: 20px;
         z-index: 10002;
         /* Same size as hero-feature icons on mobile */
         width: 60px;
