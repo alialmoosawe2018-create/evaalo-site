@@ -1298,24 +1298,27 @@
     .header-actions {
         width: 100%;
         display: flex;
-        flex-direction: column;
-        gap: 10px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
         justify-content: center;
         order: 1;
     }
 
     .header-actions .btn {
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        padding: 14px 16px;
-        min-height: 50px;
-        width: 100%;
+        gap: 4px;
+        padding: 8px 4px;
+        min-height: 70px;
+        flex: 1 1 calc(16.666% - 5px);
+        min-width: calc(16.666% - 5px);
+        max-width: calc(16.666% - 5px);
         background: rgba(34, 211, 238, 0.15);
         backdrop-filter: blur(10px);
-        border: none;
+        border: 1.5px solid rgba(34, 211, 238, 0.3);
         border-radius: 10px;
         font-size: 11px;
         font-weight: 600;
@@ -1346,7 +1349,7 @@
 
     .header-actions .btn:hover {
         transform: translateY(-2px);
-        border: none;
+        border-color: rgba(34, 211, 238, 0.5);
         background: rgba(34, 211, 238, 0.25);
         box-shadow: 
             0 4px 12px rgba(34, 211, 238, 0.3),
@@ -1358,8 +1361,8 @@
     }
 
     .header-actions .btn svg {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
         flex-shrink: 0;
         position: relative;
         z-index: 1;
@@ -1384,22 +1387,22 @@
     /* Special styling for Share and Save buttons */
     .header-actions .btn-share {
         background: rgba(14, 165, 233, 0.2);
-        border: none;
+        border-color: rgba(14, 165, 233, 0.4);
     }
 
     .header-actions .btn-share:hover {
         background: rgba(14, 165, 233, 0.3);
-        border: none;
+        border-color: rgba(14, 165, 233, 0.6);
     }
 
     .header-actions .btn-primary {
         background: rgba(139, 92, 246, 0.2);
-        border: none;
+        border-color: rgba(139, 92, 246, 0.4);
     }
 
     .header-actions .btn-primary:hover {
         background: rgba(139, 92, 246, 0.3);
-        border: none;
+        border-color: rgba(139, 92, 246, 0.6);
     }
 
     .design-sidebar {
@@ -1586,16 +1589,20 @@
     }
 
     .header-actions {
-        flex-direction: column;
-        gap: 8px;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
     }
 
     .header-actions .btn {
-        padding: 12px 14px;
-        min-height: 48px;
-        font-size: 13px;
-        gap: 8px;
-        width: 100%;
+        padding: 6px 3px;
+        min-height: 65px;
+        font-size: 8px;
+        gap: 3px;
+        flex: 1 1 calc(16.666% - 4px);
+        min-width: calc(16.666% - 4px);
+        max-width: calc(16.666% - 4px);
+        border: 1.5px solid rgba(34, 211, 238, 0.3);
     }
 
     .header-actions .btn svg {
