@@ -1297,24 +1297,25 @@
 
     .header-actions {
         width: 100%;
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
         justify-content: center;
         order: 1;
     }
 
     .header-actions .btn {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        padding: 12px 8px;
-        min-height: 70px;
+        gap: 8px;
+        padding: 14px 16px;
+        min-height: 50px;
+        width: 100%;
         background: rgba(34, 211, 238, 0.15);
         backdrop-filter: blur(10px);
-        border: 1.5px solid rgba(34, 211, 238, 0.3);
+        border: none;
         border-radius: 10px;
         font-size: 11px;
         font-weight: 600;
@@ -1345,7 +1346,7 @@
 
     .header-actions .btn:hover {
         transform: translateY(-2px);
-        border-color: rgba(34, 211, 238, 0.5);
+        border: none;
         background: rgba(34, 211, 238, 0.25);
         box-shadow: 
             0 4px 12px rgba(34, 211, 238, 0.3),
@@ -1383,22 +1384,22 @@
     /* Special styling for Share and Save buttons */
     .header-actions .btn-share {
         background: rgba(14, 165, 233, 0.2);
-        border-color: rgba(14, 165, 233, 0.4);
+        border: none;
     }
 
     .header-actions .btn-share:hover {
         background: rgba(14, 165, 233, 0.3);
-        border-color: rgba(14, 165, 233, 0.6);
+        border: none;
     }
 
     .header-actions .btn-primary {
         background: rgba(139, 92, 246, 0.2);
-        border-color: rgba(139, 92, 246, 0.4);
+        border: none;
     }
 
     .header-actions .btn-primary:hover {
         background: rgba(139, 92, 246, 0.3);
-        border-color: rgba(139, 92, 246, 0.6);
+        border: none;
     }
 
     .design-sidebar {
@@ -1585,15 +1586,16 @@
     }
 
     .header-actions {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 6px;
+        flex-direction: column;
+        gap: 8px;
     }
 
     .header-actions .btn {
-        padding: 10px 6px;
-        min-height: 65px;
-        font-size: 10px;
-        gap: 5px;
+        padding: 12px 14px;
+        min-height: 48px;
+        font-size: 13px;
+        gap: 8px;
+        width: 100%;
     }
 
     .header-actions .btn svg {
