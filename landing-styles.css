@@ -313,12 +313,8 @@ body.rtl-text .step-number {
     
     .language-feature-icon {
         background: linear-gradient(135deg, 
-            rgba(34, 211, 238, 0.35) 0%, 
-            rgba(34, 211, 238, 0.15) 100%) !important;
-        border: 1.5px solid rgba(34, 211, 238, 0.6) !important;
-        box-shadow: 
-            0 12px 40px rgba(34, 211, 238, 0.4),
-            0 4px 12px rgba(34, 211, 238, 0.3) !important;
+            rgba(20, 20, 35, 0.98) 0%, 
+            rgba(15, 15, 28, 0.98) 100%) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
@@ -328,10 +324,6 @@ body.rtl-text .step-number {
         background: linear-gradient(135deg, 
             rgba(34, 211, 238, 0.35) 0%, 
             rgba(34, 211, 238, 0.15) 100%) !important;
-        border: 1.5px solid rgba(34, 211, 238, 0.6) !important;
-        box-shadow: 
-            0 12px 40px rgba(34, 211, 238, 0.4),
-            0 4px 12px rgba(34, 211, 238, 0.3) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
@@ -372,14 +364,14 @@ body.rtl-text .step-number {
         width: 60px;
         height: 60px;
         background: linear-gradient(135deg, 
-            rgba(34, 211, 238, 0.35) 0%, 
-            rgba(34, 211, 238, 0.15) 100%) !important;
+            rgba(20, 20, 35, 0.98) 0%, 
+            rgba(15, 15, 28, 0.98) 100%) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-        border: 1.5px solid rgba(34, 211, 238, 0.6) !important;
+        border: 1.5px solid rgba(34, 211, 238, 0.4) !important;
         box-shadow: 
-            0 12px 40px rgba(34, 211, 238, 0.4),
-            0 4px 12px rgba(34, 211, 238, 0.3) !important;
+            0 8px 32px rgba(0, 0, 0, 0.1),
+            0 2px 8px rgba(34, 211, 238, 0.2) !important;
     }
     
     .language-selector-wrapper {
@@ -404,14 +396,9 @@ body.rtl-text .step-number {
     .language-icon-button:hover .language-feature-icon,
     .language-icon-button[aria-expanded="true"] .language-feature-icon {
         background: linear-gradient(135deg, 
-            rgba(34, 211, 238, 0.35) 0%, 
-            rgba(34, 211, 238, 0.15) 100%) !important;
-        border: 1.5px solid rgba(34, 211, 238, 0.6) !important;
-        box-shadow: 
-            0 12px 40px rgba(34, 211, 238, 0.4),
-            0 4px 12px rgba(34, 211, 238, 0.3) !important;
+            rgba(20, 20, 35, 0.98) 0%, 
+            rgba(15, 15, 28, 0.98) 100%) !important;
         backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
     }
 }
 
@@ -1529,10 +1516,9 @@ body.rtl-text .nav-links {
     backdrop-filter: none;
     border-radius: 50%;
     padding: 0;
-    border: 1.5px solid rgba(34, 211, 238, 0.6);
+    border: 1.5px solid rgba(34, 211, 238, 0.4);
     box-shadow: 
-        0 12px 40px rgba(34, 211, 238, 0.4),
-        0 4px 12px rgba(34, 211, 238, 0.3);
+        0 8px 32px rgba(0, 0, 0, 0.1);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1542,8 +1528,8 @@ body.rtl-text .nav-links {
     margin: 0 auto;
     overflow: hidden;
     background: linear-gradient(135deg, 
-        rgba(34, 211, 238, 0.35) 0%, 
-        rgba(34, 211, 238, 0.15) 100%);
+        rgba(20, 20, 35, 0.98) 0%, 
+        rgba(15, 15, 28, 0.98) 100%);
 }
 
 .language-feature-icon svg {
@@ -5181,8 +5167,8 @@ html[dir="rtl"] .footer-links a:hover {
     
     .language-feature-icon {
         background: linear-gradient(135deg, 
-            rgba(34, 211, 238, 0.25) 0%, 
-            rgba(34, 211, 238, 0.1) 100%) !important;
+            rgba(20, 20, 35, 0.98) 0%, 
+            rgba(15, 15, 28, 0.98) 100%) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
@@ -5228,14 +5214,14 @@ html[dir="rtl"] .footer-links a:hover {
         width: 55px;
         height: 55px;
         background: linear-gradient(135deg, 
-            rgba(34, 211, 238, 0.35) 0%, 
-            rgba(34, 211, 238, 0.15) 100%) !important;
+            rgba(15, 23, 42, 1) 0%, 
+            rgba(20, 20, 35, 1) 100%) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-        border: 1.5px solid rgba(34, 211, 238, 0.6) !important;
+        border: 1.5px solid rgba(34, 211, 238, 0.4) !important;
         box-shadow: 
-            0 12px 40px rgba(34, 211, 238, 0.4),
-            0 4px 12px rgba(34, 211, 238, 0.3) !important;
+            0 8px 32px rgba(0, 0, 0, 0.1),
+            0 2px 8px rgba(34, 211, 238, 0.2) !important;
     }
     
     .language-selector-wrapper {
@@ -5261,12 +5247,8 @@ html[dir="rtl"] .footer-links a:hover {
     .language-icon-button:hover .language-feature-icon,
     .language-icon-button[aria-expanded="true"] .language-feature-icon {
         background: linear-gradient(135deg, 
-            rgba(34, 211, 238, 0.35) 0%, 
-            rgba(34, 211, 238, 0.15) 100%) !important;
-        border: 1.5px solid rgba(34, 211, 238, 0.6) !important;
-        box-shadow: 
-            0 12px 40px rgba(34, 211, 238, 0.4),
-            0 4px 12px rgba(34, 211, 238, 0.3) !important;
+            rgba(15, 23, 42, 1) 0%, 
+            rgba(20, 20, 35, 1) 100%) !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
