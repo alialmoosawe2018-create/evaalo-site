@@ -304,6 +304,28 @@ body.rtl-text .step-number {
         top: 85px !important;
         right: 20px !important;
         z-index: 1000 !important;
+        background: transparent !important;
+    }
+    
+    .language-icon-button {
+        background: transparent !important;
+    }
+    
+    .language-feature-icon {
+        background: linear-gradient(135deg, 
+            rgba(15, 23, 42, 1) 0%, 
+            rgba(20, 20, 35, 1) 100%) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    
+    .language-icon-button:hover .language-feature-icon,
+    .language-icon-button[aria-expanded="true"] .language-feature-icon {
+        background: linear-gradient(135deg, 
+            rgba(15, 23, 42, 1) 0%, 
+            rgba(20, 20, 35, 1) 100%) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
     
     .nav-link-dropdown {
@@ -342,13 +364,23 @@ body.rtl-text .step-number {
         width: 60px;
         height: 60px;
         background: linear-gradient(135deg, 
-            rgba(20, 20, 35, 0.98) 0%, 
-            rgba(15, 15, 28, 0.98) 100%) !important;
+            rgba(15, 23, 42, 1) 0%, 
+            rgba(20, 20, 35, 1) 100%) !important;
         backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
         border: 1.5px solid rgba(34, 211, 238, 0.4) !important;
         box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.3),
-            0 2px 8px rgba(34, 211, 238, 0.2) !important;
+            0 8px 32px rgba(0, 0, 0, 0.5),
+            0 2px 8px rgba(34, 211, 238, 0.3),
+            inset 0 0 0 1px rgba(34, 211, 238, 0.2) !important;
+    }
+    
+    .language-selector-wrapper {
+        background: transparent !important;
+    }
+    
+    .language-icon-button {
+        background: transparent !important;
     }
     
     .language-feature-icon svg {
@@ -1431,6 +1463,7 @@ body.rtl-text .nav-links {
     top: 85px;
     right: 20px;
     z-index: 1000;
+    background: transparent;
 }
 
 .language-icon-button {
@@ -5126,6 +5159,28 @@ html[dir="rtl"] .footer-links a:hover {
         top: 75px !important;
         right: 10px !important;
         z-index: 1000 !important;
+        background: transparent !important;
+    }
+    
+    .language-icon-button {
+        background: transparent !important;
+    }
+    
+    .language-feature-icon {
+        background: linear-gradient(135deg, 
+            rgba(15, 23, 42, 1) 0%, 
+            rgba(20, 20, 35, 1) 100%) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    
+    .language-icon-button:hover .language-feature-icon,
+    .language-icon-button[aria-expanded="true"] .language-feature-icon {
+        background: linear-gradient(135deg, 
+            rgba(15, 23, 42, 1) 0%, 
+            rgba(20, 20, 35, 1) 100%) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
     
     /* Even smaller icon sizes on small mobile */
@@ -5160,13 +5215,23 @@ html[dir="rtl"] .footer-links a:hover {
         width: 55px;
         height: 55px;
         background: linear-gradient(135deg, 
-            rgba(20, 20, 35, 0.98) 0%, 
-            rgba(15, 15, 28, 0.98) 100%) !important;
+            rgba(15, 23, 42, 1) 0%, 
+            rgba(20, 20, 35, 1) 100%) !important;
         backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
         border: 1.5px solid rgba(34, 211, 238, 0.4) !important;
         box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.3),
-            0 2px 8px rgba(34, 211, 238, 0.2) !important;
+            0 8px 32px rgba(0, 0, 0, 0.5),
+            0 2px 8px rgba(34, 211, 238, 0.3),
+            inset 0 0 0 1px rgba(34, 211, 238, 0.2) !important;
+    }
+    
+    .language-selector-wrapper {
+        background: transparent !important;
+    }
+    
+    .language-icon-button {
+        background: transparent !important;
     }
     
     .language-feature-icon svg {
@@ -5184,9 +5249,10 @@ html[dir="rtl"] .footer-links a:hover {
     .language-icon-button:hover .language-feature-icon,
     .language-icon-button[aria-expanded="true"] .language-feature-icon {
         background: linear-gradient(135deg, 
-            rgba(20, 20, 35, 0.98) 0%, 
-            rgba(15, 15, 28, 0.98) 100%) !important;
+            rgba(15, 23, 42, 1) 0%, 
+            rgba(20, 20, 35, 1) 100%) !important;
         backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
     
     .features {
