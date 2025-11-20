@@ -341,6 +341,18 @@ body.rtl-text .step-number {
     .language-feature-icon {
         width: 60px;
         height: 60px;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+    }
+    
+    .language-icon-button:hover .language-feature-icon,
+    .language-icon-button[aria-expanded="true"] .language-feature-icon {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
     }
     
     .language-feature-icon svg {
@@ -1465,13 +1477,11 @@ body.rtl-text .nav-links {
     transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
     position: relative;
     z-index: 1;
-    backdrop-filter: blur(10px);
+    backdrop-filter: none;
     border-radius: 50%;
     padding: 0;
-    border: 1.5px solid rgba(34, 211, 238, 0.4);
-    box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border: none;
+    box-shadow: none;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1480,9 +1490,7 @@ body.rtl-text .nav-links {
     flex-shrink: 0;
     margin: 0 auto;
     overflow: hidden;
-    background: linear-gradient(135deg, 
-        rgba(34, 211, 238, 0.25) 0%, 
-        rgba(255, 255, 255, 0.1) 100%);
+    background: transparent;
 }
 
 .language-feature-icon svg {
@@ -1511,15 +1519,10 @@ body.rtl-text .nav-links {
 
 .language-icon-button:hover .language-feature-icon {
     transform: scale(1.15) rotate(3deg);
-    backdrop-filter: blur(15px);
-    border-color: rgba(34, 211, 238, 0.6);
-    box-shadow: 
-        0 12px 40px rgba(34, 211, 238, 0.4),
-        0 4px 12px rgba(34, 211, 238, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    background: linear-gradient(135deg, 
-        rgba(34, 211, 238, 0.35) 0%, 
-        rgba(255, 255, 255, 0.15) 100%);
+    backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+    background: transparent;
     animation: iconFloat 2s ease-in-out infinite;
 }
 
@@ -1537,14 +1540,9 @@ body.rtl-text .nav-links {
 }
 
 .language-icon-button[aria-expanded="true"] .language-feature-icon {
-    border-color: rgba(34, 211, 238, 0.6);
-    box-shadow: 
-        0 12px 40px rgba(34, 211, 238, 0.4),
-        0 4px 12px rgba(34, 211, 238, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    background: linear-gradient(135deg, 
-        rgba(34, 211, 238, 0.35) 0%, 
-        rgba(255, 255, 255, 0.15) 100%);
+    border: none;
+    box-shadow: none;
+    background: transparent;
 }
 
 .language-dropdown-menu {
@@ -5146,6 +5144,18 @@ html[dir="rtl"] .footer-links a:hover {
     .language-feature-icon {
         width: 55px;
         height: 55px;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+    }
+    
+    .language-icon-button:hover .language-feature-icon,
+    .language-icon-button[aria-expanded="true"] .language-feature-icon {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
     }
     
     .language-feature-icon svg {
