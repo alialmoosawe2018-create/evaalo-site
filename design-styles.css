@@ -1436,6 +1436,12 @@
         padding-bottom: 25px;
     }
 
+    /* Add top padding to first sidebar section to avoid overlap with settings icon */
+    .sidebar-section:first-of-type {
+        padding-top: 90px;
+        margin-top: 0;
+    }
+
     .form-elements-sidebar {
         max-height: none;
         overflow: visible;
@@ -1616,6 +1622,12 @@
     .sidebar-section {
         margin-bottom: 20px;
         padding-bottom: 20px;
+    }
+
+    /* Add top padding to first sidebar section to avoid overlap with settings icon */
+    .sidebar-section:first-of-type {
+        padding-top: 90px;
+        margin-top: 0;
     }
 
     .sidebar-title {
