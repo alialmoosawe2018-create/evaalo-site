@@ -384,6 +384,7 @@ body.rtl-text .step-number {
     
     .language-feature-icon svg {
         width: 54px;
+        height: 54px;
     }
     
     .language-icon-image {
