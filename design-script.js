@@ -209,12 +209,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // Apply Color Theme
     function applyColorTheme(primary, dark, name) {
         const designMain = document.querySelector('.design-main');
+        const questionsContainer = document.getElementById('questionsContainer');
         
         // Update ONLY the form editor area
         if (designMain) {
             designMain.style.background = `linear-gradient(135deg, ${primary}0D 0%, ${dark}08 100%)`;
             designMain.style.borderColor = `${primary}4D`;
             designMain.style.boxShadow = `0 8px 32px ${primary}1A`;
+        }
+        
+        // Update questions container with theme color
+        if (questionsContainer) {
+            questionsContainer.style.background = `linear-gradient(135deg, ${primary}0D 0%, ${dark}08 100%)`;
+            questionsContainer.style.borderColor = `${primary}4D`;
+            questionsContainer.style.boxShadow = `0 8px 32px ${primary}1A`;
+            
+            // Update questions title gradient
+            const questionsTitle = questionsContainer.querySelector('.questions-title');
+            if (questionsTitle) {
+                questionsTitle.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
+                questionsTitle.style.webkitBackgroundClip = 'text';
+                questionsTitle.style.webkitTextFillColor = 'transparent';
+                questionsTitle.style.backgroundClip = 'text';
+            }
         }
         
         // Update question badges and form elements only
@@ -254,6 +271,28 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             .editor-toolbar {
                 border-bottom-color: ${primary}1A !important;
+            }
+            .question-item-btn.edit-question {
+                background: ${primary}26 !important;
+                border-color: ${primary}66 !important;
+                color: ${primary} !important;
+            }
+            .question-item-btn.edit-question:hover {
+                background: ${primary}40 !important;
+                border-color: ${primary} !important;
+                color: ${primary} !important;
+                box-shadow: 0 4px 12px ${primary}4D !important;
+            }
+            .question-item-btn.copy-question {
+                background: ${primary}26 !important;
+                border-color: ${primary}66 !important;
+                color: ${primary} !important;
+            }
+            .question-item-btn.copy-question:hover {
+                background: ${primary}40 !important;
+                border-color: ${primary} !important;
+                color: ${primary} !important;
+                box-shadow: 0 4px 12px ${primary}4D !important;
             }
         `;
         if (!document.getElementById('dynamic-theme-style')) {
@@ -1173,6 +1212,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </svg>
                                 Edit
                             </button>
+                            <button class="question-item-btn copy-question" data-index="${index}">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M10.667 10.667h2.666a1.333 1.333 0 0 0 1.334-1.334V2.667a1.333 1.333 0 0 0-1.334-1.334H6.667A1.333 1.333 0 0 0 5.333 2.667v2.666M10.667 5.333H3.333a1.333 1.333 0 0 0-1.333 1.334v6.666a1.333 1.333 0 0 0 1.333 1.334h7.334a1.333 1.333 0 0 0 1.333-1.334V6.667a1.333 1.333 0 0 0-1.333-1.334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Duplicate
+                            </button>
                             <button class="question-item-btn delete-question" data-index="${index}">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M2 4h12M6 4V2.667a1.333 1.333 0 0 1 1.333-1.334h1.334A1.333 1.333 0 0 1 10.667 2.667V4m2 0v9.333a1.333 1.333 0 0 1-1.333 1.334H5.333A1.333 1.333 0 0 1 4 13.333V4h8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1190,11 +1235,18 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         }).join('');
 
-        // Add event listeners for edit and delete buttons
+        // Add event listeners for edit, copy and delete buttons
         questionsList.querySelectorAll('.edit-question').forEach(btn => {
             btn.addEventListener('click', function() {
                 const index = parseInt(this.dataset.index);
                 editQuestion(index);
+            });
+        });
+
+        questionsList.querySelectorAll('.copy-question').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const index = parseInt(this.dataset.index);
+                copyQuestion(index);
             });
         });
 
@@ -1215,6 +1267,23 @@ document.addEventListener('DOMContentLoaded', function() {
             saveToStorage();
             showToast('Question deleted successfully!');
         }
+    }
+
+    // Duplicate Question
+    function copyQuestion(index) {
+        const questionToCopy = questions[index];
+        // Create a deep copy of the question
+        const duplicatedQuestion = JSON.parse(JSON.stringify(questionToCopy));
+        // Add "Duplicate" to the question text if it doesn't already contain it
+        if (!duplicatedQuestion.text.includes('(Duplicate)')) {
+            duplicatedQuestion.text = duplicatedQuestion.text + ' (Duplicate)';
+        }
+        // Insert the duplicated question right after the original
+        questions.splice(index + 1, 0, duplicatedQuestion);
+        renderQuestions();
+        updateStats();
+        saveToStorage();
+        showToast('Question duplicated successfully!');
     }
 
     // Edit Question

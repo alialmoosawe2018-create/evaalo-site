@@ -212,23 +212,91 @@
 .question-item-actions {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .question-item-btn {
-    background: transparent;
-    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.2);
     color: #CBD5E1;
-    padding: 6px 12px;
-    border-radius: 8px;
+    padding: 8px 14px;
+    border-radius: 10px;
     font-size: 12px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+}
+
+.question-item-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.question-item-btn:hover::before {
+    left: 100%;
 }
 
 .question-item-btn:hover {
-    background: rgba(59, 130, 246, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.question-item-btn:active {
+    transform: translateY(0);
+}
+
+/* Edit Button */
+.edit-question {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #60A5FA;
+}
+
+.edit-question:hover {
+    background: rgba(59, 130, 246, 0.25);
     border-color: #3B82F6;
-    color: #FFFFFF;
+    color: #93C5FD;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Duplicate Button */
+.copy-question {
+    background: rgba(139, 92, 246, 0.15);
+    border-color: rgba(139, 92, 246, 0.4);
+    color: #A78BFA;
+}
+
+.copy-question:hover {
+    background: rgba(139, 92, 246, 0.25);
+    border-color: #8B5CF6;
+    color: #C4B5FD;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+/* Delete Button */
+.delete-question {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #F87171;
+}
+
+.delete-question:hover {
+    background: rgba(239, 68, 68, 0.25);
+    border-color: #EF4444;
+    color: #FCA5A5;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 .question-item-meta {
@@ -246,15 +314,27 @@
     border-radius: 6px;
 }
 
-.question-item-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
 .question-item-btn svg {
     width: 14px;
     height: 14px;
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+}
+
+.question-item-btn:hover svg {
+    transform: scale(1.1);
+}
+
+.edit-question:hover svg {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.copy-question:hover svg {
+    transform: scale(1.1);
+}
+
+.delete-question:hover svg {
+    transform: scale(1.1) rotate(-5deg);
 }
 
 .header-actions {
@@ -1503,14 +1583,23 @@
     }
 
     .question-item-actions {
-        flex-direction: column;
-        gap: 6px;
+        flex-direction: row;
+        gap: 8px;
+        flex-wrap: wrap;
+        width: 100%;
     }
 
     .question-item-btn {
-        width: 100%;
-        padding: 8px;
+        flex: 1;
+        min-width: 80px;
+        padding: 10px 12px;
         font-size: 11px;
+        justify-content: center;
+    }
+
+    .question-item-btn svg {
+        width: 13px;
+        height: 13px;
     }
 
     .header-content {
@@ -1865,6 +1954,23 @@
     .question-meta-item {
         font-size: 10px;
         padding: 2px 5px;
+    }
+
+    .question-item-actions {
+        flex-direction: row;
+        gap: 6px;
+    }
+
+    .question-item-btn {
+        flex: 1;
+        min-width: 70px;
+        padding: 8px 10px;
+        font-size: 10px;
+    }
+
+    .question-item-btn svg {
+        width: 12px;
+        height: 12px;
     }
 
     .header-content {
