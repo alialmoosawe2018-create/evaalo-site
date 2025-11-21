@@ -1073,6 +1073,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.currentOptions = [];
         closeQuestionModal();
         updateStats();
+        renderQuestions();
         saveToStorage();
         showToast('Question saved successfully!');
     }
@@ -1132,6 +1133,96 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalTime = questions.reduce((sum, q) => sum + (q.timeLimit || 0), 0);
         const estimatedMinutes = Math.ceil(totalTime / 60);
         document.getElementById('estimatedTime').textContent = `${estimatedMinutes} min`;
+    }
+
+    // Render Questions in Form
+    function renderQuestions() {
+        const questionsList = document.getElementById('questionsList');
+        if (!questionsList) return;
+
+        if (questions.length === 0) {
+            questionsList.innerHTML = `
+                <div class="empty-questions-state">
+                    <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="12" y="8" width="40" height="48" rx="4" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+                        <path d="M20 20h24M20 28h24M20 36h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+                    </svg>
+                    <p class="empty-message">No questions added yet</p>
+                    <p class="empty-hint">Add questions from the sidebar to get started</p>
+                </div>
+            `;
+            return;
+        }
+
+        questionsList.innerHTML = questions.map((question, index) => {
+            const typeLabel = getTypeLabel(question.type);
+            const timeInfo = question.timeLimit ? `${question.timeLimit}s` : 'No limit';
+            const pointsInfo = question.points ? `${question.points} pts` : '';
+            
+            return `
+                <div class="question-item" data-index="${index}">
+                    <div class="question-item-header">
+                        <div>
+                            <div class="question-item-title">${question.text}</div>
+                            <div class="question-item-type">${typeLabel}</div>
+                        </div>
+                        <div class="question-item-actions">
+                            <button class="question-item-btn edit-question" data-index="${index}">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M11.333 2.667a2.667 2.667 0 0 1 3.774 3.774L5.333 15.333H2v-3.333l9.333-9.333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Edit
+                            </button>
+                            <button class="question-item-btn delete-question" data-index="${index}">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M2 4h12M6 4V2.667a1.333 1.333 0 0 1 1.333-1.334h1.334A1.333 1.333 0 0 1 10.667 2.667V4m2 0v9.333a1.333 1.333 0 0 1-1.333 1.334H5.333A1.333 1.333 0 0 1 4 13.333V4h8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                    <div class="question-item-meta">
+                        <span class="question-meta-item">${timeInfo}</span>
+                        ${pointsInfo ? `<span class="question-meta-item">${pointsInfo}</span>` : ''}
+                        ${question.options ? `<span class="question-meta-item">${question.options.length} options</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add event listeners for edit and delete buttons
+        questionsList.querySelectorAll('.edit-question').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const index = parseInt(this.dataset.index);
+                editQuestion(index);
+            });
+        });
+
+        questionsList.querySelectorAll('.delete-question').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const index = parseInt(this.dataset.index);
+                deleteQuestion(index);
+            });
+        });
+    }
+
+    // Delete Question
+    function deleteQuestion(index) {
+        if (confirm('Are you sure you want to delete this question?')) {
+            questions.splice(index, 1);
+            renderQuestions();
+            updateStats();
+            saveToStorage();
+            showToast('Question deleted successfully!');
+        }
+    }
+
+    // Edit Question
+    function editQuestion(index) {
+        editingQuestionIndex = index;
+        currentQuestionType = questions[index].type;
+        openQuestionModal();
+        populateEditForm(questions[index]);
     }
 
     // Show Share Modal
@@ -1346,6 +1437,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (savedQuestions) {
             questions = JSON.parse(savedQuestions);
             updateStats();
+            renderQuestions();
         }
         
         if (savedSettings) {
