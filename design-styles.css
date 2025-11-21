@@ -1437,12 +1437,9 @@
         padding-bottom: 25px;
     }
 
-    /* Hide "Interview Settings" title on mobile only but keep its space */
+    /* Hide "Interview Settings" title on mobile only */
     .sidebar-section:first-of-type .sidebar-title {
-        visibility: hidden;
-        height: 0;
-        margin-bottom: 24px;
-        display: block;
+        display: none;
     }
 
     .form-elements-sidebar {
@@ -1631,12 +1628,9 @@
         padding-bottom: 20px;
     }
 
-    /* Hide "Interview Settings" title on mobile only but keep its space */
+    /* Hide "Interview Settings" title on mobile only */
     .sidebar-section:first-of-type .sidebar-title {
-        visibility: hidden;
-        height: 0;
-        margin-bottom: 24px;
-        display: block;
+        display: none;
     }
 
     .sidebar-title {
