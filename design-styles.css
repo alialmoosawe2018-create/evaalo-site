@@ -1437,15 +1437,12 @@
         padding-bottom: 25px;
     }
 
-    /* Add top padding to first sidebar section to avoid overlap with settings icon */
-    .sidebar-section:first-of-type {
-        padding-top: 90px;
-        margin-top: 0;
-    }
-
-    /* Hide "Interview Settings" title on mobile only */
+    /* Hide "Interview Settings" title on mobile only but keep its space */
     .sidebar-section:first-of-type .sidebar-title {
-        display: none;
+        visibility: hidden;
+        height: 0;
+        margin-bottom: 24px;
+        display: block;
     }
 
     .form-elements-sidebar {
@@ -1634,15 +1631,12 @@
         padding-bottom: 20px;
     }
 
-    /* Add top padding to first sidebar section to avoid overlap with settings icon */
-    .sidebar-section:first-of-type {
-        padding-top: 90px;
-        margin-top: 0;
-    }
-
-    /* Hide "Interview Settings" title on mobile only */
+    /* Hide "Interview Settings" title on mobile only but keep its space */
     .sidebar-section:first-of-type .sidebar-title {
-        display: none;
+        visibility: hidden;
+        height: 0;
+        margin-bottom: 24px;
+        display: block;
     }
 
     .sidebar-title {
