@@ -1465,12 +1465,6 @@
     .form-group {
         margin-bottom: 15px;
     }
-    
-    /* Hide Interview Title field on mobile to prevent overlap with settings icon */
-    .form-group:has(#interviewTitle),
-    .sidebar-section:first-of-type .form-group:first-child {
-        display: none !important;
-    }
 
     .form-label {
         font-size: 13px;
