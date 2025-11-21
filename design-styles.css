@@ -1442,6 +1442,11 @@
         display: none;
     }
 
+    /* Add empty space at the top of sidebar on mobile */
+    .sidebar-section:first-of-type {
+        padding-top: 60px;
+    }
+
     .form-elements-sidebar {
         max-height: none;
         overflow: visible;
@@ -1631,6 +1636,11 @@
     /* Hide "Interview Settings" title on mobile */
     .sidebar-section:first-of-type .sidebar-title {
         display: none;
+    }
+
+    /* Add empty space at the top of sidebar on mobile */
+    .sidebar-section:first-of-type {
+        padding-top: 60px;
     }
 
     .sidebar-title {
