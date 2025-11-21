@@ -1437,14 +1437,9 @@
         padding-bottom: 25px;
     }
 
-    /* Hide "Interview Settings" title on mobile and add empty space */
+    /* Hide "Interview Settings" title on mobile */
     .sidebar-section:first-of-type .sidebar-title {
         display: none;
-    }
-
-    /* Add empty space to keep options in their natural position */
-    .sidebar-section:first-of-type {
-        padding-top: 24px;
     }
 
     .form-elements-sidebar {
@@ -1633,14 +1628,9 @@
         padding-bottom: 20px;
     }
 
-    /* Hide "Interview Settings" title on mobile and add empty space */
+    /* Hide "Interview Settings" title on mobile */
     .sidebar-section:first-of-type .sidebar-title {
         display: none;
-    }
-
-    /* Add empty space to keep options in their natural position */
-    .sidebar-section:first-of-type {
-        padding-top: 24px;
     }
 
     .sidebar-title {
