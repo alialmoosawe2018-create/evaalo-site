@@ -1465,6 +1465,12 @@
     .form-group {
         margin-bottom: 15px;
     }
+    
+    /* Hide Interview Title field on mobile to prevent overlap with settings icon */
+    .form-group:has(#interviewTitle),
+    .sidebar-section:first-of-type .form-group:first-child {
+        display: none !important;
+    }
 
     .form-label {
         font-size: 13px;
@@ -1565,22 +1571,6 @@
             drop-shadow(0 0 5px rgba(255, 107, 107, 0.6))
             drop-shadow(0 2px 3px rgba(255, 107, 107, 0.4))
             drop-shadow(0 0 2px rgba(255, 107, 107, 0.8)) !important;
-    }
-    
-    /* Lower z-index for language selector on small mobile to prevent overlap with sidebar */
-    .language-selector-wrapper {
-        z-index: 999 !important;
-    }
-    
-    /* Hide language selector when sidebar is open to prevent overlap */
-    .design-sidebar.mobile-open ~ .language-selector-wrapper,
-    body:has(.design-sidebar.mobile-open) .language-selector-wrapper,
-    .design-page:has(.design-sidebar.mobile-open) .language-selector-wrapper {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        z-index: 0 !important;
     }
     
     .design-container {
@@ -2015,22 +2005,6 @@
     .design-sidebar.mobile-open .category-dropdown-menu {
         z-index: 10004 !important;
         position: absolute !important;
-    }
-    
-    /* Lower z-index for language selector on mobile to prevent overlap with sidebar */
-    .language-selector-wrapper {
-        z-index: 999 !important;
-    }
-    
-    /* Hide language selector when sidebar is open to prevent overlap */
-    .design-sidebar.mobile-open ~ .language-selector-wrapper,
-    body:has(.design-sidebar.mobile-open) .language-selector-wrapper,
-    .design-page:has(.design-sidebar.mobile-open) .language-selector-wrapper {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        z-index: 0 !important;
     }
 }
 
