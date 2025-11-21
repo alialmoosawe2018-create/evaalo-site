@@ -187,6 +187,23 @@
 
             <!-- Main Content -->
             <div class="design-content">
+                <!-- Questions Form Container -->
+                <div class="questions-container" id="questionsContainer">
+                    <div class="questions-header">
+                        <h2 class="questions-title">Interview Questions</h2>
+                        <p class="questions-subtitle">Questions added to your interview</p>
+                    </div>
+                    <div class="questions-list" id="questionsList">
+                        <div class="empty-questions-state">
+                            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="12" y="8" width="40" height="48" rx="4" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+                                <path d="M20 20h24M20 28h24M20 36h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+                            </svg>
+                            <p class="empty-message">No questions added yet</p>
+                            <p class="empty-hint">Add questions from the sidebar to get started</p>
+                        </div>
+                    </div>
+                </div>
                 <!-- Mobile Sidebar Toggle Button -->
                 <button class="mobile-sidebar-toggle" id="mobileSidebarToggle" aria-label="Toggle Settings">
                     <img src="images/icon6-removebg-preview.png" alt="Settings" class="mobile-gear-icon">
