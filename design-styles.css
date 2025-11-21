@@ -1293,6 +1293,7 @@
 
     .header-content {
         width: 100%;
+        text-align: center;
     }
 
     .header-actions {
@@ -1442,6 +1443,11 @@
         margin-top: 0;
     }
 
+    /* Hide "Interview Settings" title on mobile only */
+    .sidebar-section:first-of-type .sidebar-title {
+        display: none;
+    }
+
     .form-elements-sidebar {
         max-height: none;
         overflow: visible;
@@ -1582,6 +1588,10 @@
         gap: 12px;
     }
 
+    .header-content {
+        text-align: center;
+    }
+
     .design-title {
         font-size: 20px;
     }
@@ -1628,6 +1638,11 @@
     .sidebar-section:first-of-type {
         padding-top: 90px;
         margin-top: 0;
+    }
+
+    /* Hide "Interview Settings" title on mobile only */
+    .sidebar-section:first-of-type .sidebar-title {
+        display: none;
     }
 
     .sidebar-title {
