@@ -95,6 +95,85 @@ document.addEventListener('DOMContentLoaded', function() {
         if (colorDropdown && !colorDropdown.contains(e.target)) {
             closeColorDropdown();
         }
+        if (backgroundColorDropdown && !backgroundColorDropdown.contains(e.target)) {
+            closeBackgroundColorDropdown();
+        }
+    });
+    
+    // ====================================
+    // Background Color Dropdown Functionality
+    // ====================================
+    const backgroundColorDropdown = document.getElementById('backgroundColorDropdown');
+    const backgroundColorDropdownSelected = document.getElementById('backgroundColorDropdownSelected');
+    const backgroundColorDropdownMenu = document.getElementById('backgroundColorDropdownMenu');
+    const backgroundColorDropdownItems = document.querySelectorAll('#backgroundColorDropdownMenu .color-dropdown-item');
+    
+    function openBackgroundColorDropdown() {
+        if (backgroundColorDropdownMenu) {
+            backgroundColorDropdownMenu.classList.add('open');
+            if (backgroundColorDropdownSelected) {
+                backgroundColorDropdownSelected.classList.add('open');
+            }
+        }
+    }
+    
+    function closeBackgroundColorDropdown() {
+        if (backgroundColorDropdownMenu) {
+            backgroundColorDropdownMenu.classList.remove('open');
+            if (backgroundColorDropdownSelected) {
+                backgroundColorDropdownSelected.classList.remove('open');
+            }
+        }
+    }
+    
+    // Toggle dropdown
+    if (backgroundColorDropdownSelected) {
+        backgroundColorDropdownSelected.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isOpen = backgroundColorDropdownMenu && backgroundColorDropdownMenu.classList.contains('open');
+            
+            if (isOpen) {
+                closeBackgroundColorDropdown();
+            } else {
+                openBackgroundColorDropdown();
+            }
+        });
+    }
+    
+    // Select background color
+    backgroundColorDropdownItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const colorName = item.dataset.color;
+            const primary = item.dataset.primary;
+            const dark = item.dataset.dark;
+            const text = item.querySelector('span').textContent;
+            const colorBox = item.querySelector('.color-box').style.background;
+            
+            // Update selected display
+            if (backgroundColorDropdownSelected) {
+                const selectedColorBox = backgroundColorDropdownSelected.querySelector('.color-box');
+                const selectedText = backgroundColorDropdownSelected.querySelector('span');
+                if (selectedColorBox) selectedColorBox.style.background = colorBox;
+                if (selectedText) selectedText.textContent = text;
+            }
+            
+            // Update active state
+            backgroundColorDropdownItems.forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            
+            // Apply background color
+            applyBackgroundColor(primary, dark, text);
+            
+            // Save preference
+            localStorage.setItem('backgroundColorTheme', colorName);
+            
+            // Close dropdown
+            closeBackgroundColorDropdown();
+            
+            // Show notification
+            showToast(`Question color changed to ${text.replace(' (Default)', '')}!`);
+        });
     });
     
     // ====================================
@@ -203,6 +282,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     savedCategoryItem.classList.add('active');
                 }
             }
+        }
+    }
+    
+    // Apply Question Color
+    function applyBackgroundColor(primary, dark, name) {
+        // Apply color only to question items, not background
+        const style = document.getElementById('dynamic-question-color-style') || document.createElement('style');
+        style.id = 'dynamic-question-color-style';
+        style.textContent = `
+            .question-item {
+                background: linear-gradient(135deg, ${primary}15 0%, ${dark}10 100%) !important;
+                border-color: ${primary}40 !important;
+            }
+            .question-item:hover {
+                background: linear-gradient(135deg, ${primary}20 0%, ${dark}15 100%) !important;
+                border-color: ${primary}60 !important;
+                box-shadow: 0 4px 12px ${primary}30 !important;
+            }
+            .question-item-type {
+                background: ${primary}26 !important;
+                border-color: ${primary}66 !important;
+                color: ${primary} !important;
+            }
+        `;
+        if (!document.getElementById('dynamic-question-color-style')) {
+            document.head.appendChild(style);
         }
     }
     
@@ -317,6 +422,28 @@ document.addEventListener('DOMContentLoaded', function() {
         
         savedItem.classList.add('active');
         applyColorTheme(primary, dark, text);
+    }
+    
+    // Load saved background color
+    const savedBackgroundTheme = localStorage.getItem('backgroundColorTheme') || 'blue';
+    const savedBackgroundItem = document.querySelector(`#backgroundColorDropdownMenu .color-dropdown-item[data-color="${savedBackgroundTheme}"]`);
+    if (savedBackgroundItem && backgroundColorDropdownSelected) {
+        const primary = savedBackgroundItem.dataset.primary;
+        const dark = savedBackgroundItem.dataset.dark;
+        const text = savedBackgroundItem.querySelector('span').textContent;
+        const colorBox = savedBackgroundItem.querySelector('.color-box').style.background;
+        
+        // Update selected display
+        const selectedColorBox = backgroundColorDropdownSelected.querySelector('.color-box');
+        const selectedText = backgroundColorDropdownSelected.querySelector('span');
+        if (selectedColorBox) selectedColorBox.style.background = colorBox;
+        if (selectedText) selectedText.textContent = text;
+        
+        // Update active state
+        backgroundColorDropdownItems.forEach(i => i.classList.remove('active'));
+        savedBackgroundItem.classList.add('active');
+        
+        applyBackgroundColor(primary, dark, text);
     }
 
     // Event Listeners
