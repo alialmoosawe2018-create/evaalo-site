@@ -287,23 +287,92 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Apply Question Color
     function applyBackgroundColor(primary, dark, name) {
+        const questionsContainer = document.getElementById('questionsContainer');
+        
+        // Check if color is white - use true white
+        const isWhite = primary === '#FFFFFF' || primary === '#ffffff';
+        const isLightColor = primary === '#FFFFFF' || primary === '#E5E7EB' || primary === '#F8FAFC';
+        
+        // Apply color to questions container
+        if (questionsContainer) {
+            if (isWhite) {
+                questionsContainer.style.background = '#FFFFFF';
+                questionsContainer.style.borderColor = '#E5E7EB';
+                questionsContainer.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+            } else if (isLightColor) {
+                questionsContainer.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
+                questionsContainer.style.borderColor = dark;
+                questionsContainer.style.boxShadow = `0 8px 32px ${primary}30`;
+            } else {
+                questionsContainer.style.background = `linear-gradient(135deg, ${primary}20 0%, ${dark}15 100%)`;
+                questionsContainer.style.borderColor = `${primary}60`;
+                questionsContainer.style.boxShadow = `0 8px 32px ${primary}30`;
+            }
+            
+            // Update questions title gradient
+            const questionsTitle = questionsContainer.querySelector('.questions-title');
+            if (questionsTitle) {
+                if (isWhite) {
+                    questionsTitle.style.background = 'linear-gradient(135deg, #1E293B 0%, #475569 100%)';
+                    questionsTitle.style.webkitBackgroundClip = 'text';
+                    questionsTitle.style.webkitTextFillColor = 'transparent';
+                    questionsTitle.style.backgroundClip = 'text';
+                } else {
+                    questionsTitle.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
+                    questionsTitle.style.webkitBackgroundClip = 'text';
+                    questionsTitle.style.webkitTextFillColor = 'transparent';
+                    questionsTitle.style.backgroundClip = 'text';
+                }
+            }
+        }
+        
+        // For white/light colors, use true colors with proper contrast
+        let questionBg, questionBorder, questionHoverBg, questionHoverBorder, questionTypeBg, questionTypeBorder, questionTypeColor;
+        
+        if (isWhite) {
+            questionBg = '#FFFFFF';
+            questionBorder = '#E5E7EB';
+            questionHoverBg = '#F8FAFC';
+            questionHoverBorder = '#CBD5E1';
+            questionTypeBg = '#F1F5F9';
+            questionTypeBorder = '#CBD5E1';
+            questionTypeColor = '#1E293B';
+        } else if (isLightColor) {
+            questionBg = primary;
+            questionBorder = dark;
+            questionHoverBg = primary;
+            questionHoverBorder = dark;
+            questionTypeBg = `${primary}E6`;
+            questionTypeBorder = dark;
+            questionTypeColor = dark;
+        } else {
+            // For dark colors, use opacity for better visibility
+            questionBg = `linear-gradient(135deg, ${primary}20 0%, ${dark}15 100%)`;
+            questionBorder = `${primary}60`;
+            questionHoverBg = `linear-gradient(135deg, ${primary}30 0%, ${dark}25 100%)`;
+            questionHoverBorder = `${primary}80`;
+            questionTypeBg = `${primary}33`;
+            questionTypeBorder = `${primary}66`;
+            questionTypeColor = primary;
+        }
+        
         // Apply color only to question items, not background
         const style = document.getElementById('dynamic-question-color-style') || document.createElement('style');
         style.id = 'dynamic-question-color-style';
         style.textContent = `
             .question-item {
-                background: linear-gradient(135deg, ${primary}15 0%, ${dark}10 100%) !important;
-                border-color: ${primary}40 !important;
+                background: ${questionBg} !important;
+                border-color: ${questionBorder} !important;
             }
             .question-item:hover {
-                background: linear-gradient(135deg, ${primary}20 0%, ${dark}15 100%) !important;
-                border-color: ${primary}60 !important;
-                box-shadow: 0 4px 12px ${primary}30 !important;
+                background: ${questionHoverBg} !important;
+                border-color: ${questionHoverBorder} !important;
+                box-shadow: 0 4px 12px ${isWhite ? 'rgba(0, 0, 0, 0.1)' : `${primary}40`} !important;
             }
             .question-item-type {
-                background: ${primary}26 !important;
-                border-color: ${primary}66 !important;
-                color: ${primary} !important;
+                background: ${questionTypeBg} !important;
+                border-color: ${questionTypeBorder} !important;
+                color: ${questionTypeColor} !important;
             }
         `;
         if (!document.getElementById('dynamic-question-color-style')) {
@@ -316,28 +385,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const designMain = document.querySelector('.design-main');
         const questionsContainer = document.getElementById('questionsContainer');
         
+        // Check if color is white - use true white
+        const isWhite = primary === '#FFFFFF' || primary === '#ffffff';
+        const isLightColor = primary === '#FFFFFF' || primary === '#E5E7EB' || primary === '#F8FAFC';
+        
         // Update ONLY the form editor area
         if (designMain) {
-            designMain.style.background = `linear-gradient(135deg, ${primary}0D 0%, ${dark}08 100%)`;
-            designMain.style.borderColor = `${primary}4D`;
-            designMain.style.boxShadow = `0 8px 32px ${primary}1A`;
-        }
-        
-        // Update questions container with theme color
-        if (questionsContainer) {
-            questionsContainer.style.background = `linear-gradient(135deg, ${primary}0D 0%, ${dark}08 100%)`;
-            questionsContainer.style.borderColor = `${primary}4D`;
-            questionsContainer.style.boxShadow = `0 8px 32px ${primary}1A`;
-            
-            // Update questions title gradient
-            const questionsTitle = questionsContainer.querySelector('.questions-title');
-            if (questionsTitle) {
-                questionsTitle.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
-                questionsTitle.style.webkitBackgroundClip = 'text';
-                questionsTitle.style.webkitTextFillColor = 'transparent';
-                questionsTitle.style.backgroundClip = 'text';
+            if (isWhite) {
+                designMain.style.background = '#FFFFFF';
+                designMain.style.borderColor = '#E5E7EB';
+                designMain.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+            } else if (isLightColor) {
+                designMain.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
+                designMain.style.borderColor = dark;
+                designMain.style.boxShadow = `0 8px 32px ${primary}30`;
+            } else {
+                designMain.style.background = `linear-gradient(135deg, ${primary}20 0%, ${dark}15 100%)`;
+                designMain.style.borderColor = `${primary}60`;
+                designMain.style.boxShadow = `0 8px 32px ${primary}30`;
             }
         }
+        
+        // Don't apply form color to questions container - it has its own color setting
         
         // Update question badges and form elements only
         const style = document.getElementById('dynamic-theme-style') || document.createElement('style');
@@ -376,28 +445,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             .editor-toolbar {
                 border-bottom-color: ${primary}1A !important;
-            }
-            .question-item-btn.edit-question {
-                background: ${primary}26 !important;
-                border-color: ${primary}66 !important;
-                color: ${primary} !important;
-            }
-            .question-item-btn.edit-question:hover {
-                background: ${primary}40 !important;
-                border-color: ${primary} !important;
-                color: ${primary} !important;
-                box-shadow: 0 4px 12px ${primary}4D !important;
-            }
-            .question-item-btn.copy-question {
-                background: ${primary}26 !important;
-                border-color: ${primary}66 !important;
-                color: ${primary} !important;
-            }
-            .question-item-btn.copy-question:hover {
-                background: ${primary}40 !important;
-                border-color: ${primary} !important;
-                color: ${primary} !important;
-                box-shadow: 0 4px 12px ${primary}4D !important;
             }
         `;
         if (!document.getElementById('dynamic-theme-style')) {
