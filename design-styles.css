@@ -314,56 +314,164 @@
 }
 
 .question-item-btn {
-    background: rgba(34, 211, 238, 0.1);
-    border: 1px solid rgba(34, 211, 238, 0.2);
-    color: rgba(255, 255, 255, 0.9);
-    padding: 10px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-    white-space: nowrap;
-    position: relative;
-    overflow: hidden;
-    width: auto;
-    min-width: 40px;
-    height: 40px;
-    backdrop-filter: none;
-    box-shadow: none;
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(34, 211, 238, 0.3) !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+    padding: 10px !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    white-space: nowrap !important;
+    position: relative !important;
+    overflow: hidden !important;
+    width: auto !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 0 rgba(34, 211, 238, 0) !important;
+}
+
+.question-item-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.question-item-btn:hover::before {
+    left: 100%;
 }
 
 .question-item-btn:hover {
-    background: rgba(34, 211, 238, 0.2);
-    border-color: rgba(34, 211, 238, 0.4);
-    transform: translateX(4px);
-    color: #ffffff;
+    background: rgba(15, 23, 42, 0.95) !important;
+    border-color: rgba(34, 211, 238, 0.6) !important;
+    transform: translateY(-2px) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 16px rgba(34, 211, 238, 0.3), 0 0 20px rgba(34, 211, 238, 0.2) !important;
 }
 
 .question-item-btn:active {
-    transform: translateX(2px);
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 8px rgba(34, 211, 238, 0.2) !important;
 }
 
-/* All buttons use same design as color options */
+/* All buttons use modern glassmorphism design - NEVER affected by form/question colors */
+.question-item-actions {
+    background: transparent !important;
+}
+
+.question-item-actions * {
+    background: transparent !important;
+}
+
+.question-item-btn,
 .edit-question,
 .copy-question,
 .delete-question {
-    background: rgba(34, 211, 238, 0.1) !important;
-    border-color: rgba(34, 211, 238, 0.2) !important;
-    color: rgba(255, 255, 255, 0.9) !important;
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(34, 211, 238, 0.3) !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 0 rgba(34, 211, 238, 0) !important;
 }
 
 .edit-question:hover,
 .copy-question:hover,
 .delete-question:hover {
-    background: rgba(34, 211, 238, 0.2) !important;
-    border-color: rgba(34, 211, 238, 0.4) !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    border-color: rgba(34, 211, 238, 0.6) !important;
     color: #ffffff !important;
-    transform: translateX(4px) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 16px rgba(34, 211, 238, 0.3), 0 0 20px rgba(34, 211, 238, 0.2) !important;
+}
+
+/* Ensure buttons are NEVER affected by form/question color themes - Modern glassmorphism design */
+#questionsList .question-item .question-item-actions,
+#questionsContainer .question-item .question-item-actions {
+    background: transparent !important;
+}
+
+#questionsList .question-item .question-item-btn,
+#questionsList .question-item .edit-question,
+#questionsList .question-item .copy-question,
+#questionsList .question-item .delete-question,
+#questionsContainer .question-item .question-item-btn,
+#questionsContainer .question-item .edit-question,
+#questionsContainer .question-item .copy-question,
+#questionsContainer .question-item .delete-question {
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(34, 211, 238, 0.3) !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 0 rgba(34, 211, 238, 0) !important;
+}
+
+#questionsList .question-item .question-item-btn:hover,
+#questionsList .question-item .edit-question:hover,
+#questionsList .question-item .copy-question:hover,
+#questionsList .question-item .delete-question:hover,
+#questionsContainer .question-item .question-item-btn:hover,
+#questionsContainer .question-item .edit-question:hover,
+#questionsContainer .question-item .copy-question:hover,
+#questionsContainer .question-item .delete-question:hover {
+    background: rgba(15, 23, 42, 0.95) !important;
+    border-color: rgba(34, 211, 238, 0.6) !important;
+    color: #ffffff !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 16px rgba(34, 211, 238, 0.3), 0 0 20px rgba(34, 211, 238, 0.2) !important;
+}
+
+#questionsList .question-item .question-item-btn svg,
+#questionsList .question-item .edit-question svg,
+#questionsList .question-item .copy-question svg,
+#questionsContainer .question-item .question-item-btn svg,
+#questionsContainer .question-item .edit-question svg,
+#questionsContainer .question-item .copy-question svg {
+    color: rgba(34, 211, 238, 0.9) !important;
+    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.3)) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+#questionsList .question-item .question-item-btn:hover svg,
+#questionsList .question-item .edit-question:hover svg,
+#questionsList .question-item .copy-question:hover svg,
+#questionsContainer .question-item .question-item-btn:hover svg,
+#questionsContainer .question-item .edit-question:hover svg,
+#questionsContainer .question-item .copy-question:hover svg {
+    color: rgba(34, 211, 238, 1) !important;
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6)) !important;
+    transform: scale(1.1) !important;
+}
+
+#questionsList .question-item .delete-question svg,
+#questionsContainer .question-item .delete-question svg {
+    color: rgba(239, 68, 68, 0.9) !important;
+    filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.3)) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+#questionsList .question-item .delete-question:hover svg,
+#questionsContainer .question-item .delete-question:hover svg {
+    color: rgba(239, 68, 68, 1) !important;
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) !important;
+    transform: scale(1.1) !important;
 }
 
 .question-item-meta {
@@ -385,16 +493,28 @@
     width: 18px;
     height: 18px;
     flex-shrink: 0;
-    transition: all 0.2s ease;
-    color: rgba(34, 211, 238, 0.8);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: rgba(34, 211, 238, 0.9) !important;
+    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.3));
+    position: relative;
+    z-index: 1;
 }
 
 .question-item-btn:hover svg {
-    color: rgba(34, 211, 238, 1);
+    color: rgba(34, 211, 238, 1) !important;
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6));
+    transform: scale(1.1);
+}
+
+.delete-question svg {
+    color: rgba(239, 68, 68, 0.9) !important;
+    filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.3));
 }
 
 .delete-question:hover svg {
-    color: rgba(239, 68, 68, 1);
+    color: rgba(239, 68, 68, 1) !important;
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+    transform: scale(1.1);
 }
 
 .header-actions {
@@ -2193,6 +2313,8 @@
         height: 55px !important;
         top: 75px !important;
         left: 10px !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
     
     .mobile-sidebar-toggle::before {
@@ -2212,8 +2334,9 @@
         box-shadow: 
             0 8px 32px rgba(0, 0, 0, 0.1),
             0 2px 8px rgba(34, 211, 238, 0.2) !important;
-        top: 0;
-        left: 0;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
     }
     
     .mobile-sidebar-toggle:hover::after {
@@ -2560,17 +2683,18 @@
     /* Positioned on the left, same height as language icon on the right */
     .mobile-sidebar-toggle {
         display: flex !important;
-        align-items: center;
-        justify-content: center;
+        align-items: center !important;
+        justify-content: center !important;
         position: fixed !important;
         top: 85px !important;
         left: 20px !important;
         z-index: 1000 !important;
         width: 60px !important;
         height: 60px !important;
-        padding: 0;
+        padding: 0 !important;
+        margin: 0 !important;
         background: transparent !important;
-        border: none;
+        border: none !important;
         cursor: pointer;
         transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         opacity: 0.95;
@@ -2633,8 +2757,9 @@
         -webkit-backdrop-filter: none !important;
         z-index: 1;
         pointer-events: none;
-        top: 0;
-        left: 0;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
         transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
@@ -2665,7 +2790,7 @@
     }
     
     .mobile-sidebar-toggle:hover::after {
-        transform: scale(1.15) rotate(3deg);
+        transform: translate(-50%, -50%) scale(1.15) rotate(3deg);
         border-color: rgba(34, 211, 238, 0.6);
         box-shadow: 
             0 12px 40px rgba(34, 211, 238, 0.4),
@@ -2680,10 +2805,10 @@
 
     @keyframes iconFloat {
         0%, 100% { 
-            transform: scale(1.15) rotate(3deg) translateY(0px); 
+            transform: translate(-50%, -50%) scale(1.15) rotate(3deg) translateY(0px); 
         }
         50% { 
-            transform: scale(1.15) rotate(3deg) translateY(-5px); 
+            transform: translate(-50%, -50%) scale(1.15) rotate(3deg) translateY(-5px); 
         }
     }
 

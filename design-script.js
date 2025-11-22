@@ -823,6 +823,53 @@ document.addEventListener('DOMContentLoaded', function() {
                 border-color: ${questionTypeBorder} !important;
                 color: ${questionTypeColor} !important;
             }
+            /* NEVER affect action buttons - modern glassmorphism design, stay independent */
+            #questionsContainer #questionsList .question-item .question-item-actions {
+                background: transparent !important;
+            }
+            #questionsContainer #questionsList .question-item .question-item-btn,
+            #questionsContainer #questionsList .question-item .edit-question,
+            #questionsContainer #questionsList .question-item .copy-question,
+            #questionsContainer #questionsList .question-item .delete-question {
+                background: rgba(15, 23, 42, 0.8) !important;
+                backdrop-filter: blur(10px) !important;
+                -webkit-backdrop-filter: blur(10px) !important;
+                border: 1px solid rgba(34, 211, 238, 0.3) !important;
+                color: rgba(255, 255, 255, 0.95) !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 0 rgba(34, 211, 238, 0) !important;
+            }
+            #questionsContainer #questionsList .question-item .question-item-btn:hover,
+            #questionsContainer #questionsList .question-item .edit-question:hover,
+            #questionsContainer #questionsList .question-item .copy-question:hover,
+            #questionsContainer #questionsList .question-item .delete-question:hover {
+                background: rgba(15, 23, 42, 0.95) !important;
+                border-color: rgba(34, 211, 238, 0.6) !important;
+                color: #ffffff !important;
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 16px rgba(34, 211, 238, 0.3), 0 0 20px rgba(34, 211, 238, 0.2) !important;
+            }
+            #questionsContainer #questionsList .question-item .question-item-btn svg,
+            #questionsContainer #questionsList .question-item .edit-question svg,
+            #questionsContainer #questionsList .question-item .copy-question svg {
+                color: rgba(34, 211, 238, 0.9) !important;
+                filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.3)) !important;
+            }
+            #questionsContainer #questionsList .question-item .question-item-btn:hover svg,
+            #questionsContainer #questionsList .question-item .edit-question:hover svg,
+            #questionsContainer #questionsList .question-item .copy-question:hover svg {
+                color: rgba(34, 211, 238, 1) !important;
+                filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6)) !important;
+                transform: scale(1.1) !important;
+            }
+            #questionsContainer #questionsList .question-item .delete-question svg {
+                color: rgba(239, 68, 68, 0.9) !important;
+                filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.3)) !important;
+            }
+            #questionsContainer #questionsList .question-item .delete-question:hover svg {
+                color: rgba(239, 68, 68, 1) !important;
+                filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) !important;
+                transform: scale(1.1) !important;
+            }
         `;
         if (!document.getElementById('dynamic-question-color-style')) {
             document.head.appendChild(style);
@@ -978,6 +1025,53 @@ document.addEventListener('DOMContentLoaded', function() {
             /* Ensure question items are NOT affected by form color theme */
             #questionsList .question-item {
                 /* Reset any form theme styles - question color will override */
+            }
+            /* NEVER affect action buttons - modern glassmorphism design, stay independent */
+            #questionsList .question-item .question-item-actions {
+                background: transparent !important;
+            }
+            #questionsList .question-item .question-item-btn,
+            #questionsList .question-item .edit-question,
+            #questionsList .question-item .copy-question,
+            #questionsList .question-item .delete-question {
+                background: rgba(15, 23, 42, 0.8) !important;
+                backdrop-filter: blur(10px) !important;
+                -webkit-backdrop-filter: blur(10px) !important;
+                border: 1px solid rgba(34, 211, 238, 0.3) !important;
+                color: rgba(255, 255, 255, 0.95) !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 0 rgba(34, 211, 238, 0) !important;
+            }
+            #questionsList .question-item .question-item-btn:hover,
+            #questionsList .question-item .edit-question:hover,
+            #questionsList .question-item .copy-question:hover,
+            #questionsList .question-item .delete-question:hover {
+                background: rgba(15, 23, 42, 0.95) !important;
+                border-color: rgba(34, 211, 238, 0.6) !important;
+                color: #ffffff !important;
+                transform: translateY(-2px) !important;
+                box-shadow: 0 4px 16px rgba(34, 211, 238, 0.3), 0 0 20px rgba(34, 211, 238, 0.2) !important;
+            }
+            #questionsList .question-item .question-item-btn svg,
+            #questionsList .question-item .edit-question svg,
+            #questionsList .question-item .copy-question svg {
+                color: rgba(34, 211, 238, 0.9) !important;
+                filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.3)) !important;
+            }
+            #questionsList .question-item .question-item-btn:hover svg,
+            #questionsList .question-item .edit-question:hover svg,
+            #questionsList .question-item .copy-question:hover svg {
+                color: rgba(34, 211, 238, 1) !important;
+                filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6)) !important;
+                transform: scale(1.1) !important;
+            }
+            #questionsList .question-item .delete-question svg {
+                color: rgba(239, 68, 68, 0.9) !important;
+                filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.3)) !important;
+            }
+            #questionsList .question-item .delete-question:hover svg {
+                color: rgba(239, 68, 68, 1) !important;
+                filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6)) !important;
+                transform: scale(1.1) !important;
             }
         `;
         if (!document.getElementById('dynamic-theme-style')) {
@@ -1206,86 +1300,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Swipe gestures for mobile sidebar
-    if (window.innerWidth <= 768 && designSidebar) {
-        // Swipe from left edge to open
-        document.addEventListener('touchstart', function(e) {
-            if (window.innerWidth > 768) return;
-            
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-            
-            // Check if touch started from left edge (within 20px)
-            if (touchStartX <= 20 && !designSidebar.classList.contains('mobile-open')) {
-                isDragging = true;
-                sidebarStartX = 0;
-            }
-        }, { passive: true });
-        
-        // Swipe on sidebar to close (swipe left to close)
-        designSidebar.addEventListener('touchstart', function(e) {
-            if (window.innerWidth > 768) return;
-            if (!designSidebar.classList.contains('mobile-open')) return;
-            
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-            isDragging = true;
-            sidebarStartX = designSidebar.getBoundingClientRect().left;
-        }, { passive: true });
-        
-        document.addEventListener('touchmove', function(e) {
-            if (window.innerWidth > 768 || !isDragging) return;
-            
-            const touchCurrentX = e.touches[0].clientX;
-            const touchCurrentY = e.touches[0].clientY;
-            const deltaX = touchCurrentX - touchStartX;
-            const deltaY = Math.abs(touchCurrentY - touchStartY);
-            
-            // Only process horizontal swipes
-            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
-                e.preventDefault();
-                
-                if (!designSidebar.classList.contains('mobile-open')) {
-                    // Opening from left edge - swipe right to open
-                    const translateX = Math.min(0, -touchCurrentX);
-                    designSidebar.style.transform = `translateX(${translateX}px)`;
-                } else {
-                    // Closing by swiping left
-                    const translateX = Math.min(0, -Math.abs(deltaX));
-                    designSidebar.style.transform = `translateX(${translateX}px)`;
-                }
-            }
-        }, { passive: false });
-        
-        document.addEventListener('touchend', function(e) {
-            if (window.innerWidth > 768 || !isDragging) return;
-            
-            const touchEndX = e.changedTouches[0].clientX;
-            const deltaX = touchEndX - touchStartX;
-            const threshold = 50;
-            
-            if (!designSidebar.classList.contains('mobile-open')) {
-                // Opening gesture - swipe right from left edge
-                if (deltaX > threshold) {
-                    openMobileSidebar();
-                } else {
-                    designSidebar.style.transform = '';
-                    closeMobileSidebar();
-                }
-            } else {
-                // Closing gesture - swipe left to close
-                if (deltaX < -threshold) {
-                    closeMobileSidebar();
-                } else {
-                    designSidebar.style.transform = '';
-                    openMobileSidebar();
-                }
-            }
-            
-            isDragging = false;
-            designSidebar.style.transform = '';
-        }, { passive: true });
-    }
+    // Swipe gestures for mobile sidebar - DISABLED
+    // Touch swipe functionality has been disabled
+    // Sidebar can only be opened/closed using the toggle button
     
     // Hide/show toggle button based on screen size
     function updateMobileSidebarToggle() {
@@ -1319,19 +1336,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update on resize
     window.addEventListener('resize', updateMobileSidebarToggle);
 
-    // Empty State Add Button (Plus Icon) - Opens Sidebar
+    // Empty State Add Button (Plus Icon)
     const emptyStateAddBtn = document.getElementById('emptyStateAddBtn');
     if (emptyStateAddBtn) {
         emptyStateAddBtn.addEventListener('click', function() {
-            // Open sidebar (mobile) or scroll to sidebar (desktop)
-            if (window.innerWidth <= 768) {
-                openMobileSidebar();
-            } else {
-                // Scroll to sidebar in desktop
-                if (designSidebar) {
-                    designSidebar.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }
+            editingQuestionIndex = null;
+            currentQuestionType = 'short-text';
+            openQuestionModal('short-text');
         });
     }
 
