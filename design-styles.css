@@ -2054,12 +2054,12 @@
 }
 
 @media (max-width: 480px) {
-    /* Even smaller icon size on small mobile - match hero-feature icons */
+    /* Even smaller icon size on small mobile - match language icon */
     .mobile-sidebar-toggle {
         width: 55px !important;
         height: 55px !important;
         top: 75px !important;
-        left: 10px !important;
+        left: 20px !important;
     }
     
     .mobile-sidebar-toggle::before {
@@ -2360,10 +2360,10 @@
         display: flex !important;
         align-items: center;
         justify-content: center;
-        position: fixed;
-        top: 85px;
-        left: 20px;
-        z-index: 10002;
+        position: fixed !important;
+        top: 85px !important;
+        left: 20px !important;
+        z-index: 1000 !important;
         /* Same size as language icon on mobile */
         width: 60px;
         height: 60px;
