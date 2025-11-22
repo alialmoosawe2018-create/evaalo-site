@@ -118,6 +118,11 @@
 
 .questions-header {
     margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    position: relative;
 }
 
 .questions-title {
@@ -156,6 +161,38 @@
     pointer-events: none;
 }
 
+/* Clear All Button - Same design as header buttons */
+.btn-clear-all {
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 6px;
+    padding: 10px 16px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-clear-all:hover {
+    background: rgba(34, 211, 238, 0.2);
+    border-color: rgba(34, 211, 238, 0.4);
+    transform: translateX(4px);
+    color: #ffffff;
+}
+
+.btn-clear-all svg {
+    color: rgba(34, 211, 238, 0.8);
+    transition: all 0.2s ease;
+}
+
+.btn-clear-all:hover svg {
+    color: rgba(34, 211, 238, 1);
+}
+
 .questions-subtitle {
     font-size: 14px;
     color: #94A3B8;
@@ -176,11 +213,24 @@
     padding: 60px 20px;
     text-align: center;
     color: #64748B;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 12px;
+}
+
+.empty-questions-state:hover {
+    transform: translateY(-4px);
+}
+
+.empty-questions-state:hover svg {
+    color: rgba(34, 211, 238, 0.8);
+    transform: scale(1.1);
 }
 
 .empty-questions-state svg {
     margin-bottom: 20px;
     color: #475569;
+    transition: all 0.3s ease;
 }
 
 .empty-message {
@@ -258,75 +308,62 @@
 .question-item-actions {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     align-items: stretch;
-    min-width: 120px;
+    min-width: auto;
 }
 
 .question-item-btn {
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border: 2px solid rgba(56, 189, 248, 0.4);
-    color: #ffffff;
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-size: 13px;
-    font-weight: 600;
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 0;
     white-space: nowrap;
     position: relative;
     overflow: hidden;
-    width: 100%;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
-
-.question-item-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s ease;
-}
-
-.question-item-btn:hover::before {
-    left: 100%;
+    width: auto;
+    min-width: 40px;
+    height: 40px;
+    backdrop-filter: none;
+    box-shadow: none;
 }
 
 .question-item-btn:hover {
-    background: rgba(56, 189, 248, 0.2);
-    border-color: rgba(56, 189, 248, 0.6);
-    transform: translateY(-3px);
-    box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+    background: rgba(34, 211, 238, 0.2);
+    border-color: rgba(34, 211, 238, 0.4);
+    transform: translateX(4px);
+    color: #ffffff;
 }
 
 .question-item-btn:active {
-    transform: translateY(-1px);
+    transform: translateX(2px);
 }
 
-/* All buttons use same color as Model button (btn-secondary) */
+/* All buttons use same design as color options */
 .edit-question,
 .copy-question,
 .delete-question {
-    background: rgba(255, 255, 255, 0.1) !important;
-    border-color: rgba(56, 189, 248, 0.4) !important;
-    color: #ffffff !important;
+    background: rgba(34, 211, 238, 0.1) !important;
+    border-color: rgba(34, 211, 238, 0.2) !important;
+    color: rgba(255, 255, 255, 0.9) !important;
 }
 
 .edit-question:hover,
 .copy-question:hover,
 .delete-question:hover {
-    background: rgba(56, 189, 248, 0.2) !important;
-    border-color: rgba(56, 189, 248, 0.6) !important;
+    background: rgba(34, 211, 238, 0.2) !important;
+    border-color: rgba(34, 211, 238, 0.4) !important;
     color: #ffffff !important;
-    box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4) !important;
+    transform: translateX(4px) !important;
 }
 
 .question-item-meta {
@@ -345,26 +382,19 @@
 }
 
 .question-item-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     flex-shrink: 0;
-    transition: transform 0.3s ease;
+    transition: all 0.2s ease;
+    color: rgba(34, 211, 238, 0.8);
 }
 
 .question-item-btn:hover svg {
-    transform: scale(1.15);
-}
-
-.edit-question:hover svg {
-    transform: scale(1.15) rotate(5deg);
-}
-
-.copy-question:hover svg {
-    transform: scale(1.15);
+    color: rgba(34, 211, 238, 1);
 }
 
 .delete-question:hover svg {
-    transform: scale(1.15) rotate(-5deg);
+    color: rgba(239, 68, 68, 1);
 }
 
 .header-actions {
@@ -372,26 +402,72 @@
     gap: 12px;
 }
 
-.btn-share {
-    background: linear-gradient(135deg, #0EA5E9 0%, #06B6D4 100%);
-    color: #fff;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 12px;
-    font-size: 15px;
-    font-weight: 600;
+/* Apply same design as color options to all header action buttons */
+.header-actions .btn-secondary,
+.header-actions .btn-primary,
+.header-actions .btn-share,
+.header-actions .btn-clear-all {
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 6px;
+    padding: 10px 16px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     gap: 8px;
-    box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+}
+
+.header-actions .btn-secondary:hover,
+.header-actions .btn-primary:hover,
+.header-actions .btn-share:hover,
+.header-actions .btn-clear-all:hover {
+    background: rgba(34, 211, 238, 0.2);
+    border-color: rgba(34, 211, 238, 0.4);
+    transform: translateX(4px);
+    color: #ffffff;
+}
+
+.header-actions .btn-secondary svg,
+.header-actions .btn-primary svg,
+.header-actions .btn-share svg,
+.header-actions .btn-clear-all svg {
+    color: rgba(34, 211, 238, 0.8);
+    transition: all 0.2s ease;
+}
+
+.header-actions .btn-secondary:hover svg,
+.header-actions .btn-primary:hover svg,
+.header-actions .btn-share:hover svg,
+.header-actions .btn-clear-all:hover svg {
+    color: rgba(34, 211, 238, 1);
+}
+
+/* Legacy btn-share styles - kept for backward compatibility but overridden above */
+.btn-share {
+    background: rgba(34, 211, 238, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: none;
 }
 
 .btn-share:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
-    background: linear-gradient(135deg, #06B6D4 0%, #0EA5E9 100%);
+    background: rgba(34, 211, 238, 0.2);
+    border-color: rgba(34, 211, 238, 0.4);
+    transform: translateX(4px);
+    box-shadow: none;
 }
 
 /* Main Content Layout */
@@ -908,26 +984,27 @@
 .design-sidebar .form-input,
 .design-sidebar .form-select {
     width: 100%;
-    background: #1E293B;
-    border: 1px solid #475569;
-    border-radius: 10px;
-    padding: 12px 14px;
-    color: #F8FAFC;
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 6px;
+    padding: 10px 16px;
+    color: rgba(255, 255, 255, 0.9);
     font-size: 14px;
     font-weight: 500;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     outline: none;
 }
 
 .design-sidebar .form-input::placeholder {
-    color: #64748B;
+    color: rgba(255, 255, 255, 0.5);
 }
 
 .design-sidebar .form-input:focus,
 .design-sidebar .form-select:focus {
-    background: #0F172A;
-    border-color: #3B82F6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    background: rgba(34, 211, 238, 0.2);
+    border-color: rgba(34, 211, 238, 0.4);
+    box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.2);
+    transform: translateX(4px);
 }
 
 .design-sidebar .form-select {
@@ -944,18 +1021,18 @@
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    padding: 12px 14px;
-    background: #1E293B;
-    border: 1px solid #475569;
-    border-radius: 10px;
-    transition: all 0.3s ease;
+    padding: 10px 16px;
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 6px;
+    transition: all 0.2s ease;
     position: relative;
 }
 
 .design-sidebar .checkbox-label:hover {
-    background: #0F172A;
-    border-color: #64748B;
-    transform: translateX(2px);
+    background: rgba(34, 211, 238, 0.2);
+    border-color: rgba(34, 211, 238, 0.4);
+    transform: translateX(4px);
 }
 
 .design-sidebar .checkbox-label input[type="checkbox"] {
@@ -967,18 +1044,18 @@
 .design-sidebar .checkmark {
     width: 20px;
     height: 20px;
-    border: 2px solid #64748B;
-    border-radius: 5px;
+    border: 2px solid rgba(34, 211, 238, 0.4);
+    border-radius: 6px;
     position: relative;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     flex-shrink: 0;
-    background: #0F172A;
+    background: rgba(34, 211, 238, 0.1);
 }
 
 .design-sidebar .checkbox-label input[type="checkbox"]:checked ~ .checkmark {
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-    border-color: #3B82F6;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.8) 0%, rgba(34, 211, 238, 0.6) 100%);
+    border-color: rgba(34, 211, 238, 0.6);
+    box-shadow: 0 2px 8px rgba(34, 211, 238, 0.4);
 }
 
 .design-sidebar .checkbox-label input[type="checkbox"]:checked ~ .checkmark::after {
@@ -1032,40 +1109,34 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 14px;
-    background: #1E293B;
-    border: 1px solid #475569;
-    border-radius: 10px;
-    color: #F8FAFC;
+    padding: 10px 16px;
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.9);
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
 }
 
 .question-type-btn:hover {
-    background: linear-gradient(90deg, 
-        rgba(99, 102, 241, 0.08) 0%, 
-        rgba(168, 85, 247, 0.05) 100%);
-    border-color: #6366F1;
-    transform: translateX(3px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25),
-                0 2px 6px rgba(168, 85, 247, 0.15);
+    background: rgba(34, 211, 238, 0.2);
+    border-color: rgba(34, 211, 238, 0.4);
+    transform: translateX(4px);
+    color: #ffffff;
 }
 
 .question-type-btn svg {
-    color: #6366F1;
+    color: rgba(34, 211, 238, 0.8);
     flex-shrink: 0;
-    transition: all 0.3s ease;
-    filter: drop-shadow(0 2px 4px rgba(99, 102, 241, 0.15));
+    transition: all 0.2s ease;
 }
 
 .question-type-btn:hover svg {
-    color: #D8B4FE;
-    filter: drop-shadow(0 3px 8px rgba(168, 85, 247, 0.3));
-    transform: scale(1.1);
+    color: rgba(34, 211, 238, 1);
 }
 
 .badge-coming-soon {
@@ -1268,15 +1339,22 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 16px;
-    background: #1E293B;
-    border-radius: 12px;
-    border: 1px solid #475569;
+    padding: 10px 16px;
+    background: rgba(34, 211, 238, 0.1);
+    border-radius: 6px;
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+    background: rgba(34, 211, 238, 0.2);
+    border-color: rgba(34, 211, 238, 0.4);
+    transform: translateX(4px);
 }
 
 .stat-label {
     font-size: 11px;
-    color: #94A3B8;
+    color: rgba(255, 255, 255, 0.7);
     font-weight: 600;
     margin-bottom: 8px;
     text-transform: uppercase;
@@ -1286,7 +1364,7 @@
 .stat-value {
     font-size: 32px;
     font-weight: 800;
-    color: #3B82F6;
+    color: rgba(34, 211, 238, 1);
     letter-spacing: -0.03em;
 }
 
@@ -1751,9 +1829,20 @@
         margin-bottom: 20px;
     }
 
+    .questions-header {
+        flex-direction: column;
+        gap: 12px;
+    }
+
     .questions-title {
         font-size: 20px;
         text-align: center;
+        margin-bottom: 0;
+    }
+
+    .btn-clear-all {
+        font-size: 13px;
+        padding: 8px 14px;
     }
 
     .questions-subtitle {
@@ -1793,28 +1882,47 @@
         flex-direction: column;
         gap: 8px;
         width: auto;
-        min-width: 100px;
+        min-width: auto;
         align-items: stretch;
         justify-content: flex-start;
         flex-shrink: 0;
     }
 
     .question-item-btn {
-        width: 100%;
-        padding: 8px 12px;
+        width: auto;
+        min-width: 36px;
+        height: 36px;
+        padding: 8px;
         font-size: 11px;
         justify-content: center;
         border-width: 1px;
-        border-radius: 12px;
-        gap: 6px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        gap: 0;
+        box-shadow: none;
         font-weight: 500;
         white-space: nowrap;
+        background: rgba(34, 211, 238, 0.1);
+        border-color: rgba(34, 211, 238, 0.2);
+    }
+    
+    .question-item-btn:hover {
+        background: rgba(34, 211, 238, 0.2);
+        border-color: rgba(34, 211, 238, 0.4);
+        transform: translateX(4px);
     }
 
     .question-item-btn svg {
-        width: 12px;
-        height: 12px;
+        width: 16px;
+        height: 16px;
+        color: rgba(34, 211, 238, 0.8);
+    }
+    
+    .question-item-btn:hover svg {
+        color: rgba(34, 211, 238, 1);
+    }
+    
+    .delete-question:hover svg {
+        color: rgba(239, 68, 68, 1);
     }
 
     .header-content {
@@ -2117,10 +2225,14 @@
     }
     
     .mobile-sidebar-toggle .mobile-gear-icon {
-        width: 100% !important;
-        height: 100% !important;
+        width: 49px !important;
+        height: 49px !important;
         filter: drop-shadow(0 2px 8px rgba(34, 211, 238, 0.3)) !important;
         -webkit-filter: drop-shadow(0 2px 8px rgba(34, 211, 238, 0.3)) !important;
+    }
+    
+    .mobile-sidebar-toggle:hover .mobile-gear-icon {
+        transform: translate(-50%, -50%) scale(1.05) !important;
     }
     
     .design-container {
@@ -2137,8 +2249,19 @@
         margin-bottom: 15px;
     }
 
+    .questions-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+
     .questions-title {
         font-size: 18px;
+        margin-bottom: 0;
+    }
+
+    .btn-clear-all {
+        font-size: 12px;
+        padding: 8px 12px;
     }
 
     .questions-subtitle {
@@ -2222,21 +2345,40 @@
     }
 
     .question-item-btn {
-        width: 100%;
-        padding: 6px 12px;
+        width: auto;
+        min-width: 32px;
+        height: 32px;
+        padding: 6px;
         font-size: 10px;
         justify-content: center;
         border-width: 1px;
-        border-radius: 12px;
-        gap: 4px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        border-radius: 6px;
+        gap: 0;
+        box-shadow: none;
         font-weight: 500;
         white-space: nowrap;
+        background: rgba(34, 211, 238, 0.1);
+        border-color: rgba(34, 211, 238, 0.2);
+    }
+    
+    .question-item-btn:hover {
+        background: rgba(34, 211, 238, 0.2);
+        border-color: rgba(34, 211, 238, 0.4);
+        transform: translateX(4px);
     }
 
     .question-item-btn svg {
-        width: 10px;
-        height: 10px;
+        width: 14px;
+        height: 14px;
+        color: rgba(34, 211, 238, 0.8);
+    }
+    
+    .question-item-btn:hover svg {
+        color: rgba(34, 211, 238, 1);
+    }
+    
+    .delete-question:hover svg {
+        color: rgba(239, 68, 68, 1);
     }
 
     .header-content {
@@ -2497,13 +2639,17 @@
     }
 
     /* Show gear icon on mobile - exact same style as language-icon-image */
+    /* Icon should be slightly smaller than the wrapper to be centered properly */
     .mobile-sidebar-toggle .mobile-gear-icon {
         display: block;
-        width: 100% !important;
-        height: 100% !important;
+        width: 54px !important;
+        height: 54px !important;
         flex-shrink: 0;
         transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-        position: relative;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
         z-index: 2;
         border-radius: 50%;
         overflow: hidden;
@@ -2515,7 +2661,7 @@
 
     .mobile-sidebar-toggle:hover .mobile-gear-icon {
         filter: drop-shadow(0 4px 16px rgba(34, 211, 238, 0.6)) brightness(1.1);
-        transform: scale(1.05);
+        transform: translate(-50%, -50%) scale(1.05);
     }
     
     .mobile-sidebar-toggle:hover::after {

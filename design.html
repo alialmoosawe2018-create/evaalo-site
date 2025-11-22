@@ -182,6 +182,13 @@
                         </svg>
                         Save
                     </button>
+                    <button class="btn btn-clear-all" id="clearAllBtn" style="display: none;">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M13.5 4.5L4.5 13.5M4.5 4.5L13.5 13.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M9 1.5C4.85786 1.5 1.5 4.85786 1.5 9C1.5 13.1421 4.85786 16.5 9 16.5C13.1421 16.5 16.5 13.1421 16.5 9C16.5 4.85786 13.1421 1.5 9 1.5Z" stroke="currentColor" stroke-width="1.5"/>
+                        </svg>
+                        Clear All
+                    </button>
                 </div>
             </div>
 
@@ -193,13 +200,13 @@
                         <h2 class="questions-title" contenteditable="true" data-placeholder="Interview Questions">Interview Questions</h2>
                     </div>
                     <div class="questions-list" id="questionsList">
-                        <div class="empty-questions-state">
+                        <div class="empty-questions-state" id="emptyStateAddBtn">
                             <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <rect x="12" y="8" width="40" height="48" rx="4" stroke="currentColor" stroke-width="2" opacity="0.3"/>
-                                <path d="M20 20h24M20 28h24M20 36h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3"/>
+                                <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="2.5" opacity="0.3"/>
+                                <path d="M32 18V46M18 32H46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                             <p class="empty-message">No questions added yet</p>
-                            <p class="empty-hint">Add questions from the sidebar to get started</p>
+                            <p class="empty-hint">Click the plus icon to add your first question</p>
                         </div>
                     </div>
                 </div>
@@ -245,233 +252,233 @@
                                     </div>
                                     <!-- Blue Shades -->
                                     <div class="color-dropdown-item" data-color="blue" data-primary="#3B82F6" data-dark="#2563EB">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #3B82F6, #2563EB);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #2563EB, #1E40AF);"></div>
                                         <span>Ocean Blue (Default)</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="blue-light" data-primary="#60A5FA" data-dark="#3B82F6">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #60A5FA, #3B82F6);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #3B82F6, #2563EB);"></div>
                                         <span>Light Blue</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="blue-dark" data-primary="#1E40AF" data-dark="#1E3A8A">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #1E40AF, #1E3A8A);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #1E3A8A, #1E3A8A);"></div>
                                         <span>Dark Blue</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="indigo" data-primary="#6366F1" data-dark="#4F46E5">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #6366F1, #4F46E5);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #4F46E5, #4338CA);"></div>
                                         <span>Deep Indigo</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="indigo-light" data-primary="#818CF8" data-dark="#6366F1">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #818CF8, #6366F1);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #6366F1, #4F46E5);"></div>
                                         <span>Light Indigo</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="indigo-dark" data-primary="#4338CA" data-dark="#3730A3">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #4338CA, #3730A3);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #3730A3, #312E81);"></div>
                                         <span>Dark Indigo</span>
                                     </div>
                                     <!-- Purple Shades -->
                                     <div class="color-dropdown-item" data-color="purple" data-primary="#A855F7" data-dark="#9333EA">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #A855F7, #9333EA);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #9333EA, #7E22CE);"></div>
                                         <span>Royal Purple</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="violet" data-primary="#8B5CF6" data-dark="#7C3AED">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #8B5CF6, #7C3AED);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #7C3AED, #6D28D9);"></div>
                                         <span>Vibrant Violet</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="purple-light" data-primary="#C084FC" data-dark="#A855F7">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #C084FC, #A855F7);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #A855F7, #9333EA);"></div>
                                         <span>Light Purple</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="purple-dark" data-primary="#7E22CE" data-dark="#6B21A8">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #7E22CE, #6B21A8);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #6B21A8, #581C87);"></div>
                                         <span>Dark Purple</span>
                                     </div>
                                     <!-- Pink & Rose Shades -->
                                     <div class="color-dropdown-item" data-color="pink" data-primary="#EC4899" data-dark="#DB2777">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #EC4899, #DB2777);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #DB2777, #BE185D);"></div>
                                         <span>Soft Pink</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="pink-light" data-primary="#F472B6" data-dark="#EC4899">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #F472B6, #EC4899);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #EC4899, #DB2777);"></div>
                                         <span>Light Pink</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="pink-dark" data-primary="#BE185D" data-dark="#9F1239">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #BE185D, #9F1239);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #9F1239, #831843);"></div>
                                         <span>Dark Pink</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="rose" data-primary="#F43F5E" data-dark="#E11D48">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #F43F5E, #E11D48);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #E11D48, #BE123C);"></div>
                                         <span>Rose</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="rose-light" data-primary="#FB7185" data-dark="#F43F5E">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #FB7185, #F43F5E);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #F43F5E, #E11D48);"></div>
                                         <span>Light Rose</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="rose-dark" data-primary="#BE123C" data-dark="#9F1239">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #BE123C, #9F1239);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #9F1239, #831843);"></div>
                                         <span>Dark Rose</span>
                                     </div>
                                     <!-- Red Shades -->
                                     <div class="color-dropdown-item" data-color="red" data-primary="#EF4444" data-dark="#DC2626">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #EF4444, #DC2626);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #DC2626, #B91C1C);"></div>
                                         <span>Bold Red</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="red-light" data-primary="#F87171" data-dark="#EF4444">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #F87171, #EF4444);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #EF4444, #DC2626);"></div>
                                         <span>Light Red</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="red-dark" data-primary="#B91C1C" data-dark="#991B1B">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #B91C1C, #991B1B);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #991B1B, #7F1D1D);"></div>
                                         <span>Dark Red</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="crimson" data-primary="#DC2626" data-dark="#B91C1C">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #DC2626, #B91C1C);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #B91C1C, #991B1B);"></div>
                                         <span>Crimson</span>
                                     </div>
                                     <!-- Orange Shades -->
                                     <div class="color-dropdown-item" data-color="orange" data-primary="#F97316" data-dark="#EA580C">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #F97316, #EA580C);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #EA580C, #C2410C);"></div>
                                         <span>Vibrant Orange</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="orange-light" data-primary="#FB923C" data-dark="#F97316">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #FB923C, #F97316);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #F97316, #EA580C);"></div>
                                         <span>Light Orange</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="orange-dark" data-primary="#C2410C" data-dark="#9A3412">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #C2410C, #9A3412);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #9A3412, #7C2D12);"></div>
                                         <span>Dark Orange</span>
                                     </div>
                                     <!-- Yellow & Amber Shades -->
                                     <div class="color-dropdown-item" data-color="amber" data-primary="#F59E0B" data-dark="#D97706">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #F59E0B, #D97706);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #D97706, #B45309);"></div>
                                         <span>Golden Amber</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="yellow" data-primary="#EAB308" data-dark="#CA8A04">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #EAB308, #CA8A04);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #CA8A04, #A16207);"></div>
                                         <span>Sunshine Yellow</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="yellow-light" data-primary="#FDE047" data-dark="#FACC15">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #FDE047, #FACC15);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #FACC15, #EAB308);"></div>
                                         <span>Light Yellow</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="amber-dark" data-primary="#B45309" data-dark="#92400E">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #B45309, #92400E);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #92400E, #78350F);"></div>
                                         <span>Dark Amber</span>
                                     </div>
                                     <!-- Green Shades -->
                                     <div class="color-dropdown-item" data-color="lime" data-primary="#84CC16" data-dark="#65A30D">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #84CC16, #65A30D);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #65A30D, #4D7C0F);"></div>
                                         <span>Lime Green</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="green" data-primary="#10B981" data-dark="#059669">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #10B981, #059669);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #059669, #047857);"></div>
                                         <span>Fresh Green</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="green-light" data-primary="#34D399" data-dark="#10B981">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #34D399, #10B981);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #10B981, #059669);"></div>
                                         <span>Light Green</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="green-dark" data-primary="#047857" data-dark="#065F46">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #047857, #065F46);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #065F46, #064E3B);"></div>
                                         <span>Dark Green</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="emerald" data-primary="#22C55E" data-dark="#16A34A">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #22C55E, #16A34A);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #16A34A, #15803D);"></div>
                                         <span>Emerald</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="mint" data-primary="#10B981" data-dark="#059669">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #10B981, #059669);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #059669, #047857);"></div>
                                         <span>Mint</span>
                                     </div>
                                     <!-- Teal & Cyan Shades -->
                                     <div class="color-dropdown-item" data-color="teal" data-primary="#14B8A6" data-dark="#0D9488">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #14B8A6, #0D9488);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0D9488, #0F766E);"></div>
                                         <span>Modern Teal</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="teal-light" data-primary="#5EEAD4" data-dark="#2DD4BF">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #5EEAD4, #2DD4BF);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #2DD4BF, #14B8A6);"></div>
                                         <span>Light Teal</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="teal-dark" data-primary="#0F766E" data-dark="#134E4A">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #0F766E, #134E4A);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #134E4A, #134E4A);"></div>
                                         <span>Dark Teal</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="cyan" data-primary="#06B6D4" data-dark="#0891B2">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #06B6D4, #0891B2);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0891B2, #0E7490);"></div>
                                         <span>Cyan Blue</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="cyan-light" data-primary="#67E8F9" data-dark="#22D3EE">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #67E8F9, #22D3EE);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #22D3EE, #06B6D4);"></div>
                                         <span>Light Cyan</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="cyan-dark" data-primary="#0891B2" data-dark="#0E7490">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #0891B2, #0E7490);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0E7490, #155E75);"></div>
                                         <span>Dark Cyan</span>
                                     </div>
                                     <!-- Sky Blue Shades -->
                                     <div class="color-dropdown-item" data-color="sky" data-primary="#0EA5E9" data-dark="#0284C7">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #0EA5E9, #0284C7);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0284C7, #0369A1);"></div>
                                         <span>Sky Blue</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="sky-light" data-primary="#38BDF8" data-dark="#0EA5E9">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #38BDF8, #0EA5E9);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0EA5E9, #0284C7);"></div>
                                         <span>Light Sky</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="sky-dark" data-primary="#0369A1" data-dark="#075985">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #0369A1, #075985);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #075985, #0C4A6E);"></div>
                                         <span>Dark Sky</span>
                                     </div>
                                     <!-- Neutral & Gray Shades -->
                                     <div class="color-dropdown-item" data-color="white" data-primary="#FFFFFF" data-dark="#E5E7EB">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #FFFFFF, #E5E7EB); border: 1px solid #64748B;"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #E5E7EB, #D1D5DB); border: 1px solid #64748B;"></div>
                                         <span>Clean White</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="slate" data-primary="#64748B" data-dark="#475569">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #64748B, #475569);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #475569, #334155);"></div>
                                         <span>Professional Slate</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="slate-light" data-primary="#94A3B8" data-dark="#64748B">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #94A3B8, #64748B);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #64748B, #475569);"></div>
                                         <span>Light Slate</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="slate-dark" data-primary="#475569" data-dark="#334155">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #475569, #334155);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #334155, #1E293B);"></div>
                                         <span>Dark Slate</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="gray" data-primary="#6B7280" data-dark="#4B5563">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #6B7280, #4B5563);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #4B5563, #374151);"></div>
                                         <span>Neutral Gray</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="gray-light" data-primary="#9CA3AF" data-dark="#6B7280">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #9CA3AF, #6B7280);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #6B7280, #4B5563);"></div>
                                         <span>Light Gray</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="gray-dark" data-primary="#374151" data-dark="#1F2937">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #374151, #1F2937);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #1F2937, #111827);"></div>
                                         <span>Dark Gray</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="zinc" data-primary="#71717A" data-dark="#52525B">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #71717A, #52525B);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #52525B, #3F3F46);"></div>
                                         <span>Zinc</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="stone" data-primary="#78716C" data-dark="#57534E">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #78716C, #57534E);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #57534E, #44403C);"></div>
                                         <span>Stone</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="neutral" data-primary="#737373" data-dark="#525252">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #737373, #525252);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #525252, #404040);"></div>
                                         <span>Neutral</span>
                                     </div>
                                     <!-- Special Colors -->
                                     <div class="color-dropdown-item" data-color="black" data-primary="#000000" data-dark="#1F2937">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #000000, #1F2937);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #1F2937, #111827);"></div>
                                         <span>Black</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="fuchsia" data-primary="#D946EF" data-dark="#C026D3">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #D946EF, #C026D3);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #C026D3, #A21CAF);"></div>
                                         <span>Fuchsia</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="violet-dark" data-primary="#6D28D9" data-dark="#5B21B6">
-                                        <div class="color-box" style="background: linear-gradient(135deg, #6D28D9, #5B21B6);"></div>
+                                        <div class="color-box" style="background: linear-gradient(135deg, #5B21B6, #4C1D95);"></div>
                                         <span>Dark Violet</span>
                                     </div>
                                 </div>

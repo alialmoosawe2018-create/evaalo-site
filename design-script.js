@@ -536,6 +536,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 questionsContainer.style.color = '';
             }
             
+            // Restore default questions-title gradient (original design)
+            const questionsTitle = questionsContainer?.querySelector('.questions-title');
+            if (questionsTitle) {
+                questionsTitle.style.color = '';
+                questionsTitle.style.background = '';
+                questionsTitle.style.webkitBackgroundClip = '';
+                questionsTitle.style.webkitTextFillColor = '';
+                questionsTitle.style.backgroundClip = '';
+            }
+            
             // Remove dynamic text color style to restore CSS defaults
             const style = document.getElementById('dynamic-text-color-style');
             if (style) {
@@ -554,6 +564,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Apply text color to all form elements via CSS
         // But don't override question item type color (handled by question color)
+        // questions-title should ONLY be affected by text color, not form color or question color
         const style = document.getElementById('dynamic-text-color-style') || document.createElement('style');
         style.id = 'dynamic-text-color-style';
         style.textContent = `
@@ -574,6 +585,21 @@ document.addEventListener('DOMContentLoaded', function() {
             #questionsList .question-item .question-item-meta,
             #questionsList .question-item .question-item-meta-item {
                 color: ${colorHex} !important;
+            }
+            /* Ensure questions-title is ONLY affected by text color, not form/question colors */
+            /* Override any gradient or background-clip to apply solid text color */
+            .questions-title {
+                color: ${colorHex} !important;
+                background: none !important;
+                -webkit-background-clip: unset !important;
+                -webkit-text-fill-color: ${colorHex} !important;
+                background-clip: unset !important;
+            }
+            
+            /* Also apply to questions-title when it has gradient (override gradient with solid color) */
+            #questionsContainer .questions-title {
+                color: ${colorHex} !important;
+                -webkit-text-fill-color: ${colorHex} !important;
             }
             /* DO NOT override question-item-type color - that's handled by question color */
         `;
@@ -835,14 +861,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 style.remove();
             }
             
-            // Restore default title and subtitle styles
-            const questionsTitle = questionsContainer?.querySelector('.questions-title');
-            if (questionsTitle) {
-                questionsTitle.style.background = '';
-                questionsTitle.style.webkitBackgroundClip = '';
-                questionsTitle.style.webkitTextFillColor = '';
-                questionsTitle.style.backgroundClip = '';
-            }
+            // DO NOT restore questions title - it should only be affected by text color
+            // Keep questions title independent from form color
             
             const questionsSubtitle = questionsContainer?.querySelector('.questions-subtitle');
             if (questionsSubtitle) {
@@ -875,21 +895,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 questionsContainer.style.boxShadow = `0 8px 32px ${primary}50`;
             }
             
-            // Update questions title gradient
-            const questionsTitle = questionsContainer.querySelector('.questions-title');
-            if (questionsTitle) {
-                if (isWhite) {
-                    questionsTitle.style.background = 'linear-gradient(135deg, #1E293B 0%, #475569 100%)';
-                    questionsTitle.style.webkitBackgroundClip = 'text';
-                    questionsTitle.style.webkitTextFillColor = 'transparent';
-                    questionsTitle.style.backgroundClip = 'text';
-                } else {
-                    questionsTitle.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
-                    questionsTitle.style.webkitBackgroundClip = 'text';
-                    questionsTitle.style.webkitTextFillColor = 'transparent';
-                    questionsTitle.style.backgroundClip = 'text';
-                }
-            }
+            // DO NOT update questions title - it should only be affected by text color
+            // Keep questions title independent from form color
             
             // Update questions subtitle
             const questionsSubtitle = questionsContainer.querySelector('.questions-subtitle');
@@ -1312,6 +1319,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update on resize
     window.addEventListener('resize', updateMobileSidebarToggle);
 
+    // Empty State Add Button (Plus Icon) - Opens Sidebar
+    const emptyStateAddBtn = document.getElementById('emptyStateAddBtn');
+    if (emptyStateAddBtn) {
+        emptyStateAddBtn.addEventListener('click', function() {
+            // Open sidebar (mobile) or scroll to sidebar (desktop)
+            if (window.innerWidth <= 768) {
+                openMobileSidebar();
+            } else {
+                // Scroll to sidebar in desktop
+                if (designSidebar) {
+                    designSidebar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        });
+    }
+
     if (questionTypeBtns && questionTypeBtns.length > 0) {
         questionTypeBtns.forEach(btn => {
             btn.addEventListener('click', function() {
@@ -1357,6 +1380,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     if (saveBtn) {
         saveBtn.addEventListener('click', saveInterview);
+    }
+    
+    // Clear All Button
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', clearAllQuestions);
     }
 
     // Close modals on background click
@@ -1948,7 +1977,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Render Questions in Form
     function renderQuestions() {
         const questionsList = document.getElementById('questionsList');
+        const clearAllBtn = document.getElementById('clearAllBtn');
         if (!questionsList) return;
+
+        // Show/hide Clear All button based on questions count
+        if (clearAllBtn) {
+            clearAllBtn.style.display = questions.length > 0 ? 'flex' : 'none';
+        }
 
         if (questions.length === 0) {
             questionsList.innerHTML = `
@@ -2023,23 +2058,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="question-item-type">${typeLabel}</div>
                     </div>
                     <div class="question-item-actions">
-                        <button class="question-item-btn edit-question" data-index="${index}">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <button class="question-item-btn edit-question" data-index="${index}" aria-label="Edit question">
+                            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M11.333 2.667a2.667 2.667 0 0 1 3.774 3.774L5.333 15.333H2v-3.333l9.333-9.333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
-                            Edit
                         </button>
-                        <button class="question-item-btn copy-question" data-index="${index}">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <button class="question-item-btn copy-question" data-index="${index}" aria-label="Duplicate question">
+                            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M10.667 10.667h2.666a1.333 1.333 0 0 0 1.334-1.334V2.667a1.333 1.333 0 0 0-1.334-1.334H6.667A1.333 1.333 0 0 0 5.333 2.667v2.666M10.667 5.333H3.333a1.333 1.333 0 0 0-1.333 1.334v6.666a1.333 1.333 0 0 0 1.333 1.334h7.334a1.333 1.333 0 0 0 1.333-1.334V6.667a1.333 1.333 0 0 0-1.333-1.334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
-                            Duplicate
                         </button>
-                        <button class="question-item-btn delete-question" data-index="${index}">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <button class="question-item-btn delete-question" data-index="${index}" aria-label="Delete question">
+                            <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M2 4h12M6 4V2.667a1.333 1.333 0 0 1 1.333-1.334h1.334A1.333 1.333 0 0 1 10.667 2.667V4m2 0v9.333a1.333 1.333 0 0 1-1.333 1.334H5.333A1.333 1.333 0 0 1 4 13.333V4h8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
-                            Delete
                         </button>
                     </div>
                 </div>
@@ -2088,6 +2120,19 @@ document.addEventListener('DOMContentLoaded', function() {
             updateStats();
             saveToStorage();
             showToast('Question deleted successfully!');
+        }
+    }
+
+    // Clear All Questions
+    function clearAllQuestions() {
+        if (questions.length === 0) return;
+        
+        if (confirm('Are you sure you want to delete all questions? This action cannot be undone.')) {
+            questions = [];
+            renderQuestions();
+            updateStats();
+            saveToStorage();
+            showToast('All questions cleared successfully!');
         }
     }
 
