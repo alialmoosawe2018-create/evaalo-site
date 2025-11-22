@@ -1497,6 +1497,11 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (type === 'voice') {
             formHTML = `
                 <div class="modal-form-group">
+                    <label>Section (Optional)</label>
+                    <input type="text" id="questionSection" placeholder="e.g., Personal Information, Skills, etc." value="">
+                    <small style="color: rgba(255,255,255,0.6); font-size: 12px;">Group questions by section name</small>
+                </div>
+                <div class="modal-form-group">
                     <label>Question Text *</label>
                     <textarea id="questionText" placeholder="Enter your question here..." required></textarea>
                 </div>
@@ -1548,6 +1553,11 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (type === 'rating' || type === 'linear-scale') {
             formHTML = `
                 <div class="modal-form-group">
+                    <label>Section (Optional)</label>
+                    <input type="text" id="questionSection" placeholder="e.g., Personal Information, Skills, etc." value="">
+                    <small style="color: rgba(255,255,255,0.6); font-size: 12px;">Group questions by section name</small>
+                </div>
+                <div class="modal-form-group">
                     <label>Question Text *</label>
                     <textarea id="questionText" placeholder="Enter your question here..." required></textarea>
                 </div>
@@ -1584,6 +1594,11 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (type === 'yes-no') {
             formHTML = `
                 <div class="modal-form-group">
+                    <label>Section (Optional)</label>
+                    <input type="text" id="questionSection" placeholder="e.g., Personal Information, Skills, etc." value="">
+                    <small style="color: rgba(255,255,255,0.6); font-size: 12px;">Group questions by section name</small>
+                </div>
+                <div class="modal-form-group">
                     <label>Question Text *</label>
                     <textarea id="questionText" placeholder="Enter your question here..." required></textarea>
                 </div>
@@ -1606,6 +1621,11 @@ document.addEventListener('DOMContentLoaded', function() {
             `;
         } else if (type === 'file') {
             formHTML = `
+                <div class="modal-form-group">
+                    <label>Section (Optional)</label>
+                    <input type="text" id="questionSection" placeholder="e.g., Personal Information, Skills, etc." value="">
+                    <small style="color: rgba(255,255,255,0.6); font-size: 12px;">Group questions by section name</small>
+                </div>
                 <div class="modal-form-group">
                     <label>Question Text *</label>
                     <textarea id="questionText" placeholder="e.g., Upload your resume..." required></textarea>
@@ -1860,7 +1880,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editingQuestionIndex !== null) {
             questions[editingQuestionIndex] = questionData;
         } else {
-            questions.push(questionData);
+            // Check if we're adding to a specific position
+            if (window.newQuestionInsertIndex !== undefined) {
+                questions.splice(window.newQuestionInsertIndex, 0, questionData);
+                window.newQuestionInsertIndex = undefined;
+            } else {
+                questions.push(questionData);
+            }
         }
 
         window.currentOptions = [];
@@ -1947,49 +1973,106 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        questionsList.innerHTML = questions.map((question, index) => {
-            const typeLabel = getTypeLabel(question.type);
-            const timeInfo = question.timeLimit ? `${question.timeLimit}s` : 'No limit';
-            const pointsInfo = question.points ? `${question.points} pts` : '';
-            
-            return `
-                <div class="question-item" data-index="${index}">
-                    <div class="question-item-header">
-                        <div>
-                            <div class="question-item-title">${question.text}</div>
-                            <div class="question-item-type">${typeLabel}</div>
-                        </div>
-                        <div class="question-item-actions">
-                            <button class="question-item-btn edit-question" data-index="${index}">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M11.333 2.667a2.667 2.667 0 0 1 3.774 3.774L5.333 15.333H2v-3.333l9.333-9.333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                Edit
-                            </button>
-                            <button class="question-item-btn copy-question" data-index="${index}">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M10.667 10.667h2.666a1.333 1.333 0 0 0 1.334-1.334V2.667a1.333 1.333 0 0 0-1.334-1.334H6.667A1.333 1.333 0 0 0 5.333 2.667v2.666M10.667 5.333H3.333a1.333 1.333 0 0 0-1.333 1.334v6.666a1.333 1.333 0 0 0 1.333 1.334h7.334a1.333 1.333 0 0 0 1.333-1.334V6.667a1.333 1.333 0 0 0-1.333-1.334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                Duplicate
-                            </button>
-                            <button class="question-item-btn delete-question" data-index="${index}">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M2 4h12M6 4V2.667a1.333 1.333 0 0 1 1.333-1.334h1.334A1.333 1.333 0 0 1 10.667 2.667V4m2 0v9.333a1.333 1.333 0 0 1-1.333 1.334H5.333A1.333 1.333 0 0 1 4 13.333V4h8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                    <div class="question-item-meta">
-                        <span class="question-meta-item">${timeInfo}</span>
-                        ${pointsInfo ? `<span class="question-meta-item">${pointsInfo}</span>` : ''}
-                        ${question.options ? `<span class="question-meta-item">${question.options.length} options</span>` : ''}
-                    </div>
+        // Group questions by section
+        const sections = {};
+        const noSectionQuestions = [];
+        
+        questions.forEach((question, index) => {
+            if (question.sectionId && question.sectionName) {
+                if (!sections[question.sectionId]) {
+                    sections[question.sectionId] = {
+                        name: question.sectionName,
+                        questions: []
+                    };
+                }
+                sections[question.sectionId].questions.push({ question, index });
+            } else {
+                noSectionQuestions.push({ question, index });
+            }
+        });
+
+        // Build HTML
+        let html = '';
+        
+        // Render questions with sections
+        Object.keys(sections).forEach(sectionId => {
+            const section = sections[sectionId];
+            html += `
+                <div class="question-section-header" data-section-id="${sectionId}">
+                    <h3 class="section-title">${section.name}</h3>
                 </div>
             `;
-        }).join('');
+            section.questions.forEach(({ question, index }) => {
+                html += renderQuestionItem(question, index);
+            });
+        });
+        
+        // Render questions without sections
+        noSectionQuestions.forEach(({ question, index }) => {
+            html += renderQuestionItem(question, index);
+        });
 
-        // Add event listeners for edit, copy and delete buttons
+        questionsList.innerHTML = html;
+
+        // Add event listeners
+        setupQuestionEventListeners();
+    }
+
+    // Render single question item
+    function renderQuestionItem(question, index) {
+        const typeLabel = getTypeLabel(question.type);
+        const timeInfo = question.timeLimit ? `${question.timeLimit}s` : 'No limit';
+        const pointsInfo = question.points ? `${question.points} pts` : '';
+        
+        return `
+            <div class="question-item" data-index="${index}" data-question-id="${question.id}">
+                <div class="question-item-header">
+                    <div>
+                        <div class="question-item-title">${question.text}</div>
+                        <div class="question-item-type">${typeLabel}</div>
+                    </div>
+                    <div class="question-item-actions">
+                        <button class="question-item-btn edit-question" data-index="${index}">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M11.333 2.667a2.667 2.667 0 0 1 3.774 3.774L5.333 15.333H2v-3.333l9.333-9.333Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Edit
+                        </button>
+                        <button class="question-item-btn copy-question" data-index="${index}">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10.667 10.667h2.666a1.333 1.333 0 0 0 1.334-1.334V2.667a1.333 1.333 0 0 0-1.334-1.334H6.667A1.333 1.333 0 0 0 5.333 2.667v2.666M10.667 5.333H3.333a1.333 1.333 0 0 0-1.333 1.334v6.666a1.333 1.333 0 0 0 1.333 1.334h7.334a1.333 1.333 0 0 0 1.333-1.334V6.667a1.333 1.333 0 0 0-1.333-1.334Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Duplicate
+                        </button>
+                        <button class="question-item-btn delete-question" data-index="${index}">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M2 4h12M6 4V2.667a1.333 1.333 0 0 1 1.333-1.334h1.334A1.333 1.333 0 0 1 10.667 2.667V4m2 0v9.333a1.333 1.333 0 0 1-1.333 1.334H5.333A1.333 1.333 0 0 1 4 13.333V4h8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Delete
+                        </button>
+                        <button class="question-item-btn add-section" data-index="${index}">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 3.333v9.334M3.333 8h9.334" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                            </svg>
+                            Add Section
+                        </button>
+                    </div>
+                </div>
+                <div class="question-item-meta">
+                    <span class="question-meta-item">${timeInfo}</span>
+                    ${pointsInfo ? `<span class="question-meta-item">${pointsInfo}</span>` : ''}
+                    ${question.options ? `<span class="question-meta-item">${question.options.length} options</span>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    // Setup event listeners for question buttons
+    function setupQuestionEventListeners() {
+        const questionsList = document.getElementById('questionsList');
+        if (!questionsList) return;
+
         questionsList.querySelectorAll('.edit-question').forEach(btn => {
             btn.addEventListener('click', function() {
                 const index = parseInt(this.dataset.index);
@@ -2010,7 +2093,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 deleteQuestion(index);
             });
         });
-        
+
+        questionsList.querySelectorAll('.add-section').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const index = parseInt(this.dataset.index);
+                addSectionAfterQuestion(index);
+            });
+        });
     }
 
     // Delete Question
@@ -2039,6 +2128,36 @@ document.addEventListener('DOMContentLoaded', function() {
         updateStats();
         saveToStorage();
         showToast('Question duplicated successfully!');
+    }
+
+    // Add Section After Question
+    function addSectionAfterQuestion(index) {
+        if (index < 0 || index >= questions.length) return;
+
+        // Create a new section/question after the current one
+        const newSection = {
+            id: Date.now(),
+            type: 'text',
+            text: 'New Section',
+            required: false,
+            timeLimit: 0,
+            points: 0
+        };
+
+        questions.splice(index + 1, 0, newSection);
+
+        renderQuestions();
+        updateStats();
+        saveToStorage();
+        showToast('Section added successfully!');
+        
+        // Scroll to the new section
+        setTimeout(() => {
+            const newQuestionElement = document.querySelector(`[data-question-id="${newSection.id}"]`);
+            if (newQuestionElement) {
+                newQuestionElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }, 100);
     }
 
     // Edit Question
