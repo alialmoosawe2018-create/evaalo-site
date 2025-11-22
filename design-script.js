@@ -27,12 +27,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load saved data
     loadFromStorage();
+    
+    // ====================================
+    // Editable Title Functionality
+    // ====================================
+    const questionsTitle = document.querySelector('.questions-title');
+    if (questionsTitle) {
+        // Load saved title
+        const savedTitle = localStorage.getItem('questionsTitle');
+        if (savedTitle) {
+            questionsTitle.textContent = savedTitle;
+        }
+        
+        // Save title on blur (when user finishes editing)
+        questionsTitle.addEventListener('blur', function() {
+            const titleText = this.textContent.trim();
+            if (titleText) {
+                localStorage.setItem('questionsTitle', titleText);
+            } else {
+                // If empty, restore placeholder
+                this.textContent = this.dataset.placeholder || 'Interview Questions';
+                localStorage.setItem('questionsTitle', this.textContent);
+            }
+        });
+        
+        // Prevent line breaks (keep it as single line)
+        questionsTitle.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.blur();
+            }
+        });
+        
+        // Save on paste (after paste event)
+        questionsTitle.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            const plainText = text.replace(/\n/g, ' ').trim();
+            document.execCommand('insertText', false, plainText);
+        });
+    }
 
-    // Custom Color Dropdown
+    // Custom Color Dropdown - Form Color Theme
     const colorDropdown = document.getElementById('colorDropdown');
     const colorDropdownSelected = document.getElementById('colorDropdownSelected');
     const colorDropdownMenu = document.getElementById('colorDropdownMenu');
-    const colorDropdownItems = document.querySelectorAll('.color-dropdown-item');
+    // IMPORTANT: Only select items from the form color dropdown, NOT the question color dropdown
+    const colorDropdownItems = document.querySelectorAll('#colorDropdownMenu .color-dropdown-item');
     
     function openColorDropdown() {
         colorDropdownMenu.classList.add('open');
@@ -66,27 +107,33 @@ document.addEventListener('DOMContentLoaded', function() {
             const text = item.querySelector('span').textContent;
             const colorBox = item.querySelector('.color-box').style.background;
             
-            // Update selected display
+            // Update selected display - ONLY for form color dropdown
             const selectedColorBox = colorDropdownSelected.querySelector('.color-box');
             const selectedText = colorDropdownSelected.querySelector('span');
             selectedColorBox.style.background = colorBox;
             selectedText.textContent = text;
             
-            // Update active state
+            // Update active state - ONLY for form color items
             colorDropdownItems.forEach(i => i.classList.remove('active'));
             item.classList.add('active');
             
-            // Apply theme
-            applyColorTheme(primary, dark, text);
+            // Apply theme - ONLY affects form container
+            applyColorTheme(primary, dark, colorName);
             
-            // Save preference
-            localStorage.setItem('formColorTheme', colorName);
+            // Save preference - ONLY form color theme
+            if (colorName === 'none') {
+                localStorage.removeItem('formColorTheme');
+            } else {
+                localStorage.setItem('formColorTheme', colorName);
+            }
+            
+            // DO NOT update background color theme - keep them separate
             
             // Close dropdown
             closeColorDropdown();
             
             // Show notification
-            showToast(`Theme changed to ${text.replace(' (Default)', '')}!`);
+            showToast(`Form color changed to ${text.replace(' (Default)', '')}!`);
         });
     });
     
@@ -150,7 +197,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const text = item.querySelector('span').textContent;
             const colorBox = item.querySelector('.color-box').style.background;
             
-            // Update selected display
+            // Update selected display - ONLY for background color dropdown
             if (backgroundColorDropdownSelected) {
                 const selectedColorBox = backgroundColorDropdownSelected.querySelector('.color-box');
                 const selectedText = backgroundColorDropdownSelected.querySelector('span');
@@ -158,15 +205,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (selectedText) selectedText.textContent = text;
             }
             
-            // Update active state
+            // Update active state - ONLY for background color items
             backgroundColorDropdownItems.forEach(i => i.classList.remove('active'));
             item.classList.add('active');
             
-            // Apply background color
-            applyBackgroundColor(primary, dark, text);
+            // Apply background color - ONLY affects question boxes
+            applyBackgroundColor(primary, dark, colorName);
             
-            // Save preference
-            localStorage.setItem('backgroundColorTheme', colorName);
+            // Save preference - ONLY background color theme
+            if (colorName === 'none') {
+                localStorage.removeItem('backgroundColorTheme');
+            } else {
+                localStorage.setItem('backgroundColorTheme', colorName);
+            }
+            
+            // DO NOT update form color theme - keep them separate
             
             // Close dropdown
             closeBackgroundColorDropdown();
@@ -175,6 +228,406 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast(`Question color changed to ${text.replace(' (Default)', '')}!`);
         });
     });
+    
+    // ====================================
+    // Font Dropdown Functionality
+    // ====================================
+    const fontDropdown = document.getElementById('fontDropdown');
+    const fontDropdownSelected = document.getElementById('fontDropdownSelected');
+    const fontDropdownMenu = document.getElementById('fontDropdownMenu');
+    const fontDropdownItems = document.querySelectorAll('#fontDropdownMenu .font-dropdown-item');
+    
+    // Load Google Font dynamically
+    function loadGoogleFont(fontUrl) {
+        // Check if font is already loaded
+        const existingLink = document.querySelector(`link[href="${fontUrl}"]`);
+        if (!existingLink) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = fontUrl;
+            document.head.appendChild(link);
+        }
+    }
+    
+    function openFontDropdown() {
+        if (fontDropdownMenu) {
+            fontDropdownMenu.classList.add('open');
+            if (fontDropdownSelected) {
+                fontDropdownSelected.classList.add('open');
+            }
+        }
+    }
+    
+    function closeFontDropdown() {
+        if (fontDropdownMenu) {
+            fontDropdownMenu.classList.remove('open');
+            if (fontDropdownSelected) {
+                fontDropdownSelected.classList.remove('open');
+            }
+        }
+    }
+    
+    // Toggle dropdown
+    if (fontDropdownSelected) {
+        fontDropdownSelected.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isOpen = fontDropdownMenu && fontDropdownMenu.classList.contains('open');
+            
+            if (isOpen) {
+                closeFontDropdown();
+            } else {
+                openFontDropdown();
+            }
+        });
+    }
+    
+    // Select font
+    fontDropdownItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const fontName = item.dataset.font;
+            const fontFamily = item.dataset.fontFamily;
+            const fontUrl = item.dataset.fontUrl;
+            const text = item.querySelector('span').textContent;
+            
+            // Update selected display
+            if (fontDropdownSelected) {
+                const selectedText = fontDropdownSelected.querySelector('span');
+                if (selectedText) {
+                    selectedText.textContent = text;
+                    selectedText.style.fontFamily = fontFamily;
+                }
+            }
+            
+            // Update active state
+            fontDropdownItems.forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            
+            // Load font from Google Fonts (skip if None)
+            if (fontUrl && fontName !== 'None') {
+                loadGoogleFont(fontUrl);
+            }
+            
+            // Apply font to form
+            applyFontFamily(fontFamily, fontName);
+            
+            // Save preference
+            if (fontName === 'None') {
+                localStorage.removeItem('formFontFamily');
+                localStorage.removeItem('formFontFamilyValue');
+                localStorage.removeItem('formFontUrl');
+            } else {
+                localStorage.setItem('formFontFamily', fontName);
+                localStorage.setItem('formFontFamilyValue', fontFamily);
+                localStorage.setItem('formFontUrl', fontUrl || '');
+            }
+            
+            // Close dropdown
+            closeFontDropdown();
+            
+            // Show notification
+            showToast(`Font changed to ${fontName}!`);
+        });
+    });
+    
+    // Apply Font Family
+    function applyFontFamily(fontFamily, fontName) {
+        // If "None" is selected, remove custom font and restore default
+        if (fontName === 'None' || fontFamily === 'None') {
+            const questionsContainer = document.getElementById('questionsContainer');
+            const designMain = document.querySelector('.design-main');
+            
+            // Remove inline styles
+            if (questionsContainer) {
+                questionsContainer.style.fontFamily = '';
+            }
+            if (designMain) {
+                designMain.style.fontFamily = '';
+            }
+            
+            // Remove dynamic font style
+            const style = document.getElementById('dynamic-font-style');
+            if (style) {
+                style.remove();
+            }
+            
+            // Remove Google Fonts link if exists
+            const fontLink = document.querySelector('link[data-font-link]');
+            if (fontLink) {
+                fontLink.remove();
+            }
+            
+            return;
+        }
+        
+        const questionsContainer = document.getElementById('questionsContainer');
+        const designMain = document.querySelector('.design-main');
+        
+        // Apply font to form container
+        if (questionsContainer) {
+            questionsContainer.style.fontFamily = fontFamily;
+        }
+        
+        if (designMain) {
+            designMain.style.fontFamily = fontFamily;
+        }
+        
+        // Apply font to all form elements via CSS
+        const style = document.getElementById('dynamic-font-style') || document.createElement('style');
+        style.id = 'dynamic-font-style';
+        style.textContent = `
+            #questionsContainer,
+            #questionsContainer *,
+            .questions-title,
+            .questions-subtitle,
+            .question-item,
+            .question-item *,
+            .design-main,
+            .design-main * {
+                font-family: ${fontFamily} !important;
+            }
+        `;
+        if (!document.getElementById('dynamic-font-style')) {
+            document.head.appendChild(style);
+        }
+    }
+    
+    // Load saved font - default to "None"
+    const savedFont = localStorage.getItem('formFontFamily');
+    const savedFontFamily = localStorage.getItem('formFontFamilyValue') || "'Inter', sans-serif";
+    const savedFontUrl = localStorage.getItem('formFontUrl') || '';
+    
+    // If no saved font, use "None" as default
+    if (!savedFont) {
+        const noneFontItem = document.querySelector(`#fontDropdownMenu .font-dropdown-item[data-font="None"]`);
+        if (noneFontItem && fontDropdownSelected) {
+            const selectedText = fontDropdownSelected.querySelector('span');
+            if (selectedText) {
+                selectedText.textContent = noneFontItem.querySelector('span').textContent;
+                selectedText.style.fontFamily = "'Inter', sans-serif";
+            }
+            fontDropdownItems.forEach(i => i.classList.remove('active'));
+            noneFontItem.classList.add('active');
+        }
+    } else {
+        const savedFontItem = document.querySelector(`#fontDropdownMenu .font-dropdown-item[data-font="${savedFont}"]`);
+        
+        if (savedFontItem && fontDropdownSelected) {
+            // Load font if URL exists
+            if (savedFontUrl) {
+                loadGoogleFont(savedFontUrl);
+            }
+            
+            // Update selected display
+            const selectedText = fontDropdownSelected.querySelector('span');
+            if (selectedText) {
+                selectedText.textContent = savedFontItem.querySelector('span').textContent;
+                selectedText.style.fontFamily = savedFontFamily;
+            }
+            
+            // Update active state
+            fontDropdownItems.forEach(i => i.classList.remove('active'));
+            savedFontItem.classList.add('active');
+            
+            // Apply font
+            applyFontFamily(savedFontFamily, savedFont);
+        }
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (fontDropdown && !fontDropdown.contains(e.target)) {
+            closeFontDropdown();
+        }
+        if (textColorDropdown && !textColorDropdown.contains(e.target)) {
+            closeTextColorDropdown();
+        }
+    });
+    
+    // ====================================
+    // Text Color Dropdown Functionality
+    // ====================================
+    const textColorDropdown = document.getElementById('textColorDropdown');
+    const textColorDropdownSelected = document.getElementById('textColorDropdownSelected');
+    const textColorDropdownMenu = document.getElementById('textColorDropdownMenu');
+    const textColorDropdownItems = document.querySelectorAll('#textColorDropdownMenu .color-dropdown-item');
+    
+    function openTextColorDropdown() {
+        if (textColorDropdownMenu) {
+            textColorDropdownMenu.classList.add('open');
+            if (textColorDropdownSelected) {
+                textColorDropdownSelected.classList.add('open');
+            }
+        }
+    }
+    
+    function closeTextColorDropdown() {
+        if (textColorDropdownMenu) {
+            textColorDropdownMenu.classList.remove('open');
+            if (textColorDropdownSelected) {
+                textColorDropdownSelected.classList.remove('open');
+            }
+        }
+    }
+    
+    // Toggle dropdown
+    if (textColorDropdownSelected) {
+        textColorDropdownSelected.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const isOpen = textColorDropdownMenu && textColorDropdownMenu.classList.contains('open');
+            
+            if (isOpen) {
+                closeTextColorDropdown();
+            } else {
+                openTextColorDropdown();
+            }
+        });
+    }
+    
+    // Select text color
+    textColorDropdownItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const colorName = item.dataset.color;
+            const colorHex = item.dataset.hex;
+            const text = item.querySelector('span').textContent;
+            const colorBox = item.querySelector('.color-box').style.background;
+            
+            // Update selected display
+            if (textColorDropdownSelected) {
+                const selectedColorBox = textColorDropdownSelected.querySelector('.color-box');
+                const selectedText = textColorDropdownSelected.querySelector('span');
+                if (selectedColorBox) selectedColorBox.style.background = colorBox;
+                if (selectedText) selectedText.textContent = text;
+            }
+            
+            // Update active state
+            textColorDropdownItems.forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            
+            // Apply text color
+            applyTextColor(colorHex, colorName);
+            
+            // Save preference
+            if (colorName === 'none') {
+                localStorage.removeItem('textColorTheme');
+                localStorage.removeItem('textColorHex');
+            } else {
+                localStorage.setItem('textColorTheme', colorName);
+                localStorage.setItem('textColorHex', colorHex);
+            }
+            
+            // Close dropdown
+            closeTextColorDropdown();
+            
+            // Show notification
+            showToast(`Text color changed to ${text.replace(' (Default)', '')}!`);
+        });
+    });
+    
+    // Apply Text Color
+    function applyTextColor(colorHex, colorName) {
+        // If "None" is selected, remove custom text color and restore default
+        if (colorName === 'none' || colorHex === '' || !colorHex) {
+            const questionsContainer = document.getElementById('questionsContainer');
+            
+            // Remove inline styles
+            if (questionsContainer) {
+                questionsContainer.style.color = '';
+            }
+            
+            // Remove dynamic text color style to restore CSS defaults
+            const style = document.getElementById('dynamic-text-color-style');
+            if (style) {
+                style.remove();
+            }
+            
+            return;
+        }
+        
+        const questionsContainer = document.getElementById('questionsContainer');
+        
+        // Apply text color to form container and all text elements
+        if (questionsContainer) {
+            questionsContainer.style.color = colorHex;
+        }
+        
+        // Apply text color to all form elements via CSS
+        // But don't override question item type color (handled by question color)
+        const style = document.getElementById('dynamic-text-color-style') || document.createElement('style');
+        style.id = 'dynamic-text-color-style';
+        style.textContent = `
+            #questionsContainer,
+            .questions-title,
+            .questions-subtitle,
+            .question-item,
+            .question-item-title,
+            .question-item-meta,
+            .question-item-meta-item,
+            .empty-message,
+            .empty-hint,
+            .design-main {
+                color: ${colorHex} !important;
+            }
+            /* Apply to text elements inside question items, but not question-item-type */
+            #questionsList .question-item .question-item-title,
+            #questionsList .question-item .question-item-meta,
+            #questionsList .question-item .question-item-meta-item {
+                color: ${colorHex} !important;
+            }
+            /* DO NOT override question-item-type color - that's handled by question color */
+        `;
+        if (!document.getElementById('dynamic-text-color-style')) {
+            document.head.appendChild(style);
+        } else {
+            // Update existing style
+            const existingStyle = document.getElementById('dynamic-text-color-style');
+            if (existingStyle) {
+                existingStyle.textContent = style.textContent;
+            }
+        }
+    }
+    
+    // Load saved text color - default to "None"
+    const savedTextColor = localStorage.getItem('textColorTheme');
+    const savedTextColorHex = localStorage.getItem('textColorHex');
+    
+    if (!savedTextColor) {
+        // Use "None" as default
+        const noneTextColorItem = document.querySelector(`#textColorDropdownMenu .color-dropdown-item[data-color="none"]`);
+        if (noneTextColorItem && textColorDropdownSelected) {
+            const colorBox = noneTextColorItem.querySelector('.color-box').style.background;
+            const text = noneTextColorItem.querySelector('span').textContent;
+            
+            const selectedColorBox = textColorDropdownSelected.querySelector('.color-box');
+            const selectedText = textColorDropdownSelected.querySelector('span');
+            if (selectedColorBox) selectedColorBox.style.background = colorBox;
+            if (selectedText) selectedText.textContent = text;
+            
+            textColorDropdownItems.forEach(i => i.classList.remove('active'));
+            noneTextColorItem.classList.add('active');
+        }
+    } else {
+        const savedTextColorItem = document.querySelector(`#textColorDropdownMenu .color-dropdown-item[data-color="${savedTextColor}"]`);
+        
+        if (savedTextColorItem && textColorDropdownSelected) {
+            const colorBox = savedTextColorItem.querySelector('.color-box').style.background;
+            const text = savedTextColorItem.querySelector('span').textContent;
+            
+            // Update selected display
+            const selectedColorBox = textColorDropdownSelected.querySelector('.color-box');
+            const selectedText = textColorDropdownSelected.querySelector('span');
+            if (selectedColorBox) selectedColorBox.style.background = colorBox;
+            if (selectedText) selectedText.textContent = text;
+            
+            // Update active state
+            textColorDropdownItems.forEach(i => i.classList.remove('active'));
+            savedTextColorItem.classList.add('active');
+            
+            // Apply text color
+            applyTextColor(savedTextColorHex, savedTextColor);
+        }
+    }
     
     // ====================================
     // Category Dropdown Functionality
@@ -285,46 +738,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Apply Question Color
+    // Apply Question Color - Only to question boxes (not the entire form)
     function applyBackgroundColor(primary, dark, name) {
-        const questionsContainer = document.getElementById('questionsContainer');
+        // If "None" is selected, remove custom color and restore default
+        if (name === 'none' || primary === '' || !primary) {
+            // Remove dynamic question color style to restore CSS defaults
+            const style = document.getElementById('dynamic-question-color-style');
+            if (style) {
+                style.remove();
+            }
+            return;
+        }
         
         // Check if color is white - use true white
         const isWhite = primary === '#FFFFFF' || primary === '#ffffff';
         const isLightColor = primary === '#FFFFFF' || primary === '#E5E7EB' || primary === '#F8FAFC';
-        
-        // Apply color to questions container
-        if (questionsContainer) {
-            if (isWhite) {
-                questionsContainer.style.background = '#FFFFFF';
-                questionsContainer.style.borderColor = '#E5E7EB';
-                questionsContainer.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
-            } else if (isLightColor) {
-                questionsContainer.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
-                questionsContainer.style.borderColor = dark;
-                questionsContainer.style.boxShadow = `0 8px 32px ${primary}30`;
-            } else {
-                questionsContainer.style.background = `linear-gradient(135deg, ${primary}20 0%, ${dark}15 100%)`;
-                questionsContainer.style.borderColor = `${primary}60`;
-                questionsContainer.style.boxShadow = `0 8px 32px ${primary}30`;
-            }
-            
-            // Update questions title gradient
-            const questionsTitle = questionsContainer.querySelector('.questions-title');
-            if (questionsTitle) {
-                if (isWhite) {
-                    questionsTitle.style.background = 'linear-gradient(135deg, #1E293B 0%, #475569 100%)';
-                    questionsTitle.style.webkitBackgroundClip = 'text';
-                    questionsTitle.style.webkitTextFillColor = 'transparent';
-                    questionsTitle.style.backgroundClip = 'text';
-                } else {
-                    questionsTitle.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
-                    questionsTitle.style.webkitBackgroundClip = 'text';
-                    questionsTitle.style.webkitTextFillColor = 'transparent';
-                    questionsTitle.style.backgroundClip = 'text';
-                }
-            }
-        }
         
         // For white/light colors, use true colors with proper contrast
         let questionBg, questionBorder, questionHoverBg, questionHoverBorder, questionTypeBg, questionTypeBorder, questionTypeColor;
@@ -346,30 +774,34 @@ document.addEventListener('DOMContentLoaded', function() {
             questionTypeBorder = dark;
             questionTypeColor = dark;
         } else {
-            // For dark colors, use opacity for better visibility
-            questionBg = `linear-gradient(135deg, ${primary}20 0%, ${dark}15 100%)`;
-            questionBorder = `${primary}60`;
-            questionHoverBg = `linear-gradient(135deg, ${primary}30 0%, ${dark}25 100%)`;
-            questionHoverBorder = `${primary}80`;
-            questionTypeBg = `${primary}33`;
-            questionTypeBorder = `${primary}66`;
+            // For dark colors, use stronger opacity for better visibility
+            questionBg = `linear-gradient(135deg, ${primary}50 0%, ${dark}40 100%)`;
+            questionBorder = `${primary}90`;
+            questionHoverBg = `linear-gradient(135deg, ${primary}60 0%, ${dark}50 100%)`;
+            questionHoverBorder = `${primary}`;
+            questionTypeBg = `${primary}50`;
+            questionTypeBorder = `${primary}80`;
             questionTypeColor = primary;
         }
         
-        // Apply color only to question items, not background
+        // Apply color ONLY to question items (the boxes), NOT the container or form
+        // Make sure we don't affect the form container at all
+        // Use highest specificity to override any form theme styles
         const style = document.getElementById('dynamic-question-color-style') || document.createElement('style');
         style.id = 'dynamic-question-color-style';
+        // Place this style AFTER the theme style to ensure it has higher priority
         style.textContent = `
-            .question-item {
+            /* Question color - ONLY affects question boxes, overrides form theme */
+            #questionsContainer #questionsList .question-item {
                 background: ${questionBg} !important;
                 border-color: ${questionBorder} !important;
             }
-            .question-item:hover {
+            #questionsContainer #questionsList .question-item:hover {
                 background: ${questionHoverBg} !important;
                 border-color: ${questionHoverBorder} !important;
                 box-shadow: 0 4px 12px ${isWhite ? 'rgba(0, 0, 0, 0.1)' : `${primary}40`} !important;
             }
-            .question-item-type {
+            #questionsContainer #questionsList .question-item .question-item-type {
                 background: ${questionTypeBg} !important;
                 border-color: ${questionTypeBorder} !important;
                 color: ${questionTypeColor} !important;
@@ -377,11 +809,58 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         if (!document.getElementById('dynamic-question-color-style')) {
             document.head.appendChild(style);
+        } else {
+            // Update existing style to ensure it's applied after theme style
+            const existingStyle = document.getElementById('dynamic-question-color-style');
+            if (existingStyle) {
+                existingStyle.textContent = style.textContent;
+            }
         }
     }
     
-    // Apply Color Theme
+    // Apply Color Theme - Apply to the ENTIRE form/question form completely (but NOT question items)
     function applyColorTheme(primary, dark, name) {
+        // If "None" is selected, remove custom theme and restore default
+        if (name === 'none' || primary === '' || !primary) {
+            const designMain = document.querySelector('.design-main');
+            const questionsContainer = document.getElementById('questionsContainer');
+            
+            // Remove inline styles to restore CSS defaults
+            if (questionsContainer) {
+                questionsContainer.style.background = '';
+                questionsContainer.style.borderColor = '';
+                questionsContainer.style.boxShadow = '';
+            }
+            
+            if (designMain) {
+                designMain.style.background = '';
+                designMain.style.borderColor = '';
+                designMain.style.boxShadow = '';
+            }
+            
+            // Remove dynamic theme style
+            const style = document.getElementById('dynamic-theme-style');
+            if (style) {
+                style.remove();
+            }
+            
+            // Restore default title and subtitle styles
+            const questionsTitle = questionsContainer?.querySelector('.questions-title');
+            if (questionsTitle) {
+                questionsTitle.style.background = '';
+                questionsTitle.style.webkitBackgroundClip = '';
+                questionsTitle.style.webkitTextFillColor = '';
+                questionsTitle.style.backgroundClip = '';
+            }
+            
+            const questionsSubtitle = questionsContainer?.querySelector('.questions-subtitle');
+            if (questionsSubtitle) {
+                questionsSubtitle.style.color = '';
+            }
+            
+            return;
+        }
+        
         const designMain = document.querySelector('.design-main');
         const questionsContainer = document.getElementById('questionsContainer');
         
@@ -389,7 +868,50 @@ document.addEventListener('DOMContentLoaded', function() {
         const isWhite = primary === '#FFFFFF' || primary === '#ffffff';
         const isLightColor = primary === '#FFFFFF' || primary === '#E5E7EB' || primary === '#F8FAFC';
         
-        // Update ONLY the form editor area
+        // Apply to the entire questions container (the form) - but NOT the question items inside
+        if (questionsContainer) {
+            if (isWhite) {
+                questionsContainer.style.background = '#FFFFFF';
+                questionsContainer.style.borderColor = '#E5E7EB';
+                questionsContainer.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+            } else if (isLightColor) {
+                questionsContainer.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
+                questionsContainer.style.borderColor = dark;
+                questionsContainer.style.boxShadow = `0 8px 32px ${primary}30`;
+            } else {
+                questionsContainer.style.background = `linear-gradient(135deg, ${primary}50 0%, ${dark}40 100%)`;
+                questionsContainer.style.borderColor = `${primary}90`;
+                questionsContainer.style.boxShadow = `0 8px 32px ${primary}50`;
+            }
+            
+            // Update questions title gradient
+            const questionsTitle = questionsContainer.querySelector('.questions-title');
+            if (questionsTitle) {
+                if (isWhite) {
+                    questionsTitle.style.background = 'linear-gradient(135deg, #1E293B 0%, #475569 100%)';
+                    questionsTitle.style.webkitBackgroundClip = 'text';
+                    questionsTitle.style.webkitTextFillColor = 'transparent';
+                    questionsTitle.style.backgroundClip = 'text';
+                } else {
+                    questionsTitle.style.background = `linear-gradient(135deg, ${primary} 0%, ${dark} 100%)`;
+                    questionsTitle.style.webkitBackgroundClip = 'text';
+                    questionsTitle.style.webkitTextFillColor = 'transparent';
+                    questionsTitle.style.backgroundClip = 'text';
+                }
+            }
+            
+            // Update questions subtitle
+            const questionsSubtitle = questionsContainer.querySelector('.questions-subtitle');
+            if (questionsSubtitle) {
+                if (isWhite) {
+                    questionsSubtitle.style.color = '#64748B';
+                } else {
+                    questionsSubtitle.style.color = `${primary}CC`;
+                }
+            }
+        }
+        
+        // Update form editor area if it exists
         if (designMain) {
             if (isWhite) {
                 designMain.style.background = '#FFFFFF';
@@ -400,15 +922,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 designMain.style.borderColor = dark;
                 designMain.style.boxShadow = `0 8px 32px ${primary}30`;
             } else {
-                designMain.style.background = `linear-gradient(135deg, ${primary}20 0%, ${dark}15 100%)`;
-                designMain.style.borderColor = `${primary}60`;
-                designMain.style.boxShadow = `0 8px 32px ${primary}30`;
+                designMain.style.background = `linear-gradient(135deg, ${primary}50 0%, ${dark}40 100%)`;
+                designMain.style.borderColor = `${primary}90`;
+                designMain.style.boxShadow = `0 8px 32px ${primary}50`;
             }
         }
         
-        // Don't apply form color to questions container - it has its own color setting
-        
-        // Update question badges and form elements only
+        // Update question badges and form elements - DO NOT affect .question-item (those are handled by question color)
+        // Use more specific selectors to ensure question items are NOT affected
         const style = document.getElementById('dynamic-theme-style') || document.createElement('style');
         style.id = 'dynamic-theme-style';
         style.textContent = `
@@ -446,51 +967,110 @@ document.addEventListener('DOMContentLoaded', function() {
             .editor-toolbar {
                 border-bottom-color: ${primary}1A !important;
             }
+            .empty-questions-state {
+                color: ${isWhite ? '#64748B' : `${primary}80`} !important;
+            }
+            .empty-message {
+                color: ${isWhite ? '#1E293B' : `${primary}CC`} !important;
+            }
+            .empty-hint {
+                color: ${isWhite ? '#94A3B8' : `${primary}99`} !important;
+            }
+            /* CRITICAL: DO NOT style .question-item here - that's handled by question color */
+            /* Ensure question items are NOT affected by form color theme */
+            #questionsList .question-item {
+                /* Reset any form theme styles - question color will override */
+            }
         `;
         if (!document.getElementById('dynamic-theme-style')) {
             document.head.appendChild(style);
         }
     }
     
-    // Load saved theme
-    const savedTheme = localStorage.getItem('formColorTheme') || 'blue';
-    const savedItem = document.querySelector(`.color-dropdown-item[data-color="${savedTheme}"]`);
-    if (savedItem) {
-        const primary = savedItem.dataset.primary;
-        const dark = savedItem.dataset.dark;
-        const text = savedItem.querySelector('span').textContent;
-        const colorBox = savedItem.querySelector('.color-box').style.background;
-        
-        // Update selected display
-        const selectedColorBox = colorDropdownSelected.querySelector('.color-box');
-        const selectedText = colorDropdownSelected.querySelector('span');
-        selectedColorBox.style.background = colorBox;
-        selectedText.textContent = text;
-        
-        savedItem.classList.add('active');
-        applyColorTheme(primary, dark, text);
+    // Load saved themes - Load form color FIRST, then question color SECOND (so question color overrides)
+    // Default to "none" if no saved theme
+    const savedTheme = localStorage.getItem('formColorTheme');
+    if (!savedTheme) {
+        // Use "None" as default
+        const noneItem = document.querySelector(`#colorDropdownMenu .color-dropdown-item[data-color="none"]`);
+        if (noneItem && colorDropdownSelected) {
+            const colorBox = noneItem.querySelector('.color-box').style.background;
+            const text = noneItem.querySelector('span').textContent;
+            
+            const selectedColorBox = colorDropdownSelected.querySelector('.color-box');
+            const selectedText = colorDropdownSelected.querySelector('span');
+            if (selectedColorBox) selectedColorBox.style.background = colorBox;
+            if (selectedText) selectedText.textContent = text;
+            
+            colorDropdownItems.forEach(i => i.classList.remove('active'));
+            noneItem.classList.add('active');
+        }
+    } else {
+        // IMPORTANT: Only search in the form color dropdown menu
+        const savedItem = document.querySelector(`#colorDropdownMenu .color-dropdown-item[data-color="${savedTheme}"]`);
+        if (savedItem) {
+            const primary = savedItem.dataset.primary;
+            const dark = savedItem.dataset.dark;
+            const text = savedItem.querySelector('span').textContent;
+            const colorBox = savedItem.querySelector('.color-box').style.background;
+            
+            // Update selected display - ONLY for form color dropdown
+            const selectedColorBox = colorDropdownSelected.querySelector('.color-box');
+            const selectedText = colorDropdownSelected.querySelector('span');
+            if (selectedColorBox) selectedColorBox.style.background = colorBox;
+            if (selectedText) selectedText.textContent = text;
+            
+            // Update active state - ONLY for form color items
+            colorDropdownItems.forEach(i => i.classList.remove('active'));
+            savedItem.classList.add('active');
+            
+            // Apply form color theme - affects form container, NOT question items
+            applyColorTheme(primary, dark, text);
+        }
     }
     
-    // Load saved background color
-    const savedBackgroundTheme = localStorage.getItem('backgroundColorTheme') || 'blue';
-    const savedBackgroundItem = document.querySelector(`#backgroundColorDropdownMenu .color-dropdown-item[data-color="${savedBackgroundTheme}"]`);
-    if (savedBackgroundItem && backgroundColorDropdownSelected) {
-        const primary = savedBackgroundItem.dataset.primary;
-        const dark = savedBackgroundItem.dataset.dark;
-        const text = savedBackgroundItem.querySelector('span').textContent;
-        const colorBox = savedBackgroundItem.querySelector('.color-box').style.background;
-        
-        // Update selected display
-        const selectedColorBox = backgroundColorDropdownSelected.querySelector('.color-box');
-        const selectedText = backgroundColorDropdownSelected.querySelector('span');
-        if (selectedColorBox) selectedColorBox.style.background = colorBox;
-        if (selectedText) selectedText.textContent = text;
-        
-        // Update active state
-        backgroundColorDropdownItems.forEach(i => i.classList.remove('active'));
-        savedBackgroundItem.classList.add('active');
-        
-        applyBackgroundColor(primary, dark, text);
+    // Load saved background color - Load AFTER form color so it can override
+    // Default to "none" if no saved theme
+    const savedBackgroundTheme = localStorage.getItem('backgroundColorTheme');
+    if (!savedBackgroundTheme) {
+        // Use "None" as default
+        const noneBackgroundItem = document.querySelector(`#backgroundColorDropdownMenu .color-dropdown-item[data-color="none"]`);
+        if (noneBackgroundItem && backgroundColorDropdownSelected) {
+            const colorBox = noneBackgroundItem.querySelector('.color-box').style.background;
+            const text = noneBackgroundItem.querySelector('span').textContent;
+            
+            const selectedColorBox = backgroundColorDropdownSelected.querySelector('.color-box');
+            const selectedText = backgroundColorDropdownSelected.querySelector('span');
+            if (selectedColorBox) selectedColorBox.style.background = colorBox;
+            if (selectedText) selectedText.textContent = text;
+            
+            backgroundColorDropdownItems.forEach(i => i.classList.remove('active'));
+            noneBackgroundItem.classList.add('active');
+        }
+    } else {
+        const savedBackgroundItem = document.querySelector(`#backgroundColorDropdownMenu .color-dropdown-item[data-color="${savedBackgroundTheme}"]`);
+        if (savedBackgroundItem && backgroundColorDropdownSelected) {
+            const primary = savedBackgroundItem.dataset.primary;
+            const dark = savedBackgroundItem.dataset.dark;
+            const text = savedBackgroundItem.querySelector('span').textContent;
+            const colorBox = savedBackgroundItem.querySelector('.color-box').style.background;
+            
+            // Update selected display - ONLY for background color dropdown
+            const selectedColorBox = backgroundColorDropdownSelected.querySelector('.color-box');
+            const selectedText = backgroundColorDropdownSelected.querySelector('span');
+            if (selectedColorBox) selectedColorBox.style.background = colorBox;
+            if (selectedText) selectedText.textContent = text;
+            
+            // Update active state - ONLY for background color items
+            backgroundColorDropdownItems.forEach(i => i.classList.remove('active'));
+            savedBackgroundItem.classList.add('active');
+            
+            // Apply background color - ONLY affects question boxes, not form
+            // This is called AFTER form color, so it will override any conflicting styles
+            applyBackgroundColor(primary, dark, text);
+            
+            // DO NOT affect form color theme - they are independent
+        }
     }
 
     // Event Listeners
@@ -1430,6 +2010,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 deleteQuestion(index);
             });
         });
+        
     }
 
     // Delete Question

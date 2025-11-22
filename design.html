@@ -7,7 +7,7 @@
     <title>Interview Designer - evaalo AI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="landing-styles.css">
     <link rel="stylesheet" href="design-styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -190,8 +190,7 @@
                 <!-- Questions Form Container -->
                 <div class="questions-container" id="questionsContainer">
                     <div class="questions-header">
-                        <h2 class="questions-title">Interview Questions</h2>
-                        <p class="questions-subtitle">Questions added to your interview</p>
+                        <h2 class="questions-title" contenteditable="true" data-placeholder="Interview Questions">Interview Questions</h2>
                     </div>
                     <div class="questions-list" id="questionsList">
                         <div class="empty-questions-state">
@@ -232,21 +231,44 @@
                             <label class="form-label">Form Color Theme</label>
                             <div class="custom-color-dropdown" id="colorDropdown">
                                 <div class="color-dropdown-selected" id="colorDropdownSelected">
-                                    <div class="color-box" style="background: linear-gradient(135deg, #3B82F6, #2563EB);"></div>
-                                    <span>Ocean Blue (Default)</span>
+                                    <div class="color-box" style="background: #818cf8;"></div>
+                                    <span>None</span>
                                     <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
                                 </div>
                                 <div class="color-dropdown-menu" id="colorDropdownMenu">
+                                    <!-- None Option - Reset to Default Theme -->
+                                    <div class="color-dropdown-item" data-color="none" data-primary="" data-dark="">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #6366F1 0%, #818cf8 20%, #22d3ee 40%, #06b6d4 60%, #0891b2 80%, #06b6d4 100%);"></div>
+                                        <span>None</span>
+                                    </div>
+                                    <!-- Blue Shades -->
                                     <div class="color-dropdown-item" data-color="blue" data-primary="#3B82F6" data-dark="#2563EB">
                                         <div class="color-box" style="background: linear-gradient(135deg, #3B82F6, #2563EB);"></div>
                                         <span>Ocean Blue (Default)</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="blue-light" data-primary="#60A5FA" data-dark="#3B82F6">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #60A5FA, #3B82F6);"></div>
+                                        <span>Light Blue</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="blue-dark" data-primary="#1E40AF" data-dark="#1E3A8A">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #1E40AF, #1E3A8A);"></div>
+                                        <span>Dark Blue</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="indigo" data-primary="#6366F1" data-dark="#4F46E5">
                                         <div class="color-box" style="background: linear-gradient(135deg, #6366F1, #4F46E5);"></div>
                                         <span>Deep Indigo</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="indigo-light" data-primary="#818CF8" data-dark="#6366F1">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #818CF8, #6366F1);"></div>
+                                        <span>Light Indigo</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="indigo-dark" data-primary="#4338CA" data-dark="#3730A3">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #4338CA, #3730A3);"></div>
+                                        <span>Dark Indigo</span>
+                                    </div>
+                                    <!-- Purple Shades -->
                                     <div class="color-dropdown-item" data-color="purple" data-primary="#A855F7" data-dark="#9333EA">
                                         <div class="color-box" style="background: linear-gradient(135deg, #A855F7, #9333EA);"></div>
                                         <span>Royal Purple</span>
@@ -255,22 +277,70 @@
                                         <div class="color-box" style="background: linear-gradient(135deg, #8B5CF6, #7C3AED);"></div>
                                         <span>Vibrant Violet</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="purple-light" data-primary="#C084FC" data-dark="#A855F7">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #C084FC, #A855F7);"></div>
+                                        <span>Light Purple</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="purple-dark" data-primary="#7E22CE" data-dark="#6B21A8">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #7E22CE, #6B21A8);"></div>
+                                        <span>Dark Purple</span>
+                                    </div>
+                                    <!-- Pink & Rose Shades -->
                                     <div class="color-dropdown-item" data-color="pink" data-primary="#EC4899" data-dark="#DB2777">
                                         <div class="color-box" style="background: linear-gradient(135deg, #EC4899, #DB2777);"></div>
                                         <span>Soft Pink</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="pink-light" data-primary="#F472B6" data-dark="#EC4899">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #F472B6, #EC4899);"></div>
+                                        <span>Light Pink</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="pink-dark" data-primary="#BE185D" data-dark="#9F1239">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #BE185D, #9F1239);"></div>
+                                        <span>Dark Pink</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="rose" data-primary="#F43F5E" data-dark="#E11D48">
                                         <div class="color-box" style="background: linear-gradient(135deg, #F43F5E, #E11D48);"></div>
                                         <span>Rose</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="rose-light" data-primary="#FB7185" data-dark="#F43F5E">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #FB7185, #F43F5E);"></div>
+                                        <span>Light Rose</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="rose-dark" data-primary="#BE123C" data-dark="#9F1239">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #BE123C, #9F1239);"></div>
+                                        <span>Dark Rose</span>
+                                    </div>
+                                    <!-- Red Shades -->
                                     <div class="color-dropdown-item" data-color="red" data-primary="#EF4444" data-dark="#DC2626">
                                         <div class="color-box" style="background: linear-gradient(135deg, #EF4444, #DC2626);"></div>
                                         <span>Bold Red</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="red-light" data-primary="#F87171" data-dark="#EF4444">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #F87171, #EF4444);"></div>
+                                        <span>Light Red</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="red-dark" data-primary="#B91C1C" data-dark="#991B1B">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #B91C1C, #991B1B);"></div>
+                                        <span>Dark Red</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="crimson" data-primary="#DC2626" data-dark="#B91C1C">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #DC2626, #B91C1C);"></div>
+                                        <span>Crimson</span>
+                                    </div>
+                                    <!-- Orange Shades -->
                                     <div class="color-dropdown-item" data-color="orange" data-primary="#F97316" data-dark="#EA580C">
                                         <div class="color-box" style="background: linear-gradient(135deg, #F97316, #EA580C);"></div>
                                         <span>Vibrant Orange</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="orange-light" data-primary="#FB923C" data-dark="#F97316">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #FB923C, #F97316);"></div>
+                                        <span>Light Orange</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="orange-dark" data-primary="#C2410C" data-dark="#9A3412">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #C2410C, #9A3412);"></div>
+                                        <span>Dark Orange</span>
+                                    </div>
+                                    <!-- Yellow & Amber Shades -->
                                     <div class="color-dropdown-item" data-color="amber" data-primary="#F59E0B" data-dark="#D97706">
                                         <div class="color-box" style="background: linear-gradient(135deg, #F59E0B, #D97706);"></div>
                                         <span>Golden Amber</span>
@@ -279,6 +349,15 @@
                                         <div class="color-box" style="background: linear-gradient(135deg, #EAB308, #CA8A04);"></div>
                                         <span>Sunshine Yellow</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="yellow-light" data-primary="#FDE047" data-dark="#FACC15">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #FDE047, #FACC15);"></div>
+                                        <span>Light Yellow</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="amber-dark" data-primary="#B45309" data-dark="#92400E">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #B45309, #92400E);"></div>
+                                        <span>Dark Amber</span>
+                                    </div>
+                                    <!-- Green Shades -->
                                     <div class="color-dropdown-item" data-color="lime" data-primary="#84CC16" data-dark="#65A30D">
                                         <div class="color-box" style="background: linear-gradient(135deg, #84CC16, #65A30D);"></div>
                                         <span>Lime Green</span>
@@ -287,22 +366,61 @@
                                         <div class="color-box" style="background: linear-gradient(135deg, #10B981, #059669);"></div>
                                         <span>Fresh Green</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="green-light" data-primary="#34D399" data-dark="#10B981">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #34D399, #10B981);"></div>
+                                        <span>Light Green</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="green-dark" data-primary="#047857" data-dark="#065F46">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #047857, #065F46);"></div>
+                                        <span>Dark Green</span>
+                                    </div>
                                     <div class="color-dropdown-item" data-color="emerald" data-primary="#22C55E" data-dark="#16A34A">
                                         <div class="color-box" style="background: linear-gradient(135deg, #22C55E, #16A34A);"></div>
                                         <span>Emerald</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="mint" data-primary="#10B981" data-dark="#059669">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #10B981, #059669);"></div>
+                                        <span>Mint</span>
+                                    </div>
+                                    <!-- Teal & Cyan Shades -->
                                     <div class="color-dropdown-item" data-color="teal" data-primary="#14B8A6" data-dark="#0D9488">
                                         <div class="color-box" style="background: linear-gradient(135deg, #14B8A6, #0D9488);"></div>
                                         <span>Modern Teal</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="teal-light" data-primary="#5EEAD4" data-dark="#2DD4BF">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #5EEAD4, #2DD4BF);"></div>
+                                        <span>Light Teal</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="teal-dark" data-primary="#0F766E" data-dark="#134E4A">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0F766E, #134E4A);"></div>
+                                        <span>Dark Teal</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="cyan" data-primary="#06B6D4" data-dark="#0891B2">
                                         <div class="color-box" style="background: linear-gradient(135deg, #06B6D4, #0891B2);"></div>
                                         <span>Cyan Blue</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="cyan-light" data-primary="#67E8F9" data-dark="#22D3EE">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #67E8F9, #22D3EE);"></div>
+                                        <span>Light Cyan</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="cyan-dark" data-primary="#0891B2" data-dark="#0E7490">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0891B2, #0E7490);"></div>
+                                        <span>Dark Cyan</span>
+                                    </div>
+                                    <!-- Sky Blue Shades -->
                                     <div class="color-dropdown-item" data-color="sky" data-primary="#0EA5E9" data-dark="#0284C7">
                                         <div class="color-box" style="background: linear-gradient(135deg, #0EA5E9, #0284C7);"></div>
                                         <span>Sky Blue</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="sky-light" data-primary="#38BDF8" data-dark="#0EA5E9">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #38BDF8, #0EA5E9);"></div>
+                                        <span>Light Sky</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="sky-dark" data-primary="#0369A1" data-dark="#075985">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0369A1, #075985);"></div>
+                                        <span>Dark Sky</span>
+                                    </div>
+                                    <!-- Neutral & Gray Shades -->
                                     <div class="color-dropdown-item" data-color="white" data-primary="#FFFFFF" data-dark="#E5E7EB">
                                         <div class="color-box" style="background: linear-gradient(135deg, #FFFFFF, #E5E7EB); border: 1px solid #64748B;"></div>
                                         <span>Clean White</span>
@@ -311,9 +429,50 @@
                                         <div class="color-box" style="background: linear-gradient(135deg, #64748B, #475569);"></div>
                                         <span>Professional Slate</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="slate-light" data-primary="#94A3B8" data-dark="#64748B">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #94A3B8, #64748B);"></div>
+                                        <span>Light Slate</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="slate-dark" data-primary="#475569" data-dark="#334155">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #475569, #334155);"></div>
+                                        <span>Dark Slate</span>
+                                    </div>
                                     <div class="color-dropdown-item" data-color="gray" data-primary="#6B7280" data-dark="#4B5563">
                                         <div class="color-box" style="background: linear-gradient(135deg, #6B7280, #4B5563);"></div>
                                         <span>Neutral Gray</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="gray-light" data-primary="#9CA3AF" data-dark="#6B7280">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #9CA3AF, #6B7280);"></div>
+                                        <span>Light Gray</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="gray-dark" data-primary="#374151" data-dark="#1F2937">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #374151, #1F2937);"></div>
+                                        <span>Dark Gray</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="zinc" data-primary="#71717A" data-dark="#52525B">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #71717A, #52525B);"></div>
+                                        <span>Zinc</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="stone" data-primary="#78716C" data-dark="#57534E">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #78716C, #57534E);"></div>
+                                        <span>Stone</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="neutral" data-primary="#737373" data-dark="#525252">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #737373, #525252);"></div>
+                                        <span>Neutral</span>
+                                    </div>
+                                    <!-- Special Colors -->
+                                    <div class="color-dropdown-item" data-color="black" data-primary="#000000" data-dark="#1F2937">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #000000, #1F2937);"></div>
+                                        <span>Black</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="fuchsia" data-primary="#D946EF" data-dark="#C026D3">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #D946EF, #C026D3);"></div>
+                                        <span>Fuchsia</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="violet-dark" data-primary="#6D28D9" data-dark="#5B21B6">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #6D28D9, #5B21B6);"></div>
+                                        <span>Dark Violet</span>
                                     </div>
                                 </div>
                             </div>
@@ -323,21 +482,44 @@
                             <label class="form-label">Question Color</label>
                             <div class="custom-color-dropdown" id="backgroundColorDropdown">
                                 <div class="color-dropdown-selected" id="backgroundColorDropdownSelected">
-                                    <div class="color-box" style="background: linear-gradient(135deg, #3B82F6, #2563EB);"></div>
-                                    <span>Ocean Blue (Default)</span>
+                                    <div class="color-box" style="background: #818cf8;"></div>
+                                    <span>None</span>
                                     <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
                                 </div>
                                 <div class="color-dropdown-menu" id="backgroundColorDropdownMenu">
+                                    <!-- None Option - Reset to Default Theme -->
+                                    <div class="color-dropdown-item" data-color="none" data-primary="" data-dark="">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #6366F1 0%, #818cf8 20%, #22d3ee 40%, #06b6d4 60%, #0891b2 80%, #06b6d4 100%);"></div>
+                                        <span>None</span>
+                                    </div>
+                                    <!-- Blue Shades -->
                                     <div class="color-dropdown-item" data-color="blue" data-primary="#3B82F6" data-dark="#2563EB">
                                         <div class="color-box" style="background: linear-gradient(135deg, #3B82F6, #2563EB);"></div>
                                         <span>Ocean Blue (Default)</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="blue-light" data-primary="#60A5FA" data-dark="#3B82F6">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #60A5FA, #3B82F6);"></div>
+                                        <span>Light Blue</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="blue-dark" data-primary="#1E40AF" data-dark="#1E3A8A">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #1E40AF, #1E3A8A);"></div>
+                                        <span>Dark Blue</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="indigo" data-primary="#6366F1" data-dark="#4F46E5">
                                         <div class="color-box" style="background: linear-gradient(135deg, #6366F1, #4F46E5);"></div>
                                         <span>Deep Indigo</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="indigo-light" data-primary="#818CF8" data-dark="#6366F1">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #818CF8, #6366F1);"></div>
+                                        <span>Light Indigo</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="indigo-dark" data-primary="#4338CA" data-dark="#3730A3">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #4338CA, #3730A3);"></div>
+                                        <span>Dark Indigo</span>
+                                    </div>
+                                    <!-- Purple Shades -->
                                     <div class="color-dropdown-item" data-color="purple" data-primary="#A855F7" data-dark="#9333EA">
                                         <div class="color-box" style="background: linear-gradient(135deg, #A855F7, #9333EA);"></div>
                                         <span>Royal Purple</span>
@@ -346,22 +528,70 @@
                                         <div class="color-box" style="background: linear-gradient(135deg, #8B5CF6, #7C3AED);"></div>
                                         <span>Vibrant Violet</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="purple-light" data-primary="#C084FC" data-dark="#A855F7">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #C084FC, #A855F7);"></div>
+                                        <span>Light Purple</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="purple-dark" data-primary="#7E22CE" data-dark="#6B21A8">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #7E22CE, #6B21A8);"></div>
+                                        <span>Dark Purple</span>
+                                    </div>
+                                    <!-- Pink & Rose Shades -->
                                     <div class="color-dropdown-item" data-color="pink" data-primary="#EC4899" data-dark="#DB2777">
                                         <div class="color-box" style="background: linear-gradient(135deg, #EC4899, #DB2777);"></div>
                                         <span>Soft Pink</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="pink-light" data-primary="#F472B6" data-dark="#EC4899">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #F472B6, #EC4899);"></div>
+                                        <span>Light Pink</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="pink-dark" data-primary="#BE185D" data-dark="#9F1239">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #BE185D, #9F1239);"></div>
+                                        <span>Dark Pink</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="rose" data-primary="#F43F5E" data-dark="#E11D48">
                                         <div class="color-box" style="background: linear-gradient(135deg, #F43F5E, #E11D48);"></div>
                                         <span>Rose</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="rose-light" data-primary="#FB7185" data-dark="#F43F5E">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #FB7185, #F43F5E);"></div>
+                                        <span>Light Rose</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="rose-dark" data-primary="#BE123C" data-dark="#9F1239">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #BE123C, #9F1239);"></div>
+                                        <span>Dark Rose</span>
+                                    </div>
+                                    <!-- Red Shades -->
                                     <div class="color-dropdown-item" data-color="red" data-primary="#EF4444" data-dark="#DC2626">
                                         <div class="color-box" style="background: linear-gradient(135deg, #EF4444, #DC2626);"></div>
                                         <span>Bold Red</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="red-light" data-primary="#F87171" data-dark="#EF4444">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #F87171, #EF4444);"></div>
+                                        <span>Light Red</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="red-dark" data-primary="#B91C1C" data-dark="#991B1B">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #B91C1C, #991B1B);"></div>
+                                        <span>Dark Red</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="crimson" data-primary="#DC2626" data-dark="#B91C1C">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #DC2626, #B91C1C);"></div>
+                                        <span>Crimson</span>
+                                    </div>
+                                    <!-- Orange Shades -->
                                     <div class="color-dropdown-item" data-color="orange" data-primary="#F97316" data-dark="#EA580C">
                                         <div class="color-box" style="background: linear-gradient(135deg, #F97316, #EA580C);"></div>
                                         <span>Vibrant Orange</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="orange-light" data-primary="#FB923C" data-dark="#F97316">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #FB923C, #F97316);"></div>
+                                        <span>Light Orange</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="orange-dark" data-primary="#C2410C" data-dark="#9A3412">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #C2410C, #9A3412);"></div>
+                                        <span>Dark Orange</span>
+                                    </div>
+                                    <!-- Yellow & Amber Shades -->
                                     <div class="color-dropdown-item" data-color="amber" data-primary="#F59E0B" data-dark="#D97706">
                                         <div class="color-box" style="background: linear-gradient(135deg, #F59E0B, #D97706);"></div>
                                         <span>Golden Amber</span>
@@ -370,6 +600,15 @@
                                         <div class="color-box" style="background: linear-gradient(135deg, #EAB308, #CA8A04);"></div>
                                         <span>Sunshine Yellow</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="yellow-light" data-primary="#FDE047" data-dark="#FACC15">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #FDE047, #FACC15);"></div>
+                                        <span>Light Yellow</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="amber-dark" data-primary="#B45309" data-dark="#92400E">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #B45309, #92400E);"></div>
+                                        <span>Dark Amber</span>
+                                    </div>
+                                    <!-- Green Shades -->
                                     <div class="color-dropdown-item" data-color="lime" data-primary="#84CC16" data-dark="#65A30D">
                                         <div class="color-box" style="background: linear-gradient(135deg, #84CC16, #65A30D);"></div>
                                         <span>Lime Green</span>
@@ -378,22 +617,61 @@
                                         <div class="color-box" style="background: linear-gradient(135deg, #10B981, #059669);"></div>
                                         <span>Fresh Green</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="green-light" data-primary="#34D399" data-dark="#10B981">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #34D399, #10B981);"></div>
+                                        <span>Light Green</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="green-dark" data-primary="#047857" data-dark="#065F46">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #047857, #065F46);"></div>
+                                        <span>Dark Green</span>
+                                    </div>
                                     <div class="color-dropdown-item" data-color="emerald" data-primary="#22C55E" data-dark="#16A34A">
                                         <div class="color-box" style="background: linear-gradient(135deg, #22C55E, #16A34A);"></div>
                                         <span>Emerald</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="mint" data-primary="#10B981" data-dark="#059669">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #10B981, #059669);"></div>
+                                        <span>Mint</span>
+                                    </div>
+                                    <!-- Teal & Cyan Shades -->
                                     <div class="color-dropdown-item" data-color="teal" data-primary="#14B8A6" data-dark="#0D9488">
                                         <div class="color-box" style="background: linear-gradient(135deg, #14B8A6, #0D9488);"></div>
                                         <span>Modern Teal</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="teal-light" data-primary="#5EEAD4" data-dark="#2DD4BF">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #5EEAD4, #2DD4BF);"></div>
+                                        <span>Light Teal</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="teal-dark" data-primary="#0F766E" data-dark="#134E4A">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0F766E, #134E4A);"></div>
+                                        <span>Dark Teal</span>
                                     </div>
                                     <div class="color-dropdown-item" data-color="cyan" data-primary="#06B6D4" data-dark="#0891B2">
                                         <div class="color-box" style="background: linear-gradient(135deg, #06B6D4, #0891B2);"></div>
                                         <span>Cyan Blue</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="cyan-light" data-primary="#67E8F9" data-dark="#22D3EE">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #67E8F9, #22D3EE);"></div>
+                                        <span>Light Cyan</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="cyan-dark" data-primary="#0891B2" data-dark="#0E7490">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0891B2, #0E7490);"></div>
+                                        <span>Dark Cyan</span>
+                                    </div>
+                                    <!-- Sky Blue Shades -->
                                     <div class="color-dropdown-item" data-color="sky" data-primary="#0EA5E9" data-dark="#0284C7">
                                         <div class="color-box" style="background: linear-gradient(135deg, #0EA5E9, #0284C7);"></div>
                                         <span>Sky Blue</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="sky-light" data-primary="#38BDF8" data-dark="#0EA5E9">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #38BDF8, #0EA5E9);"></div>
+                                        <span>Light Sky</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="sky-dark" data-primary="#0369A1" data-dark="#075985">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #0369A1, #075985);"></div>
+                                        <span>Dark Sky</span>
+                                    </div>
+                                    <!-- Neutral & Gray Shades -->
                                     <div class="color-dropdown-item" data-color="white" data-primary="#FFFFFF" data-dark="#E5E7EB">
                                         <div class="color-box" style="background: linear-gradient(135deg, #FFFFFF, #E5E7EB); border: 1px solid #64748B;"></div>
                                         <span>Clean White</span>
@@ -402,9 +680,620 @@
                                         <div class="color-box" style="background: linear-gradient(135deg, #64748B, #475569);"></div>
                                         <span>Professional Slate</span>
                                     </div>
+                                    <div class="color-dropdown-item" data-color="slate-light" data-primary="#94A3B8" data-dark="#64748B">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #94A3B8, #64748B);"></div>
+                                        <span>Light Slate</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="slate-dark" data-primary="#475569" data-dark="#334155">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #475569, #334155);"></div>
+                                        <span>Dark Slate</span>
+                                    </div>
                                     <div class="color-dropdown-item" data-color="gray" data-primary="#6B7280" data-dark="#4B5563">
                                         <div class="color-box" style="background: linear-gradient(135deg, #6B7280, #4B5563);"></div>
                                         <span>Neutral Gray</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="gray-light" data-primary="#9CA3AF" data-dark="#6B7280">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #9CA3AF, #6B7280);"></div>
+                                        <span>Light Gray</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="gray-dark" data-primary="#374151" data-dark="#1F2937">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #374151, #1F2937);"></div>
+                                        <span>Dark Gray</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="zinc" data-primary="#71717A" data-dark="#52525B">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #71717A, #52525B);"></div>
+                                        <span>Zinc</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="stone" data-primary="#78716C" data-dark="#57534E">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #78716C, #57534E);"></div>
+                                        <span>Stone</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="neutral" data-primary="#737373" data-dark="#525252">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #737373, #525252);"></div>
+                                        <span>Neutral</span>
+                                    </div>
+                                    <!-- Special Colors -->
+                                    <div class="color-dropdown-item" data-color="black" data-primary="#000000" data-dark="#1F2937">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #000000, #1F2937);"></div>
+                                        <span>Black</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="fuchsia" data-primary="#D946EF" data-dark="#C026D3">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #D946EF, #C026D3);"></div>
+                                        <span>Fuchsia</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="violet-dark" data-primary="#6D28D9" data-dark="#5B21B6">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #6D28D9, #5B21B6);"></div>
+                                        <span>Dark Violet</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Font Family</label>
+                            <div class="custom-font-dropdown" id="fontDropdown">
+                                <div class="font-dropdown-selected" id="fontDropdownSelected">
+                                    <span style="font-family: 'Inter', sans-serif;">None</span>
+                                    <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <div class="font-dropdown-menu" id="fontDropdownMenu">
+                                    <!-- None Option - Reset to Default Theme -->
+                                    <div class="font-dropdown-item" data-font="None" data-font-family="'Inter', sans-serif" data-font-url="">
+                                        <span style="font-family: 'Inter', sans-serif;">None</span>
+                                    </div>
+                                    <!-- Arabic Fonts - Traditional Names -->
+                                    <div class="font-dropdown-item" data-font="Reem Kufi" data-font-family="'Reem Kufi', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400;500;600;700&display=swap">
+                                        <span style="font-family: 'Reem Kufi', sans-serif;">كوفي</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Mirza" data-font-family="'Mirza', serif" data-font-url="https://fonts.googleapis.com/css2?family=Mirza:wght@400;500;600;700&display=swap">
+                                        <span style="font-family: 'Mirza', serif;">ثلث</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Katibeh" data-font-family="'Katibeh', serif" data-font-url="https://fonts.googleapis.com/css2?family=Katibeh:wght@400&display=swap">
+                                        <span style="font-family: 'Katibeh', serif;">ثلث أنيق</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Aref Ruqaa" data-font-family="'Aref Ruqaa', serif" data-font-url="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&display=swap">
+                                        <span style="font-family: 'Aref Ruqaa', serif;">رقعة</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Lalezar" data-font-family="'Lalezar', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Lalezar&display=swap">
+                                        <span style="font-family: 'Lalezar', cursive;">ديواني</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Aladin" data-font-family="'Aladin', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Aladin&display=swap">
+                                        <span style="font-family: 'Aladin', cursive;">ديواني فني</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Rakkas" data-font-family="'Rakkas', serif" data-font-url="https://fonts.googleapis.com/css2?family=Rakkas:wght@400&display=swap">
+                                        <span style="font-family: 'Rakkas', serif;">كوفي كلاسيكي</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Lateef" data-font-family="'Lateef', serif" data-font-url="https://fonts.googleapis.com/css2?family=Lateef:wght@400;600;700&display=swap">
+                                        <span style="font-family: 'Lateef', serif;">نسخ لطيف</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Scheherazade New" data-font-family="'Scheherazade New', serif" data-font-url="https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;500;600;700&display=swap">
+                                        <span style="font-family: 'Scheherazade New', serif;">نسخ شهرزاد</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Amiri" data-font-family="'Amiri', serif" data-font-url="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap">
+                                        <span style="font-family: 'Amiri', serif;">نسخ أميري</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Markazi Text" data-font-family="'Markazi Text', serif" data-font-url="https://fonts.googleapis.com/css2?family=Markazi+Text:wght@400;500;600;700&display=swap">
+                                        <span style="font-family: 'Markazi Text', serif;">نسخ مركزي</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Harmattan" data-font-family="'Harmattan', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Harmattan:wght@400;500;600;700&display=swap">
+                                        <span style="font-family: 'Harmattan', sans-serif;">نسخ حرمطان</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Mada" data-font-family="'Mada', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Mada:wght@300;400;500;600;700;800;900&display=swap">
+                                        <span style="font-family: 'Mada', sans-serif;">نسخ معدا</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Cairo" data-font-family="'Cairo', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Cairo', sans-serif;">نسخ القاهرة</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Noto Sans Arabic" data-font-family="'Noto Sans Arabic', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Noto Sans Arabic', sans-serif;">نسخ نوتو</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Tajawal" data-font-family="'Tajawal', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap">
+                                        <span style="font-family: 'Tajawal', sans-serif;">نسخ تجوال</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Almarai" data-font-family="'Almarai', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&display=swap">
+                                        <span style="font-family: 'Almarai', sans-serif;">نسخ المراعي</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Changa" data-font-family="'Changa', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Changa:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Changa', sans-serif;">نسخ شانجا</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="El Messiri" data-font-family="'El Messiri', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;500;600;700&display=swap">
+                                        <span style="font-family: 'El Messiri', sans-serif;">نسخ المسيري</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="IBM Plex Sans Arabic" data-font-family="'IBM Plex Sans Arabic', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@100;200;300;400;500;600;700&display=swap">
+                                        <span style="font-family: 'IBM Plex Sans Arabic', sans-serif;">نسخ آي بي إم</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Vazirmatn" data-font-family="'Vazirmatn', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;200;300;400;500;600;700;800;900&display=swap">
+                                        <span style="font-family: 'Vazirmatn', sans-serif;">نسخ وزيرمتن</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Rubik" data-font-family="'Rubik', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&display=swap">
+                                        <span style="font-family: 'Rubik', sans-serif;">نسخ روبيك</span>
+                                    </div>
+                                    <!-- English & International Fonts -->
+                                    <div class="font-dropdown-item" data-font="Inter" data-font-family="'Inter', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Inter', sans-serif;">Inter</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Poppins" data-font-family="'Poppins', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Poppins', sans-serif;">Poppins</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Roboto" data-font-family="'Roboto', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap">
+                                        <span style="font-family: 'Roboto', sans-serif;">Roboto</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Open Sans" data-font-family="'Open Sans', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Open Sans', sans-serif;">Open Sans</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Lato" data-font-family="'Lato', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap">
+                                        <span style="font-family: 'Lato', sans-serif;">Lato</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Montserrat" data-font-family="'Montserrat', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Montserrat', sans-serif;">Montserrat</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Raleway" data-font-family="'Raleway', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Raleway', sans-serif;">Raleway</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Nunito" data-font-family="'Nunito', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Nunito', sans-serif;">Nunito</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Playfair Display" data-font-family="'Playfair Display', serif" data-font-url="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Playfair Display', serif;">Playfair Display</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Merriweather" data-font-family="'Merriweather', serif" data-font-url="https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700;900&display=swap">
+                                        <span style="font-family: 'Merriweather', serif;">Merriweather</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Ubuntu" data-font-family="'Ubuntu', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Ubuntu:wght@300;400;500;700&display=swap">
+                                        <span style="font-family: 'Ubuntu', sans-serif;">Ubuntu</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Source Sans Pro" data-font-family="'Source Sans Pro', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;400;600;700&display=swap">
+                                        <span style="font-family: 'Source Sans Pro', sans-serif;">Source Sans Pro</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Work Sans" data-font-family="'Work Sans', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&display=swap">
+                                        <span style="font-family: 'Work Sans', sans-serif;">Work Sans</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="DM Sans" data-font-family="'DM Sans', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap">
+                                        <span style="font-family: 'DM Sans', sans-serif;">DM Sans</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Manrope" data-font-family="'Manrope', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Manrope', sans-serif;">Manrope</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Space Grotesk" data-font-family="'Space Grotesk', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap">
+                                        <span style="font-family: 'Space Grotesk', sans-serif;">Space Grotesk</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Arial" data-font-family="Arial, sans-serif" data-font-url="">
+                                        <span style="font-family: Arial, sans-serif;">Arial</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Helvetica" data-font-family="Helvetica, Arial, sans-serif" data-font-url="">
+                                        <span style="font-family: Helvetica, Arial, sans-serif;">Helvetica</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Times New Roman" data-font-family="'Times New Roman', Times, serif" data-font-url="">
+                                        <span style="font-family: 'Times New Roman', Times, serif;">Times New Roman</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Georgia" data-font-family="Georgia, serif" data-font-url="">
+                                        <span style="font-family: Georgia, serif;">Georgia</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Verdana" data-font-family="Verdana, Geneva, sans-serif" data-font-url="">
+                                        <span style="font-family: Verdana, Geneva, sans-serif;">Verdana</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Tahoma" data-font-family="Tahoma, Geneva, sans-serif" data-font-url="">
+                                        <span style="font-family: Tahoma, Geneva, sans-serif;">Tahoma</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Courier New" data-font-family="'Courier New', Courier, monospace" data-font-url="">
+                                        <span style="font-family: 'Courier New', Courier, monospace;">Courier New</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Comic Sans MS" data-font-family="'Comic Sans MS', cursive" data-font-url="">
+                                        <span style="font-family: 'Comic Sans MS', cursive;">Comic Sans MS</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Trebuchet MS" data-font-family="'Trebuchet MS', sans-serif" data-font-url="">
+                                        <span style="font-family: 'Trebuchet MS', sans-serif;">Trebuchet MS</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Impact" data-font-family="Impact, Charcoal, sans-serif" data-font-url="">
+                                        <span style="font-family: Impact, Charcoal, sans-serif;">Impact</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Lucida Console" data-font-family="'Lucida Console', Monaco, monospace" data-font-url="">
+                                        <span style="font-family: 'Lucida Console', Monaco, monospace;">Lucida Console</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Palatino" data-font-family="Palatino, 'Palatino Linotype', serif" data-font-url="">
+                                        <span style="font-family: Palatino, 'Palatino Linotype', serif;">Palatino</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Garamond" data-font-family="Garamond, serif" data-font-url="">
+                                        <span style="font-family: Garamond, serif;">Garamond</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Book Antiqua" data-font-family="'Book Antiqua', Palatino, serif" data-font-url="">
+                                        <span style="font-family: 'Book Antiqua', Palatino, serif;">Book Antiqua</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Arial Black" data-font-family="'Arial Black', Gadget, sans-serif" data-font-url="">
+                                        <span style="font-family: 'Arial Black', Gadget, sans-serif;">Arial Black</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Comic Sans" data-font-family="'Comic Sans MS', cursive" data-font-url="">
+                                        <span style="font-family: 'Comic Sans MS', cursive;">Comic Sans</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Lucida Sans Unicode" data-font-family="'Lucida Sans Unicode', 'Lucida Grande', sans-serif" data-font-url="">
+                                        <span style="font-family: 'Lucida Sans Unicode', 'Lucida Grande', sans-serif;">Lucida Sans Unicode</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="MS Sans Serif" data-font-family="'MS Sans Serif', Geneva, sans-serif" data-font-url="">
+                                        <span style="font-family: 'MS Sans Serif', Geneva, sans-serif;">MS Sans Serif</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="MS Serif" data-font-family="'MS Serif', 'New York', serif" data-font-url="">
+                                        <span style="font-family: 'MS Serif', 'New York', serif;">MS Serif</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Baskerville" data-font-family="Baskerville, 'Baskerville Old Face', serif" data-font-url="">
+                                        <span style="font-family: Baskerville, 'Baskerville Old Face', serif;">Baskerville</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Calibri" data-font-family="Calibri, Candara, sans-serif" data-font-url="">
+                                        <span style="font-family: Calibri, Candara, sans-serif;">Calibri</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Cambria" data-font-family="Cambria, Georgia, serif" data-font-url="">
+                                        <span style="font-family: Cambria, Georgia, serif;">Cambria</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Candara" data-font-family="Candara, Calibri, sans-serif" data-font-url="">
+                                        <span style="font-family: Candara, Calibri, sans-serif;">Candara</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Century Gothic" data-font-family="'Century Gothic', sans-serif" data-font-url="">
+                                        <span style="font-family: 'Century Gothic', sans-serif;">Century Gothic</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Consolas" data-font-family="Consolas, 'Courier New', monospace" data-font-url="">
+                                        <span style="font-family: Consolas, 'Courier New', monospace;">Consolas</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Copperplate" data-font-family="Copperplate, 'Copperplate Gothic Light', fantasy" data-font-url="">
+                                        <span style="font-family: Copperplate, 'Copperplate Gothic Light', fantasy;">Copperplate</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Franklin Gothic Medium" data-font-family="'Franklin Gothic Medium', 'Arial Narrow', sans-serif" data-font-url="">
+                                        <span style="font-family: 'Franklin Gothic Medium', 'Arial Narrow', sans-serif;">Franklin Gothic Medium</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Gill Sans" data-font-family="'Gill Sans', 'Gill Sans MT', sans-serif" data-font-url="">
+                                        <span style="font-family: 'Gill Sans', 'Gill Sans MT', sans-serif;">Gill Sans</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Lucida Grande" data-font-family="'Lucida Grande', 'Lucida Sans Unicode', sans-serif" data-font-url="">
+                                        <span style="font-family: 'Lucida Grande', 'Lucida Sans Unicode', sans-serif;">Lucida Grande</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Segoe UI" data-font-family="'Segoe UI', Tahoma, sans-serif" data-font-url="">
+                                        <span style="font-family: 'Segoe UI', Tahoma, sans-serif;">Segoe UI</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Tahoma" data-font-family="Tahoma, Geneva, sans-serif" data-font-url="">
+                                        <span style="font-family: Tahoma, Geneva, sans-serif;">Tahoma</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Trebuchet MS" data-font-family="'Trebuchet MS', 'Helvetica Neue', sans-serif" data-font-url="">
+                                        <span style="font-family: 'Trebuchet MS', 'Helvetica Neue', sans-serif;">Trebuchet MS</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Verdana" data-font-family="Verdana, Geneva, sans-serif" data-font-url="">
+                                        <span style="font-family: Verdana, Geneva, sans-serif;">Verdana</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Bebas Neue" data-font-family="'Bebas Neue', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap">
+                                        <span style="font-family: 'Bebas Neue', cursive;">Bebas Neue</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Oswald" data-font-family="'Oswald', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap">
+                                        <span style="font-family: 'Oswald', sans-serif;">Oswald</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Lora" data-font-family="'Lora', serif" data-font-url="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap">
+                                        <span style="font-family: 'Lora', serif;">Lora</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="PT Sans" data-font-family="'PT Sans', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap">
+                                        <span style="font-family: 'PT Sans', sans-serif;">PT Sans</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="PT Serif" data-font-family="'PT Serif', serif" data-font-url="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&display=swap">
+                                        <span style="font-family: 'PT Serif', serif;">PT Serif</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Dancing Script" data-font-family="'Dancing Script', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap">
+                                        <span style="font-family: 'Dancing Script', cursive;">Dancing Script</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Pacifico" data-font-family="'Pacifico', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Pacifico&display=swap">
+                                        <span style="font-family: 'Pacifico', cursive;">Pacifico</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Lobster" data-font-family="'Lobster', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Lobster&display=swap">
+                                        <span style="font-family: 'Lobster', cursive;">Lobster</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Righteous" data-font-family="'Righteous', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Righteous&display=swap">
+                                        <span style="font-family: 'Righteous', cursive;">Righteous</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Anton" data-font-family="'Anton', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Anton&display=swap">
+                                        <span style="font-family: 'Anton', sans-serif;">Anton</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Bangers" data-font-family="'Bangers', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Bangers&display=swap">
+                                        <span style="font-family: 'Bangers', cursive;">Bangers</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Fredoka One" data-font-family="'Fredoka One', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap">
+                                        <span style="font-family: 'Fredoka One', cursive;">Fredoka One</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Rubik" data-font-family="'Rubik', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Rubik', sans-serif;">Rubik</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Quicksand" data-font-family="'Quicksand', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap">
+                                        <span style="font-family: 'Quicksand', sans-serif;">Quicksand</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Fira Sans" data-font-family="'Fira Sans', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Fira Sans', sans-serif;">Fira Sans</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Libre Baskerville" data-font-family="'Libre Baskerville', serif" data-font-url="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap">
+                                        <span style="font-family: 'Libre Baskerville', serif;">Libre Baskerville</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Crimson Text" data-font-family="'Crimson Text', serif" data-font-url="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&display=swap">
+                                        <span style="font-family: 'Crimson Text', serif;">Crimson Text</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Josefin Sans" data-font-family="'Josefin Sans', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;500;600;700&display=swap">
+                                        <span style="font-family: 'Josefin Sans', sans-serif;">Josefin Sans</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Kalam" data-font-family="'Kalam', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap">
+                                        <span style="font-family: 'Kalam', cursive;">Kalam</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Permanent Marker" data-font-family="'Permanent Marker', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap">
+                                        <span style="font-family: 'Permanent Marker', cursive;">Permanent Marker</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Shadows Into Light" data-font-family="'Shadows Into Light', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Shadows+Into+Light&display=swap">
+                                        <span style="font-family: 'Shadows Into Light', cursive;">Shadows Into Light</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Amatic SC" data-font-family="'Amatic SC', cursive" data-font-url="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&display=swap">
+                                        <span style="font-family: 'Amatic SC', cursive;">Amatic SC</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Bree Serif" data-font-family="'Bree Serif', serif" data-font-url="https://fonts.googleapis.com/css2?family=Bree+Serif&display=swap">
+                                        <span style="font-family: 'Bree Serif', serif;">Bree Serif</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Dosis" data-font-family="'Dosis', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Dosis:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Dosis', sans-serif;">Dosis</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Exo" data-font-family="'Exo', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Exo:wght@300;400;500;600;700;800&display=swap">
+                                        <span style="font-family: 'Exo', sans-serif;">Exo</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Orbitron" data-font-family="'Orbitron', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap">
+                                        <span style="font-family: 'Orbitron', sans-serif;">Orbitron</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Rajdhani" data-font-family="'Rajdhani', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap">
+                                        <span style="font-family: 'Rajdhani', sans-serif;">Rajdhani</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Titillium Web" data-font-family="'Titillium Web', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700&display=swap">
+                                        <span style="font-family: 'Titillium Web', sans-serif;">Titillium Web</span>
+                                    </div>
+                                    <div class="font-dropdown-item" data-font="Yanone Kaffeesatz" data-font-family="'Yanone Kaffeesatz', sans-serif" data-font-url="https://fonts.googleapis.com/css2?family=Yanone+Kaffeesatz:wght@300;400;500;600;700&display=swap">
+                                        <span style="font-family: 'Yanone Kaffeesatz', sans-serif;">Yanone Kaffeesatz</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Text Color</label>
+                            <div class="custom-color-dropdown" id="textColorDropdown">
+                                <div class="color-dropdown-selected" id="textColorDropdownSelected">
+                                    <div class="color-box" style="background: #818cf8;"></div>
+                                    <span>None</span>
+                                    <svg class="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <div class="color-dropdown-menu" id="textColorDropdownMenu">
+                                    <!-- None Option - Reset to Default Theme -->
+                                    <div class="color-dropdown-item" data-color="none" data-hex="">
+                                        <div class="color-box" style="background: linear-gradient(135deg, #6366F1 0%, #818cf8 20%, #22d3ee 40%, #06b6d4 60%, #0891b2 80%, #06b6d4 100%);"></div>
+                                        <span>None</span>
+                                    </div>
+                                    <!-- Neutral Colors -->
+                                    <div class="color-dropdown-item" data-color="white" data-hex="#F8FAFC">
+                                        <div class="color-box" style="background: #F8FAFC;"></div>
+                                        <span>White (Default)</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="light-gray" data-hex="#E2E8F0">
+                                        <div class="color-box" style="background: #E2E8F0;"></div>
+                                        <span>Light Gray</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="gray" data-hex="#94A3B8">
+                                        <div class="color-box" style="background: #94A3B8;"></div>
+                                        <span>Gray</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="dark-gray" data-hex="#64748B">
+                                        <div class="color-box" style="background: #64748B;"></div>
+                                        <span>Dark Gray</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="slate" data-hex="#475569">
+                                        <div class="color-box" style="background: #475569;"></div>
+                                        <span>Slate</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="slate-light" data-hex="#94A3B8">
+                                        <div class="color-box" style="background: #94A3B8;"></div>
+                                        <span>Light Slate</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="slate-dark" data-hex="#334155">
+                                        <div class="color-box" style="background: #334155;"></div>
+                                        <span>Dark Slate</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="zinc" data-hex="#71717A">
+                                        <div class="color-box" style="background: #71717A;"></div>
+                                        <span>Zinc</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="stone" data-hex="#78716C">
+                                        <div class="color-box" style="background: #78716C;"></div>
+                                        <span>Stone</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="neutral" data-hex="#737373">
+                                        <div class="color-box" style="background: #737373;"></div>
+                                        <span>Neutral</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="black" data-hex="#1E293B">
+                                        <div class="color-box" style="background: #1E293B;"></div>
+                                        <span>Black</span>
+                                    </div>
+                                    <!-- Blue Shades -->
+                                    <div class="color-dropdown-item" data-color="blue" data-hex="#3B82F6">
+                                        <div class="color-box" style="background: #3B82F6;"></div>
+                                        <span>Blue</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="blue-light" data-hex="#60A5FA">
+                                        <div class="color-box" style="background: #60A5FA;"></div>
+                                        <span>Light Blue</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="blue-dark" data-hex="#1E40AF">
+                                        <div class="color-box" style="background: #1E40AF;"></div>
+                                        <span>Dark Blue</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="indigo" data-hex="#6366F1">
+                                        <div class="color-box" style="background: #6366F1;"></div>
+                                        <span>Indigo</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="indigo-light" data-hex="#818CF8">
+                                        <div class="color-box" style="background: #818CF8;"></div>
+                                        <span>Light Indigo</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="indigo-dark" data-hex="#4338CA">
+                                        <div class="color-box" style="background: #4338CA;"></div>
+                                        <span>Dark Indigo</span>
+                                    </div>
+                                    <!-- Purple Shades -->
+                                    <div class="color-dropdown-item" data-color="purple" data-hex="#A855F7">
+                                        <div class="color-box" style="background: #A855F7;"></div>
+                                        <span>Purple</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="violet" data-hex="#8B5CF6">
+                                        <div class="color-box" style="background: #8B5CF6;"></div>
+                                        <span>Violet</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="purple-light" data-hex="#C084FC">
+                                        <div class="color-box" style="background: #C084FC;"></div>
+                                        <span>Light Purple</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="purple-dark" data-hex="#7E22CE">
+                                        <div class="color-box" style="background: #7E22CE;"></div>
+                                        <span>Dark Purple</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="violet-dark" data-hex="#6D28D9">
+                                        <div class="color-box" style="background: #6D28D9;"></div>
+                                        <span>Dark Violet</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="fuchsia" data-hex="#D946EF">
+                                        <div class="color-box" style="background: #D946EF;"></div>
+                                        <span>Fuchsia</span>
+                                    </div>
+                                    <!-- Pink & Rose Shades -->
+                                    <div class="color-dropdown-item" data-color="pink" data-hex="#EC4899">
+                                        <div class="color-box" style="background: #EC4899;"></div>
+                                        <span>Pink</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="pink-light" data-hex="#F472B6">
+                                        <div class="color-box" style="background: #F472B6;"></div>
+                                        <span>Light Pink</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="pink-dark" data-hex="#BE185D">
+                                        <div class="color-box" style="background: #BE185D;"></div>
+                                        <span>Dark Pink</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="rose" data-hex="#F43F5E">
+                                        <div class="color-box" style="background: #F43F5E;"></div>
+                                        <span>Rose</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="rose-light" data-hex="#FB7185">
+                                        <div class="color-box" style="background: #FB7185;"></div>
+                                        <span>Light Rose</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="rose-dark" data-hex="#BE123C">
+                                        <div class="color-box" style="background: #BE123C;"></div>
+                                        <span>Dark Rose</span>
+                                    </div>
+                                    <!-- Red Shades -->
+                                    <div class="color-dropdown-item" data-color="red" data-hex="#EF4444">
+                                        <div class="color-box" style="background: #EF4444;"></div>
+                                        <span>Red</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="red-light" data-hex="#F87171">
+                                        <div class="color-box" style="background: #F87171;"></div>
+                                        <span>Light Red</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="red-dark" data-hex="#B91C1C">
+                                        <div class="color-box" style="background: #B91C1C;"></div>
+                                        <span>Dark Red</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="crimson" data-hex="#DC2626">
+                                        <div class="color-box" style="background: #DC2626;"></div>
+                                        <span>Crimson</span>
+                                    </div>
+                                    <!-- Orange Shades -->
+                                    <div class="color-dropdown-item" data-color="orange" data-hex="#F97316">
+                                        <div class="color-box" style="background: #F97316;"></div>
+                                        <span>Orange</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="orange-light" data-hex="#FB923C">
+                                        <div class="color-box" style="background: #FB923C;"></div>
+                                        <span>Light Orange</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="orange-dark" data-hex="#C2410C">
+                                        <div class="color-box" style="background: #C2410C;"></div>
+                                        <span>Dark Orange</span>
+                                    </div>
+                                    <!-- Yellow & Amber Shades -->
+                                    <div class="color-dropdown-item" data-color="amber" data-hex="#F59E0B">
+                                        <div class="color-box" style="background: #F59E0B;"></div>
+                                        <span>Amber</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="yellow" data-hex="#EAB308">
+                                        <div class="color-box" style="background: #EAB308;"></div>
+                                        <span>Yellow</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="yellow-light" data-hex="#FDE047">
+                                        <div class="color-box" style="background: #FDE047;"></div>
+                                        <span>Light Yellow</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="amber-dark" data-hex="#B45309">
+                                        <div class="color-box" style="background: #B45309;"></div>
+                                        <span>Dark Amber</span>
+                                    </div>
+                                    <!-- Green Shades -->
+                                    <div class="color-dropdown-item" data-color="lime" data-hex="#84CC16">
+                                        <div class="color-box" style="background: #84CC16;"></div>
+                                        <span>Lime</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="green" data-hex="#10B981">
+                                        <div class="color-box" style="background: #10B981;"></div>
+                                        <span>Green</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="green-light" data-hex="#34D399">
+                                        <div class="color-box" style="background: #34D399;"></div>
+                                        <span>Light Green</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="green-dark" data-hex="#047857">
+                                        <div class="color-box" style="background: #047857;"></div>
+                                        <span>Dark Green</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="emerald" data-hex="#22C55E">
+                                        <div class="color-box" style="background: #22C55E;"></div>
+                                        <span>Emerald</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="mint" data-hex="#10B981">
+                                        <div class="color-box" style="background: #10B981;"></div>
+                                        <span>Mint</span>
+                                    </div>
+                                    <!-- Teal & Cyan Shades -->
+                                    <div class="color-dropdown-item" data-color="teal" data-hex="#14B8A6">
+                                        <div class="color-box" style="background: #14B8A6;"></div>
+                                        <span>Teal</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="teal-light" data-hex="#5EEAD4">
+                                        <div class="color-box" style="background: #5EEAD4;"></div>
+                                        <span>Light Teal</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="teal-dark" data-hex="#0F766E">
+                                        <div class="color-box" style="background: #0F766E;"></div>
+                                        <span>Dark Teal</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="cyan" data-hex="#06B6D4">
+                                        <div class="color-box" style="background: #06B6D4;"></div>
+                                        <span>Cyan</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="cyan-light" data-hex="#67E8F9">
+                                        <div class="color-box" style="background: #67E8F9;"></div>
+                                        <span>Light Cyan</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="cyan-dark" data-hex="#0891B2">
+                                        <div class="color-box" style="background: #0891B2;"></div>
+                                        <span>Dark Cyan</span>
+                                    </div>
+                                    <!-- Sky Blue Shades -->
+                                    <div class="color-dropdown-item" data-color="sky" data-hex="#0EA5E9">
+                                        <div class="color-box" style="background: #0EA5E9;"></div>
+                                        <span>Sky Blue</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="sky-light" data-hex="#38BDF8">
+                                        <div class="color-box" style="background: #38BDF8;"></div>
+                                        <span>Light Sky</span>
+                                    </div>
+                                    <div class="color-dropdown-item" data-color="sky-dark" data-hex="#0369A1">
+                                        <div class="color-box" style="background: #0369A1;"></div>
+                                        <span>Dark Sky</span>
                                     </div>
                                 </div>
                             </div>
@@ -544,140 +1433,186 @@
                     <div class="sidebar-section">
                         <h3 class="sidebar-title">Question Types</h3>
                         <div class="question-types">
-                            <button class="question-type-btn" data-type="short-text">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M4 7h16M4 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Short Answer</span>
-                            </button>
-                            <button class="question-type-btn" data-type="long-text">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M4 7h16M4 12h16M4 17h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Paragraph</span>
-                            </button>
-                            <button class="question-type-btn" data-type="multiple">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="2"/>
-                                    <circle cx="8" cy="16" r="3" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M14 8h6M14 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Multiple Choice</span>
-                            </button>
-                            <button class="question-type-btn" data-type="checkbox">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect x="3" y="5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2"/>
-                                    <rect x="3" y="13" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M5 8l1 1 2-2M5 16l1 1 2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                    <path d="M14 8h6M14 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Checkboxes</span>
-                            </button>
-                            <button class="question-type-btn" data-type="dropdown">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect x="4" y="8" width="16" height="3" rx="1" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M8 14l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                <span>Dropdown</span>
-                            </button>
-                            <button class="question-type-btn" data-type="rating">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 2l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 9l6-1 3-6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                                </svg>
-                                <span>Rating Scale</span>
-                            </button>
-                            <button class="question-type-btn" data-type="linear-scale">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="6" cy="12" r="2" stroke="currentColor" stroke-width="2"/>
-                                    <circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="2"/>
-                                    <circle cx="18" cy="12" r="2" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M4 12h16" stroke="currentColor" stroke-width="2"/>
-                                </svg>
-                                <span>Linear Scale</span>
-                            </button>
-                            <button class="question-type-btn" data-type="yes-no">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M9 12l2 2 4-4m6 2c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Yes/No</span>
-                            </button>
-                            <button class="question-type-btn" data-type="date">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Date</span>
-                            </button>
-                            <button class="question-type-btn" data-type="time">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Time</span>
-                            </button>
-                            <button class="question-type-btn" data-type="email">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Email</span>
-                            </button>
-                            <button class="question-type-btn" data-type="phone">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="2"/>
-                                </svg>
-                                <span>Phone Number</span>
-                            </button>
-                            <button class="question-type-btn" data-type="number">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M4 9h16M9 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                    <rect x="7" y="7" width="10" height="10" rx="1" stroke="currentColor" stroke-width="2"/>
-                                </svg>
-                                <span>Number</span>
-                            </button>
-                            <button class="question-type-btn" data-type="url">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                    <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Website URL</span>
-                            </button>
-                            <button class="question-type-btn" data-type="file">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                <span>File Upload</span>
-                            </button>
-                            <button class="question-type-btn" data-type="voice">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect x="10" y="5" width="4" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M7 13v1a5 5 0 0010 0v-1M12 19v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                                <span>Voice Recording</span>
-                            </button>
-                            <button class="question-type-btn" data-type="video">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect x="2" y="6" width="14" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M16 10l6-4v12l-6-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                                </svg>
-                                <span>Video Recording</span>
-                                <span class="badge-coming-soon">Soon</span>
-                            </button>
-                            <button class="question-type-btn" data-type="ranking">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M4 15h3v6H4zM10.5 9h3v12h-3zM17 3h3v18h-3z" stroke="currentColor" stroke-width="2"/>
-                                </svg>
-                                <span>Ranking</span>
-                                <span class="badge-coming-soon">Soon</span>
-                            </button>
-                            <button class="question-type-btn" data-type="matrix">
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
-                                    <path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="currentColor" stroke-width="2"/>
-                                </svg>
-                                <span>Matrix/Grid</span>
-                                <span class="badge-coming-soon">Soon</span>
-                            </button>
-                            <button class="question-type-btn" data-type="slider">
+                            <!-- Text Questions -->
+                            <div class="question-type-category">
+                                <h4 class="question-type-category-title">Text Questions</h4>
+                                <div class="question-type-category-items">
+                                    <button class="question-type-btn" data-type="short-text">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M4 7h16M4 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Short Answer</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="long-text">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M4 7h16M4 12h16M4 17h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Paragraph</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Choice Questions -->
+                            <div class="question-type-category">
+                                <h4 class="question-type-category-title">Choice Questions</h4>
+                                <div class="question-type-category-items">
+                                    <button class="question-type-btn" data-type="multiple">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="2"/>
+                                            <circle cx="8" cy="16" r="3" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M14 8h6M14 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Multiple Choice</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="checkbox">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <rect x="3" y="5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2"/>
+                                            <rect x="3" y="13" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M5 8l1 1 2-2M5 16l1 1 2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            <path d="M14 8h6M14 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Checkboxes</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="dropdown">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <rect x="4" y="8" width="16" height="3" rx="1" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M8 14l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        <span>Dropdown</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="yes-no">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M9 12l2 2 4-4m6 2c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Yes/No</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Scale Questions -->
+                            <div class="question-type-category">
+                                <h4 class="question-type-category-title">Scale Questions</h4>
+                                <div class="question-type-category-items">
+                                    <button class="question-type-btn" data-type="rating">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 9l6-1 3-6z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                        </svg>
+                                        <span>Rating Scale</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="linear-scale">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="6" cy="12" r="2" stroke="currentColor" stroke-width="2"/>
+                                            <circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="2"/>
+                                            <circle cx="18" cy="12" r="2" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M4 12h16" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        <span>Linear Scale</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="ranking">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M4 15h3v6H4zM10.5 9h3v12h-3zM17 3h3v18h-3z" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        <span>Ranking</span>
+                                        <span class="badge-coming-soon">Soon</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Date & Time -->
+                            <div class="question-type-category">
+                                <h4 class="question-type-category-title">Date & Time</h4>
+                                <div class="question-type-category-items">
+                                    <button class="question-type-btn" data-type="date">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Date</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="time">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Time</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Input Fields -->
+                            <div class="question-type-category">
+                                <h4 class="question-type-category-title">Input Fields</h4>
+                                <div class="question-type-category-items">
+                                    <button class="question-type-btn" data-type="email">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Email</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="phone">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        <span>Phone Number</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="number">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M4 9h16M9 4v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            <rect x="7" y="7" width="10" height="10" rx="1" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        <span>Number</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="url">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Website URL</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Media Questions -->
+                            <div class="question-type-category">
+                                <h4 class="question-type-category-title">Media Questions</h4>
+                                <div class="question-type-category-items">
+                                    <button class="question-type-btn" data-type="file">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        <span>File Upload</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="voice">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <rect x="10" y="5" width="4" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M7 13v1a5 5 0 0010 0v-1M12 19v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                        <span>Voice Recording</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="video">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <rect x="2" y="6" width="14" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M16 10l6-4v12l-6-4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                        </svg>
+                                        <span>Video Recording</span>
+                                        <span class="badge-coming-soon">Soon</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Advanced Questions -->
+                            <div class="question-type-category">
+                                <h4 class="question-type-category-title">Advanced Questions</h4>
+                                <div class="question-type-category-items">
+                                    <button class="question-type-btn" data-type="matrix">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                                            <path d="M3 9h18M3 15h18M9 3v18M15 3v18" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                        <span>Matrix/Grid</span>
+                                        <span class="badge-coming-soon">Soon</span>
+                                    </button>
+                                    <button class="question-type-btn" data-type="slider">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M4 12h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                                     <circle cx="14" cy="12" r="3" fill="currentColor"/>
