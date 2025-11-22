@@ -660,11 +660,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Select category
+        // Select section and add it
         categoryDropdownItems.forEach(item => {
             item.addEventListener('click', function(e) {
                 e.stopPropagation();
-                const categoryValue = item.dataset.category;
+                const sectionValue = item.dataset.category;
                 const textSpan = item.querySelector('span');
                 const iconDiv = item.querySelector('.category-icon');
                 
@@ -672,34 +672,51 @@ document.addEventListener('DOMContentLoaded', function() {
                     const text = textSpan.textContent;
                     const icon = iconDiv.innerHTML;
                     
-                    // Update selected display
-                    const selectedIcon = categoryDropdownSelected.querySelector('.category-icon');
-                    const selectedText = categoryDropdownSelected.querySelector('span');
+                    // Add section at the end of questions list
+                    const newSection = {
+                        id: Date.now(),
+                        type: 'text',
+                        text: text,
+                        required: false,
+                        timeLimit: 0,
+                        points: 0,
+                        isSection: true,
+                        sectionType: sectionValue
+                    };
                     
-                    if (selectedIcon && selectedText) {
-                        selectedIcon.innerHTML = icon;
-                        selectedText.textContent = text;
+                    questions.push(newSection);
+                    
+                    renderQuestions();
+                    updateStats();
+                    saveToStorage();
+                    
+                    // Reset dropdown to default
+                    const defaultIcon = categoryDropdownSelected.querySelector('.category-icon');
+                    const defaultText = categoryDropdownSelected.querySelector('span');
+                    if (defaultIcon && defaultText) {
+                        defaultIcon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 4v16m8-8H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/></svg>';
+                        defaultText.textContent = 'Select Section';
                     }
                     
                     // Update active state
                     categoryDropdownItems.forEach(i => i.classList.remove('active'));
                     item.classList.add('active');
                     
-                    // Save preference
-                    localStorage.setItem('interviewCategory', categoryValue);
-                    
-                    // Save all settings to storage
-                    if (typeof saveToStorage === 'function') {
-                        saveToStorage();
-                    }
-                    
                     // Close dropdown
                     closeCategoryDropdown();
                     
                     // Show notification
                     if (typeof showToast === 'function') {
-                        showToast(`Category set to ${text}!`);
+                        showToast(`Section "${text}" added successfully!`);
                     }
+                    
+                    // Scroll to the new section
+                    setTimeout(() => {
+                        const newQuestionElement = document.querySelector(`[data-question-id="${newSection.id}"]`);
+                        if (newQuestionElement) {
+                            newQuestionElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                    }, 100);
                 }
             });
         });
@@ -710,32 +727,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 closeCategoryDropdown();
             }
         });
-        
-        // Load saved category
-        const savedCategory = localStorage.getItem('interviewCategory');
-        if (savedCategory) {
-            const savedCategoryItem = document.querySelector(`.category-dropdown-item[data-category="${savedCategory}"]`);
-            if (savedCategoryItem) {
-                const textSpan = savedCategoryItem.querySelector('span');
-                const iconDiv = savedCategoryItem.querySelector('.category-icon');
-                
-                if (textSpan && iconDiv) {
-                    const text = textSpan.textContent;
-                    const icon = iconDiv.innerHTML;
-                    
-                    // Update selected display
-                    const selectedIcon = categoryDropdownSelected.querySelector('.category-icon');
-                    const selectedText = categoryDropdownSelected.querySelector('span');
-                    
-                    if (selectedIcon && selectedText) {
-                        selectedIcon.innerHTML = icon;
-                        selectedText.textContent = text;
-                    }
-                    
-                    savedCategoryItem.classList.add('active');
-                }
-            }
-        }
     }
     
     // Apply Question Color - Only to question boxes (not the entire form)
@@ -2050,13 +2041,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             </svg>
                             Delete
                         </button>
-                        <button class="question-item-btn add-section" data-index="${index}">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M8 3.333v9.334M3.333 8h9.334" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                                <rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                            </svg>
-                            Add Section
-                        </button>
                     </div>
                 </div>
                 <div class="question-item-meta">
@@ -2094,12 +2078,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        questionsList.querySelectorAll('.add-section').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const index = parseInt(this.dataset.index);
-                addSectionAfterQuestion(index);
-            });
-        });
     }
 
     // Delete Question
