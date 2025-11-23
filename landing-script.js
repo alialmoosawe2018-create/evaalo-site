@@ -488,32 +488,69 @@ navLanguageOptions.forEach(option => {
 });
 
 // ====================================
-// Navigation Menu Toggle
+// Navigation Menu Toggle - Sidebar Style
 // ====================================
 
+const navMenuBackdrop = document.getElementById('navMenuBackdrop');
+
 if (navMenuToggle && navMenuWrapper) {
-    // Toggle menu on click
+    // Function to open sidebar
+    function openSidebar() {
+        navMenuWrapper.classList.add('active');
+        document.body.classList.add('sidebar-open');
+        navMenuToggle.setAttribute('aria-expanded', 'true');
+    }
+
+    // Function to close sidebar
+    function closeSidebar() {
+        navMenuWrapper.classList.remove('active');
+        document.body.classList.remove('sidebar-open');
+        navMenuToggle.setAttribute('aria-expanded', 'false');
+    }
+
+    // Toggle sidebar on hamburger click
     navMenuToggle.addEventListener('click', (e) => {
         e.stopPropagation();
-        navMenuWrapper.classList.toggle('active');
-    });
-
-    // Close menu when clicking outside
-    document.addEventListener('click', (e) => {
-        if (!navMenuWrapper.contains(e.target)) {
-            navMenuWrapper.classList.remove('active');
+        if (navMenuWrapper.classList.contains('active')) {
+            closeSidebar();
+        } else {
+            openSidebar();
         }
     });
 
-    // Close menu when clicking on a nav link
+    // Close sidebar when clicking on backdrop
+    if (navMenuBackdrop) {
+        navMenuBackdrop.addEventListener('click', () => {
+            closeSidebar();
+        });
+    }
+
+    // Close sidebar when clicking on a nav link (mobile only)
     if (navMenu) {
-        const navLinks = navMenu.querySelectorAll('.nav-link');
+        const navLinks = navMenu.querySelectorAll('.nav-link:not(.nav-link-dropdown)');
         navLinks.forEach(link => {
             link.addEventListener('click', () => {
-                navMenuWrapper.classList.remove('active');
+                // Only close on mobile
+                if (window.innerWidth <= 768) {
+                    closeSidebar();
+                }
             });
         });
     }
+
+    // Close sidebar on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && navMenuWrapper.classList.contains('active')) {
+            closeSidebar();
+        }
+    });
+
+    // Handle window resize - close sidebar when switching to desktop
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768 && navMenuWrapper.classList.contains('active')) {
+            closeSidebar();
+        }
+    });
 }
 
 // ====================================
@@ -999,5 +1036,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.opacity = '1';
     }, 100);
 });
+
+
 
 
