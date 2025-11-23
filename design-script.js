@@ -1264,7 +1264,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.overflow = 'hidden';
             // Hide left icon when sidebar opens
             if (leftIconWrapper) {
-                leftIconWrapper.style.display = 'none';
+                leftIconWrapper.classList.add('hidden');
             }
         }
     }
@@ -1275,7 +1275,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.style.overflow = '';
         // Show left icon when sidebar closes
         if (leftIconWrapper && window.innerWidth <= 768) {
-            leftIconWrapper.style.display = 'block';
+            leftIconWrapper.classList.remove('hidden');
         }
     }
     
@@ -1330,6 +1330,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (mobileSidebarToggle) {
                 mobileSidebarToggle.style.display = 'flex';
             }
+            if (leftIconWrapper) {
+                leftIconWrapper.classList.remove('hidden');
+            }
             if (designSidebar) {
                 designSidebar.classList.remove('mobile-open');
             }
@@ -1339,6 +1342,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             if (mobileSidebarToggle) {
                 mobileSidebarToggle.style.display = 'none';
+            }
+            if (leftIconWrapper) {
+                leftIconWrapper.classList.add('hidden');
             }
             if (designSidebar) {
                 designSidebar.classList.remove('mobile-open');

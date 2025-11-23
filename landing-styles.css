@@ -305,6 +305,14 @@ body.rtl-text .step-number {
         left: 20px !important;
         z-index: 1000 !important;
         background: transparent !important;
+        transition: opacity 0.3s ease, visibility 0.3s ease !important;
+    }
+    
+    .left-icon-wrapper.hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
     
     .left-icon-button {
@@ -5361,6 +5369,14 @@ html[dir="rtl"] .footer-links a:hover {
         left: 10px !important;
         z-index: 1000 !important;
         background: transparent !important;
+        transition: opacity 0.3s ease, visibility 0.3s ease !important;
+    }
+    
+    .left-icon-wrapper.hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
     
     .left-icon-button {
