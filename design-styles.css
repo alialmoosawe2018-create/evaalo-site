@@ -2416,34 +2416,31 @@
     
     /* Header actions buttons - same style as question-item-btn on small mobile */
     .header-actions {
-        gap: 6px !important;
+        gap: 5px !important;
     }
     
     .header-actions .btn-secondary,
     .header-actions .btn-primary,
-    .header-actions .btn-share,
-    .header-actions .btn-clear-all {
-        padding: 10px !important;
+    .header-actions .btn-share {
+        padding: 8px !important;
         width: auto !important;
-        min-width: 40px !important;
-        height: 40px !important;
+        min-width: 36px !important;
+        height: 36px !important;
         gap: 0 !important;
         justify-content: center !important;
     }
     
     .header-actions .btn-secondary .btn-text,
     .header-actions .btn-primary .btn-text,
-    .header-actions .btn-share .btn-text,
-    .header-actions .btn-clear-all .btn-text {
+    .header-actions .btn-share .btn-text {
         display: none !important;
     }
     
     .header-actions .btn-secondary svg,
     .header-actions .btn-primary svg,
-    .header-actions .btn-share svg,
-    .header-actions .btn-clear-all svg {
-        width: 20px !important;
-        height: 20px !important;
+    .header-actions .btn-share svg {
+        width: 18px !important;
+        height: 18px !important;
         margin: 0 !important;
     }
 
@@ -2762,35 +2759,32 @@
     
     /* Header actions buttons - same style as question-item-btn on mobile */
     .header-actions {
-        gap: 8px !important;
+        gap: 6px !important;
         flex-wrap: wrap !important;
     }
     
     .header-actions .btn-secondary,
     .header-actions .btn-primary,
-    .header-actions .btn-share,
-    .header-actions .btn-clear-all {
-        padding: 10px !important;
+    .header-actions .btn-share {
+        padding: 8px !important;
         width: auto !important;
-        min-width: 40px !important;
-        height: 40px !important;
+        min-width: 36px !important;
+        height: 36px !important;
         gap: 0 !important;
         justify-content: center !important;
     }
     
     .header-actions .btn-secondary .btn-text,
     .header-actions .btn-primary .btn-text,
-    .header-actions .btn-share .btn-text,
-    .header-actions .btn-clear-all .btn-text {
+    .header-actions .btn-share .btn-text {
         display: none !important;
     }
     
     .header-actions .btn-secondary svg,
     .header-actions .btn-primary svg,
-    .header-actions .btn-share svg,
-    .header-actions .btn-clear-all svg {
-        width: 20px !important;
-        height: 20px !important;
+    .header-actions .btn-share svg {
+        width: 18px !important;
+        height: 18px !important;
         margin: 0 !important;
     }
 
