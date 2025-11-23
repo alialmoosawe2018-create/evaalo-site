@@ -1249,6 +1249,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const mobileSidebarClose = document.getElementById('mobileSidebarClose');
     const mobileSidebarOverlay = document.getElementById('mobileSidebarOverlay');
     const designSidebar = document.getElementById('designSidebar');
+    const leftIconBtn = document.getElementById('leftIconBtn');
+    const leftIconWrapper = document.querySelector('.left-icon-wrapper');
     
     let touchStartX = 0;
     let touchStartY = 0;
@@ -1260,6 +1262,10 @@ document.addEventListener('DOMContentLoaded', function() {
             designSidebar.classList.add('mobile-open');
             mobileSidebarOverlay.classList.add('active');
             document.body.style.overflow = 'hidden';
+            // Hide left icon when sidebar opens
+            if (leftIconWrapper) {
+                leftIconWrapper.style.display = 'none';
+            }
         }
     }
     
@@ -1267,6 +1273,10 @@ document.addEventListener('DOMContentLoaded', function() {
         designSidebar.classList.remove('mobile-open');
         mobileSidebarOverlay.classList.remove('active');
         document.body.style.overflow = '';
+        // Show left icon when sidebar closes
+        if (leftIconWrapper && window.innerWidth <= 768) {
+            leftIconWrapper.style.display = 'block';
+        }
     }
     
     // Toggle sidebar on button click
@@ -1279,6 +1289,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     openMobileSidebar();
                 }
+            }
+        });
+    }
+    
+    // Open sidebar on left icon click
+    if (leftIconBtn) {
+        leftIconBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (window.innerWidth <= 768) {
+                openMobileSidebar();
             }
         });
     }
