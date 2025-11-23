@@ -5440,6 +5440,15 @@ html[dir="rtl"] .footer-links a:hover {
 
 /* Smooth focus states for better UX */
 a:focus,
+/* Remove blue outline on buttons in dashboard */
+.design-page button:focus,
+.design-page button:active,
+.dashboard-page button:focus,
+.dashboard-page button:active {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
 button:focus {
     outline: 2px solid rgba(0, 110, 255, 0.5);
     outline-offset: 4px;
@@ -5451,6 +5460,13 @@ button:focus {
     outline: 2px solid rgba(0, 110, 255, 0.5);
     outline-offset: 4px;
     border-radius: 4px;
+}
+
+/* Remove blue outline in dashboard and design pages */
+.design-page *:focus-visible,
+.dashboard-page *:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
 }
 
 /* ====================================
