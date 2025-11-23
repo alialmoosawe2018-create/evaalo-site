@@ -2348,8 +2348,8 @@
     }
     
     .mobile-sidebar-toggle .mobile-gear-icon {
-        width: 49px !important;
-        height: 49px !important;
+        width: 100% !important;
+        height: 100% !important;
         filter: drop-shadow(0 2px 8px rgba(34, 211, 238, 0.3)) !important;
         -webkit-filter: drop-shadow(0 2px 8px rgba(34, 211, 238, 0.3)) !important;
     }
