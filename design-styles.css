@@ -2421,7 +2421,8 @@
     
     .header-actions .btn-secondary,
     .header-actions .btn-primary,
-    .header-actions .btn-share {
+    .header-actions .btn-share,
+    .header-actions .btn-clear-all {
         padding: 8px !important;
         width: auto !important;
         min-width: 36px !important;
@@ -2432,13 +2433,15 @@
     
     .header-actions .btn-secondary .btn-text,
     .header-actions .btn-primary .btn-text,
-    .header-actions .btn-share .btn-text {
+    .header-actions .btn-share .btn-text,
+    .header-actions .btn-clear-all .btn-text {
         display: none !important;
     }
     
     .header-actions .btn-secondary svg,
     .header-actions .btn-primary svg,
-    .header-actions .btn-share svg {
+    .header-actions .btn-share svg,
+    .header-actions .btn-clear-all svg {
         width: 18px !important;
         height: 18px !important;
         margin: 0 !important;
@@ -2765,7 +2768,8 @@
     
     .header-actions .btn-secondary,
     .header-actions .btn-primary,
-    .header-actions .btn-share {
+    .header-actions .btn-share,
+    .header-actions .btn-clear-all {
         padding: 8px !important;
         width: auto !important;
         min-width: 36px !important;
@@ -2776,13 +2780,15 @@
     
     .header-actions .btn-secondary .btn-text,
     .header-actions .btn-primary .btn-text,
-    .header-actions .btn-share .btn-text {
+    .header-actions .btn-share .btn-text,
+    .header-actions .btn-clear-all .btn-text {
         display: none !important;
     }
     
     .header-actions .btn-secondary svg,
     .header-actions .btn-primary svg,
-    .header-actions .btn-share svg {
+    .header-actions .btn-share svg,
+    .header-actions .btn-clear-all svg {
         width: 18px !important;
         height: 18px !important;
         margin: 0 !important;
