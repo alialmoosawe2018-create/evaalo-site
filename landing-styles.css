@@ -319,8 +319,7 @@ body.rtl-text .step-number {
         -webkit-backdrop-filter: none !important;
     }
     
-    .left-icon-button:hover .left-feature-icon,
-    .left-icon-button[aria-expanded="true"] .left-feature-icon {
+    .left-icon-button:hover .left-feature-icon {
         background: linear-gradient(135deg, 
             rgba(20, 20, 35, 0.98) 0%, 
             rgba(15, 15, 28, 0.98) 100%) !important;
@@ -5376,8 +5375,7 @@ html[dir="rtl"] .footer-links a:hover {
         -webkit-backdrop-filter: none !important;
     }
     
-    .left-icon-button:hover .left-feature-icon,
-    .left-icon-button[aria-expanded="true"] .left-feature-icon {
+    .left-icon-button:hover .left-feature-icon {
         background: linear-gradient(135deg, 
             rgba(20, 20, 35, 0.98) 0%, 
             rgba(15, 15, 28, 0.98) 100%) !important;
