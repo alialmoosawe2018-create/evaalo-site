@@ -822,7 +822,7 @@
 
 .color-dropdown-menu {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 12px);
     left: 0;
     right: 0;
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
@@ -833,7 +833,7 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     max-height: 320px;
     overflow-y: auto;
-    z-index: 100;
+    z-index: 10001;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     padding: 8px;
     opacity: 0;
@@ -947,7 +947,7 @@
 
 .font-dropdown-menu {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 12px);
     left: 0;
     right: 0;
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
@@ -958,7 +958,7 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     max-height: 400px;
     overflow-y: auto;
-    z-index: 100;
+    z-index: 10001;
     opacity: 0;
     visibility: hidden;
     transform: translateY(-10px);
@@ -1092,7 +1092,7 @@
 
 .category-dropdown-menu {
     position: absolute;
-    top: calc(100% + 8px);
+    top: calc(100% + 12px);
     left: 0;
     right: 0;
     background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
@@ -1103,7 +1103,7 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     max-height: 360px;
     overflow-y: auto;
-    z-index: 100;
+    z-index: 10001;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     padding: 8px;
     display: flex;
@@ -1619,6 +1619,16 @@
     flex-direction: column;
     animation: slideUp 0.4s ease;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+    position: relative;
+    z-index: 10000;
+}
+
+/* Ensure dropdowns in modals appear below icons and buttons */
+.modal-content .color-dropdown-menu,
+.modal-content .font-dropdown-menu,
+.modal-content .category-dropdown-menu {
+    top: calc(100% + 16px) !important;
+    z-index: 10002 !important;
 }
 
 .modal-content.large {
@@ -1652,6 +1662,8 @@
     color: rgba(255, 255, 255, 0.7);
     cursor: pointer;
     transition: all 0.3s ease;
+    position: relative;
+    z-index: 10003;
 }
 
 .modal-close:hover {
