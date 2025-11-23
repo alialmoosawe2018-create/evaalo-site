@@ -2764,11 +2764,11 @@
     }
 
     /* Show gear icon on mobile - exact same style as language-icon-image */
-    /* Icon should be slightly smaller than the wrapper to be centered properly */
+    /* Icon fills the entire circular frame to match other icons */
     .mobile-sidebar-toggle .mobile-gear-icon {
         display: block;
-        width: 54px !important;
-        height: 54px !important;
+        width: 100% !important;
+        height: 100% !important;
         flex-shrink: 0;
         transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
         position: absolute;
