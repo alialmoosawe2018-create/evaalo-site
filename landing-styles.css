@@ -585,15 +585,15 @@ html[lang="ku"] body,
     right: 0;
     z-index: 999;
     background: linear-gradient(135deg, 
-        rgba(99, 102, 241, 0.12) 0%, 
-        rgba(168, 85, 247, 0.1) 50%,
-        rgba(56, 189, 248, 0.08) 100%),
-        linear-gradient(135deg, rgba(20, 20, 35, 0.95) 0%, rgba(15, 15, 28, 0.96) 100%);
+        rgba(34, 211, 238, 0.08) 0%, 
+        rgba(59, 130, 246, 0.06) 50%,
+        rgba(34, 211, 238, 0.05) 100%),
+        linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.96) 100%);
     backdrop-filter: blur(25px) saturate(180%);
     -webkit-backdrop-filter: blur(25px) saturate(180%);
-    border-bottom: 1.5px solid rgba(99, 102, 241, 0.15);
+    border-bottom: 1px solid rgba(34, 211, 238, 0.2);
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2),
-                0 2px 12px rgba(99, 102, 241, 0.08),
+                0 2px 12px rgba(34, 211, 238, 0.1),
                 inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
