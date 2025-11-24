@@ -1216,12 +1216,43 @@ html[lang="ku"] body,
     left: auto !important;
 }
 
+/* Ensure all links inside active sidebar are clickable */
+.nav-menu-wrapper.active .nav-links *,
+.nav-menu-wrapper.active .nav-links-mobile * {
+    pointer-events: auto !important;
+}
+
+.nav-menu-wrapper.active .nav-links a,
+.nav-menu-wrapper.active .nav-links-mobile a {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 10002 !important;
+    position: relative !important;
+}
+
 /* Ensure sidebar content is always clear and visible */
 .nav-menu-wrapper.active .nav-links *,
 .nav-menu-wrapper.active .nav-links-mobile * {
     filter: none !important;
     -webkit-filter: none !important;
     text-shadow: none !important;
+    pointer-events: auto !important;
+}
+
+/* Force all interactive elements to be clickable */
+.nav-menu-wrapper.active .nav-links a,
+.nav-menu-wrapper.active .nav-links-mobile a,
+.nav-menu-wrapper.active .nav-links button,
+.nav-menu-wrapper.active .nav-links-mobile button,
+.nav-menu-wrapper.active .nav-links .nav-link,
+.nav-menu-wrapper.active .nav-links-mobile .nav-link,
+.nav-menu-wrapper.active .nav-links .nav-link-dropdown,
+.nav-menu-wrapper.active .nav-links-mobile .nav-link-dropdown {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 10002 !important;
+    position: relative !important;
+    touch-action: manipulation !important;
 }
 
 /* Smart link animations in mobile sidebar only */
@@ -1244,6 +1275,8 @@ html[lang="ku"] body,
     filter: none !important;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    cursor: pointer !important;
+    z-index: 10002 !important;
 }
 
 .nav-menu-wrapper .nav-links .nav-link::before,
@@ -1299,6 +1332,16 @@ body.sidebar-open .nav-menu-backdrop {
     visibility: visible;
     pointer-events: auto;
     display: block;
+}
+
+/* Ensure backdrop doesn't block sidebar clicks */
+body.sidebar-open .nav-menu-backdrop {
+    z-index: 10000 !important;
+}
+
+body.sidebar-open .nav-menu-wrapper.active .nav-links,
+body.sidebar-open .nav-menu-wrapper.active .nav-links-mobile {
+    z-index: 10001 !important;
 }
 
 /* Put language icon behind sidebar when sidebar is open on mobile */
@@ -1768,6 +1811,24 @@ body.rtl-text .nav-links {
         left: auto !important;
     }
     
+    /* Ensure all links inside active sidebar are clickable on mobile */
+    .nav-menu-wrapper.active .nav-links *,
+    .nav-menu-wrapper.active .nav-links-mobile * {
+        pointer-events: auto !important;
+    }
+    
+    .nav-menu-wrapper.active .nav-links a,
+    .nav-menu-wrapper.active .nav-links-mobile a,
+    .nav-menu-wrapper.active .nav-links .nav-link,
+    .nav-menu-wrapper.active .nav-links-mobile .nav-link {
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        z-index: 10002 !important;
+        position: relative !important;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
+    }
+    
     /* Ensure sidebar content is always clear and visible on mobile */
     .nav-menu-wrapper.active .nav-links *,
     .nav-menu-wrapper.active .nav-links-mobile * {
@@ -1794,7 +1855,7 @@ body.rtl-text .nav-links {
         padding: 16px 24px !important;
         pointer-events: auto !important;
         cursor: pointer !important;
-        z-index: 1003 !important;
+        z-index: 10002 !important;
         position: relative !important;
         color: rgba(255, 255, 255, 1) !important;
         opacity: 1 !important;
@@ -1809,6 +1870,8 @@ body.rtl-text .nav-links {
         filter: none !important;
         -webkit-font-smoothing: antialiased !important;
         -moz-osx-font-smoothing: grayscale !important;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
     }
     
     .nav-menu-wrapper .nav-links .nav-link::before,
