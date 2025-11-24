@@ -1105,9 +1105,9 @@ html[lang="ku"] body,
     max-width: 85vw;
     height: 100vh;
     min-width: 240px;
-    background: linear-gradient(135deg, rgba(30, 30, 46, 0.98) 0%, rgba(20, 20, 36, 0.98) 100%);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(30, 30, 46, 1) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     border-left: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 0;
     box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5), -4px 0 16px rgba(99, 102, 241, 0.3);
@@ -1158,9 +1158,9 @@ html[lang="ku"] body,
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     opacity: 0;
     visibility: hidden;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1605,6 +1605,9 @@ body.rtl-text .nav-links {
         visibility: hidden !important;
         pointer-events: none !important;
         z-index: 1002 !important;
+        background: rgba(30, 30, 46, 1) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
     }
     
     .nav-menu-wrapper.active .nav-links {
@@ -1625,7 +1628,14 @@ body.rtl-text .nav-links {
         cursor: pointer !important;
         z-index: 10 !important;
         position: relative !important;
-        color: rgba(255, 255, 255, 0.9) !important;
+        color: rgba(255, 255, 255, 1) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    .nav-link:hover {
+        color: rgba(255, 255, 255, 1) !important;
+        opacity: 1 !important;
     }
     
     /* Prevent body scroll when sidebar is open */
