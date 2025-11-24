@@ -372,18 +372,27 @@ if (navLanguageItem) {
     
     // Toggle dropdown on click (mobile only)
     navLanguageItem.addEventListener('click', (e) => {
-        // Don't toggle if clicking on a language option
+        // Don't toggle if clicking on a language option - let it handle its own click
         if (e.target.closest('.nav-language-option')) {
             return;
         }
         
-        // Prevent default link behavior
-        e.preventDefault();
-        e.stopPropagation();
-        
         // Check if we're on mobile
         if (window.innerWidth > 768) {
             return;
+        }
+        
+        // Only prevent default if clicking directly on the nav-link-dropdown element itself
+        // Don't prevent if clicking on child elements (like span, svg)
+        if (e.target === navLanguageItem || e.target.closest('.nav-link-dropdown') === navLanguageItem) {
+            // Only prevent if clicking on the dropdown trigger itself, not on links
+            const clickedElement = e.target;
+            if (clickedElement.tagName === 'A' || clickedElement.closest('a')) {
+                // Don't prevent default for links
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
         }
         
         // Toggle expanded class
@@ -556,7 +565,8 @@ if (navMenuToggle && navMenuWrapper) {
     if (navMenu) {
         const navLinks = navMenu.querySelectorAll('a.nav-link:not(.nav-link-dropdown)');
         navLinks.forEach(link => {
-            link.addEventListener('click', () => {
+            link.addEventListener('click', (e) => {
+                // Don't prevent default - allow navigation to work
                 // Only close on mobile
                 if (window.innerWidth <= 768) {
                     // Small delay to allow navigation
@@ -565,6 +575,29 @@ if (navMenuToggle && navMenuWrapper) {
                     }, 100);
                 }
             });
+        });
+    }
+    
+    // Ensure all links in sidebar are clickable
+    if (navMenu) {
+        const allLinks = navMenu.querySelectorAll('a');
+        allLinks.forEach(link => {
+            // Remove any event listeners that might be blocking
+            link.style.pointerEvents = 'auto';
+            link.style.cursor = 'pointer';
+            
+            // Ensure links work properly
+            link.addEventListener('click', (e) => {
+                // Don't prevent default for regular links
+                if (!link.classList.contains('nav-link-dropdown')) {
+                    // Allow normal navigation
+                    if (window.innerWidth <= 768) {
+                        setTimeout(() => {
+                            closeSidebar();
+                        }, 100);
+                    }
+                }
+            }, { passive: true });
         });
     }
 
