@@ -3531,82 +3531,84 @@
     }
     
     .left-icon-button {
+        position: relative !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         background: transparent !important;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: none;
-        padding: 0;
-        margin: 0;
-        cursor: pointer;
-        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-        opacity: 0.95;
-        overflow: visible;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        opacity: 0.95 !important;
+        overflow: visible !important;
     }
     
     /* Soft gradient/glow background behind icon - same as language icon */
     .left-icon-button::before {
-        content: '';
-        position: absolute;
-        width: 80px;
-        height: 80px;
-        background: radial-gradient(circle, rgba(34, 211, 238, 0.2) 0%, transparent 70%);
-        border-radius: 50%;
-        top: -12px;
-        left: 50%;
-        transform: translateX(-50%);
-        box-shadow: 0 4px 20px rgba(34, 211, 238, 0.25);
-        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-        z-index: 0;
-        filter: blur(8px);
-        animation: iconGlowPulse 3s ease-in-out infinite;
+        content: '' !important;
+        position: absolute !important;
+        width: 95px !important;
+        height: 95px !important;
+        background: radial-gradient(circle, rgba(34, 211, 238, 0.2) 0%, transparent 70%) !important;
+        border-radius: 50% !important;
+        top: -12px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        box-shadow: 0 4px 20px rgba(34, 211, 238, 0.25) !important;
+        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        z-index: 0 !important;
+        filter: blur(8px) !important;
+        animation: iconGlowPulse 3s ease-in-out infinite !important;
     }
     
     .left-icon-button:hover::before {
-        box-shadow: 0 8px 35px rgba(34, 211, 238, 0.5);
-        transform: translateX(-50%) scale(1.15);
-        filter: blur(12px);
+        box-shadow: 0 8px 35px rgba(34, 211, 238, 0.5) !important;
+        transform: translateX(-50%) scale(1.15) !important;
+        filter: blur(12px) !important;
     }
     
     .left-icon-button:hover {
-        opacity: 1;
-        transform: translateY(-12px);
+        opacity: 1 !important;
+        transform: translateY(-12px) !important;
     }
     
     .left-feature-icon {
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, 
-            rgba(15, 23, 42, 1) 0%, 
-            rgba(20, 20, 35, 1) 100%) !important;
+        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        position: relative !important;
+        z-index: 1 !important;
         backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
+        border-radius: 50% !important;
+        padding: 0 !important;
         border: 1.5px solid rgba(34, 211, 238, 0.4) !important;
-        box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.1),
-            0 2px 8px rgba(34, 211, 238, 0.2) !important;
-        border-radius: 50%;
-        padding: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-        position: relative;
-        z-index: 1;
-        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 70px !important;
+        height: 70px !important;
+        flex-shrink: 0 !important;
+        margin: 0 auto !important;
+        overflow: hidden !important;
+        background: linear-gradient(135deg, 
+            rgba(34, 211, 238, 0.25) 0%, 
+            rgba(34, 211, 238, 0.1) 100%) !important;
     }
     
     .left-icon-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center;
-        border-radius: 50%;
-        filter: drop-shadow(0 2px 8px rgba(34, 211, 238, 0.3));
-        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-        position: relative;
-        z-index: 2;
+        flex-shrink: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        display: block !important;
+        border-radius: 50% !important;
+        overflow: hidden !important;
+        object-fit: cover !important;
+        object-position: center !important;
+        filter: drop-shadow(0 2px 8px rgba(34, 211, 238, 0.3)) !important;
+        transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        position: relative !important;
+        z-index: 2 !important;
     }
     
     /* Show mobile icon (icon11), hide desktop icon (icon10) on mobile */
@@ -3619,7 +3621,8 @@
     }
     
     .left-icon-button:hover .left-feature-icon {
-        transform: scale(1.15) rotate(3deg);
+        transform: scale(1.15) rotate(3deg) !important;
+        backdrop-filter: none !important;
         border-color: rgba(34, 211, 238, 0.6) !important;
         box-shadow: 
             0 12px 40px rgba(34, 211, 238, 0.4),
@@ -3627,20 +3630,20 @@
         background: linear-gradient(135deg, 
             rgba(34, 211, 238, 0.35) 0%, 
             rgba(34, 211, 238, 0.15) 100%) !important;
-        animation: iconFloat 2s ease-in-out infinite;
+        animation: iconFloat 2s ease-in-out infinite !important;
     }
     
     .left-icon-button:hover .left-icon-image {
-        filter: drop-shadow(0 4px 16px rgba(34, 211, 238, 0.6)) brightness(1.1);
-        transform: scale(1.05);
+        filter: drop-shadow(0 4px 16px rgba(34, 211, 238, 0.6)) brightness(1.1) !important;
+        transform: scale(1.05) !important;
     }
     
     .left-icon-button:focus {
-        outline: none;
+        outline: none !important;
     }
     
     .left-icon-button[aria-expanded="true"] .left-icon-image {
-        filter: drop-shadow(0 4px 16px rgba(34, 211, 238, 0.6)) brightness(1.1);
+        filter: drop-shadow(0 4px 16px rgba(34, 211, 238, 0.6)) brightness(1.1) !important;
     }
     
     .left-icon-button[aria-expanded="true"] .left-feature-icon {
@@ -3655,20 +3658,20 @@
 }
 
 @media (max-width: 480px) {
-    /* Even smaller icon sizes on small mobile */
+    /* Even smaller icon sizes on small mobile - same as language icon */
     .left-icon-wrapper {
         top: 75px !important;
         left: 10px !important;
     }
     
     .left-icon-button::before {
-        width: 70px;
-        height: 70px;
+        width: 80px !important;
+        height: 80px !important;
     }
     
     .left-feature-icon {
-        width: 55px;
-        height: 55px;
+        width: 60px !important;
+        height: 60px !important;
         background: linear-gradient(135deg, 
             rgba(15, 23, 42, 1) 0%, 
             rgba(20, 20, 35, 1) 100%) !important;
@@ -3681,10 +3684,10 @@
     }
     
     .left-icon-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        object-position: center !important;
     }
     
     .left-icon-button:hover .left-feature-icon,
