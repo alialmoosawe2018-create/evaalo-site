@@ -1151,6 +1151,14 @@ html[lang="ku"] body,
     pointer-events: auto !important;
 }
 
+.nav-menu-wrapper.active .nav-links .nav-link,
+.nav-menu-wrapper.active .nav-links a.nav-link {
+    pointer-events: auto !important;
+    z-index: 1003 !important;
+    display: block !important;
+    position: relative !important;
+}
+
 /* Mobile Sidebar Backdrop/Overlay */
 .nav-menu-backdrop {
     position: fixed;
@@ -1617,25 +1625,39 @@ body.rtl-text .nav-links {
         pointer-events: auto !important;
     }
     
+    .nav-menu-wrapper.active .nav-links .nav-link {
+        pointer-events: auto !important;
+        z-index: 100 !important;
+    }
+    
     .nav-links .nav-link-dropdown {
         overflow: visible !important;
     }
     
-    .nav-link {
-        font-size: 14px;
-        padding: 11px 18px;
+    .nav-links .nav-link {
+        font-size: 14px !important;
+        padding: 11px 18px !important;
         pointer-events: auto !important;
         cursor: pointer !important;
-        z-index: 10 !important;
+        z-index: 100 !important;
         position: relative !important;
         color: rgba(255, 255, 255, 1) !important;
         opacity: 1 !important;
         visibility: visible !important;
+        display: block !important;
+        text-decoration: none !important;
+        width: 100% !important;
+        text-align: left !important;
     }
     
-    .nav-link:hover {
+    .nav-links .nav-link:hover {
         color: rgba(255, 255, 255, 1) !important;
         opacity: 1 !important;
+        background: rgba(99, 102, 241, 0.1) !important;
+    }
+    
+    .nav-links .nav-link:active {
+        background: rgba(99, 102, 241, 0.2) !important;
     }
     
     /* Prevent body scroll when sidebar is open */
