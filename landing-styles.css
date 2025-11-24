@@ -687,17 +687,7 @@ html[lang="ku"] body,
 }
 
 /* Desktop Navigation Links */
-.nav-links-desktop {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    justify-content: center;
-}
+/* Desktop Navigation - Base styles (already defined above, keeping for reference) */
 
 /* Mobile Hamburger Menu */
 .nav-menu-wrapper {
@@ -1096,8 +1086,62 @@ html[lang="ku"] body,
     }
 }
 
+/* Desktop Navigation - Always visible and functional */
+.nav-links-desktop {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
+}
+
+/* Desktop navigation links - ensure they work properly and are not affected by mobile styles */
+.nav-links-desktop .nav-link {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    display: block !important;
+    position: static !important;
+    transform: none !important;
+    padding: 8px 12px !important;
+    border-left: none !important;
+    background: transparent !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    letter-spacing: normal !important;
+}
+
+.nav-links-desktop .nav-link::before {
+    display: none !important;
+}
+
+.nav-links-desktop .nav-link:hover {
+    background: rgba(99, 102, 241, 0.15) !important;
+    transform: translateY(-1px) !important;
+    padding-left: 12px !important;
+    border-left: none !important;
+}
+
 /* Mobile: Modern Smart Sidebar - Slides from right */
-.nav-links {
+/* Only apply to mobile sidebar, not desktop */
+.nav-menu-wrapper .nav-links,
+.nav-links-mobile {
     position: fixed;
     top: 0;
     right: 0;
@@ -1129,52 +1173,38 @@ html[lang="ku"] body,
     scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
 }
 
-.nav-links::-webkit-scrollbar {
+.nav-menu-wrapper .nav-links::-webkit-scrollbar,
+.nav-links-mobile::-webkit-scrollbar {
     width: 6px;
 }
 
-.nav-links::-webkit-scrollbar-track {
+.nav-menu-wrapper .nav-links::-webkit-scrollbar-track,
+.nav-links-mobile::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.nav-links::-webkit-scrollbar-thumb {
+.nav-menu-wrapper .nav-links::-webkit-scrollbar-thumb,
+.nav-links-mobile::-webkit-scrollbar-thumb {
     background: rgba(99, 102, 241, 0.3);
     border-radius: 3px;
 }
 
-.nav-links::-webkit-scrollbar-thumb:hover {
+.nav-menu-wrapper .nav-links::-webkit-scrollbar-thumb:hover,
+.nav-links-mobile::-webkit-scrollbar-thumb:hover {
     background: rgba(99, 102, 241, 0.5);
 }
 
-/* Ensure desktop nav links are always visible and not affected by mobile nav-links styles */
-.nav-links-desktop {
-    opacity: 1 !important;
-    visibility: visible !important;
-    transform: none !important;
-    position: static !important;
-    width: auto !important;
-    height: auto !important;
-    min-width: auto !important;
-    max-width: none !important;
-    background: transparent !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    pointer-events: auto !important;
-}
-
-.nav-menu-wrapper.active .nav-links {
+.nav-menu-wrapper.active .nav-links,
+.nav-menu-wrapper.active .nav-links-mobile {
     opacity: 1 !important;
     visibility: visible !important;
     transform: translateX(0) !important;
     pointer-events: auto !important;
 }
 
-/* Smart link animations in sidebar */
-.nav-links .nav-link {
+/* Smart link animations in mobile sidebar only */
+.nav-menu-wrapper .nav-links .nav-link,
+.nav-links-mobile .nav-link {
     position: relative;
     padding: 16px 24px;
     color: rgba(255, 255, 255, 0.95);
@@ -1185,9 +1215,13 @@ html[lang="ku"] body,
     font-size: 15px;
     font-weight: 500;
     letter-spacing: 0.3px;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
 }
 
-.nav-links .nav-link::before {
+.nav-menu-wrapper .nav-links .nav-link::before,
+.nav-links-mobile .nav-link::before {
     content: '';
     position: absolute;
     left: 0;
@@ -1200,7 +1234,8 @@ html[lang="ku"] body,
     border-radius: 0 2px 2px 0;
 }
 
-.nav-links .nav-link:hover {
+.nav-menu-wrapper .nav-links .nav-link:hover,
+.nav-links-mobile .nav-link:hover {
     background: rgba(99, 102, 241, 0.15);
     border-left-color: #6366F1;
     color: #fff;
@@ -1208,11 +1243,13 @@ html[lang="ku"] body,
     transform: translateX(-4px);
 }
 
-.nav-links .nav-link:hover::before {
+.nav-menu-wrapper .nav-links .nav-link:hover::before,
+.nav-links-mobile .nav-link:hover::before {
     transform: scaleY(1);
 }
 
-.nav-links .nav-link:active {
+.nav-menu-wrapper .nav-links .nav-link:active,
+.nav-links-mobile .nav-link:active {
     background: rgba(99, 102, 241, 0.25);
     transform: translateX(-2px);
 }
@@ -1657,7 +1694,9 @@ body.rtl-text .nav-links {
         overflow: visible !important;
     }
     
-    .nav-links {
+    /* Mobile sidebar - only apply to mobile menu wrapper */
+    .nav-menu-wrapper .nav-links,
+    .nav-links-mobile {
         position: fixed !important;
         top: 0 !important;
         right: 0 !important;
@@ -1686,24 +1725,28 @@ body.rtl-text .nav-links {
         transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
     }
     
-    .nav-menu-wrapper.active .nav-links {
+    .nav-menu-wrapper.active .nav-links,
+    .nav-menu-wrapper.active .nav-links-mobile {
         transform: translateX(0) !important;
         opacity: 1 !important;
         visibility: visible !important;
         pointer-events: auto !important;
     }
     
-    .nav-menu-wrapper.active .nav-links .nav-link {
+    .nav-menu-wrapper.active .nav-links .nav-link,
+    .nav-menu-wrapper.active .nav-links-mobile .nav-link {
         pointer-events: auto !important;
         z-index: 1003 !important;
         position: relative !important;
     }
     
-    .nav-links .nav-link-dropdown {
+    .nav-menu-wrapper .nav-links .nav-link-dropdown,
+    .nav-links-mobile .nav-link-dropdown {
         overflow: visible !important;
     }
     
-    .nav-links .nav-link {
+    .nav-menu-wrapper .nav-links .nav-link,
+    .nav-links-mobile .nav-link {
         font-size: 15px !important;
         padding: 16px 24px !important;
         pointer-events: auto !important;
@@ -1721,7 +1764,8 @@ body.rtl-text .nav-links {
         letter-spacing: 0.3px !important;
     }
     
-    .nav-links .nav-link::before {
+    .nav-menu-wrapper .nav-links .nav-link::before,
+    .nav-links-mobile .nav-link::before {
         content: '';
         position: absolute;
         left: 0;
@@ -1734,7 +1778,8 @@ body.rtl-text .nav-links {
         border-radius: 0 2px 2px 0;
     }
     
-    .nav-links .nav-link:hover {
+    .nav-menu-wrapper .nav-links .nav-link:hover,
+    .nav-links-mobile .nav-link:hover {
         color: #fff !important;
         background: rgba(99, 102, 241, 0.15) !important;
         border-left-color: #6366F1 !important;
@@ -1742,11 +1787,13 @@ body.rtl-text .nav-links {
         transform: translateX(-4px) !important;
     }
     
-    .nav-links .nav-link:hover::before {
+    .nav-menu-wrapper .nav-links .nav-link:hover::before,
+    .nav-links-mobile .nav-link:hover::before {
         transform: scaleY(1) !important;
     }
     
-    .nav-links .nav-link:active {
+    .nav-menu-wrapper .nav-links .nav-link:active,
+    .nav-links-mobile .nav-link:active {
         background: rgba(99, 102, 241, 0.25) !important;
         transform: translateX(-2px) !important;
     }
