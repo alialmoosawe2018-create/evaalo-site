@@ -335,16 +335,15 @@ languageDropdownBtn.addEventListener('click', (e) => {
 
 // Close dropdown when clicking outside
 document.addEventListener('click', (e) => {
-    // CRITICAL: Don't interfere with ANY navigation links
-    // Check if clicking on any link in the sidebar
+    // Don't interfere with navigation links
     if (e.target.closest('.nav-links-mobile') || 
         e.target.closest('.nav-menu-wrapper.active') ||
         e.target.closest('a.nav-link') ||
         e.target.tagName === 'A') {
-        // Allow navigation links to work normally - don't interfere
         return;
     }
     
+    // Close language dropdown
     if (!languageDropdownBtn.contains(e.target) && !languageDropdownMenu.contains(e.target)) {
         languageDropdownBtn.setAttribute('aria-expanded', 'false');
         languageDropdownMenu.classList.remove('active');
@@ -458,7 +457,6 @@ if (navLanguageItem) {
                             }
                         };
                         document.addEventListener('click', clickOutsideHandler, { passive: true });
-                        document.addEventListener('touchstart', clickOutsideHandler, { passive: true });
                     }
                 }, 50);
             } else {
@@ -466,27 +464,14 @@ if (navLanguageItem) {
                 dropdown.style.display = 'none';
                 if (clickOutsideHandler) {
                     document.removeEventListener('click', clickOutsideHandler);
-                    document.removeEventListener('touchstart', clickOutsideHandler);
                     clickOutsideHandler = null;
                 }
             }
         }
     };
     
-    // Add both click and touchstart listeners for better mobile support
-    // Use capture: false to allow links to handle events first
-    navLanguageItem.addEventListener('click', handleLanguageToggle, { passive: false, capture: false });
-    
-    // For touch, only handle if it's actually the dropdown trigger
-    navLanguageItem.addEventListener('touchstart', (e) => {
-        // Don't interfere with links - let them handle touch first
-        if (e.target.closest('a.nav-link:not(.nav-link-dropdown)') || 
-            e.target.tagName === 'A' || 
-            e.target.closest('a')) {
-            return;
-        }
-        handleLanguageToggle(e);
-    }, { passive: false, capture: false });
+    // Add click listener
+    navLanguageItem.addEventListener('click', handleLanguageToggle, { passive: false });
 }
 
 // Desktop language dropdown handler (hover-based)
@@ -575,120 +560,68 @@ navLanguageOptions.forEach(option => {
 // ====================================
 // Navigation Menu Toggle - Sidebar Style
 // ====================================
+// Using the same simple approach as design.html
 
 const navMenuBackdrop = document.getElementById('navMenuBackdrop');
 
-// Mobile hamburger menu - sidebar functionality
-if (navMenuToggle && navMenuWrapper) {
-    // Function to open sidebar
-    function openSidebar() {
-        navMenuWrapper.classList.add('active');
-        document.body.classList.add('sidebar-open');
-        navMenuToggle.setAttribute('aria-expanded', 'true');
-    }
-
-    // Function to close sidebar
-    function closeSidebar() {
-        navMenuWrapper.classList.remove('active');
-        document.body.classList.remove('sidebar-open');
-        navMenuToggle.setAttribute('aria-expanded', 'false');
-    }
-
-    // Toggle sidebar on hamburger click/touch
-    const handleToggle = (e) => {
+// Mobile hamburger menu - simple toggle like design.html
+if (navMenuToggle && navMenuWrapper && navMenu) {
+    // Simple toggle function - same as design.html
+    navMenuToggle.addEventListener('click', function(e) {
+        e.preventDefault();
         e.stopPropagation();
+        navMenuWrapper.classList.toggle('active');
         if (navMenuWrapper.classList.contains('active')) {
-            closeSidebar();
+            document.body.classList.add('sidebar-open');
+            navMenuToggle.setAttribute('aria-expanded', 'true');
         } else {
-            openSidebar();
+            document.body.classList.remove('sidebar-open');
+            navMenuToggle.setAttribute('aria-expanded', 'false');
+        }
+    }, { passive: false });
+    
+    // Close menu when clicking on any nav link - simple like design.html
+    const navLinks = navMenu.querySelectorAll('a.nav-link:not(.nav-link-dropdown)');
+    navLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            if (navMenuWrapper.classList.contains('active')) {
+                navMenuWrapper.classList.remove('active');
+                document.body.classList.remove('sidebar-open');
+                navMenuToggle.setAttribute('aria-expanded', 'false');
+            }
+        }, { passive: true });
+    });
+    
+    // Close menu when clicking outside (includes backdrop)
+    const closeSidebarOnOutsideClick = function(e) {
+        if (navMenuWrapper && navMenuWrapper.classList.contains('active')) {
+            if (!navMenu.contains(e.target) && 
+                !navMenuToggle.contains(e.target) && 
+                !navMenuWrapper.contains(e.target)) {
+                navMenuWrapper.classList.remove('active');
+                document.body.classList.remove('sidebar-open');
+                navMenuToggle.setAttribute('aria-expanded', 'false');
+            }
         }
     };
     
-    navMenuToggle.addEventListener('click', handleToggle, { passive: false });
-    navMenuToggle.addEventListener('touchstart', handleToggle, { passive: false });
-
-    // Close sidebar when clicking/touching on backdrop
-    if (navMenuBackdrop) {
-        const closeOnBackdrop = (e) => {
-            // Don't close if clicking on sidebar itself
-            if (e.target.closest('.nav-links-mobile') || 
-                e.target.closest('.nav-menu-wrapper.active')) {
-                return;
-            }
-            closeSidebar();
-        };
-        
-        navMenuBackdrop.addEventListener('click', closeOnBackdrop, { passive: true });
-        navMenuBackdrop.addEventListener('touchstart', closeOnBackdrop, { passive: true });
-    }
-
-    // Close sidebar when clicking/touching on a nav link (mobile only)
-    if (navMenu) {
-        const navLinks = navMenu.querySelectorAll('a.nav-link:not(.nav-link-dropdown)');
-        navLinks.forEach(link => {
-            // Ensure links are clickable and touchable
-            link.style.pointerEvents = 'auto';
-            link.style.cursor = 'pointer';
-            link.style.touchAction = 'manipulation';
-            link.style.webkitTapHighlightColor = 'rgba(99, 102, 241, 0.5)';
-            
-            // Remove any existing handlers to avoid conflicts
-            link.onclick = null;
-            
-            // Track touch to prevent double-handling
-            let touchStartTime = 0;
-            let sidebarClosed = false;
-            
-            // Touch handler for mobile - fires first, closes sidebar
-            link.addEventListener('touchstart', (e) => {
-                if (window.innerWidth <= 768) {
-                    touchStartTime = Date.now();
-                    sidebarClosed = false;
-                    // Visual feedback
-                    link.style.opacity = '0.8';
-                    
-                    // Close sidebar immediately on touch
-                    setTimeout(() => {
-                        if (!sidebarClosed) {
-                            closeSidebar();
-                            sidebarClosed = true;
-                        }
-                    }, 50);
-                }
-            }, { passive: true });
-            
-            link.addEventListener('touchend', (e) => {
-                link.style.opacity = '1';
-            }, { passive: true });
-            
-            // Click handler - fires after touch, but allow navigation always
-            link.addEventListener('click', (e) => {
-                // Always allow navigation - never prevent default
-                if (window.innerWidth <= 768) {
-                    // If click fires within 300ms of touch, touch already closed sidebar
-                    const timeSinceTouch = Date.now() - touchStartTime;
-                    if (timeSinceTouch > 300 || !sidebarClosed) {
-                        // Close sidebar if it wasn't already closed
-                        setTimeout(() => {
-                            closeSidebar();
-                        }, 50);
-                    }
-                }
-            }, { passive: true });
-        });
-    }
-
+    document.addEventListener('click', closeSidebarOnOutsideClick, { passive: true });
+    
     // Close sidebar on escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && navMenuWrapper.classList.contains('active')) {
-            closeSidebar();
+            navMenuWrapper.classList.remove('active');
+            document.body.classList.remove('sidebar-open');
+            navMenuToggle.setAttribute('aria-expanded', 'false');
         }
     });
-
+    
     // Handle window resize - close sidebar when switching to desktop
     window.addEventListener('resize', () => {
         if (window.innerWidth > 768 && navMenuWrapper.classList.contains('active')) {
-            closeSidebar();
+            navMenuWrapper.classList.remove('active');
+            document.body.classList.remove('sidebar-open');
+            navMenuToggle.setAttribute('aria-expanded', 'false');
         }
     });
 }
@@ -710,18 +643,9 @@ function changeLanguage(lang) {
         languageBtnText.textContent = languageNames[lang];
     }
     
-    // Update active state
-    languageOptions.forEach(option => {
-        if (option.getAttribute('data-lang') === lang) {
-            option.classList.add('active');
-        } else {
-            option.classList.remove('active');
-        }
-    });
-    
-    // Update active state for nav language options (inside hamburger menu)
-    const navLanguageOptions = document.querySelectorAll('.nav-language-option');
-    navLanguageOptions.forEach(option => {
+    // Update active state for all language options
+    const allLanguageOptions = document.querySelectorAll('.language-option, .nav-language-option');
+    allLanguageOptions.forEach(option => {
         if (option.getAttribute('data-lang') === lang) {
             option.classList.add('active');
         } else {
@@ -1026,28 +950,16 @@ window.addEventListener('scroll', () => {
 });
 
 // ====================================
-// Navbar Transparency on Scroll (if needed)
-// ====================================
-
-window.addEventListener('scroll', () => {
-    if (window.scrollY > 50) {
-        languageDropdownBtn.style.background = 'rgba(255, 255, 255, 1)';
-    } else {
-        languageDropdownBtn.style.background = 'rgba(255, 255, 255, 0.95)';
-    }
-});
-
-// ====================================
 // Page Load Animation
 // ====================================
-
-window.addEventListener('load', () => {
-    document.body.style.opacity = '1';
-});
 
 // Apply initial load style
 document.body.style.opacity = '0';
 document.body.style.transition = 'opacity 0.5s ease';
+
+window.addEventListener('load', () => {
+    document.body.style.opacity = '1';
+});
 
 // ====================================
 // Neural Network Animation
@@ -1168,13 +1080,8 @@ if (neuralCanvas) {
 
 document.addEventListener('DOMContentLoaded', () => {
     // Set initial language
-    document.body.classList.add('ltr-text'); // Default to LTR
+    document.body.classList.add('ltr-text');
     changeLanguage('en');
-    
-    // Show page
-    setTimeout(() => {
-        document.body.style.opacity = '1';
-    }, 100);
 });
 
 
