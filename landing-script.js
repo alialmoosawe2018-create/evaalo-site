@@ -426,6 +426,62 @@ navLanguageOptions.forEach(option => {
     });
 });
 
+// ====================================
+// Mobile Hamburger Menu
+// ====================================
+setTimeout(function() {
+    const navMenuToggle = document.getElementById('navMenuToggle');
+    const navMenu = document.getElementById('navMenu');
+    const navMenuWrapper = navMenuToggle ? navMenuToggle.closest('.nav-menu-wrapper') : null;
+    const navLinks = document.querySelectorAll('.nav-link');
+    
+    // Remove any existing event listeners by cloning the button
+    if (navMenuToggle) {
+        const newToggle = navMenuToggle.cloneNode(true);
+        navMenuToggle.parentNode.replaceChild(newToggle, navMenuToggle);
+        
+        // Get the new reference
+        const newNavMenuToggle = document.getElementById('navMenuToggle');
+        const newNavMenu = document.getElementById('navMenu');
+        const newNavMenuWrapper = newNavMenuToggle ? newNavMenuToggle.closest('.nav-menu-wrapper') : null;
+        
+        if (newNavMenuToggle && newNavMenu && newNavMenuWrapper) {
+            // Ensure button is clickable
+            newNavMenuToggle.style.pointerEvents = 'auto';
+            newNavMenuToggle.style.cursor = 'pointer';
+            newNavMenuToggle.style.zIndex = '10001';
+            newNavMenuToggle.style.position = 'relative';
+            
+            // Add click event
+            newNavMenuToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                newNavMenuWrapper.classList.toggle('active');
+            });
+            
+            // Close menu when clicking on any nav link
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (newNavMenuWrapper) {
+                        newNavMenuWrapper.classList.remove('active');
+                    }
+                });
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', function(e) {
+                if (newNavMenuWrapper && newNavMenuWrapper.classList.contains('active')) {
+                    if (!newNavMenu.contains(e.target) && 
+                        !newNavMenuToggle.contains(e.target) && 
+                        !newNavMenuWrapper.contains(e.target)) {
+                        newNavMenuWrapper.classList.remove('active');
+                    }
+                }
+            });
+        }
+    }
+}, 100);
+
 
 // ====================================
 // Language Translation

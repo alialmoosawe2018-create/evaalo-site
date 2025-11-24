@@ -772,6 +772,39 @@ html[lang="ku"] body,
     transform: rotate(-45deg) translate(7px, -7px);
 }
 
+/* Mobile: Show hamburger menu and adjust logo */
+@media (max-width: 768px) {
+    /* Show hamburger menu on mobile */
+    .nav-menu-wrapper {
+        display: block !important;
+    }
+    
+    /* Hide desktop navigation on mobile */
+    .nav-links-desktop {
+        display: none !important;
+    }
+    
+    /* Mobile logo styling - show logo and text */
+    .nav-logo-img {
+        gap: 8px !important;
+    }
+    
+    .logo-text {
+        display: block !important;
+        font-size: 20px !important;
+    }
+    
+    .logo-image {
+        height: 36px !important;
+    }
+    
+    /* Mobile nav container */
+    .nav-container {
+        padding: 0 20px !important;
+        height: 64px !important;
+    }
+}
+
 /* Desktop: Show nav links horizontally in header */
 @media (min-width: 769px) {
     /* Hide language selector in top-right corner on desktop (use nav menu instead) */
