@@ -335,9 +335,13 @@ languageDropdownBtn.addEventListener('click', (e) => {
 
 // Close dropdown when clicking outside
 document.addEventListener('click', (e) => {
-    // Don't interfere with navigation links in mobile sidebar
-    if (e.target.closest('.nav-links-mobile') || e.target.closest('.nav-menu-wrapper.active')) {
-        // Allow navigation links to work normally
+    // CRITICAL: Don't interfere with ANY navigation links
+    // Check if clicking on any link in the sidebar
+    if (e.target.closest('.nav-links-mobile') || 
+        e.target.closest('.nav-menu-wrapper.active') ||
+        e.target.closest('a.nav-link') ||
+        e.target.tagName === 'A') {
+        // Allow navigation links to work normally - don't interfere
         return;
     }
     
@@ -378,11 +382,17 @@ if (navLanguageItem) {
     
     // Toggle dropdown on click (mobile only)
     navLanguageItem.addEventListener('click', (e) => {
-        // CRITICAL: Don't interfere with regular navigation links
-        // Check if clicking on a regular link (not the dropdown trigger)
+        // CRITICAL: First check if clicking on ANY regular navigation link
+        // This includes links outside the dropdown (like Design, Apply Now, etc.)
         const clickedLink = e.target.closest('a.nav-link:not(.nav-link-dropdown)');
         if (clickedLink) {
-            // This is a regular link - let it navigate normally
+            // This is a regular link - let it navigate normally, don't interfere
+            return;
+        }
+        
+        // Check if clicking on a link element (even if not nav-link class)
+        if (e.target.tagName === 'A' || e.target.closest('a')) {
+            // This is any link - let it navigate normally
             return;
         }
         
@@ -396,11 +406,14 @@ if (navLanguageItem) {
             return;
         }
         
-        // Only prevent default if clicking directly on the dropdown trigger (span or svg inside nav-link-dropdown)
-        // NOT on any links
+        // Only prevent default if clicking directly on the dropdown trigger itself
+        // (span, svg, or the nav-link-dropdown div, but NOT any links)
         const isDropdownTrigger = e.target.closest('.nav-link-dropdown') === navLanguageItem && 
                                   !e.target.closest('a') &&
-                                  (e.target.tagName === 'SPAN' || e.target.tagName === 'SVG' || e.target.closest('svg') || e.target === navLanguageItem);
+                                  (e.target.tagName === 'SPAN' || 
+                                   e.target.tagName === 'SVG' || 
+                                   e.target.closest('svg') || 
+                                   e.target === navLanguageItem);
         
         if (isDropdownTrigger) {
             e.preventDefault();
@@ -589,14 +602,31 @@ if (navMenuToggle && navMenuWrapper) {
             link.style.pointerEvents = 'auto';
             link.style.cursor = 'pointer';
             
-            // Close sidebar after navigation (don't prevent default)
+            // CRITICAL: Use capture phase and ensure we don't prevent default
+            // This ensures the link navigation works before any other handlers
             link.addEventListener('click', (e) => {
+                // Never prevent default - allow normal navigation
+                // Just close sidebar after navigation starts
+                if (window.innerWidth <= 768) {
+                    // Use requestAnimationFrame to ensure navigation happens first
+                    requestAnimationFrame(() => {
+                        setTimeout(() => {
+                            closeSidebar();
+                        }, 100);
+                    });
+                }
+            }, { capture: true, passive: true });
+            
+            // Also add a direct click handler as backup
+            link.onclick = function(e) {
+                // Allow default navigation
                 if (window.innerWidth <= 768) {
                     setTimeout(() => {
                         closeSidebar();
-                    }, 100);
+                    }, 150);
                 }
-            }, { passive: true });
+                return true; // Allow navigation
+            };
         });
     }
 

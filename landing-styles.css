@@ -1244,6 +1244,20 @@ html[lang="ku"] body,
     -ms-user-select: none !important;
 }
 
+/* Explicitly ensure external links (design.html, form1.html) work */
+.nav-menu-wrapper.active .nav-links a[href="design.html"],
+.nav-menu-wrapper.active .nav-links-mobile a[href="design.html"],
+.nav-menu-wrapper.active .nav-links a[href="form1.html"],
+.nav-menu-wrapper.active .nav-links-mobile a[href="form1.html"] {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 10006 !important;
+    position: relative !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
 .nav-menu-wrapper.active .nav-links a[href]:active,
 .nav-menu-wrapper.active .nav-links-mobile a[href]:active {
     opacity: 0.8 !important;
