@@ -1098,31 +1098,7 @@ html[lang="ku"] body,
 
 /* Mobile: Keep hamburger menu */
 .nav-links {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 320px;
-    max-width: 85vw;
-    height: 100vh;
-    min-width: 240px;
-    background: linear-gradient(135deg, rgba(30, 30, 46, 0.98) 0%, rgba(20, 20, 36, 0.98) 100%);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 0;
-    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5), -4px 0 16px rgba(99, 102, 241, 0.3);
-    padding: 70px 0 40px 0;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateX(100%);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1002;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    pointer-events: none;
+    display: none !important;
 }
 
 /* Ensure desktop nav links are always visible and not affected by mobile nav-links styles */
@@ -1145,33 +1121,16 @@ html[lang="ku"] body,
 }
 
 .nav-menu-wrapper.active .nav-links {
-    opacity: 1 !important;
-    visibility: visible !important;
-    transform: translateX(0) !important;
-    pointer-events: auto !important;
+    display: none !important;
 }
 
 /* Mobile Sidebar Backdrop/Overlay */
 .nav-menu-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1000;
-    pointer-events: none;
+    display: none !important;
 }
 
 body.sidebar-open .nav-menu-backdrop {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
+    display: none !important;
 }
 
 /* Put language icon behind sidebar when sidebar is open on mobile */
@@ -1214,8 +1173,6 @@ body.sidebar-open .language-icon-button {
     border-left: 3px solid transparent;
     position: relative;
     z-index: 1;
-    pointer-events: auto;
-    cursor: pointer;
 }
 
 /* Language dropdown menu item */
@@ -1581,39 +1538,15 @@ body.rtl-text .nav-links {
     }
     
     .nav-links-mobile {
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: visible !important;
+        display: none !important;
     }
     
     .nav-links {
-        position: fixed !important;
-        top: 0 !important;
-        right: 0 !important;
-        left: auto !important;
-        width: 320px !important;
-        max-width: 85vw !important;
-        height: 100vh !important;
-        min-width: 240px !important;
-        max-height: 100vh !important;
-        padding: 70px 0 40px 0 !important;
-        border-radius: 0 !important;
-        border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
-        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5), -4px 0 16px rgba(99, 102, 241, 0.3) !important;
-        transform: translateX(100%) !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-        z-index: 1002 !important;
+        display: none !important;
     }
     
     .nav-menu-wrapper.active .nav-links {
-        transform: translateX(0) !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        pointer-events: auto !important;
+        display: none !important;
     }
     
     .nav-links .nav-link-dropdown {
@@ -1623,10 +1556,6 @@ body.rtl-text .nav-links {
     .nav-link {
         font-size: 14px;
         padding: 11px 18px;
-        pointer-events: auto !important;
-        cursor: pointer !important;
-        z-index: 10 !important;
-        position: relative !important;
     }
     
     /* Prevent body scroll when sidebar is open */
