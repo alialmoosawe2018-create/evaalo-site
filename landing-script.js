@@ -432,23 +432,49 @@ if (navLanguageItem) {
 
 // Desktop language dropdown handler (hover-based)
 if (navLanguageItemDesktop) {
+    let dropdownTimeout;
+    
     // Show dropdown on hover
-    navLanguageItemDesktop.addEventListener('mouseenter', () => {
+    const showDropdown = () => {
+        if (dropdownTimeout) {
+            clearTimeout(dropdownTimeout);
+            dropdownTimeout = null;
+        }
         if (navLanguageDropdownDesktop) {
             navLanguageDropdownDesktop.style.opacity = '1';
             navLanguageDropdownDesktop.style.visibility = 'visible';
             navLanguageDropdownDesktop.style.transform = 'translateY(0)';
+            navLanguageDropdownDesktop.style.pointerEvents = 'auto';
         }
-    });
+    };
     
-    // Hide dropdown on mouse leave
-    navLanguageItemDesktop.addEventListener('mouseleave', () => {
-        if (navLanguageDropdownDesktop) {
-            navLanguageDropdownDesktop.style.opacity = '0';
-            navLanguageDropdownDesktop.style.visibility = 'hidden';
-            navLanguageDropdownDesktop.style.transform = 'translateY(-8px)';
-        }
-    });
+    // Hide dropdown on mouse leave with delay
+    const hideDropdown = () => {
+        dropdownTimeout = setTimeout(() => {
+            if (navLanguageDropdownDesktop) {
+                navLanguageDropdownDesktop.style.opacity = '0';
+                navLanguageDropdownDesktop.style.visibility = 'hidden';
+                navLanguageDropdownDesktop.style.transform = 'translateY(-8px)';
+                navLanguageDropdownDesktop.style.pointerEvents = 'none';
+            }
+        }, 150); // Small delay to allow moving mouse to dropdown
+    };
+    
+    navLanguageItemDesktop.addEventListener('mouseenter', showDropdown);
+    navLanguageItemDesktop.addEventListener('mouseleave', hideDropdown);
+    
+    // Keep dropdown open when hovering over it
+    if (navLanguageDropdownDesktop) {
+        navLanguageDropdownDesktop.addEventListener('mouseenter', () => {
+            if (dropdownTimeout) {
+                clearTimeout(dropdownTimeout);
+                dropdownTimeout = null;
+            }
+            showDropdown();
+        });
+        
+        navLanguageDropdownDesktop.addEventListener('mouseleave', hideDropdown);
+    }
 }
 
 // Language selection from nav menu (inside hamburger menu)

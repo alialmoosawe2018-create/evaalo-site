@@ -600,6 +600,7 @@ html[lang="ku"] body,
     justify-content: space-between;
     align-items: center;
     height: 64px;
+    overflow: visible;
 }
 
 .nav-logo {
@@ -813,6 +814,8 @@ html[lang="ku"] body,
         box-shadow: none !important;
         padding: 0 !important;
         margin: 0 !important;
+        overflow: visible !important;
+        flex-wrap: nowrap !important;
     }
     
     .nav-menu-wrapper {
@@ -824,13 +827,13 @@ html[lang="ku"] body,
     }
     
     .nav-links-desktop .nav-link {
-        padding: 8px 16px !important;
+        padding: 8px 12px !important;
         border-left: none !important;
         border-radius: 8px !important;
         white-space: nowrap !important;
-        font-size: 14px !important;
+        font-size: 13px !important;
         transition: all 0.2s ease !important;
-        color: rgba(255, 255, 255, 0.85) !important;
+        color: rgba(255, 255, 255, 0.9) !important;
         text-decoration: none !important;
         font-weight: 500 !important;
         display: flex !important;
@@ -838,6 +841,12 @@ html[lang="ku"] body,
         justify-content: center !important;
         line-height: 1.5 !important;
         height: auto !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        flex-shrink: 0 !important;
+        min-width: fit-content !important;
+        position: relative !important;
+        z-index: 1 !important;
     }
     
     .nav-links-desktop .nav-link:hover {
@@ -861,6 +870,8 @@ html[lang="ku"] body,
         justify-content: center !important;
         line-height: 1.5 !important;
         height: auto !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+        z-index: 1 !important;
     }
     
     .nav-links-desktop .nav-link-dropdown:hover {
@@ -906,6 +917,14 @@ html[lang="ku"] body,
         pointer-events: none !important;
     }
     
+    /* Keep dropdown visible when hovering over it */
+    .nav-links-desktop .nav-language-dropdown:hover {
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: translateY(0) scale(1) !important;
+        pointer-events: auto !important;
+    }
+    
     .nav-links-desktop .nav-language-dropdown::before {
         content: '' !important;
         position: absolute !important;
@@ -936,7 +955,8 @@ html[lang="ku"] body,
         z-index: 1 !important;
     }
     
-    .nav-link-dropdown:hover .nav-language-dropdown {
+    .nav-link-dropdown:hover .nav-language-dropdown,
+    .nav-link-dropdown .nav-language-dropdown:hover {
         opacity: 1 !important;
         visibility: visible !important;
         transform: translateY(0) scale(1) !important;
@@ -1023,6 +1043,7 @@ html[lang="ku"] body,
     
     .nav-links-desktop .nav-language-option:hover .language-name {
         transform: translateX(3px) !important;
+        color: #000000 !important;
     }
     
     .nav-links-desktop .nav-language-option.active {
@@ -1044,6 +1065,7 @@ html[lang="ku"] body,
     .nav-links-desktop .nav-language-option.active .language-name {
         font-weight: 700 !important;
         text-shadow: 0 0 6px rgba(34, 211, 238, 0.3) !important;
+        color: #000000 !important;
     }
     
     .nav-links-desktop .nav-language-option .language-name {
@@ -1055,6 +1077,7 @@ html[lang="ku"] body,
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         min-width: 0 !important;
+        color: #000000 !important;
     }
     
     .nav-links-desktop .nav-language-option .language-code {
@@ -1099,6 +1122,25 @@ html[lang="ku"] body,
     gap: 0;
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+/* Ensure desktop nav links are always visible and not affected by mobile nav-links styles */
+.nav-links-desktop {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
 }
 
 .nav-menu-wrapper.active .nav-links {
@@ -1161,13 +1203,15 @@ body.sidebar-open .language-icon-button {
 }
 
 .nav-link {
-    color: rgba(255, 255, 255, 0.85);
+    color: rgba(255, 255, 255, 0.9);
     text-decoration: none;
     font-size: 15px;
     font-weight: 500;
     padding: 12px 20px;
     transition: all 0.2s ease;
     border-left: 3px solid transparent;
+    position: relative;
+    z-index: 1;
 }
 
 /* Language dropdown menu item */
@@ -1177,10 +1221,13 @@ body.sidebar-open .language-icon-button {
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
+    color: rgba(255, 255, 255, 0.9);
+    z-index: 1;
 }
 
 .nav-link-dropdown span {
     flex: 1;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .nav-link-dropdown .dropdown-arrow {
@@ -1346,6 +1393,7 @@ body.sidebar-open .language-icon-button {
 .nav-language-option .language-name {
     display: flex;
     align-items: center;
+    color: #000000;
 }
 
 .nav-language-option .language-code {
@@ -2091,6 +2139,7 @@ body.rtl-text .nav-links {
 
 .language-option:hover .language-name {
     transform: translateX(3px);
+    color: #000000;
 }
 
 .language-option.active {
@@ -2112,6 +2161,7 @@ body.rtl-text .nav-links {
 .language-option.active .language-name {
     font-weight: 700;
     text-shadow: 0 0 6px rgba(34, 211, 238, 0.3);
+    color: #000000;
 }
 
 .language-name {
@@ -2123,6 +2173,7 @@ body.rtl-text .nav-links {
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
+    color: #000000;
 }
 
 .language-code {
