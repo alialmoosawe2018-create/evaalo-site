@@ -1140,29 +1140,36 @@ html[lang="ku"] body,
 
 /* Mobile: Modern Smart Sidebar - Slides from right */
 /* Only apply to mobile sidebar, not desktop */
+/* Applied same properties as design.html sidebar */
 .nav-menu-wrapper .nav-links,
 .nav-links-mobile {
     position: fixed;
     top: 0;
     right: 0;
-    width: 320px;
-    max-width: 85vw;
+    left: auto;
+    bottom: auto;
+    width: 85%;
+    max-width: 320px;
     height: 100vh;
     min-width: 240px;
-    background: rgba(15, 23, 42, 1) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-left: 1px solid rgba(148, 163, 184, 0.2);
+    border-right: none;
     border-radius: 0;
-    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.6), 
-                -4px 0 16px rgba(99, 102, 241, 0.4),
-                inset -1px 0 0 rgba(255, 255, 255, 0.05);
-    padding: 80px 0 40px 0;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5) !important;
+    padding: 20px !important;
+    padding-top: 80px !important;
+    margin: 0;
+    margin-right: 0;
+    margin-left: auto;
     opacity: 0;
     visibility: hidden;
     transform: translateX(100%);
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-    z-index: 1002;
+    -webkit-transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    z-index: 10001;
     display: flex;
     flex-direction: column;
     gap: 0;
@@ -1171,6 +1178,8 @@ html[lang="ku"] body,
     pointer-events: none;
     scrollbar-width: thin;
     scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
 }
 
 .nav-menu-wrapper .nav-links::-webkit-scrollbar,
@@ -1199,9 +1208,12 @@ html[lang="ku"] body,
     opacity: 1 !important;
     visibility: visible !important;
     transform: translateX(0) !important;
+    -webkit-transform: translateX(0) !important;
     pointer-events: auto !important;
     filter: none !important;
     -webkit-filter: none !important;
+    right: 0 !important;
+    left: auto !important;
 }
 
 /* Ensure sidebar content is always clear and visible */
@@ -1268,20 +1280,17 @@ html[lang="ku"] body,
     transform: translateX(-2px);
 }
 
-/* Mobile Sidebar Backdrop/Overlay - Smart blur */
+/* Mobile Sidebar Backdrop/Overlay - Same as design.html */
 .nav-menu-backdrop {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
     opacity: 0;
-    visibility: hidden;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1001;
+    transition: opacity 0.3s ease;
     pointer-events: none;
 }
 
@@ -1289,6 +1298,7 @@ body.sidebar-open .nav-menu-backdrop {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
+    display: block;
 }
 
 /* Put language icon behind sidebar when sidebar is open on mobile */
@@ -1709,44 +1719,53 @@ body.rtl-text .nav-links {
     }
     
     /* Mobile sidebar - only apply to mobile menu wrapper */
+    /* Applied same properties as design.html sidebar */
     .nav-menu-wrapper .nav-links,
     .nav-links-mobile {
         position: fixed !important;
         top: 0 !important;
         right: 0 !important;
         left: auto !important;
-        width: 320px !important;
-        max-width: 85vw !important;
+        bottom: auto !important;
+        width: 85% !important;
+        max-width: 320px !important;
         height: 100vh !important;
         min-width: 240px !important;
-        max-height: 100vh !important;
-        padding: 80px 0 40px 0 !important;
-        border-radius: 0 !important;
-        border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
-        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.6), 
-                    -4px 0 16px rgba(99, 102, 241, 0.4),
-                    inset -1px 0 0 rgba(255, 255, 255, 0.05) !important;
-        transform: translateX(100%) !important;
+        z-index: 10001 !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
+        transform: translateX(100%) !important;
+        -webkit-transform: translateX(100%) !important;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5) !important;
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border-left: 1px solid rgba(148, 163, 184, 0.2) !important;
+        border-right: none !important;
+        padding: 20px !important;
+        padding-top: 80px !important;
+        margin: 0 !important;
+        margin-right: 0 !important;
+        margin-left: auto !important;
         opacity: 0 !important;
         visibility: hidden !important;
         pointer-events: none !important;
-        z-index: 1002 !important;
-        background: rgba(15, 23, 42, 1) !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
     }
     
     .nav-menu-wrapper.active .nav-links,
     .nav-menu-wrapper.active .nav-links-mobile {
         transform: translateX(0) !important;
+        -webkit-transform: translateX(0) !important;
         opacity: 1 !important;
         visibility: visible !important;
         pointer-events: auto !important;
         filter: none !important;
         -webkit-filter: none !important;
+        right: 0 !important;
+        left: auto !important;
     }
     
     /* Ensure sidebar content is always clear and visible on mobile */
