@@ -1214,6 +1214,8 @@ html[lang="ku"] body,
     -webkit-filter: none !important;
     right: 0 !important;
     left: auto !important;
+    touch-action: pan-y !important;
+    -webkit-touch-callout: none !important;
 }
 
 /* Ensure all elements in active sidebar are clickable and visible */
@@ -1225,7 +1227,7 @@ html[lang="ku"] body,
     text-shadow: none !important;
 }
 
-/* Navigation links in active sidebar */
+/* Navigation links in active sidebar - CRITICAL for touch */
 .nav-menu-wrapper.active .nav-links a[href],
 .nav-menu-wrapper.active .nav-links-mobile a[href] {
     pointer-events: auto !important;
@@ -1236,12 +1238,15 @@ html[lang="ku"] body,
     visibility: visible !important;
     opacity: 1 !important;
     text-decoration: none !important;
-    -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
+    -webkit-tap-highlight-color: rgba(99, 102, 241, 0.5) !important;
     touch-action: manipulation !important;
+    -webkit-touch-callout: none !important;
     user-select: none !important;
     -webkit-user-select: none !important;
     -moz-user-select: none !important;
     -ms-user-select: none !important;
+    -webkit-user-drag: none !important;
+    will-change: transform !important;
 }
 
 /* Explicitly ensure external links (design.html, form1.html) work */
@@ -1315,6 +1320,12 @@ html[lang="ku"] body,
     -moz-osx-font-smoothing: grayscale;
     cursor: pointer !important;
     z-index: 10002 !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: rgba(99, 102, 241, 0.5) !important;
+    -webkit-touch-callout: none !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
 }
 
 .nav-menu-wrapper .nav-links .nav-link::before,
@@ -1363,6 +1374,8 @@ html[lang="ku"] body,
     opacity: 0;
     transition: opacity 0.3s ease;
     pointer-events: none;
+    touch-action: none !important;
+    -webkit-touch-callout: none !important;
 }
 
 /* Sidebar backdrop when open */
@@ -1844,9 +1857,12 @@ body.rtl-text .nav-links {
         -webkit-filter: none !important;
         right: 0 !important;
         left: auto !important;
+        touch-action: pan-y !important;
+        -webkit-touch-callout: none !important;
+        -webkit-overflow-scrolling: touch !important;
     }
     
-    /* All links in active sidebar are clickable on mobile */
+    /* All links in active sidebar are clickable on mobile - CRITICAL for touch */
     .nav-menu-wrapper.active .nav-links a[href],
     .nav-menu-wrapper.active .nav-links-mobile a[href] {
         pointer-events: auto !important;
@@ -1856,12 +1872,17 @@ body.rtl-text .nav-links {
         display: block !important;
         visibility: visible !important;
         opacity: 1 !important;
-        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
+        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.5) !important;
+        touch-action: manipulation !important;
+        -webkit-touch-callout: none !important;
         user-select: none !important;
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
         -ms-user-select: none !important;
-        touch-action: manipulation !important;
+        -webkit-user-drag: none !important;
+        will-change: transform !important;
+        min-height: 44px !important;
+        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.5) !important;
     }
     
     /* Language dropdown buttons */
@@ -1874,13 +1895,24 @@ body.rtl-text .nav-links {
         touch-action: manipulation !important;
     }
     
-    /* Sidebar content visibility */
+    /* Sidebar content visibility and touch */
     .nav-menu-wrapper.active .nav-links *,
     .nav-menu-wrapper.active .nav-links-mobile * {
         filter: none !important;
         -webkit-filter: none !important;
         text-shadow: none !important;
         pointer-events: auto !important;
+    }
+    
+    /* Ensure all links receive touch events properly */
+    .nav-menu-wrapper.active .nav-links a,
+    .nav-menu-wrapper.active .nav-links-mobile a {
+        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.5) !important;
+        touch-action: manipulation !important;
+        -webkit-touch-callout: none !important;
+        min-height: 44px !important;
+        display: flex !important;
+        align-items: center !important;
     }
     
     .nav-menu-wrapper .nav-links .nav-link-dropdown,
@@ -1910,7 +1942,10 @@ body.rtl-text .nav-links {
         -webkit-font-smoothing: antialiased !important;
         -moz-osx-font-smoothing: grayscale !important;
         touch-action: manipulation !important;
-        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
+        -webkit-touch-callout: none !important;
+        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.5) !important;
+        min-height: 44px !important;
+        -webkit-user-drag: none !important;
     }
     
     .nav-menu-wrapper .nav-links .nav-link::before,

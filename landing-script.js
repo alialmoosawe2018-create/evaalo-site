@@ -380,9 +380,9 @@ if (navLanguageItem) {
     let isOpening = false;
     let clickOutsideHandler;
     
-    // Toggle dropdown on click (mobile only)
-    navLanguageItem.addEventListener('click', (e) => {
-        // CRITICAL: First check if clicking on ANY regular navigation link
+    // Toggle dropdown on click/touch (mobile only)
+    const handleLanguageToggle = (e) => {
+        // CRITICAL: First check if clicking/touching on ANY regular navigation link
         // This includes links outside the dropdown (like Design, Apply Now, etc.)
         const clickedLink = e.target.closest('a.nav-link:not(.nav-link-dropdown)');
         if (clickedLink) {
@@ -457,7 +457,8 @@ if (navLanguageItem) {
                                 }
                             }
                         };
-                        document.addEventListener('click', clickOutsideHandler);
+                        document.addEventListener('click', clickOutsideHandler, { passive: true });
+                        document.addEventListener('touchstart', clickOutsideHandler, { passive: true });
                     }
                 }, 50);
             } else {
@@ -465,11 +466,16 @@ if (navLanguageItem) {
                 dropdown.style.display = 'none';
                 if (clickOutsideHandler) {
                     document.removeEventListener('click', clickOutsideHandler);
+                    document.removeEventListener('touchstart', clickOutsideHandler);
                     clickOutsideHandler = null;
                 }
             }
         }
-    });
+    };
+    
+    // Add both click and touchstart listeners for better mobile support
+    navLanguageItem.addEventListener('click', handleLanguageToggle, { passive: false });
+    navLanguageItem.addEventListener('touchstart', handleLanguageToggle, { passive: false });
 }
 
 // Desktop language dropdown handler (hover-based)
@@ -587,45 +593,65 @@ if (navMenuToggle && navMenuWrapper) {
         }
     });
 
-    // Close sidebar when clicking on backdrop
+    // Close sidebar when clicking/touching on backdrop
     if (navMenuBackdrop) {
-        navMenuBackdrop.addEventListener('click', () => {
+        const closeOnBackdrop = (e) => {
+            // Don't close if clicking on sidebar itself
+            if (e.target.closest('.nav-links-mobile') || 
+                e.target.closest('.nav-menu-wrapper.active')) {
+                return;
+            }
             closeSidebar();
-        });
+        };
+        
+        navMenuBackdrop.addEventListener('click', closeOnBackdrop, { passive: true });
+        navMenuBackdrop.addEventListener('touchstart', closeOnBackdrop, { passive: true });
     }
 
-    // Close sidebar when clicking on a nav link (mobile only)
+    // Close sidebar when clicking/touching on a nav link (mobile only)
     if (navMenu) {
         const navLinks = navMenu.querySelectorAll('a.nav-link:not(.nav-link-dropdown)');
         navLinks.forEach(link => {
-            // Ensure links are clickable
+            // Ensure links are clickable and touchable
             link.style.pointerEvents = 'auto';
             link.style.cursor = 'pointer';
+            link.style.touchAction = 'manipulation';
+            link.style.webkitTapHighlightColor = 'rgba(99, 102, 241, 0.5)';
             
-            // CRITICAL: Use capture phase and ensure we don't prevent default
-            // This ensures the link navigation works before any other handlers
-            link.addEventListener('click', (e) => {
-                // Never prevent default - allow normal navigation
-                // Just close sidebar after navigation starts
+            // Handle both click and touch events
+            const handleNavigation = (e) => {
+                // CRITICAL: Never prevent default - allow normal navigation
+                // Don't use preventDefault() or stopPropagation()
+                
                 if (window.innerWidth <= 768) {
-                    // Use requestAnimationFrame to ensure navigation happens first
-                    requestAnimationFrame(() => {
-                        setTimeout(() => {
-                            closeSidebar();
-                        }, 100);
-                    });
+                    // Close sidebar after navigation starts
+                    setTimeout(() => {
+                        closeSidebar();
+                    }, 100);
                 }
-            }, { capture: true, passive: true });
+            };
             
-            // Also add a direct click handler as backup
+            // Add click handler (works for both mouse and touch)
+            link.addEventListener('click', handleNavigation, { passive: true });
+            
+            // Add touchstart handler for better mobile responsiveness
+            link.addEventListener('touchstart', (e) => {
+                // Don't prevent default - allow touch to work normally
+                link.style.opacity = '0.8';
+            }, { passive: true });
+            
+            link.addEventListener('touchend', (e) => {
+                link.style.opacity = '1';
+            }, { passive: true });
+            
+            // Backup onclick handler
             link.onclick = function(e) {
-                // Allow default navigation
                 if (window.innerWidth <= 768) {
                     setTimeout(() => {
                         closeSidebar();
                     }, 150);
                 }
-                return true; // Allow navigation
+                return true; // Always allow navigation
             };
         });
     }
