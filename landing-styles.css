@@ -9,6 +9,24 @@
     box-sizing: border-box;
 }
 
+/* Performance Optimizations */
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
 /* Smooth Scrolling */
 html {
     scroll-behavior: smooth;
@@ -3246,8 +3264,6 @@ body.rtl-text .nav-links {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 40px;
-    overflow: visible;
-    max-height: none;
 }
 
 .icon-card {
@@ -3260,16 +3276,12 @@ body.rtl-text .nav-links {
         0 4px 10px rgba(15, 23, 42, 0.06),
         inset 0 1px 0 rgba(255, 255, 255, 0.9);
     padding: 28px 28px;
-    display: flex !important;
+    display: flex;
     align-items: center;
     gap: 20px;
     transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
                 box-shadow 0.45s ease;
     transform-origin: center;
-    visibility: visible !important;
-    opacity: 1 !important;
-    height: auto !important;
-    min-height: auto !important;
 }
 
 .icon-card-graphic {
@@ -3401,18 +3413,10 @@ body.rtl-text .nav-links {
     animation-delay: 0.9s;
 }
 
-.icon-card:nth-child(4) {
-    animation: iconCardFloat 7.5s ease-in-out infinite;
-    animation-delay: 1.2s;
-}
-
 .icon-card:nth-child(5) {
-    animation: iconCardFloat 8.5s ease-in-out infinite;
-    animation-delay: 1.5s;
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    height: auto !important;
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
 }
 
 @media (max-width: 768px) {
