@@ -770,16 +770,12 @@ html[lang="ku"] body,
     z-index: 1;
 }
 
-.nav-menu-wrapper.active .hamburger-line:nth-child(1) {
-    transform: rotate(45deg) translate(7px, 7px);
-}
-
-.nav-menu-wrapper.active .hamburger-line:nth-child(2) {
-    opacity: 0;
-}
-
+/* Hamburger icon stays in original state - no transformation */
+.nav-menu-wrapper.active .hamburger-line:nth-child(1),
+.nav-menu-wrapper.active .hamburger-line:nth-child(2),
 .nav-menu-wrapper.active .hamburger-line:nth-child(3) {
-    transform: rotate(-45deg) translate(7px, -7px);
+    transform: none !important;
+    opacity: 1 !important;
 }
 
 /* Desktop: Show nav links horizontally in header */
@@ -847,6 +843,8 @@ html[lang="ku"] body,
         min-width: fit-content !important;
         position: relative !important;
         z-index: 1 !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
     }
     
     .nav-links-desktop .nav-link:hover {
@@ -872,16 +870,14 @@ html[lang="ku"] body,
         height: auto !important;
         color: rgba(255, 255, 255, 0.9) !important;
         z-index: 1 !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
     }
     
     .nav-links-desktop .nav-link-dropdown:hover {
         background: rgba(99, 102, 241, 0.15) !important;
         border-left: none !important;
         padding-left: 16px !important;
-    }
-    
-    .nav-links-desktop .nav-link-dropdown {
-        position: relative;
     }
     
     .nav-links-desktop .nav-language-dropdown {
@@ -1096,33 +1092,9 @@ html[lang="ku"] body,
     }
 }
 
-/* Mobile: Keep hamburger menu */
+/* Mobile: Hide sidebar completely */
 .nav-links {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 320px;
-    max-width: 85vw;
-    height: 100vh;
-    min-width: 240px;
-    background: rgba(30, 30, 46, 1) !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 0;
-    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5), -4px 0 16px rgba(99, 102, 241, 0.3);
-    padding: 70px 0 40px 0;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateX(100%);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1002;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
-    pointer-events: none;
+    display: none !important;
 }
 
 /* Ensure desktop nav links are always visible and not affected by mobile nav-links styles */
@@ -1142,58 +1114,20 @@ html[lang="ku"] body,
     box-shadow: none !important;
     padding: 0 !important;
     overflow: visible !important;
+    pointer-events: auto !important;
 }
 
 .nav-menu-wrapper.active .nav-links {
-    opacity: 1 !important;
-    visibility: visible !important;
-    transform: translateX(0) !important;
-    pointer-events: auto !important;
+    display: none !important;
 }
 
-.nav-menu-wrapper.active .nav-links .nav-link,
-.nav-menu-wrapper.active .nav-links a.nav-link {
-    pointer-events: auto !important;
-    z-index: 1003 !important;
-    display: block !important;
-    position: relative !important;
-}
-
-/* Mobile Sidebar Backdrop/Overlay */
+/* Mobile Sidebar Backdrop/Overlay - Hidden */
 .nav-menu-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1001;
-    pointer-events: none;
+    display: none !important;
 }
 
 body.sidebar-open .nav-menu-backdrop {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-}
-
-/* Ensure backdrop doesn't block navigation links */
-body.sidebar-open .nav-menu-backdrop {
-    z-index: 1001 !important;
-}
-
-body.sidebar-open .nav-links {
-    z-index: 1002 !important;
-}
-
-body.sidebar-open .nav-links .nav-link {
-    z-index: 1003 !important;
-    pointer-events: auto !important;
+    display: none !important;
 }
 
 /* Put language icon behind sidebar when sidebar is open on mobile */
@@ -1236,6 +1170,9 @@ body.sidebar-open .language-icon-button {
     border-left: 3px solid transparent;
     position: relative;
     z-index: 1;
+    pointer-events: auto;
+    cursor: pointer;
+    display: block;
 }
 
 /* Language dropdown menu item */
@@ -1592,92 +1529,84 @@ body.rtl-text .nav-links {
         box-shadow: 0 0 8px rgba(34, 211, 238, 0.4) !important;
     }
     
+    /* Hamburger icon stays in original state */
     .nav-menu-wrapper.active .hamburger-line {
-        background: linear-gradient(90deg, 
-            rgba(34, 211, 238, 1) 0%, 
-            rgba(59, 130, 246, 1) 50%,
-            rgba(34, 211, 238, 1) 100%) !important;
-        box-shadow: 0 0 12px rgba(34, 211, 238, 0.6) !important;
+        transform: none !important;
+        opacity: 1 !important;
     }
     
     .nav-links-mobile {
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: visible !important;
+        display: none !important;
     }
     
     .nav-links {
-        position: fixed !important;
-        top: 0 !important;
-        right: 0 !important;
-        left: auto !important;
-        width: 320px !important;
-        max-width: 85vw !important;
-        height: 100vh !important;
-        min-width: 240px !important;
-        max-height: 100vh !important;
-        padding: 70px 0 40px 0 !important;
-        border-radius: 0 !important;
-        border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
-        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5), -4px 0 16px rgba(99, 102, 241, 0.3) !important;
-        transform: translateX(100%) !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-        z-index: 1002 !important;
-        background: rgba(30, 30, 46, 1) !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
+        display: none !important;
     }
     
-    .nav-menu-wrapper.active .nav-links {
-        transform: translateX(0) !important;
+    /* Show navigation links as dropdown below hamburger when clicked */
+    .nav-menu-wrapper.active .nav-links,
+    .nav-menu-wrapper.active .nav-links-mobile {
+        display: flex !important;
+        flex-direction: column !important;
+        position: absolute !important;
+        top: calc(100% + 8px) !important;
+        right: 0 !important;
+        background: rgba(15, 23, 42, 0.98) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(99, 102, 241, 0.3) !important;
+        padding: 12px 0 !important;
+        margin-top: 8px !important;
+        min-width: 200px !important;
+        z-index: 1000 !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
         opacity: 1 !important;
         visibility: visible !important;
         pointer-events: auto !important;
+        transform: none !important;
     }
     
     .nav-menu-wrapper.active .nav-links .nav-link,
-    .nav-menu-wrapper.active .nav-links a.nav-link {
+    .nav-menu-wrapper.active .nav-links-mobile .nav-link {
+        display: block !important;
+        padding: 12px 20px !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+        text-decoration: none !important;
         pointer-events: auto !important;
-        z-index: 1003 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        border-left: 3px solid transparent !important;
         position: relative !important;
+        z-index: 1001 !important;
+    }
+    
+    .nav-menu-wrapper.active .nav-links .nav-link:hover,
+    .nav-menu-wrapper.active .nav-links-mobile .nav-link:hover {
+        background: rgba(99, 102, 241, 0.1) !important;
+        border-left-color: #6366F1 !important;
+        color: #fff !important;
     }
     
     .nav-links .nav-link-dropdown {
         overflow: visible !important;
     }
     
-    .nav-links a.nav-link,
-    .nav-links .nav-link {
-        font-size: 14px !important;
-        padding: 11px 18px !important;
+    .nav-link {
+        font-size: 14px;
+        padding: 11px 18px;
         pointer-events: auto !important;
         cursor: pointer !important;
-        z-index: 1003 !important;
+        z-index: 10 !important;
         position: relative !important;
         color: rgba(255, 255, 255, 1) !important;
         opacity: 1 !important;
         visibility: visible !important;
-        display: block !important;
-        text-decoration: none !important;
-        width: 100% !important;
-        text-align: left !important;
-        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
     }
     
-    .nav-links a.nav-link:hover,
-    .nav-links .nav-link:hover {
+    .nav-link:hover {
         color: rgba(255, 255, 255, 1) !important;
         opacity: 1 !important;
-        background: rgba(99, 102, 241, 0.1) !important;
-    }
-    
-    .nav-links a.nav-link:active,
-    .nav-links .nav-link:active {
-        background: rgba(99, 102, 241, 0.2) !important;
     }
     
     /* Prevent body scroll when sidebar is open */

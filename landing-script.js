@@ -519,66 +519,20 @@ navLanguageOptions.forEach(option => {
 
 const navMenuBackdrop = document.getElementById('navMenuBackdrop');
 
+// Mobile hamburger menu - toggle dropdown menu
 if (navMenuToggle && navMenuWrapper) {
-    // Function to open sidebar
-    function openSidebar() {
-        navMenuWrapper.classList.add('active');
-        document.body.classList.add('sidebar-open');
-        navMenuToggle.setAttribute('aria-expanded', 'true');
-    }
-
-    // Function to close sidebar
-    function closeSidebar() {
-        navMenuWrapper.classList.remove('active');
-        document.body.classList.remove('sidebar-open');
-        navMenuToggle.setAttribute('aria-expanded', 'false');
-    }
-
-    // Toggle sidebar on hamburger click
     navMenuToggle.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (navMenuWrapper.classList.contains('active')) {
-            closeSidebar();
-        } else {
-            openSidebar();
-        }
+        navMenuWrapper.classList.toggle('active');
+        const isExpanded = navMenuWrapper.classList.contains('active');
+        navMenuToggle.setAttribute('aria-expanded', isExpanded);
     });
-
-    // Close sidebar when clicking on backdrop
-    if (navMenuBackdrop) {
-        navMenuBackdrop.addEventListener('click', () => {
-            closeSidebar();
-        });
-    }
-
-    // Close sidebar when clicking on a nav link (mobile only)
-    if (navMenu) {
-        const navLinks = navMenu.querySelectorAll('a.nav-link:not(.nav-link-dropdown)');
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                // Allow default link behavior (navigation)
-                // Only close sidebar on mobile after allowing navigation
-                if (window.innerWidth <= 768) {
-                    // Small delay to allow navigation to happen first
-                    setTimeout(() => {
-                        closeSidebar();
-                    }, 100);
-                }
-            });
-        });
-    }
-
-    // Close sidebar on escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && navMenuWrapper.classList.contains('active')) {
-            closeSidebar();
-        }
-    });
-
-    // Handle window resize - close sidebar when switching to desktop
-    window.addEventListener('resize', () => {
-        if (window.innerWidth > 768 && navMenuWrapper.classList.contains('active')) {
-            closeSidebar();
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!navMenuWrapper.contains(e.target) && navMenuWrapper.classList.contains('active')) {
+            navMenuWrapper.classList.remove('active');
+            navMenuToggle.setAttribute('aria-expanded', 'false');
         }
     });
 }
