@@ -553,12 +553,16 @@ if (navMenuToggle && navMenuWrapper) {
 
     // Close sidebar when clicking on a nav link (mobile only)
     if (navMenu) {
-        const navLinks = navMenu.querySelectorAll('.nav-link:not(.nav-link-dropdown)');
+        const navLinks = navMenu.querySelectorAll('a.nav-link:not(.nav-link-dropdown)');
         navLinks.forEach(link => {
-            link.addEventListener('click', () => {
-                // Only close on mobile
+            link.addEventListener('click', (e) => {
+                // Allow default link behavior (navigation)
+                // Only close sidebar on mobile after allowing navigation
                 if (window.innerWidth <= 768) {
-                    closeSidebar();
+                    // Small delay to allow navigation to happen first
+                    setTimeout(() => {
+                        closeSidebar();
+                    }, 100);
                 }
             });
         });
