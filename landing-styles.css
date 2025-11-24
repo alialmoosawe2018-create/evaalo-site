@@ -794,8 +794,30 @@ html[lang="ku"] body,
         font-size: 20px !important;
     }
     
+    /* Circular purple frame for logo image on mobile */
     .logo-image {
         height: 36px !important;
+        width: 36px !important;
+        object-fit: cover !important;
+        border-radius: 50% !important;
+        padding: 4px !important;
+        background: linear-gradient(135deg, 
+            rgba(139, 92, 246, 0.3) 0%, 
+            rgba(168, 85, 247, 0.3) 50%,
+            rgba(99, 102, 241, 0.3) 100%) !important;
+        border: 2px solid rgba(139, 92, 246, 0.6) !important;
+        box-shadow: 
+            0 0 0 1px rgba(139, 92, 246, 0.4),
+            0 2px 8px rgba(139, 92, 246, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .nav-logo-img:hover .logo-image {
+        border-color: rgba(139, 92, 246, 0.8) !important;
+        box-shadow: 
+            0 0 0 1px rgba(139, 92, 246, 0.5),
+            0 4px 12px rgba(139, 92, 246, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
     }
     
     /* Mobile nav container */
