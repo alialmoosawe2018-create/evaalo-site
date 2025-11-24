@@ -335,6 +335,12 @@ languageDropdownBtn.addEventListener('click', (e) => {
 
 // Close dropdown when clicking outside
 document.addEventListener('click', (e) => {
+    // Don't interfere with navigation links in mobile sidebar
+    if (e.target.closest('.nav-links-mobile') || e.target.closest('.nav-menu-wrapper.active')) {
+        // Allow navigation links to work normally
+        return;
+    }
+    
     if (!languageDropdownBtn.contains(e.target) && !languageDropdownMenu.contains(e.target)) {
         languageDropdownBtn.setAttribute('aria-expanded', 'false');
         languageDropdownMenu.classList.remove('active');
@@ -372,6 +378,14 @@ if (navLanguageItem) {
     
     // Toggle dropdown on click (mobile only)
     navLanguageItem.addEventListener('click', (e) => {
+        // CRITICAL: Don't interfere with regular navigation links
+        // Check if clicking on a regular link (not the dropdown trigger)
+        const clickedLink = e.target.closest('a.nav-link:not(.nav-link-dropdown)');
+        if (clickedLink) {
+            // This is a regular link - let it navigate normally
+            return;
+        }
+        
         // Don't toggle if clicking on a language option - let it handle its own click
         if (e.target.closest('.nav-language-option')) {
             return;
@@ -382,17 +396,18 @@ if (navLanguageItem) {
             return;
         }
         
-        // Only prevent default if clicking directly on the nav-link-dropdown element itself
-        // Don't prevent if clicking on child elements (like span, svg)
-        if (e.target === navLanguageItem || e.target.closest('.nav-link-dropdown') === navLanguageItem) {
-            // Only prevent if clicking on the dropdown trigger itself, not on links
-            const clickedElement = e.target;
-            if (clickedElement.tagName === 'A' || clickedElement.closest('a')) {
-                // Don't prevent default for links
-                return;
-            }
+        // Only prevent default if clicking directly on the dropdown trigger (span or svg inside nav-link-dropdown)
+        // NOT on any links
+        const isDropdownTrigger = e.target.closest('.nav-link-dropdown') === navLanguageItem && 
+                                  !e.target.closest('a') &&
+                                  (e.target.tagName === 'SPAN' || e.target.tagName === 'SVG' || e.target.closest('svg') || e.target === navLanguageItem);
+        
+        if (isDropdownTrigger) {
             e.preventDefault();
             e.stopPropagation();
+        } else {
+            // If clicking on something else (like a link), don't prevent default
+            return;
         }
         
         // Toggle expanded class
@@ -414,6 +429,11 @@ if (navLanguageItem) {
                     isOpening = false;
                     if (!clickOutsideHandler) {
                         clickOutsideHandler = (event) => {
+                            // Don't close if clicking on a navigation link
+                            if (event.target.closest('a.nav-link:not(.nav-link-dropdown)')) {
+                                return;
+                            }
+                            
                             if (!navLanguageItem.contains(event.target) && 
                                 navLanguageItem.classList.contains('expanded') && 
                                 !isOpening) {
@@ -565,37 +585,16 @@ if (navMenuToggle && navMenuWrapper) {
     if (navMenu) {
         const navLinks = navMenu.querySelectorAll('a.nav-link:not(.nav-link-dropdown)');
         navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                // Don't prevent default - allow navigation to work
-                // Only close on mobile
-                if (window.innerWidth <= 768) {
-                    // Small delay to allow navigation
-                    setTimeout(() => {
-                        closeSidebar();
-                    }, 100);
-                }
-            });
-        });
-    }
-    
-    // Ensure all links in sidebar are clickable
-    if (navMenu) {
-        const allLinks = navMenu.querySelectorAll('a');
-        allLinks.forEach(link => {
-            // Remove any event listeners that might be blocking
+            // Ensure links are clickable
             link.style.pointerEvents = 'auto';
             link.style.cursor = 'pointer';
             
-            // Ensure links work properly
+            // Close sidebar after navigation (don't prevent default)
             link.addEventListener('click', (e) => {
-                // Don't prevent default for regular links
-                if (!link.classList.contains('nav-link-dropdown')) {
-                    // Allow normal navigation
-                    if (window.innerWidth <= 768) {
-                        setTimeout(() => {
-                            closeSidebar();
-                        }, 100);
-                    }
+                if (window.innerWidth <= 768) {
+                    setTimeout(() => {
+                        closeSidebar();
+                    }, 100);
                 }
             }, { passive: true });
         });

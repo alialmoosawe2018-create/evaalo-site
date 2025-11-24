@@ -1216,44 +1216,50 @@ html[lang="ku"] body,
     left: auto !important;
 }
 
-/* Ensure all links inside active sidebar are clickable */
-.nav-menu-wrapper.active .nav-links *,
-.nav-menu-wrapper.active .nav-links-mobile * {
-    pointer-events: auto !important;
-}
-
-/* Critical: Override any pointer-events: none on active sidebar */
-.nav-menu-wrapper.active .nav-links,
-.nav-menu-wrapper.active .nav-links-mobile,
+/* Ensure all elements in active sidebar are clickable and visible */
 .nav-menu-wrapper.active .nav-links *:not(script):not(style),
 .nav-menu-wrapper.active .nav-links-mobile *:not(script):not(style) {
     pointer-events: auto !important;
-}
-
-.nav-menu-wrapper.active .nav-links a,
-.nav-menu-wrapper.active .nav-links-mobile a {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-    z-index: 10002 !important;
-    position: relative !important;
-}
-
-/* Ensure sidebar content is always clear and visible */
-.nav-menu-wrapper.active .nav-links *,
-.nav-menu-wrapper.active .nav-links-mobile * {
     filter: none !important;
     -webkit-filter: none !important;
     text-shadow: none !important;
-    pointer-events: auto !important;
 }
 
-/* Force all interactive elements to be clickable */
-.nav-menu-wrapper.active .nav-links a,
-.nav-menu-wrapper.active .nav-links-mobile a,
+/* Navigation links in active sidebar */
+.nav-menu-wrapper.active .nav-links a[href],
+.nav-menu-wrapper.active .nav-links-mobile a[href] {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 10005 !important;
+    position: relative !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    text-decoration: none !important;
+    -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
+    touch-action: manipulation !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+.nav-menu-wrapper.active .nav-links a[href]:active,
+.nav-menu-wrapper.active .nav-links-mobile a[href]:active {
+    opacity: 0.8 !important;
+}
+
+/* Prevent pseudo-elements from blocking clicks */
+.nav-menu-wrapper.active .nav-links a[href]::before,
+.nav-menu-wrapper.active .nav-links a[href]::after,
+.nav-menu-wrapper.active .nav-links-mobile a[href]::before,
+.nav-menu-wrapper.active .nav-links-mobile a[href]::after {
+    pointer-events: none !important;
+}
+
+/* Interactive elements in sidebar */
 .nav-menu-wrapper.active .nav-links button,
 .nav-menu-wrapper.active .nav-links-mobile button,
-.nav-menu-wrapper.active .nav-links .nav-link,
-.nav-menu-wrapper.active .nav-links-mobile .nav-link,
 .nav-menu-wrapper.active .nav-links .nav-link-dropdown,
 .nav-menu-wrapper.active .nav-links-mobile .nav-link-dropdown {
     pointer-events: auto !important;
@@ -1263,22 +1269,7 @@ html[lang="ku"] body,
     touch-action: manipulation !important;
 }
 
-/* Critical: Ensure ALL links in active sidebar are clickable */
-.nav-menu-wrapper.active .nav-links a[href],
-.nav-menu-wrapper.active .nav-links-mobile a[href] {
-    pointer-events: auto !important;
-    cursor: pointer !important;
-    z-index: 10003 !important;
-    position: relative !important;
-    display: block !important;
-    -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -moz-user-select: none !important;
-    -ms-user-select: none !important;
-}
-
-/* Ensure dropdown buttons are clickable */
+/* Language dropdown buttons */
 .nav-menu-wrapper.active .nav-links .nav-language-option,
 .nav-menu-wrapper.active .nav-links-mobile .nav-language-option {
     pointer-events: auto !important;
@@ -1360,24 +1351,30 @@ html[lang="ku"] body,
     pointer-events: none;
 }
 
+/* Sidebar backdrop when open */
 body.sidebar-open .nav-menu-backdrop {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
     display: block;
-}
-
-/* Ensure backdrop doesn't block sidebar clicks */
-body.sidebar-open .nav-menu-backdrop {
     z-index: 10000 !important;
 }
 
+/* Ensure sidebar and links are above backdrop */
 body.sidebar-open .nav-menu-wrapper.active .nav-links,
 body.sidebar-open .nav-menu-wrapper.active .nav-links-mobile {
     z-index: 10001 !important;
+    pointer-events: auto !important;
 }
 
-/* Put language icon behind sidebar when sidebar is open on mobile */
+body.sidebar-open .nav-menu-wrapper.active .nav-links a[href],
+body.sidebar-open .nav-menu-wrapper.active .nav-links-mobile a[href] {
+    z-index: 10005 !important;
+    pointer-events: auto !important;
+    position: relative !important;
+}
+
+/* Language icon behind sidebar when open */
 body.sidebar-open .language-selector-wrapper {
     z-index: 998 !important;
 }
@@ -1389,15 +1386,6 @@ body.sidebar-open .language-icon-button {
 @media (max-width: 768px) {
     .nav-menu-backdrop {
         display: block;
-    }
-    
-    /* Ensure language icon stays behind sidebar on mobile */
-    body.sidebar-open .language-selector-wrapper {
-        z-index: 998 !important;
-    }
-    
-    body.sidebar-open .language-icon-button {
-        pointer-events: none !important;
     }
 }
 
@@ -1844,32 +1832,16 @@ body.rtl-text .nav-links {
         left: auto !important;
     }
     
-    /* Ensure all links inside active sidebar are clickable on mobile */
-    .nav-menu-wrapper.active .nav-links *,
-    .nav-menu-wrapper.active .nav-links-mobile * {
-        pointer-events: auto !important;
-    }
-    
-    .nav-menu-wrapper.active .nav-links a,
-    .nav-menu-wrapper.active .nav-links-mobile a,
-    .nav-menu-wrapper.active .nav-links .nav-link,
-    .nav-menu-wrapper.active .nav-links-mobile .nav-link {
-        pointer-events: auto !important;
-        cursor: pointer !important;
-        z-index: 10002 !important;
-        position: relative !important;
-        touch-action: manipulation !important;
-        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
-    }
-    
-    /* Critical fix: Ensure ALL links with href are clickable on mobile */
+    /* All links in active sidebar are clickable on mobile */
     .nav-menu-wrapper.active .nav-links a[href],
     .nav-menu-wrapper.active .nav-links-mobile a[href] {
         pointer-events: auto !important;
         cursor: pointer !important;
-        z-index: 10003 !important;
+        z-index: 10005 !important;
         position: relative !important;
         display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
         -webkit-tap-highlight-color: rgba(99, 102, 241, 0.3) !important;
         user-select: none !important;
         -webkit-user-select: none !important;
@@ -1878,7 +1850,7 @@ body.rtl-text .nav-links {
         touch-action: manipulation !important;
     }
     
-    /* Ensure language dropdown buttons are clickable */
+    /* Language dropdown buttons */
     .nav-menu-wrapper.active .nav-links .nav-language-option,
     .nav-menu-wrapper.active .nav-links-mobile .nav-language-option {
         pointer-events: auto !important;
@@ -1888,19 +1860,13 @@ body.rtl-text .nav-links {
         touch-action: manipulation !important;
     }
     
-    /* Ensure sidebar content is always clear and visible on mobile */
+    /* Sidebar content visibility */
     .nav-menu-wrapper.active .nav-links *,
     .nav-menu-wrapper.active .nav-links-mobile * {
         filter: none !important;
         -webkit-filter: none !important;
         text-shadow: none !important;
-    }
-    
-    .nav-menu-wrapper.active .nav-links .nav-link,
-    .nav-menu-wrapper.active .nav-links-mobile .nav-link {
         pointer-events: auto !important;
-        z-index: 1003 !important;
-        position: relative !important;
     }
     
     .nav-menu-wrapper .nav-links .nav-link-dropdown,
