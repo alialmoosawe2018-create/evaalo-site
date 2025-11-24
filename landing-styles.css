@@ -1116,12 +1116,13 @@ html[lang="ku"] body,
     visibility: hidden;
     transform: translateX(100%);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1001;
+    z-index: 1002;
     display: flex;
     flex-direction: column;
     gap: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    pointer-events: none;
 }
 
 /* Ensure desktop nav links are always visible and not affected by mobile nav-links styles */
@@ -1144,9 +1145,10 @@ html[lang="ku"] body,
 }
 
 .nav-menu-wrapper.active .nav-links {
-    opacity: 1;
-    visibility: visible;
-    transform: translateX(0);
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateX(0) !important;
+    pointer-events: auto !important;
 }
 
 /* Mobile Sidebar Backdrop/Overlay */
@@ -1212,6 +1214,8 @@ body.sidebar-open .language-icon-button {
     border-left: 3px solid transparent;
     position: relative;
     z-index: 1;
+    pointer-events: auto;
+    cursor: pointer;
 }
 
 /* Language dropdown menu item */
@@ -1599,10 +1603,17 @@ body.rtl-text .nav-links {
         transform: translateX(100%) !important;
         overflow-y: auto !important;
         overflow-x: hidden !important;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        z-index: 1002 !important;
     }
     
     .nav-menu-wrapper.active .nav-links {
         transform: translateX(0) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
     }
     
     .nav-links .nav-link-dropdown {
@@ -1612,6 +1623,10 @@ body.rtl-text .nav-links {
     .nav-link {
         font-size: 14px;
         padding: 11px 18px;
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        z-index: 10 !important;
+        position: relative !important;
     }
     
     /* Prevent body scroll when sidebar is open */
