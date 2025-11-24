@@ -349,7 +349,7 @@ document.addEventListener('click', (e) => {
         languageDropdownBtn.setAttribute('aria-expanded', 'false');
         languageDropdownMenu.classList.remove('active');
     }
-});
+}, { passive: true });
 
 // Language selection
 languageOptions.forEach(option => {
@@ -474,8 +474,19 @@ if (navLanguageItem) {
     };
     
     // Add both click and touchstart listeners for better mobile support
-    navLanguageItem.addEventListener('click', handleLanguageToggle, { passive: false });
-    navLanguageItem.addEventListener('touchstart', handleLanguageToggle, { passive: false });
+    // Use capture: false to allow links to handle events first
+    navLanguageItem.addEventListener('click', handleLanguageToggle, { passive: false, capture: false });
+    
+    // For touch, only handle if it's actually the dropdown trigger
+    navLanguageItem.addEventListener('touchstart', (e) => {
+        // Don't interfere with links - let them handle touch first
+        if (e.target.closest('a.nav-link:not(.nav-link-dropdown)') || 
+            e.target.tagName === 'A' || 
+            e.target.closest('a')) {
+            return;
+        }
+        handleLanguageToggle(e);
+    }, { passive: false, capture: false });
 }
 
 // Desktop language dropdown handler (hover-based)
@@ -583,15 +594,18 @@ if (navMenuToggle && navMenuWrapper) {
         navMenuToggle.setAttribute('aria-expanded', 'false');
     }
 
-    // Toggle sidebar on hamburger click
-    navMenuToggle.addEventListener('click', (e) => {
+    // Toggle sidebar on hamburger click/touch
+    const handleToggle = (e) => {
         e.stopPropagation();
         if (navMenuWrapper.classList.contains('active')) {
             closeSidebar();
         } else {
             openSidebar();
         }
-    });
+    };
+    
+    navMenuToggle.addEventListener('click', handleToggle, { passive: false });
+    navMenuToggle.addEventListener('touchstart', handleToggle, { passive: false });
 
     // Close sidebar when clicking/touching on backdrop
     if (navMenuBackdrop) {
@@ -618,41 +632,49 @@ if (navMenuToggle && navMenuWrapper) {
             link.style.touchAction = 'manipulation';
             link.style.webkitTapHighlightColor = 'rgba(99, 102, 241, 0.5)';
             
-            // Handle both click and touch events
-            const handleNavigation = (e) => {
-                // CRITICAL: Never prevent default - allow normal navigation
-                // Don't use preventDefault() or stopPropagation()
-                
-                if (window.innerWidth <= 768) {
-                    // Close sidebar after navigation starts
-                    setTimeout(() => {
-                        closeSidebar();
-                    }, 100);
-                }
-            };
+            // Remove any existing handlers to avoid conflicts
+            link.onclick = null;
             
-            // Add click handler (works for both mouse and touch)
-            link.addEventListener('click', handleNavigation, { passive: true });
+            // Track touch to prevent double-handling
+            let touchStartTime = 0;
+            let sidebarClosed = false;
             
-            // Add touchstart handler for better mobile responsiveness
+            // Touch handler for mobile - fires first, closes sidebar
             link.addEventListener('touchstart', (e) => {
-                // Don't prevent default - allow touch to work normally
-                link.style.opacity = '0.8';
+                if (window.innerWidth <= 768) {
+                    touchStartTime = Date.now();
+                    sidebarClosed = false;
+                    // Visual feedback
+                    link.style.opacity = '0.8';
+                    
+                    // Close sidebar immediately on touch
+                    setTimeout(() => {
+                        if (!sidebarClosed) {
+                            closeSidebar();
+                            sidebarClosed = true;
+                        }
+                    }, 50);
+                }
             }, { passive: true });
             
             link.addEventListener('touchend', (e) => {
                 link.style.opacity = '1';
             }, { passive: true });
             
-            // Backup onclick handler
-            link.onclick = function(e) {
+            // Click handler - fires after touch, but allow navigation always
+            link.addEventListener('click', (e) => {
+                // Always allow navigation - never prevent default
                 if (window.innerWidth <= 768) {
-                    setTimeout(() => {
-                        closeSidebar();
-                    }, 150);
+                    // If click fires within 300ms of touch, touch already closed sidebar
+                    const timeSinceTouch = Date.now() - touchStartTime;
+                    if (timeSinceTouch > 300 || !sidebarClosed) {
+                        // Close sidebar if it wasn't already closed
+                        setTimeout(() => {
+                            closeSidebar();
+                        }, 50);
+                    }
                 }
-                return true; // Always allow navigation
-            };
+            }, { passive: true });
         });
     }
 

@@ -1351,6 +1351,14 @@ html[lang="ku"] body,
     transform: translateX(-4px);
 }
 
+/* Immediate touch response - no delay */
+.nav-menu-wrapper .nav-links .nav-link:active,
+.nav-links-mobile .nav-link:active {
+    background: rgba(99, 102, 241, 0.25) !important;
+    transform: translateX(-2px) !important;
+    transition: none !important;
+}
+
 .nav-menu-wrapper .nav-links .nav-link:hover::before,
 .nav-links-mobile .nav-link:hover::before {
     transform: scaleY(1);
@@ -1880,9 +1888,17 @@ body.rtl-text .nav-links {
         -moz-user-select: none !important;
         -ms-user-select: none !important;
         -webkit-user-drag: none !important;
-        will-change: transform !important;
+        will-change: auto !important;
         min-height: 44px !important;
-        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.5) !important;
+        transition: background-color 0.1s ease, opacity 0.1s ease !important;
+    }
+    
+    /* Immediate touch response - no delay */
+    .nav-menu-wrapper.active .nav-links a[href]:active,
+    .nav-menu-wrapper.active .nav-links-mobile a[href]:active {
+        background-color: rgba(99, 102, 241, 0.25) !important;
+        opacity: 0.9 !important;
+        transition: none !important;
     }
     
     /* Language dropdown buttons */
@@ -1933,7 +1949,7 @@ body.rtl-text .nav-links {
         visibility: visible !important;
         display: block !important;
         text-decoration: none !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        transition: background-color 0.15s ease, opacity 0.1s ease !important;
         border-left: 3px solid transparent !important;
         font-weight: 500 !important;
         letter-spacing: 0.3px !important;
@@ -1946,6 +1962,15 @@ body.rtl-text .nav-links {
         -webkit-tap-highlight-color: rgba(99, 102, 241, 0.5) !important;
         min-height: 44px !important;
         -webkit-user-drag: none !important;
+        -webkit-tap-highlight-color: rgba(99, 102, 241, 0.5) !important;
+    }
+    
+    /* Immediate response on touch - no delay */
+    .nav-menu-wrapper .nav-links .nav-link:active,
+    .nav-links-mobile .nav-link:active {
+        background-color: rgba(99, 102, 241, 0.25) !important;
+        opacity: 0.9 !important;
+        transition: none !important;
     }
     
     .nav-menu-wrapper .nav-links .nav-link::before,
