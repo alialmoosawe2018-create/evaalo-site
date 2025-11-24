@@ -316,9 +316,6 @@ const languageOptions = document.querySelectorAll('.language-option');
 const applyNowBtn = document.getElementById('applyNowBtn');
 const learnMoreBtn = document.getElementById('learnMoreBtn');
 const ctaApplyBtn = document.getElementById('ctaApplyBtn');
-const navMenuToggle = document.getElementById('navMenuToggle');
-const navMenu = document.getElementById('navMenu');
-const navMenuWrapper = navMenuToggle ? navMenuToggle.closest('.nav-menu-wrapper') : null;
 
 // ====================================
 // Language Selector Functionality
@@ -335,14 +332,6 @@ languageDropdownBtn.addEventListener('click', (e) => {
 
 // Close dropdown when clicking outside
 document.addEventListener('click', (e) => {
-    // Don't interfere with navigation links
-    if (e.target.closest('.nav-links-mobile') || 
-        e.target.closest('.nav-menu-wrapper.active') ||
-        e.target.closest('a.nav-link') ||
-        e.target.tagName === 'A') {
-        return;
-    }
-    
     // Close language dropdown
     if (!languageDropdownBtn.contains(e.target) && !languageDropdownMenu.contains(e.target)) {
         languageDropdownBtn.setAttribute('aria-expanded', 'false');
@@ -366,113 +355,11 @@ languageOptions.forEach(option => {
     });
 });
 
-// Mobile language dropdown
-const navLanguageItem = document.getElementById('navLanguageItem');
-const navLanguageDropdown = document.getElementById('navLanguageDropdown');
 
 // Desktop language dropdown
 const navLanguageItemDesktop = document.getElementById('navLanguageItemDesktop');
 const navLanguageDropdownDesktop = document.getElementById('navLanguageDropdownDesktop');
 
-// Mobile language dropdown handler
-if (navLanguageItem) {
-    let isOpening = false;
-    let clickOutsideHandler;
-    
-    // Toggle dropdown on click/touch (mobile only)
-    const handleLanguageToggle = (e) => {
-        // CRITICAL: First check if clicking/touching on ANY regular navigation link
-        // This includes links outside the dropdown (like Design, Apply Now, etc.)
-        const clickedLink = e.target.closest('a.nav-link:not(.nav-link-dropdown)');
-        if (clickedLink) {
-            // This is a regular link - let it navigate normally, don't interfere
-            return;
-        }
-        
-        // Check if clicking on a link element (even if not nav-link class)
-        if (e.target.tagName === 'A' || e.target.closest('a')) {
-            // This is any link - let it navigate normally
-            return;
-        }
-        
-        // Don't toggle if clicking on a language option - let it handle its own click
-        if (e.target.closest('.nav-language-option')) {
-            return;
-        }
-        
-        // Check if we're on mobile
-        if (window.innerWidth > 768) {
-            return;
-        }
-        
-        // Only prevent default if clicking directly on the dropdown trigger itself
-        // (span, svg, or the nav-link-dropdown div, but NOT any links)
-        const isDropdownTrigger = e.target.closest('.nav-link-dropdown') === navLanguageItem && 
-                                  !e.target.closest('a') &&
-                                  (e.target.tagName === 'SPAN' || 
-                                   e.target.tagName === 'SVG' || 
-                                   e.target.closest('svg') || 
-                                   e.target === navLanguageItem);
-        
-        if (isDropdownTrigger) {
-            e.preventDefault();
-            e.stopPropagation();
-        } else {
-            // If clicking on something else (like a link), don't prevent default
-            return;
-        }
-        
-        // Toggle expanded class
-        const willBeExpanded = !navLanguageItem.classList.contains('expanded');
-        navLanguageItem.classList.toggle('expanded');
-        
-        // Force reflow to ensure CSS is applied
-        void navLanguageItem.offsetHeight;
-        
-        const dropdown = document.getElementById('navLanguageDropdown');
-        if (dropdown) {
-            if (willBeExpanded) {
-                // Opening dropdown
-                isOpening = true;
-                dropdown.style.display = 'flex';
-                
-                // Add click outside handler after a short delay
-                setTimeout(() => {
-                    isOpening = false;
-                    if (!clickOutsideHandler) {
-                        clickOutsideHandler = (event) => {
-                            // Don't close if clicking on a navigation link
-                            if (event.target.closest('a.nav-link:not(.nav-link-dropdown)')) {
-                                return;
-                            }
-                            
-                            if (!navLanguageItem.contains(event.target) && 
-                                navLanguageItem.classList.contains('expanded') && 
-                                !isOpening) {
-                                navLanguageItem.classList.remove('expanded');
-                                const dropdownEl = document.getElementById('navLanguageDropdown');
-                                if (dropdownEl) {
-                                    dropdownEl.style.display = 'none';
-                                }
-                            }
-                        };
-                        document.addEventListener('click', clickOutsideHandler, { passive: true });
-                    }
-                }, 50);
-            } else {
-                // Closing dropdown
-                dropdown.style.display = 'none';
-                if (clickOutsideHandler) {
-                    document.removeEventListener('click', clickOutsideHandler);
-                    clickOutsideHandler = null;
-                }
-            }
-        }
-    };
-    
-    // Add click listener
-    navLanguageItem.addEventListener('click', handleLanguageToggle, { passive: false });
-}
 
 // Desktop language dropdown handler (hover-based)
 if (navLanguageItemDesktop) {
@@ -521,7 +408,7 @@ if (navLanguageItemDesktop) {
     }
 }
 
-// Language selection from nav menu (inside hamburger menu)
+// Language selection from desktop nav menu
 const navLanguageOptions = document.querySelectorAll('.nav-language-option');
 navLanguageOptions.forEach(option => {
     option.addEventListener('click', (e) => {
@@ -530,101 +417,15 @@ navLanguageOptions.forEach(option => {
         const lang = option.getAttribute('data-lang');
         changeLanguage(lang);
         
-        // Close mobile dropdown
-        if (navLanguageItem) {
-            navLanguageItem.classList.remove('expanded');
-            const dropdown = document.getElementById('navLanguageDropdown');
-            if (dropdown && window.innerWidth <= 768) {
-                dropdown.style.display = 'none';
-            }
-        }
-        
         // Close desktop dropdown
         if (navLanguageDropdownDesktop) {
             navLanguageDropdownDesktop.style.opacity = '0';
             navLanguageDropdownDesktop.style.visibility = 'hidden';
             navLanguageDropdownDesktop.style.transform = 'translateY(-8px)';
         }
-        
-        // Close nav menu after language selection (mobile only)
-        // On desktop, keep menu open after selection
-        if (window.innerWidth <= 768 && navMenuWrapper) {
-            navMenuWrapper.classList.remove('active');
-        }
-        if (window.innerWidth <= 768 && navMenuToggle) {
-            navMenuToggle.setAttribute('aria-expanded', 'false');
-        }
     });
 });
 
-// ====================================
-// Navigation Menu Toggle - Sidebar Style
-// ====================================
-// Using the same simple approach as design.html
-
-const navMenuBackdrop = document.getElementById('navMenuBackdrop');
-
-// Mobile hamburger menu - simple toggle like design.html
-if (navMenuToggle && navMenuWrapper && navMenu) {
-    // Simple toggle function - same as design.html
-    navMenuToggle.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        navMenuWrapper.classList.toggle('active');
-        if (navMenuWrapper.classList.contains('active')) {
-            document.body.classList.add('sidebar-open');
-            navMenuToggle.setAttribute('aria-expanded', 'true');
-        } else {
-            document.body.classList.remove('sidebar-open');
-            navMenuToggle.setAttribute('aria-expanded', 'false');
-        }
-    }, { passive: false });
-    
-    // Close menu when clicking on any nav link - simple like design.html
-    const navLinks = navMenu.querySelectorAll('a.nav-link:not(.nav-link-dropdown)');
-    navLinks.forEach(link => {
-        link.addEventListener('click', function() {
-            if (navMenuWrapper.classList.contains('active')) {
-                navMenuWrapper.classList.remove('active');
-                document.body.classList.remove('sidebar-open');
-                navMenuToggle.setAttribute('aria-expanded', 'false');
-            }
-        }, { passive: true });
-    });
-    
-    // Close menu when clicking outside (includes backdrop)
-    const closeSidebarOnOutsideClick = function(e) {
-        if (navMenuWrapper && navMenuWrapper.classList.contains('active')) {
-            if (!navMenu.contains(e.target) && 
-                !navMenuToggle.contains(e.target) && 
-                !navMenuWrapper.contains(e.target)) {
-                navMenuWrapper.classList.remove('active');
-                document.body.classList.remove('sidebar-open');
-                navMenuToggle.setAttribute('aria-expanded', 'false');
-            }
-        }
-    };
-    
-    document.addEventListener('click', closeSidebarOnOutsideClick, { passive: true });
-    
-    // Close sidebar on escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && navMenuWrapper.classList.contains('active')) {
-            navMenuWrapper.classList.remove('active');
-            document.body.classList.remove('sidebar-open');
-            navMenuToggle.setAttribute('aria-expanded', 'false');
-        }
-    });
-    
-    // Handle window resize - close sidebar when switching to desktop
-    window.addEventListener('resize', () => {
-        if (window.innerWidth > 768 && navMenuWrapper.classList.contains('active')) {
-            navMenuWrapper.classList.remove('active');
-            document.body.classList.remove('sidebar-open');
-            navMenuToggle.setAttribute('aria-expanded', 'false');
-        }
-    });
-}
 
 // ====================================
 // Language Translation
