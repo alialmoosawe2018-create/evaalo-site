@@ -1752,9 +1752,9 @@ body.rtl-text .nav-links {
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        background: rgba(15, 23, 42, 0.6) !important;
-        backdrop-filter: blur(10px) !important;
-        -webkit-backdrop-filter: blur(10px) !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
         border: 1px solid rgba(192, 132, 252, 0.4) !important;
         border-radius: 12px !important;
         box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2),
@@ -1782,7 +1782,7 @@ body.rtl-text .nav-links {
     }
     
     .nav-logo-img:hover {
-        background: rgba(15, 23, 42, 0.75) !important;
+        background: transparent !important;
         border-color: rgba(192, 132, 252, 0.6) !important;
         transform: translateY(-2px) !important;
         box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4),
@@ -1816,9 +1816,9 @@ body.rtl-text .nav-links {
     .nav-menu-toggle {
         width: 48px !important;
         height: 48px !important;
-        background: rgba(15, 23, 42, 0.6) !important;
-        backdrop-filter: blur(10px) !important;
-        -webkit-backdrop-filter: blur(10px) !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
         border: 1px solid rgba(192, 132, 252, 0.4) !important;
         box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2),
                     0 0 12px rgba(192, 132, 252, 0.15) !important;
@@ -1832,7 +1832,7 @@ body.rtl-text .nav-links {
     }
     
     .nav-menu-toggle:hover {
-        background: rgba(15, 23, 42, 0.75) !important;
+        background: transparent !important;
         border-color: rgba(192, 132, 252, 0.6) !important;
         box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4),
                     0 0 20px rgba(192, 132, 252, 0.3) !important;
