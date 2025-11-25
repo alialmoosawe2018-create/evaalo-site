@@ -602,12 +602,12 @@ html[lang="ku"] body,
     left: 0;
     right: 0;
     z-index: 999;
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(8, 12, 24, 0.98) 100%);
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.95) 0%, rgba(139, 92, 246, 0.95) 100%);
     backdrop-filter: blur(25px) saturate(180%);
     -webkit-backdrop-filter: blur(25px) saturate(180%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 24px rgba(99, 102, 241, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .nav-container {
@@ -1203,13 +1203,13 @@ html[lang="ku"] body,
     max-width: 320px;
     height: 100vh;
     min-width: 240px;
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.98) 0%, rgba(139, 92, 246, 0.98) 100%) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
-    border-left: 1px solid rgba(148, 163, 184, 0.2);
+    border-left: 1px solid rgba(192, 132, 252, 0.3);
     border-right: none;
     border-radius: 0;
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: -4px 0 20px rgba(139, 92, 246, 0.5) !important;
     padding: 20px !important;
     padding-top: 80px !important;
     margin: 0;
@@ -1752,13 +1752,13 @@ body.rtl-text .nav-links {
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        background: rgba(15, 23, 42, 0.6) !important;
+        background: rgba(139, 92, 246, 0.25) !important;
         backdrop-filter: blur(10px) !important;
         -webkit-backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(34, 211, 238, 0.15) !important;
+        border: 1px solid rgba(192, 132, 252, 0.4) !important;
         border-radius: 12px !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1),
-                    0 0 0 0 rgba(34, 211, 238, 0) !important;
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2),
+                    0 0 12px rgba(192, 132, 252, 0.15) !important;
         position: relative !important;
         overflow: hidden !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -1782,11 +1782,11 @@ body.rtl-text .nav-links {
     }
     
     .nav-logo-img:hover {
-        background: rgba(15, 23, 42, 0.75) !important;
-        border-color: rgba(34, 211, 238, 0.3) !important;
+        background: rgba(139, 92, 246, 0.4) !important;
+        border-color: rgba(192, 132, 252, 0.6) !important;
         transform: translateY(-2px) !important;
-        box-shadow: 0 4px 16px rgba(34, 211, 238, 0.2),
-                    0 0 20px rgba(34, 211, 238, 0.15) !important;
+        box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4),
+                    0 0 20px rgba(192, 132, 252, 0.3) !important;
     }
     
     .nav-logo-img .logo-image {
@@ -1816,12 +1816,12 @@ body.rtl-text .nav-links {
     .nav-menu-toggle {
         width: 48px !important;
         height: 48px !important;
-        background: rgba(15, 23, 42, 0.6) !important;
+        background: rgba(139, 92, 246, 0.25) !important;
         backdrop-filter: blur(10px) !important;
         -webkit-backdrop-filter: blur(10px) !important;
-        border: 1px solid rgba(34, 211, 238, 0.15) !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1),
-                    0 0 0 0 rgba(34, 211, 238, 0) !important;
+        border: 1px solid rgba(192, 132, 252, 0.4) !important;
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2),
+                    0 0 12px rgba(192, 132, 252, 0.15) !important;
     }
     
     .nav-menu-toggle::before {
@@ -1832,10 +1832,10 @@ body.rtl-text .nav-links {
     }
     
     .nav-menu-toggle:hover {
-        background: rgba(15, 23, 42, 0.75) !important;
-        border-color: rgba(34, 211, 238, 0.3) !important;
-        box-shadow: 0 4px 16px rgba(34, 211, 238, 0.2),
-                    0 0 20px rgba(34, 211, 238, 0.15) !important;
+        background: rgba(139, 92, 246, 0.4) !important;
+        border-color: rgba(192, 132, 252, 0.6) !important;
+        box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4),
+                    0 0 20px rgba(192, 132, 252, 0.3) !important;
     }
     
     .hamburger-icon {
@@ -1844,10 +1844,10 @@ body.rtl-text .nav-links {
     
     .hamburger-line {
         background: linear-gradient(90deg, 
-            rgba(34, 211, 238, 0.9) 0%, 
-            rgba(59, 130, 246, 0.9) 50%,
-            rgba(34, 211, 238, 0.9) 100%) !important;
-        box-shadow: 0 0 8px rgba(34, 211, 238, 0.4) !important;
+            rgba(192, 132, 252, 1) 0%, 
+            rgba(255, 255, 255, 0.9) 50%,
+            rgba(192, 132, 252, 1) 100%) !important;
+        box-shadow: 0 0 8px rgba(192, 132, 252, 0.6) !important;
     }
     
     .nav-menu-wrapper.active .hamburger-line:nth-child(1) {
@@ -1888,10 +1888,10 @@ body.rtl-text .nav-links {
         -webkit-transform: translateX(100%) !important;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         box-shadow: -4px 0 20px rgba(0, 0, 0, 0.5) !important;
-        background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%) !important;
+        background: linear-gradient(180deg, rgba(99, 102, 241, 0.98) 0%, rgba(139, 92, 246, 0.98) 100%) !important;
         backdrop-filter: blur(20px) !important;
         -webkit-backdrop-filter: blur(20px) !important;
-        border-left: 1px solid rgba(148, 163, 184, 0.2) !important;
+        border-left: 1px solid rgba(192, 132, 252, 0.3) !important;
         border-right: none !important;
         padding: 20px !important;
         padding-top: 80px !important;
