@@ -3452,117 +3452,170 @@ body.rtl-text .nav-links {
         padding: 60px 16px 40px;
     }
     
-    /* For evaalo Visual Language in features section */
+    /* For evaalo Visual Language in features section - 2 columns */
     .features .icon-highlights-grid {
-        grid-template-columns: 1fr;
-        gap: 30px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
     }
 
     .icon-highlights-grid {
-        grid-template-columns: 1fr;
-        gap: 30px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
     }
 
     .icon-card {
         flex-direction: column;
-        align-items: flex-start;
-        padding: 22px 22px;
-        border-radius: 20px;
+        align-items: center;
+        text-align: center;
+        padding: 18px 14px;
+        border-radius: 18px;
     }
 
     .icon-card-graphic {
-        width: 110px;
-        height: 110px;
+        width: 85px;
+        height: 85px;
+        margin-bottom: 12px;
     }
     
     .icon-card-graphic::before {
-        border-radius: 20px;
+        border-radius: 18px;
     }
     
     .icon-card-title {
-        font-size: 1rem;
+        font-size: 0.9rem;
+        margin-bottom: 6px;
     }
     
     .icon-card-text {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
+        line-height: 1.5;
     }
 }
 
 @media (max-width: 480px) {
     .icon-highlights {
-        padding: 50px 12px 30px;
+        padding: 50px 10px 30px;
     }
     
     /* For evaalo Visual Language in features section */
     .features .section-header {
-        margin-bottom: 40px;
+        margin-bottom: 35px;
     }
     
     .features .section-title {
-        font-size: 1.75rem;
-        margin-bottom: 16px;
+        font-size: 1.65rem;
+        margin-bottom: 14px;
     }
     
     .features .section-description {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
+        padding: 0 10px;
     }
     
     .features .icon-highlights-grid {
-        gap: 20px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
     }
     
     .icon-highlights .section-header {
-        margin-bottom: 40px;
+        margin-bottom: 35px;
     }
     
     .icon-highlights .section-title {
-        font-size: 1.75rem;
-        margin-bottom: 16px;
+        font-size: 1.65rem;
+        margin-bottom: 14px;
     }
     
     .icon-highlights .section-description {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
+        padding: 0 10px;
     }
 
     .icon-highlights-grid {
-        gap: 20px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
     }
 
     .icon-card {
-        padding: 18px 18px;
-        border-radius: 16px;
+        padding: 14px 10px;
+        border-radius: 14px;
+        align-items: center;
+        text-align: center;
     }
 
     .icon-card-graphic {
-        width: 90px;
-        height: 90px;
+        width: 70px;
+        height: 70px;
+        margin-bottom: 10px;
     }
     
     .icon-card-graphic::before {
-        border-radius: 16px;
+        border-radius: 14px;
     }
     
     .icon-card-title {
-        font-size: 0.95rem;
-        margin-bottom: 4px;
+        font-size: 0.85rem;
+        margin-bottom: 5px;
+        font-weight: 700;
     }
     
     .icon-card-text {
-        font-size: 0.85rem;
-        line-height: 1.5;
+        font-size: 0.75rem;
+        line-height: 1.4;
     }
     
     /* Reduce hover effects on mobile */
     .icon-card:hover {
-        transform: translateY(-6px) scale(1.01);
+        transform: translateY(-4px) scale(1.01);
     }
     
     .icon-card:hover .icon-card-graphic {
-        transform: translateY(-2px) rotate(-1deg);
+        transform: translateY(-1px) rotate(-1deg);
     }
     
     .icon-card:hover .icon-card-image {
-        transform: translateY(-1px) scale(1.02);
+        transform: scale(1.02);
+    }
+}
+
+@media (max-width: 380px) {
+    .features .section-title,
+    .icon-highlights .section-title {
+        font-size: 1.5rem;
+    }
+    
+    .features .section-description,
+    .icon-highlights .section-description {
+        font-size: 0.85rem;
+    }
+    
+    .features .icon-highlights-grid,
+    .icon-highlights-grid {
+        gap: 12px;
+    }
+    
+    .icon-card {
+        padding: 12px 8px;
+        border-radius: 12px;
+    }
+    
+    .icon-card-graphic {
+        width: 65px;
+        height: 65px;
+        margin-bottom: 8px;
+    }
+    
+    .icon-card-graphic::before {
+        border-radius: 12px;
+    }
+    
+    .icon-card-title {
+        font-size: 0.8rem;
+        margin-bottom: 4px;
+    }
+    
+    .icon-card-text {
+        font-size: 0.7rem;
     }
 }
 
