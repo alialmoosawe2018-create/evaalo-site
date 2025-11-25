@@ -3264,6 +3264,855 @@ body.rtl-text .nav-links {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 40px;
+    position: relative;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* Premium grid layout for first section */
+#features .icon-highlights-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 35px;
+    padding: 20px;
+}
+
+/* Premium gradient overlay for icon section */
+#features .icon-highlights-grid::before {
+    content: '';
+    position: absolute;
+    inset: -100px;
+    background: radial-gradient(ellipse at center, 
+        rgba(99, 102, 241, 0.08) 0%,
+        rgba(168, 85, 247, 0.04) 40%,
+        transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+    animation: gradientShift 12s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+    0%, 100% {
+        opacity: 0.6;
+        transform: scale(1) rotate(0deg);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.15) rotate(2deg);
+    }
+}
+
+/* Premium section container */
+#features {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    padding: 120px 20px;
+}
+
+/* Remove Stars Background */
+#features::before {
+    display: none;
+}
+
+/* Remove Nebula Effect */
+#features::after {
+    display: none;
+}
+
+@keyframes starsTwinkle {
+    0%, 100% {
+        opacity: 0.6;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes nebulaFloat {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    33% {
+        transform: translate(-3%, -3%) rotate(1deg);
+    }
+    66% {
+        transform: translate(3%, 3%) rotate(-1deg);
+    }
+}
+
+/* Inner wrapper for icon and label */
+.icon-wrapper-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+    width: 100%;
+    position: relative;
+}
+
+/* Space Decorative Particles - Same as Hero Style */
+#features .icon-wrapper-inner::before {
+    content: '✦';
+    position: absolute;
+    top: 10%;
+    right: 15%;
+    font-size: 10px;
+    color: #ffffff;
+    opacity: 0;
+    animation: spaceParticle1 3s ease-in-out infinite;
+    pointer-events: none;
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8))
+            drop-shadow(0 0 15px rgba(56, 189, 248, 0.4));
+}
+
+#features .icon-wrapper-inner::after {
+    content: '✧';
+    position: absolute;
+    bottom: 20%;
+    right: 10%;
+    font-size: 12px;
+    color: #ffffff;
+    opacity: 0;
+    animation: spaceParticle2 4s ease-in-out infinite 1.5s;
+    pointer-events: none;
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.8))
+            drop-shadow(0 0 15px rgba(168, 85, 247, 0.4));
+}
+
+#features .simple-icon-wrapper:hover .icon-wrapper-inner::before,
+#features .simple-icon-wrapper:hover .icon-wrapper-inner::after {
+    opacity: 1;
+}
+
+@keyframes spaceParticle1 {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg) scale(1);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    50% {
+        transform: translate(20px, -25px) rotate(360deg) scale(1.5);
+        opacity: 1;
+    }
+    90% {
+        opacity: 0.8;
+    }
+}
+
+@keyframes spaceParticle2 {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg) scale(1);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    50% {
+        transform: translate(-25px, -20px) rotate(-360deg) scale(1.6);
+        opacity: 1;
+    }
+    90% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes floatParticle1 {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg);
+        opacity: 0;
+    }
+    20% {
+        opacity: 0.6;
+    }
+    50% {
+        transform: translate(15px, -20px) rotate(180deg);
+        opacity: 0.8;
+    }
+    80% {
+        opacity: 0.4;
+    }
+}
+
+@keyframes floatParticle2 {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg) scale(1);
+        opacity: 0;
+    }
+    20% {
+        opacity: 0.5;
+    }
+    50% {
+        transform: translate(-20px, -15px) rotate(-180deg) scale(1.3);
+        opacity: 0.7;
+    }
+    80% {
+        opacity: 0.3;
+    }
+}
+
+/* Space Icon Label - Same as Hero */
+#features .icon-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+    opacity: 0.95;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    padding-left: 25px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    filter: drop-shadow(0 2px 4px rgba(56, 189, 248, 0.2));
+}
+
+/* Decorative Icon before label */
+.icon-label::before {
+    content: '◆';
+    position: absolute;
+    left: 0;
+    font-size: 12px;
+    color: #6366F1;
+    opacity: 0.6;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Underline decoration */
+.icon-label::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 25px;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        #6366F1 0%,
+        #A78BFA 50%,
+        #C084FC 100%);
+    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    border-radius: 2px;
+}
+
+.simple-icon-wrapper:hover .icon-label {
+    opacity: 1;
+    transform: translateX(5px);
+}
+
+.simple-icon-wrapper:hover .icon-label::before {
+    opacity: 1;
+    transform: scale(1.3) rotate(45deg);
+    color: #A78BFA;
+}
+
+.simple-icon-wrapper:hover .icon-label::after {
+    width: calc(100% - 25px);
+}
+
+/* Different colors for different icons */
+.simple-icon-wrapper:nth-child(1) .icon-label::before {
+    color: #6366F1;
+}
+
+.simple-icon-wrapper:nth-child(2) .icon-label::before {
+    color: #10B981;
+}
+
+.simple-icon-wrapper:nth-child(3) .icon-label::before {
+    color: #F97316;
+}
+
+.simple-icon-wrapper:nth-child(4) .icon-label::before {
+    color: #EC4899;
+}
+
+.simple-icon-wrapper:nth-child(5) .icon-label::before {
+    color: #8B5CF6;
+}
+
+/* Space Glassmorphism Card Container - Same as Hero */
+#features .simple-icon-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 35px 30px;
+    position: relative;
+    perspective: 1000px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 24px;
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        0 4px 16px rgba(56, 189, 248, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    min-height: 220px;
+    overflow: visible;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Holographic Shimmer Effect */
+/* Remove Hologram Shine Animation */
+#features .simple-icon-wrapper::before {
+    display: none;
+}
+
+@keyframes hologramShine {
+    0% {
+        left: -100%;
+    }
+    20%, 100% {
+        left: 200%;
+    }
+}
+
+/* Space Section Title - Same as Hero */
+#features .section-title {
+    color: #ffffff;
+    filter: drop-shadow(0 4px 12px rgba(168, 85, 247, 0.3))
+            drop-shadow(0 2px 8px rgba(56, 189, 248, 0.2));
+    text-shadow: 0 0 40px rgba(168, 85, 247, 0.4);
+}
+
+/* Space Section Description - Same as Hero */
+#features .section-description {
+    color: rgba(255, 255, 255, 0.8);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    filter: drop-shadow(0 2px 4px rgba(56, 189, 248, 0.1));
+}
+
+/* Space Decorative Line - Same as Hero Style */
+#features .section-header::after {
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        rgba(56, 189, 248, 0.8) 20%,
+        rgba(168, 85, 247, 0.8) 50%,
+        rgba(56, 189, 248, 0.8) 80%,
+        transparent 100%);
+    box-shadow: 
+        0 0 20px rgba(56, 189, 248, 0.6),
+        0 4px 16px rgba(168, 85, 247, 0.4),
+        0 0 40px rgba(56, 189, 248, 0.3);
+    animation: lineGlow 3s ease-in-out infinite;
+}
+
+@keyframes lineGlow {
+    0%, 100% {
+        box-shadow: 
+            0 0 20px rgba(56, 189, 248, 0.6),
+            0 4px 16px rgba(168, 85, 247, 0.4),
+            0 0 40px rgba(56, 189, 248, 0.3);
+    }
+    50% {
+        box-shadow: 
+            0 0 30px rgba(56, 189, 248, 0.8),
+            0 4px 20px rgba(168, 85, 247, 0.6),
+            0 0 60px rgba(56, 189, 248, 0.5);
+    }
+}
+
+#features .simple-icon-wrapper:hover {
+    transform: translateY(-8px);
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 
+        0 12px 48px rgba(0, 0, 0, 0.4),
+        0 8px 24px rgba(56, 189, 248, 0.2),
+        0 0 60px rgba(168, 85, 247, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Space Warp Border Effect on Click */
+.simple-icon-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 20px;
+    background: linear-gradient(45deg, 
+        rgba(99, 102, 241, 0) 0%,
+        rgba(99, 102, 241, 0.4) 25%,
+        rgba(168, 85, 247, 0.6) 50%,
+        rgba(99, 102, 241, 0.4) 75%,
+        rgba(99, 102, 241, 0) 100%);
+    background-size: 200% 200%;
+    opacity: 0;
+    animation: none;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.simple-icon-wrapper:active::before {
+    opacity: 1;
+    animation: warpBorder 0.8s ease-out;
+}
+
+@keyframes warpBorder {
+    0% {
+        background-position: 0% 50%;
+        transform: scale(0.98);
+    }
+    50% {
+        background-position: 100% 50%;
+        transform: scale(1.02);
+    }
+    100% {
+        background-position: 200% 50%;
+        transform: scale(1);
+    }
+}
+
+/* Expanding Energy Wave */
+.simple-icon-wrapper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    background: radial-gradient(circle at center, 
+        rgba(99, 102, 241, 0.3) 0%,
+        transparent 70%);
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+}
+
+.simple-icon-wrapper:active::after {
+    opacity: 1;
+    transform: scale(1.5);
+    animation: energyWave 0.6s ease-out;
+}
+
+@keyframes energyWave {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.2);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.5);
+    }
+}
+
+/* No movement on container hover */
+.simple-icon-wrapper:hover {
+    border-color: rgba(99, 102, 241, 0.1);
+}
+
+/* Sci-Fi Card Expansion on Active */
+.simple-icon-wrapper:active {
+    transform: scale(1.03);
+    box-shadow: 0 15px 50px rgba(99, 102, 241, 0.3),
+                0 5px 20px rgba(168, 85, 247, 0.2),
+                0 0 60px rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.3);
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Remove glassmorphism effect */
+/* Corner Decorations - Top Left */
+.simple-icon-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 30px;
+    height: 30px;
+    border-top: 3px solid transparent;
+    border-left: 3px solid transparent;
+    border-radius: 8px 0 0 0;
+    opacity: 0.4;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 2;
+}
+
+/* Corner Decorations - Bottom Right */
+.simple-icon-wrapper::after {
+    content: '';
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 30px;
+    height: 30px;
+    border-bottom: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-radius: 0 0 8px 0;
+    opacity: 0.4;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    z-index: 2;
+}
+
+/* Animate corners on hover */
+.simple-icon-wrapper:hover::before {
+    width: 40px;
+    height: 40px;
+    opacity: 1;
+    top: 8px;
+    left: 8px;
+}
+
+.simple-icon-wrapper:hover::after {
+    width: 40px;
+    height: 40px;
+    opacity: 1;
+    bottom: 8px;
+    right: 8px;
+}
+
+/* Space Corner Decorations - Glowing */
+#features .simple-icon-wrapper:nth-child(1)::before,
+#features .simple-icon-wrapper:nth-child(1)::after {
+    border-color: rgba(56, 189, 248, 0.8);
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.6));
+}
+
+#features .simple-icon-wrapper:nth-child(2)::before,
+#features .simple-icon-wrapper:nth-child(2)::after {
+    border-color: rgba(34, 211, 238, 0.8);
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6));
+}
+
+#features .simple-icon-wrapper:nth-child(3)::before,
+#features .simple-icon-wrapper:nth-child(3)::after {
+    border-color: rgba(168, 85, 247, 0.8);
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.6));
+}
+
+#features .simple-icon-wrapper:nth-child(4)::before,
+#features .simple-icon-wrapper:nth-child(4)::after {
+    border-color: rgba(236, 72, 153, 0.8);
+    filter: drop-shadow(0 0 8px rgba(236, 72, 153, 0.6));
+}
+
+#features .simple-icon-wrapper:nth-child(5)::before,
+#features .simple-icon-wrapper:nth-child(5)::after {
+    border-color: rgba(139, 92, 246, 0.8);
+    filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.6));
+}
+
+/* Space Icon Container - Same as Hero Feature Icons */
+#features .simple-icon {
+    width: 140px;
+    height: 140px;
+    object-fit: contain;
+    position: relative;
+    z-index: 3;
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform-style: preserve-3d;
+    filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.2))
+            drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2))
+            contrast(1.05) saturate(1.1) brightness(1.05);
+    margin-bottom: 0;
+    padding: 18px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 0 40px rgba(56, 189, 248, 0.15);
+    animation: iconPulseGlow 4s ease-in-out infinite;
+}
+
+@keyframes iconPulseGlow {
+    0%, 100% {
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3),
+            0 0 40px rgba(56, 189, 248, 0.15);
+    }
+    50% {
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.25),
+            inset 0 1px 0 rgba(255, 255, 255, 0.35),
+            0 0 60px rgba(56, 189, 248, 0.25),
+            0 0 80px rgba(168, 85, 247, 0.15);
+    }
+}
+
+/* Space Color Themes - Same as Hero Feature Icons */
+#features .simple-icon-wrapper:nth-child(1) .simple-icon {
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 0 50px rgba(56, 189, 248, 0.2);
+}
+
+#features .simple-icon-wrapper:nth-child(2) .simple-icon {
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 0 50px rgba(34, 211, 238, 0.2);
+}
+
+#features .simple-icon-wrapper:nth-child(3) .simple-icon {
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 0 50px rgba(168, 85, 247, 0.2);
+}
+
+#features .simple-icon-wrapper:nth-child(4) .simple-icon {
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 0 50px rgba(236, 72, 153, 0.2);
+}
+
+#features .simple-icon-wrapper:nth-child(5) .simple-icon {
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 0 50px rgba(139, 92, 246, 0.2);
+}
+
+/* Simple fade in for cards */
+@keyframes iconFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.simple-icon-wrapper:nth-child(1) {
+    animation: iconFadeIn 0.5s ease-out 0.1s both;
+}
+
+.simple-icon-wrapper:nth-child(2) {
+    animation: iconFadeIn 0.5s ease-out 0.2s both;
+}
+
+.simple-icon-wrapper:nth-child(3) {
+    animation: iconFadeIn 0.5s ease-out 0.3s both;
+}
+
+.simple-icon-wrapper:nth-child(4) {
+    animation: iconFadeIn 0.5s ease-out 0.4s both;
+}
+
+.simple-icon-wrapper:nth-child(5) {
+    animation: iconFadeIn 0.5s ease-out 0.5s both;
+}
+
+/* No automatic animation - only on hover */
+
+/* Space Hover Effect on Icon - Same as Hero */
+#features .simple-icon-wrapper:hover .simple-icon {
+    transform: scale(1.1) translateY(-8px);
+    filter: drop-shadow(0 8px 30px rgba(56, 189, 248, 0.4))
+            drop-shadow(0 4px 15px rgba(0, 0, 0, 0.3))
+            contrast(1.1) saturate(1.2) brightness(1.1);
+}
+
+/* Shimmer/Shine Animation */
+@keyframes shimmerPulse {
+    0%, 100% {
+        box-shadow: inset 0 2px 8px rgba(99, 102, 241, 0.08);
+    }
+    50% {
+        box-shadow: inset 0 2px 8px rgba(99, 102, 241, 0.08),
+                    inset -20px -20px 40px rgba(255, 255, 255, 0.3),
+                    inset 20px 20px 40px rgba(99, 102, 241, 0.1);
+    }
+}
+
+/* Space Hover Effects - Same as Hero */
+#features .simple-icon-wrapper:nth-child(1):hover .simple-icon {
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        0 8px 35px rgba(56, 189, 248, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 0 80px rgba(56, 189, 248, 0.3);
+}
+
+#features .simple-icon-wrapper:nth-child(2):hover .simple-icon {
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        0 8px 35px rgba(34, 211, 238, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 0 80px rgba(34, 211, 238, 0.3);
+}
+
+#features .simple-icon-wrapper:nth-child(3):hover .simple-icon {
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        0 8px 35px rgba(168, 85, 247, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 0 80px rgba(168, 85, 247, 0.3);
+}
+
+#features .simple-icon-wrapper:nth-child(4):hover .simple-icon {
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        0 8px 35px rgba(236, 72, 153, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 0 80px rgba(236, 72, 153, 0.3);
+}
+
+#features .simple-icon-wrapper:nth-child(5):hover .simple-icon {
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        0 8px 35px rgba(139, 92, 246, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 0 80px rgba(139, 92, 246, 0.3);
+}
+
+/* Sci-Fi Space Effect on Click */
+.simple-icon::before {
+    content: '';
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    background: radial-gradient(circle, 
+        rgba(99, 102, 241, 0.6) 0%,
+        rgba(168, 85, 247, 0.4) 30%,
+        transparent 70%);
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    filter: blur(15px);
+}
+
+/* Particle Ring Effect */
+.simple-icon::after {
+    content: '';
+    position: absolute;
+    inset: -30px;
+    border-radius: 50%;
+    border: 3px dashed rgba(99, 102, 241, 0);
+    opacity: 0;
+    transform: scale(0.3) rotate(0deg);
+    transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+}
+
+/* Activate on click/active state */
+.simple-icon-wrapper:active .simple-icon::before {
+    opacity: 1;
+    transform: scale(2.5);
+    filter: blur(25px);
+    animation: warpPulse 0.6s ease-out;
+}
+
+.simple-icon-wrapper:active .simple-icon::after {
+    opacity: 0.8;
+    transform: scale(3) rotate(180deg);
+    border-color: rgba(99, 102, 241, 0.6);
+    animation: particleRing 0.8s ease-out;
+}
+
+.simple-icon-wrapper:active .simple-icon {
+    transform: scale(0.95);
+    filter: drop-shadow(0 0 40px rgba(99, 102, 241, 0.8))
+            drop-shadow(0 0 80px rgba(168, 85, 247, 0.6))
+            brightness(1.3) saturate(1.5);
+}
+
+/* Warp Speed Animation */
+@keyframes warpPulse {
+    0% {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.5);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(2.5);
+    }
+}
+
+/* Particle Ring Animation */
+@keyframes particleRing {
+    0% {
+        opacity: 0;
+        transform: scale(0.3) rotate(0deg);
+        border-width: 3px;
+    }
+    50% {
+        opacity: 0.8;
+        transform: scale(2) rotate(90deg);
+        border-width: 2px;
+    }
+    100% {
+        opacity: 0;
+        transform: scale(3) rotate(180deg);
+        border-width: 0px;
+    }
+}
+
+/* Holographic Shimmer on Active */
+.simple-icon-wrapper:active {
+    animation: hologramFlicker 0.3s ease-in-out;
+}
+
+@keyframes hologramFlicker {
+    0%, 100% {
+        opacity: 1;
+    }
+    25% {
+        opacity: 0.8;
+    }
+    50% {
+        opacity: 1;
+    }
+    75% {
+        opacity: 0.9;
+    }
+}
+
+/* Different colors for each icon click effect */
+.simple-icon-wrapper:nth-child(1):active .simple-icon::before {
+    background: radial-gradient(circle, 
+        rgba(99, 102, 241, 0.7) 0%,
+        rgba(79, 70, 229, 0.5) 30%,
+        transparent 70%);
+}
+
+.simple-icon-wrapper:nth-child(2):active .simple-icon::before {
+    background: radial-gradient(circle, 
+        rgba(16, 185, 129, 0.7) 0%,
+        rgba(5, 150, 105, 0.5) 30%,
+        transparent 70%);
+}
+
+.simple-icon-wrapper:nth-child(3):active .simple-icon::before {
+    background: radial-gradient(circle, 
+        rgba(249, 115, 22, 0.7) 0%,
+        rgba(234, 88, 12, 0.5) 30%,
+        transparent 70%);
+}
+
+.simple-icon-wrapper:nth-child(4):active .simple-icon::before {
+    background: radial-gradient(circle, 
+        rgba(236, 72, 153, 0.7) 0%,
+        rgba(219, 39, 119, 0.5) 30%,
+        transparent 70%);
+}
+
+.simple-icon-wrapper:nth-child(5):active .simple-icon::before {
+    background: radial-gradient(circle, 
+        rgba(139, 92, 246, 0.7) 0%,
+        rgba(124, 58, 237, 0.5) 30%,
+        transparent 70%);
 }
 
 .icon-card {
@@ -3448,11 +4297,111 @@ body.rtl-text .nav-links {
 }
 
 @media (max-width: 768px) {
+    /* Space Theme Mobile Adjustments */
+    #features {
+        padding: 80px 20px;
+    }
+    
+    /* Reduce stars on mobile */
+    #features::before {
+        opacity: 0.4;
+        background-size: 
+            150% 150%,
+            150% 150%,
+            120% 120%,
+            150% 150%,
+            140% 140%,
+            150% 150%,
+            160% 160%;
+    }
+    
+    /* Reduce nebula effect on mobile */
+    #features::after {
+        filter: blur(40px);
+        opacity: 0.8;
+    }
+    
+    /* Mobile glassmorphism cards */
+    #features .simple-icon-wrapper {
+        padding: 25px 20px;
+        min-height: 180px;
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+    }
+    
+    /* Mobile icon size */
+    #features .simple-icon {
+        width: 100px;
+        height: 100px;
+        padding: 14px;
+    }
+    
+    /* Mobile label */
+    #features .icon-label {
+        font-size: 13px;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Adjust decorative elements for mobile */
+    .features::before {
+        width: 400px;
+        height: 400px;
+        left: -30%;
+    }
+    
+    .features::after {
+        width: 400px;
+        height: 400px;
+        right: -30%;
+    }
+    
+    /* Hide decorative lines on mobile */
+    .section-header::before,
+    .section-header .section-title::after {
+        display: none;
+    }
+    
+    /* Adjust icon labels for mobile */
+    .icon-label {
+        font-size: 14px;
+        padding-left: 20px;
+    }
+    
+    .icon-label::before {
+        font-size: 10px;
+    }
+    
+    /* Smaller corner decorations on mobile */
+    .simple-icon-wrapper::before,
+    .simple-icon-wrapper::after {
+        width: 20px;
+        height: 20px;
+        border-width: 2px;
+    }
+    
+    .simple-icon-wrapper:hover::before,
+    .simple-icon-wrapper:hover::after {
+        width: 25px;
+        height: 25px;
+    }
+    
+    /* Reduce floating particles */
+    .icon-wrapper-inner::before,
+    .icon-wrapper-inner::after {
+        font-size: 6px;
+    }
+    
     .icon-highlights {
         padding: 60px 16px 40px;
     }
     
     /* For evaalo Visual Language in features section - 2 columns */
+    #features .icon-highlights-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        padding: 10px;
+    }
+    
     .features .icon-highlights-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 20px;
@@ -3489,6 +4438,22 @@ body.rtl-text .nav-links {
     .icon-card-text {
         font-size: 0.8rem;
         line-height: 1.5;
+    }
+    
+    /* Simple Icons in mobile - Bigger icon, smaller frame */
+    .simple-icon-wrapper {
+        padding: 28px 20px;
+        min-height: 180px;
+    }
+    
+    .simple-icon {
+        width: 100px;
+        height: 100px;
+        padding: 16px;
+    }
+    
+    .simple-icon-wrapper:hover .simple-icon {
+        transform: scale(1.08) translateY(-6px);
     }
 }
 
@@ -3576,6 +4541,22 @@ body.rtl-text .nav-links {
     .icon-card:hover .icon-card-image {
         transform: scale(1.02);
     }
+    
+    /* Simple Icons in small mobile - Bigger icon, smaller frame */
+    .simple-icon-wrapper {
+        padding: 25px 18px;
+        min-height: 170px;
+    }
+    
+    .simple-icon {
+        width: 88px;
+        height: 88px;
+        padding: 14px;
+    }
+    
+    .simple-icon-wrapper:hover .simple-icon {
+        transform: scale(1.06) translateY(-4px);
+    }
 }
 
 @media (max-width: 380px) {
@@ -3616,6 +4597,27 @@ body.rtl-text .nav-links {
     
     .icon-card-text {
         font-size: 0.7rem;
+    }
+    
+    /* Simple Icons in extra small mobile - Bigger icon, smaller frame */
+    .simple-icon-wrapper {
+        padding: 22px 14px;
+        min-height: 150px;
+    }
+    
+    .simple-icon {
+        width: 76px;
+        height: 76px;
+        padding: 12px;
+    }
+    
+    .simple-icon-wrapper:hover .simple-icon {
+        transform: scale(1.05) translateY(-3px);
+    }
+    
+    /* Card style stays on mobile */
+    .simple-icon-wrapper {
+        background: rgba(255, 255, 255, 0.92);
     }
 }
 
@@ -4365,6 +5367,65 @@ body.rtl-text .nav-links {
     overflow: hidden;
 }
 
+/* Decorative Floating Orbs */
+.features::before {
+    content: '';
+    position: absolute;
+    top: -10%;
+    left: -10%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, 
+        rgba(99, 102, 241, 0.12) 0%,
+        rgba(139, 92, 246, 0.08) 40%,
+        transparent 70%);
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+    animation: floatOrbLeft 18s ease-in-out infinite;
+}
+
+.features::after {
+    content: '';
+    position: absolute;
+    bottom: -10%;
+    right: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, 
+        rgba(168, 85, 247, 0.1) 0%,
+        rgba(236, 72, 153, 0.06) 40%,
+        transparent 70%);
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+    animation: floatOrbRight 22s ease-in-out infinite;
+}
+
+@keyframes floatOrbLeft {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: translate(60px, 80px) scale(1.2);
+        opacity: 0.8;
+    }
+}
+
+@keyframes floatOrbRight {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: translate(-80px, -60px) scale(1.15);
+        opacity: 0.7;
+    }
+}
+
 /* AI Network Pattern Background */
 .ai-network-pattern {
     position: absolute;
@@ -4563,10 +5624,58 @@ body.rtl-text .nav-links {
     z-index: 1;
 }
 
+/* Geometric Dots Pattern */
+.features .container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(circle at center, rgba(99, 102, 241, 0.08) 1.5px, transparent 1.5px);
+    background-size: 30px 30px;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.4;
+}
+
+/* Grid Lines */
+.features .container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: -1;
+    opacity: 0.3;
+}
+
 .section-header {
     text-align: center;
     margin-bottom: 80px;
     position: relative;
+}
+
+/* Decorative Lines on sides */
+.section-header::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 150px;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        rgba(99, 102, 241, 0.2) 30%,
+        rgba(99, 102, 241, 0.5) 100%);
+    transform: translateY(-50%);
 }
 
 .section-header::after {
@@ -4578,6 +5687,21 @@ body.rtl-text .nav-links {
     margin: 28px auto 0;
     border-radius: 4px;
     box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+}
+
+/* Right decorative line */
+.section-header .section-title::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 0;
+    width: 150px;
+    height: 2px;
+    background: linear-gradient(90deg, 
+        rgba(99, 102, 241, 0.5) 0%,
+        rgba(99, 102, 241, 0.2) 70%,
+        transparent 100%);
+    transform: translateY(-50%);
 }
 
 .section-title {
