@@ -3451,19 +3451,118 @@ body.rtl-text .nav-links {
     .icon-highlights {
         padding: 60px 16px 40px;
     }
+    
+    /* For evaalo Visual Language in features section */
+    .features .icon-highlights-grid {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
 
     .icon-highlights-grid {
         grid-template-columns: 1fr;
+        gap: 30px;
     }
 
     .icon-card {
         flex-direction: column;
         align-items: flex-start;
+        padding: 22px 22px;
+        border-radius: 20px;
     }
 
     .icon-card-graphic {
-        width: 120px;
-        height: 120px;
+        width: 110px;
+        height: 110px;
+    }
+    
+    .icon-card-graphic::before {
+        border-radius: 20px;
+    }
+    
+    .icon-card-title {
+        font-size: 1rem;
+    }
+    
+    .icon-card-text {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .icon-highlights {
+        padding: 50px 12px 30px;
+    }
+    
+    /* For evaalo Visual Language in features section */
+    .features .section-header {
+        margin-bottom: 40px;
+    }
+    
+    .features .section-title {
+        font-size: 1.75rem;
+        margin-bottom: 16px;
+    }
+    
+    .features .section-description {
+        font-size: 0.95rem;
+    }
+    
+    .features .icon-highlights-grid {
+        gap: 20px;
+    }
+    
+    .icon-highlights .section-header {
+        margin-bottom: 40px;
+    }
+    
+    .icon-highlights .section-title {
+        font-size: 1.75rem;
+        margin-bottom: 16px;
+    }
+    
+    .icon-highlights .section-description {
+        font-size: 0.95rem;
+    }
+
+    .icon-highlights-grid {
+        gap: 20px;
+    }
+
+    .icon-card {
+        padding: 18px 18px;
+        border-radius: 16px;
+    }
+
+    .icon-card-graphic {
+        width: 90px;
+        height: 90px;
+    }
+    
+    .icon-card-graphic::before {
+        border-radius: 16px;
+    }
+    
+    .icon-card-title {
+        font-size: 0.95rem;
+        margin-bottom: 4px;
+    }
+    
+    .icon-card-text {
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+    
+    /* Reduce hover effects on mobile */
+    .icon-card:hover {
+        transform: translateY(-6px) scale(1.01);
+    }
+    
+    .icon-card:hover .icon-card-graphic {
+        transform: translateY(-2px) rotate(-1deg);
+    }
+    
+    .icon-card:hover .icon-card-image {
+        transform: translateY(-1px) scale(1.02);
     }
 }
 

@@ -3586,8 +3586,8 @@
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        width: 70px !important;
-        height: 70px !important;
+        width: 60px !important;
+        height: 60px !important;
         flex-shrink: 0 !important;
         margin: 0 auto !important;
         overflow: hidden !important;
@@ -3670,8 +3670,8 @@
     }
     
     .left-feature-icon {
-        width: 60px !important;
-        height: 60px !important;
+        width: 55px !important;
+        height: 55px !important;
         background: linear-gradient(135deg, 
             rgba(15, 23, 42, 1) 0%, 
             rgba(20, 20, 35, 1) 100%) !important;
