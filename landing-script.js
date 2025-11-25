@@ -382,12 +382,12 @@ if (navLanguageItemDesktop) {
     // Hide dropdown on mouse leave with delay
     const hideDropdown = () => {
         dropdownTimeout = setTimeout(() => {
-            if (navLanguageDropdownDesktop) {
-                navLanguageDropdownDesktop.style.opacity = '0';
-                navLanguageDropdownDesktop.style.visibility = 'hidden';
-                navLanguageDropdownDesktop.style.transform = 'translateY(-8px)';
+        if (navLanguageDropdownDesktop) {
+            navLanguageDropdownDesktop.style.opacity = '0';
+            navLanguageDropdownDesktop.style.visibility = 'hidden';
+            navLanguageDropdownDesktop.style.transform = 'translateY(-8px)';
                 navLanguageDropdownDesktop.style.pointerEvents = 'none';
-            }
+        }
         }, 150); // Small delay to allow moving mouse to dropdown
     };
     
@@ -455,19 +455,19 @@ setTimeout(function() {
             // Add click event
             newNavMenuToggle.addEventListener('click', function(e) {
                 e.preventDefault();
-                e.stopPropagation();
+        e.stopPropagation();
                 newNavMenuWrapper.classList.toggle('active');
-            });
-            
+    });
+
             // Close menu when clicking on any nav link
-            navLinks.forEach(link => {
+        navLinks.forEach(link => {
                 link.addEventListener('click', function() {
                     if (newNavMenuWrapper) {
                         newNavMenuWrapper.classList.remove('active');
-                    }
-                });
+                }
             });
-            
+        });
+
             // Close menu when clicking outside
             document.addEventListener('click', function(e) {
                 if (newNavMenuWrapper && newNavMenuWrapper.classList.contains('active')) {
@@ -476,9 +476,9 @@ setTimeout(function() {
                         !newNavMenuWrapper.contains(e.target)) {
                         newNavMenuWrapper.classList.remove('active');
                     }
-                }
-            });
         }
+    });
+}
     }
 }, 100);
 

@@ -3549,8 +3549,8 @@
     .left-icon-button::before {
         content: '' !important;
         position: absolute !important;
-        width: 95px !important;
-        height: 95px !important;
+        width: 80px !important;
+        height: 80px !important;
         background: radial-gradient(circle, rgba(34, 211, 238, 0.2) 0%, transparent 70%) !important;
         border-radius: 50% !important;
         top: -12px !important;
