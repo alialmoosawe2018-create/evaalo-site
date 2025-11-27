@@ -4789,21 +4789,21 @@ body.rtl-text .nav-links {
         padding: 60px 16px 40px;
     }
     
-    /* For evaalo Visual Language in features section - 2 columns */
+    /* For evaalo Visual Language in features section - Single column on mobile */
     #features .icon-highlights-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
+        grid-template-columns: 1fr;
+        gap: 24px;
         padding: 10px;
     }
     
     .features .icon-highlights-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
+        grid-template-columns: 1fr;
+        gap: 24px;
     }
 
     .icon-highlights-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
+        grid-template-columns: 1fr;
+        gap: 24px;
     }
 
     .icon-card {
@@ -4872,8 +4872,8 @@ body.rtl-text .nav-links {
     }
     
     .features .icon-highlights-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 14px;
+        grid-template-columns: 1fr;
+        gap: 20px;
     }
     
     .icon-highlights .section-header {
@@ -4891,8 +4891,8 @@ body.rtl-text .nav-links {
     }
 
     .icon-highlights-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 14px;
+        grid-template-columns: 1fr;
+        gap: 20px;
     }
 
     .icon-card {
