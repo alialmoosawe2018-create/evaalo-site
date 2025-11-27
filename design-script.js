@@ -1857,25 +1857,80 @@ document.addEventListener('DOMContentLoaded', function() {
         renderOptions();
     };
 
-    // Populate Edit Form
+    // Populate Edit Form - Enhanced to support all question types
     function populateEditForm(question) {
-        document.getElementById('questionText').value = question.text;
+        // Fill common fields
+        const questionTextEl = document.getElementById('questionText');
+        const questionTimeEl = document.getElementById('questionTime');
+        const questionPointsEl = document.getElementById('questionPoints');
         
-        if (question.timeLimit) {
-            document.getElementById('questionTime').value = question.timeLimit;
-        }
+        if (questionTextEl) questionTextEl.value = question.text || '';
+        if (questionTimeEl) questionTimeEl.value = question.timeLimit || '';
+        if (questionPointsEl) questionPointsEl.value = question.points || 10;
         
-        if (question.points) {
-            document.getElementById('questionPoints').value = question.points;
-        }
-
-        if (question.type === 'multiple' && question.options) {
-            window.currentOptions = [...question.options];
-            renderOptions();
-        }
-
-        if (question.type === 'rating' && question.scale) {
-            document.getElementById('ratingScale').value = question.scale;
+        // Type-specific data population
+        if (question.type === 'multiple' || question.type === 'checkbox' || question.type === 'dropdown') {
+            // Populate options
+            if (question.options) {
+                window.currentOptions = [...question.options];
+                renderOptions();
+            }
+            const randomizeOptionsEl = document.getElementById('randomizeOptions');
+            if (randomizeOptionsEl) randomizeOptionsEl.checked = question.randomizeOptions || false;
+            
+        } else if (question.type === 'rating' || question.type === 'linear-scale') {
+            const ratingScaleEl = document.getElementById('ratingScale');
+            if (ratingScaleEl) ratingScaleEl.value = question.scale || '5';
+            
+            if (question.type === 'linear-scale') {
+                const lowLabelEl = document.getElementById('lowLabel');
+                const highLabelEl = document.getElementById('highLabel');
+                if (lowLabelEl) lowLabelEl.value = question.lowLabel || '';
+                if (highLabelEl) highLabelEl.value = question.highLabel || '';
+            }
+            
+        } else if (question.type === 'yes-no') {
+            const correctAnswerEl = document.getElementById('correctAnswer');
+            if (correctAnswerEl) correctAnswerEl.value = question.correctAnswer || '';
+            
+        } else if (question.type === 'number') {
+            const minValueEl = document.getElementById('minValue');
+            const maxValueEl = document.getElementById('maxValue');
+            if (minValueEl) minValueEl.value = question.minValue || '';
+            if (maxValueEl) maxValueEl.value = question.maxValue || '';
+            
+        } else if (question.type === 'short-text' || question.type === 'long-text') {
+            const charLimitEl = document.getElementById('charLimit');
+            if (charLimitEl) charLimitEl.value = question.charLimit || '';
+            
+        } else if (question.type === 'email' || question.type === 'phone' || question.type === 'url') {
+            const validateFormatEl = document.getElementById('validateFormat');
+            if (validateFormatEl) validateFormatEl.checked = question.validateFormat || false;
+            
+        } else if (question.type === 'file') {
+            const fileTypesEl = document.getElementById('fileTypes');
+            const maxFileSizeEl = document.getElementById('maxFileSize');
+            
+            if (fileTypesEl && question.allowedTypes) {
+                Array.from(fileTypesEl.options).forEach(option => {
+                    option.selected = question.allowedTypes.includes(option.value);
+                });
+            }
+            if (maxFileSizeEl) maxFileSizeEl.value = question.maxFileSize || 10;
+            
+        } else if (question.type === 'voice') {
+            const maxDurationEl = document.getElementById('maxDuration');
+            const requireTranscriptEl = document.getElementById('requireTranscript');
+            if (maxDurationEl) maxDurationEl.value = question.maxDuration || '';
+            if (requireTranscriptEl) requireTranscriptEl.checked = question.requireTranscript || false;
+            
+        } else if (question.type === 'slider') {
+            const sliderMinEl = document.getElementById('sliderMin');
+            const sliderMaxEl = document.getElementById('sliderMax');
+            const sliderStepEl = document.getElementById('sliderStep');
+            if (sliderMinEl) sliderMinEl.value = question.sliderMin || 0;
+            if (sliderMaxEl) sliderMaxEl.value = question.sliderMax || 100;
+            if (sliderStepEl) sliderStepEl.value = question.sliderStep || 1;
         }
     }
 
@@ -2224,8 +2279,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function editQuestion(index) {
         editingQuestionIndex = index;
         currentQuestionType = questions[index].type;
-        openQuestionModal();
-        populateEditForm(questions[index]);
+        openQuestionModal(questions[index].type);
+        // Small delay to ensure modal content is rendered before populating
+        setTimeout(() => {
+            populateEditForm(questions[index]);
+        }, 100);
     }
 
     // Show Share Modal
