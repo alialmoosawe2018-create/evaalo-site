@@ -9,11 +9,30 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
-  <script type="module" crossorigin src="/assets/index-DUSonwqm.js"></script>
+  <script type="module" crossorigin src="/assets/index-mnmr_5Ki.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DR8i4vkA.css">
 </head>
 <body>
     <div id="root"></div>
+    <script>
+        // Single Page Apps for GitHub Pages
+        // This script handles client-side routing for GitHub Pages
+        (function() {
+            var pathSegmentsToKeep = 0;
+            var l = window.location;
+            var redirect = sessionStorage.redirect;
+            delete sessionStorage.redirect;
+            if (redirect && redirect !== l.href) {
+                history.replaceState(null, null, redirect);
+            }
+            // Handle query string redirects from 404.html
+            var path = window.location.search.slice(1);
+            if (path && path.indexOf('?/') === 0) {
+                path = path.slice(2).replace(/~and~/g, '&');
+                window.history.replaceState(null, null, '/' + path);
+            }
+        })();
+    </script>
 </body>
 </html>
 
