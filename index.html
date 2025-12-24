@@ -9,14 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
-  <script type="module" crossorigin src="/assets/index-ByZTj2f1.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-DR8i4vkA.css">
-</head>
-<body>
-    <div id="root"></div>
     <script>
         // Single Page Apps for GitHub Pages
-        // Handle redirects from 404.html
+        // Handle redirects from 404.html - MUST RUN BEFORE React loads
         (function() {
             var search = window.location.search;
             // Check if we have a redirect path in query string (format: ?/path)
@@ -26,11 +21,16 @@
                 if (!path.startsWith('/')) {
                     path = '/' + path;
                 }
-                // Redirect immediately to the correct path
+                // Redirect immediately BEFORE React loads
                 window.location.replace(path);
             }
         })();
     </script>
+  <script type="module" crossorigin src="/assets/index-ByZTj2f1.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DR8i4vkA.css">
+</head>
+<body>
+    <div id="root"></div>
 </body>
 </html>
 
