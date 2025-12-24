@@ -13,24 +13,31 @@
         // Single Page Apps for GitHub Pages
         // Handle redirects from 404.html - MUST RUN BEFORE React loads
         (function() {
-            var search = window.location.search;
-            var hash = window.location.hash;
-            // Check if we have a redirect path in query string (format: ?/path)
-            if (search) {
-                // Handle format: ?/path or ?/path&query
-                var match = search.match(/^\?(\/.*)/);
-                if (match) {
-                    var path = match[1].replace(/~and~/g, '&');
-                    // Preserve hash if exists
-                    var newUrl = path + (hash || '');
-                    // Redirect immediately BEFORE React loads
-                    window.location.replace(newUrl);
-                    return;
+            try {
+                var search = window.location.search;
+                var hash = window.location.hash;
+                
+                // Check if we have a redirect path in query string (format: ?/path)
+                if (search && search.length > 1) {
+                    // Handle format: ?/path or ?/path&query
+                    // Extract path after ?/
+                    var pathMatch = search.match(/^\?\/(.+?)(?:&|$)/);
+                    if (pathMatch) {
+                        var path = '/' + pathMatch[1].replace(/~and~/g, '&');
+                        // Preserve hash if exists
+                        var newUrl = path + (hash || '');
+                        // Redirect immediately BEFORE React loads
+                        window.location.replace(newUrl);
+                        return;
+                    }
                 }
+            } catch (e) {
+                // Silently fail if there's an error
+                console.error('Redirect script error:', e);
             }
         })();
     </script>
-  <script type="module" crossorigin src="/assets/index-vZpDM3Qt.js"></script>
+  <script type="module" crossorigin src="/assets/index-mIIRj33R.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DR8i4vkA.css">
 </head>
 <body>
