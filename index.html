@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
-  <script type="module" crossorigin src="/assets/index-5Fs0jm7c.js"></script>
+  <script type="module" crossorigin src="/assets/index-ByZTj2f1.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DR8i4vkA.css">
 </head>
 <body>
@@ -19,13 +19,15 @@
         // Handle redirects from 404.html
         (function() {
             var search = window.location.search;
-            if (search && search.indexOf('?/') === 1) {
-                var path = search.slice(2).replace(/~and~/g, '&');
-                if (path.startsWith('/')) {
-                    path = path.slice(1);
+            // Check if we have a redirect path in query string (format: ?/path)
+            if (search && search.length > 1 && search.charAt(1) === '/') {
+                var path = search.slice(1).replace(/~and~/g, '&');
+                // Ensure path starts with /
+                if (!path.startsWith('/')) {
+                    path = '/' + path;
                 }
                 // Redirect immediately to the correct path
-                window.location.replace('/' + path);
+                window.location.replace(path);
             }
         })();
     </script>
