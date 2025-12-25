@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    <script>
+        // Single Page Apps for GitHub Pages
+        // https://github.com/rafgraph/spa-github-pages
+        // This script takes the current url and converts the path and query
+        // string into just a query string, and then redirects the browser
+        // to the new url with only a query string and hash fragment,
+        // e.g. https://www.foo.com/one/two?a=b&c=d#qwe, becomes
+        // https://www.foo.com/?/one/two&a=b~and~c=d#qwe
+        // Note: this 404.html file must be at least 512 bytes for some
+        // browsers to see it as a valid 404 page.
+
+        (function() {
+            try {
+                var pathSegmentsToKeep = 0;
+                var l = window.location;
+                
+                // Get the pathname and remove leading slash
+                var pathname = l.pathname;
+                var pathSegments = pathname.split('/').filter(function(segment) {
+                    return segment.length > 0;
+                });
+                
+                // Build the redirect URL
+                var redirectPath = pathSegments.slice(pathSegmentsToKeep).join('/');
+                var redirect = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+                    '/?/' +
+                    redirectPath.replace(/&/g, '~and~') +
+                    (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+                    l.hash;
+                
+                // Redirect immediately
+                l.replace(redirect);
+            } catch (e) {
+                console.error('Error in 404.html redirect:', e);
+                // Fallback: redirect to home
+                window.location.replace('/');
+            }
+        })();
+    </script>
+</head>
+<body>
+    <p>Redirecting...</p>
+    <noscript>
+        <p>Please enable JavaScript to continue.</p>
+        <p><a href="/">Go to homepage</a></p>
+    </noscript>
+</body>
+</html>
+
+
+

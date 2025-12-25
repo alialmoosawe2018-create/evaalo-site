@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" id="htmlLang">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4a1d9c">
+    <title>Career Portal - Join Our Team</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+  <script type="module" crossorigin src="/assets/index-gZyrxVSI.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DR8i4vkA.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        // Single Page Apps for GitHub Pages
+        // Handle redirects from 404.html - MUST run immediately before React loads
+        (function() {
+            var search = window.location.search;
+            // Check if we have a redirect path in query string (format: ?/path)
+            if (search && search.length > 1 && search.charAt(1) === '/') {
+                try {
+                    var path = search.slice(1).replace(/~and~/g, '&');
+                    // Split path and query string if present
+                    var pathParts = path.split('&');
+                    var cleanPath = pathParts[0];
+                    // Ensure path starts with /
+                    if (!cleanPath.startsWith('/')) {
+                        cleanPath = '/' + cleanPath;
+                    }
+                    // Reconstruct query string if present (skip the first part which is the path)
+                    var queryString = '';
+                    if (pathParts.length > 1) {
+                        var queryParts = [];
+                        for (var i = 1; i < pathParts.length; i++) {
+                            queryParts.push(pathParts[i]);
+                        }
+                        queryString = '?' + queryParts.join('&');
+                    }
+                    // Build the full URL
+                    var newUrl = cleanPath + queryString + (window.location.hash || '');
+                    var currentUrl = window.location.pathname + window.location.search + (window.location.hash || '');
+                    
+                    // Only redirect if the URL is different
+                    if (newUrl !== currentUrl) {
+                        // Use replace to avoid adding to history and ensure React Router picks it up
+                        window.location.replace(newUrl);
+                        return; // Stop execution
+                    }
+                } catch (e) {
+                    console.error('Error in redirect script:', e);
+                }
+            }
+        })();
+    </script>
+</body>
+</html>
+
+
