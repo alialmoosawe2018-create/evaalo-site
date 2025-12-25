@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en" id="htmlLang">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4a1d9c">
+    <title>Career Portal - Join Our Team</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+  <script type="module" crossorigin src="/assets/index-Cf4TKMBO.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DR8i4vkA.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        // HashRouter handles routing automatically - no redirect script needed
+        // If user accesses a path without hash, redirect to hash version
+        (function() {
+            var pathname = window.location.pathname;
+            var search = window.location.search;
+            var hash = window.location.hash;
+            
+            // If pathname is not root and no hash exists, redirect to hash version
+            if (pathname !== '/' && pathname !== '/index.html' && !hash) {
+                var newHash = '#' + pathname + search;
+                window.location.replace('/' + newHash);
+            }
+        })();
+    </script>
+</body>
+</html>
+
+
