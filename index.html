@@ -9,14 +9,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
-  <script type="module" crossorigin src="/assets/index-ukngefg2.js"></script>
+  <script type="module" crossorigin src="/assets/index-DPUo6OkM.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DR8i4vkA.css">
 </head>
 <body>
     <div id="root"></div>
     <script>
         // Single Page Apps for GitHub Pages
-        // Handle redirects from 404.html
+        // Handle redirects from 404.html - MUST run immediately before React loads
         (function() {
             var search = window.location.search;
             // Check if we have a redirect path in query string (format: ?/path)
@@ -29,10 +29,21 @@
                 if (!cleanPath.startsWith('/')) {
                     cleanPath = '/' + cleanPath;
                 }
-                // Reconstruct query string if present
-                var queryString = pathParts.length > 1 ? '?' + pathParts.slice(1).join('&') : '';
-                // Redirect immediately to the correct path
-                window.location.replace(cleanPath + queryString);
+                // Reconstruct query string if present (skip the first part which is the path)
+                var queryString = '';
+                if (pathParts.length > 1) {
+                    var queryParts = [];
+                    for (var i = 1; i < pathParts.length; i++) {
+                        queryParts.push(pathParts[i]);
+                    }
+                    queryString = '?' + queryParts.join('&');
+                }
+                // Redirect immediately to the correct path (before React loads)
+                var newUrl = cleanPath + queryString + window.location.hash;
+                if (newUrl !== window.location.pathname + window.location.search + window.location.hash) {
+                    // Use replace to avoid adding to history and ensure React Router picks it up
+                    window.location.replace(newUrl);
+                }
             }
         })();
     </script>
