@@ -15,20 +15,25 @@
         // Note: this 404.html file must be at least 512 bytes for some
         // browsers to see it as a valid 404 page.
 
-        var pathSegmentsToKeep = 0;
-
-        var l = window.location;
-        l.replace(
-            l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-            l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
-            l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-            (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-            l.hash
-        );
+        (function() {
+            var pathSegmentsToKeep = 0;
+            var l = window.location;
+            var redirect = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+                l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+                l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+                (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+                l.hash;
+            l.replace(redirect);
+        })();
     </script>
 </head>
 <body>
     <p>Redirecting...</p>
+    <noscript>
+        <p>Please enable JavaScript to continue.</p>
+    </noscript>
 </body>
 </html>
+
+
 
