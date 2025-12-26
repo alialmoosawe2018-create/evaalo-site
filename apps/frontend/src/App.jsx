@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { InterviewTemplateProvider } from './contexts/InterviewTemplateContext';
 import { DesignProvider } from './contexts/DesignContext';
@@ -56,7 +56,7 @@ function App() {
                             <Route path="/" element={<Home />} />
                             <Route path="/design" element={<Design />} />
                             <Route path="/form" element={<Form />} />
-                            <Route path="/interview" element={<Interview />} />
+                            <Route path="/interview/:id" element={<Interview />} />
                             <Route path="/dashboard" element={<Dashboard />} />
                             <Route path="/workflow" element={<Workflow />} />
                             <Route path="/candidates" element={<Candidates />} />

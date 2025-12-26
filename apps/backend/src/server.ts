@@ -93,10 +93,22 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.get('/health', (req, res) => {
     try {
         const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+        
+        // معلومات عن Vapi
+        // ملاحظة: Vapi SDK يعمل في Frontend، لذا لا يوجد اتصال مباشر من Backend
+        // لكن يمكننا التحقق من وجود متغيرات البيئة المتعلقة بـ Vapi
+        const vapiConfig = {
+            available: true, // Vapi متاح للاستخدام من خلال Frontend
+            sdk: 'client-side', // Vapi SDK يعمل في المتصفح
+            webhookEndpoint: '/webhook/vapi', // Endpoint لاستقبال webhooks من Vapi
+            note: 'Vapi is initialized in the frontend using Public API Key'
+        };
+        
         res.json({ 
             status: 'ok', 
             message: 'Server is running',
             database: dbStatus,
+            vapi: vapiConfig,
             timestamp: new Date().toISOString()
         });
     } catch (error: any) {
@@ -104,6 +116,11 @@ app.get('/health', (req, res) => {
             status: 'ok', 
             message: 'Server is running',
             database: 'unknown',
+            vapi: {
+                available: true,
+                sdk: 'client-side',
+                note: 'Vapi is initialized in the frontend'
+            },
             timestamp: new Date().toISOString()
         });
     }
