@@ -55,11 +55,10 @@ const Interview = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
       
-      const apiUrl = process.env.NODE_ENV === 'production' 
-        ? `https://evaalo-backend.onrender.com/api/candidates/${candidateId}`
-        : `http://localhost:5000/api/candidates/${candidateId}`;
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const fullApiUrl = `${apiUrl}/api/candidates/${candidateId}`;
       
-      const response = await fetch(apiUrl, {
+      const response = await fetch(fullApiUrl, {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',

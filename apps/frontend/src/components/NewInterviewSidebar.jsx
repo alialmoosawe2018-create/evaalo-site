@@ -130,7 +130,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
             // حفظ المعايير في قاعدة البيانات وإنشاء campaign ID
             setSendingToN8N(true);
             try {
-                const response = await fetch('http://localhost:5000/api/recruitment-campaigns', {
+                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const response = await fetch(`${apiUrl}/api/recruitment-campaigns`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -204,7 +205,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         // إرسال معلومات حملة التوظيف (المعايير + نوع المقابلة) إلى n8n للتحليل
         setSendingToN8N(true);
         try {
-            const response = await fetch('http://localhost:5000/api/recruitment-campaigns', {
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const response = await fetch(`${apiUrl}/api/recruitment-campaigns`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

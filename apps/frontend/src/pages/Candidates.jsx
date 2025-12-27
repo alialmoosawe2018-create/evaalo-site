@@ -14,7 +14,8 @@ const Candidates = () => {
         const fetchCandidates = async () => {
             try {
                 setLoading(true);
-                const response = await fetch('http://localhost:5000/api/candidates');
+                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const response = await fetch(`${apiUrl}/api/candidates`);
                 const result = await response.json();
                 
                 if (result.success) {

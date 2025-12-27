@@ -15,7 +15,8 @@ const WrittenInterview = () => {
     const fetchCandidates = async () => {
         try {
             setLoading(true);
-            const response = await fetch('http://localhost:5000/api/candidates');
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const response = await fetch(`${apiUrl}/api/candidates`);
             const result = await response.json();
             
             console.log('📥 Fetched candidates:', result);
@@ -66,33 +67,31 @@ const WrittenInterview = () => {
     };
 
     const handleShare = async (candidate) => {
-        const candidateData = {
-            name: `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || candidate.email?.split('@')[0] || 'Unknown',
-            position: candidate.positionAppliedFor || 'N/A',
-            score: candidate.writtenInterviewEvaluation?.overall_score || 0,
-            recommendation: candidate.writtenInterviewEvaluation?.recommendation || 'N/A',
-            summary: candidate.writtenInterviewEvaluation?.summary || 'No summary available',
-            email: candidate.email || 'N/A',
-            phone: candidate.phone || 'N/A'
-        };
+        // إنشاء رابط المقابلة الصوتية
+        const candidateId = candidate._id || candidate.id;
+        const baseUrl = window.location.origin;
+        const interviewLink = `${baseUrl}/#/interview/${candidateId}`;
+        
+        const candidateName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || candidate.email?.split('@')[0] || 'Unknown';
+        const candidateEmail = candidate.email || 'N/A';
+        
+        const shareText = `🎤 مقابلة صوتية ذكية\n\n` +
+            `مرحباً ${candidateName},\n\n` +
+            `تم دعوتك لإجراء مقابلة صوتية ذكية.\n\n` +
+            `🔗 رابط المقابلة:\n${interviewLink}\n\n` +
+            `يرجى الضغط على الرابط أعلاه لبدء المقابلة.\n\n` +
+            `مع تحياتنا،\nفريق التوظيف`;
 
-        const shareText = `📋 Candidate Evaluation Report\n\n` +
-            `👤 Name: ${candidateData.name}\n` +
-            `💼 Position: ${candidateData.position}\n` +
-            `⭐ Overall Score: ${candidateData.score}%\n` +
-            `🎯 Recommendation: ${candidateData.recommendation}\n` +
-            `📧 Email: ${candidateData.email}\n` +
-            `📱 Phone: ${candidateData.phone}\n\n` +
-            `📝 Summary:\n${candidateData.summary}`;
+        const shareData = {
+            title: `مقابلة صوتية - ${candidateName}`,
+            text: shareText,
+            url: interviewLink
+        };
 
         // Try Web Share API first (mobile/desktop)
         if (navigator.share) {
             try {
-                await navigator.share({
-                    title: `Evaluation Report - ${candidateData.name}`,
-                    text: shareText,
-                    url: window.location.href
-                });
+                await navigator.share(shareData);
                 return;
             } catch (err) {
                 if (err.name !== 'AbortError') {
@@ -101,14 +100,14 @@ const WrittenInterview = () => {
             }
         }
 
-        // Fallback: Copy to clipboard
+        // Fallback: Copy link to clipboard
         try {
-            await navigator.clipboard.writeText(shareText);
-            alert('✅ تم نسخ معلومات المرشح إلى الحافظة!');
+            await navigator.clipboard.writeText(interviewLink);
+            alert(`✅ تم نسخ رابط المقابلة الصوتية إلى الحافظة!\n\nالرابط:\n${interviewLink}\n\nيمكنك إرساله إلى: ${candidateEmail}`);
         } catch (err) {
             console.error('Failed to copy:', err);
-            // Fallback: Show data in a prompt
-            prompt('معلومات المرشح (انسخ النص):', shareText);
+            // Fallback: Show link in a prompt
+            prompt(`رابط المقابلة الصوتية للمرشح ${candidateName}:\n(انسخ الرابط وأرسله إلى ${candidateEmail})`, interviewLink);
         }
     };
 
@@ -383,45 +382,46 @@ const WrittenInterview = () => {
                                                 <td style={{ padding: '16px', textAlign: 'center' }}>
                                                     <button
                                                         onClick={() => handleShare(candidate)}
-                                                        title="مشاركة تقييم المرشح"
+                                                        title="مشاركة رابط المقابلة الصوتية"
                                                         style={{
-                                                            width: '44px',
-                                                            height: '44px',
+                                                            width: '48px',
+                                                            height: '48px',
                                                             borderRadius: '12px',
                                                             border: 'none',
-                                                            background: 'linear-gradient(135deg, rgba(96, 165, 250, 0.2) 0%, rgba(59, 130, 246, 0.3) 100%)',
-                                                            backdropFilter: 'blur(10px)',
-                                                            color: '#60A5FA',
+                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                            color: '#fff',
                                                             cursor: 'pointer',
                                                             display: 'flex',
                                                             alignItems: 'center',
                                                             justifyContent: 'center',
-                                                            fontSize: '20px',
+                                                            fontSize: '22px',
+                                                            fontWeight: 'bold',
                                                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(96, 165, 250, 0.2)',
+                                                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2)',
                                                             position: 'relative',
                                                             overflow: 'hidden'
                                                         }}
                                                         onMouseEnter={(e) => {
-                                                            e.currentTarget.style.transform = 'scale(1.1) rotate(5deg)';
-                                                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(96, 165, 250, 0.4) 0%, rgba(59, 130, 246, 0.5) 100%)';
-                                                            e.currentTarget.style.boxShadow = '0 8px 16px rgba(96, 165, 250, 0.4), 0 0 0 2px rgba(96, 165, 250, 0.3)';
+                                                            e.currentTarget.style.transform = 'scale(1.15) translateY(-2px)';
+                                                            e.currentTarget.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
+                                                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(16, 185, 129, 0.5), 0 0 0 2px rgba(16, 185, 129, 0.4)';
                                                         }}
                                                         onMouseLeave={(e) => {
-                                                            e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                                                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(96, 165, 250, 0.2) 0%, rgba(59, 130, 246, 0.3) 100%)';
-                                                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(96, 165, 250, 0.2)';
+                                                            e.currentTarget.style.transform = 'scale(1) translateY(0)';
+                                                            e.currentTarget.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2)';
                                                         }}
                                                         onMouseDown={(e) => {
-                                                            e.currentTarget.style.transform = 'scale(0.95)';
+                                                            e.currentTarget.style.transform = 'scale(0.9) translateY(0)';
                                                         }}
                                                         onMouseUp={(e) => {
-                                                            e.currentTarget.style.transform = 'scale(1.1) rotate(5deg)';
+                                                            e.currentTarget.style.transform = 'scale(1.15) translateY(-2px)';
                                                         }}
                                                     >
                                                         <span style={{
                                                             display: 'inline-block',
-                                                            transition: 'transform 0.3s ease'
+                                                            transition: 'transform 0.3s ease',
+                                                            filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))'
                                                         }}>
                                                             📤
                                                         </span>

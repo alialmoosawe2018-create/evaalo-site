@@ -1,238 +1,215 @@
-# Evaalo Career Portal - Monorepo
+# Evaalo Career Portal
 
-## 📁 بنية المشروع (Monorepo Structure)
+منصة توظيف ذكية مدعومة بالذكاء الاصطناعي للمقابلات الصوتية والكتابية.
 
-المشروع منظم كـ **Monorepo** باستخدام **npm workspaces** لسهولة إدارة الباك اند والفرونت اند معاً.
+## 📋 نظرة عامة
+
+هذا المشروع هو منصة متكاملة لإدارة عملية التوظيف، تتضمن:
+- **مقابلات صوتية ذكية** باستخدام Vapi AI
+- **مقابلات كتابية** مع تقييم تلقائي
+- **لوحة تحكم** لإدارة المرشحين والوظائف
+- **تصميم ديناميكي** للاستمارات والمقابلات
+
+## 🏗️ بنية المشروع
 
 ```
 cursor-react/
 ├── apps/
-│   ├── backend/          # Backend API (Node.js + Express + TypeScript)
+│   ├── frontend/          # تطبيق React (Vite)
 │   │   ├── src/
-│   │   ├── docs/
-│   │   ├── package.json
-│   │   └── ...
+│   │   │   ├── components/    # مكونات React
+│   │   │   ├── pages/         # صفحات التطبيق
+│   │   │   ├── contexts/      # React Contexts
+│   │   │   ├── hooks/         # Custom Hooks
+│   │   │   ├── utils/         # Utilities
+│   │   │   └── config/        # إعدادات التطبيق
+│   │   ├── public/            # ملفات ثابتة
+│   │   └── dist/              # ملفات البناء (مولدة)
 │   │
-│   └── frontend/         # Frontend (React + Vite)
+│   └── backend/           # تطبيق Node.js/Express (TypeScript)
 │       ├── src/
-│       ├── public/
-│       ├── package.json
-│       └── ...
+│       │   ├── config/        # إعدادات قاعدة البيانات
+│       │   ├── models/        # نماذج MongoDB
+│       │   ├── routes/        # مسارات API
+│       │   ├── services/      # خدمات (n8n integration)
+│       │   └── scripts/       # سكريبتات مساعدة
+│       ├── docs/              # توثيق Backend
+│       └── uploads/            # ملفات مرفوعة
 │
-├── package.json          # Root package.json (workspaces config)
-├── .gitignore
-└── README.md
+├── docs/                  # توثيق عام للمشروع
+└── README.md             # هذا الملف
+
 ```
 
 ## 🚀 البدء السريع
 
-### 1. تثبيت جميع التبعيات
+### المتطلبات الأساسية
+
+- Node.js 18+ 
+- npm أو yarn
+- MongoDB (محلي أو Atlas)
+- Git
+
+### تثبيت المشروع
 
 ```bash
-# من المجلد الجذر
+# استنساخ المشروع
+git clone <repository-url>
+cd cursor-react
+
+# تثبيت dependencies للجذر (إن وجدت)
+npm install
+
+# تثبيت dependencies للـ Frontend
+cd apps/frontend
+npm install
+
+# تثبيت dependencies للـ Backend
+cd ../backend
 npm install
 ```
 
-سيقوم هذا الأمر بتثبيت تبعيات جميع المشاريع (backend + frontend) تلقائياً.
+### إعداد متغيرات البيئة
 
-### 2. إعداد Backend
+#### Backend (.env)
 
 ```bash
-# الانتقال إلى مجلد backend
 cd apps/backend
-
-# نسخ ملف البيئة
-copy env.example .env
-# أو في Linux/Mac:
-# cp env.example .env
-
-# تعديل ملف .env وإضافة:
-# - VAPI_API_KEY=your_api_key
-# - PORT=5000
-# - FRONTEND_URL=http://localhost:3000
+cp env.example .env
 ```
 
-### 3. تشغيل المشاريع
+قم بتعديل `.env` وإضافة:
+- `MONGODB_URI` - رابط MongoDB
+- `PORT` - منفذ السيرفر (افتراضي: 5000)
+- `FRONTEND_URL` - رابط Frontend
 
-#### الطريقة الأولى: تشغيل كل مشروع على حدة
+#### Frontend
 
+لا يحتاج Frontend إلى ملف `.env` في الوقت الحالي.
+
+### تشغيل المشروع
+
+#### تطوير محلي
+
+**Terminal 1 - Backend:**
 ```bash
-# من المجلد الجذر
-
-# تشغيل Backend فقط
-npm run dev:backend
-
-# تشغيل Frontend فقط
-npm run dev:frontend
-```
-
-#### الطريقة الثانية: تشغيل كل المشاريع معاً
-
-```bash
-# من المجلد الجذر
-npm run dev:all
-```
-
-#### الطريقة الثالثة: تشغيل كل workspaces
-
-```bash
-# من المجلد الجذر
+cd apps/backend
 npm run dev
 ```
 
-## 📝 الأوامر المتاحة
-
-### من المجلد الجذر:
-
-| الأمر | الوصف |
-|------|-------|
-| `npm install` | تثبيت تبعيات جميع المشاريع |
-| `npm run dev` | تشغيل جميع المشاريع في وضع التطوير |
-| `npm run dev:frontend` | تشغيل Frontend فقط |
-| `npm run dev:backend` | تشغيل Backend فقط |
-| `npm run dev:all` | تشغيل Backend و Frontend معاً |
-| `npm run build` | بناء جميع المشاريع |
-| `npm run build:frontend` | بناء Frontend فقط |
-| `npm run build:backend` | بناء Backend فقط |
-| `npm run type-check` | فحص أنواع TypeScript في Backend |
-
-### من مجلدات المشاريع:
-
-#### Backend (`apps/backend/`):
+**Terminal 2 - Frontend:**
 ```bash
-npm run dev      # تشغيل في وضع التطوير
-npm run build    # بناء المشروع
-npm start        # تشغيل في وضع الإنتاج
-npm run type-check  # فحص أنواع TypeScript
+cd apps/frontend
+npm run dev
 ```
 
-#### Frontend (`apps/frontend/`):
+#### بناء للإنتاج
+
+**Frontend:**
 ```bash
-npm run dev      # تشغيل في وضع التطوير
-npm run build    # بناء المشروع
-npm run preview  # معاينة الإنتاج
+cd apps/frontend
+npm run build
 ```
 
-## 🏗️ البنية التفصيلية
-
-### Backend (`apps/backend/`)
-
-```
-apps/backend/
-├── src/
-│   └── server.ts        # السيرفر الرئيسي
-├── docs/                # الوثائق
-│   ├── API.md
-│   ├── DEPLOYMENT.md
-│   ├── QUICKSTART.md
-│   └── FRONTEND_INTEGRATION.md
-├── package.json
-├── tsconfig.json
-├── env.example
-├── Dockerfile
-└── docker-compose.yml
-```
-
-**المميزات:**
-- ✅ TypeScript
-- ✅ Express.js
-- ✅ تكامل مع Vapi AI
-- ✅ CORS محدد
-- ✅ جاهز للنشر
-
-### Frontend (`apps/frontend/`)
-
-```
-apps/frontend/
-├── src/
-│   ├── components/      # مكونات React
-│   ├── pages/          # الصفحات
-│   ├── contexts/       # Context API
-│   ├── hooks/          # Custom Hooks
-│   └── utils/          # Utilities
-├── public/
-│   └── images/         # الصور
-├── package.json
-├── vite.config.js
-└── index.html
-```
-
-**المميزات:**
-- ✅ React 18
-- ✅ Vite (بناء سريع)
-- ✅ React Router
-- ✅ دعم متعدد اللغات
-- ✅ تكامل مع Vapi Widget
-
-## 🔧 المتطلبات
-
-- **Node.js** >= 18.0.0
-- **npm** >= 9.0.0
-
-## 📦 Workspaces
-
-المشروع يستخدم **npm workspaces** لإدارة المشاريع المتعددة:
-
-- `apps/backend` - Backend API
-- `apps/frontend` - Frontend React App
-
-## 🎯 مزايا Monorepo
-
-✅ **إدارة موحدة**: تبعيات واحدة وسهولة في الإدارة  
-✅ **سرعة**: مشاركة التبعيات المشتركة  
-✅ **وضوح**: بنية واضحة ومنظمة  
-✅ **سهولة التطوير**: تشغيل Backend و Frontend معاً بسهولة  
-✅ **تقليل الأخطاء**: إدارة موحدة للتبعيات والإصدارات  
-
-## 🔗 الروابط
-
-- **Backend API**: http://localhost:5000
-- **Frontend**: http://localhost:3000
-- **Backend Health Check**: http://localhost:5000/health
-
-## 📚 الوثائق
-
-- [Backend API Documentation](./apps/backend/docs/API.md)
-- [Deployment Guide](./apps/backend/docs/DEPLOYMENT.md)
-- [Quick Start Guide](./apps/backend/docs/QUICKSTART.md)
-- [Frontend Integration](./apps/backend/docs/FRONTEND_INTEGRATION.md)
-
-## 🐛 استكشاف الأخطاء
-
-### مشكلة: التبعيات لم تُثبت بشكل صحيح
-
+**Backend:**
 ```bash
-# حذف node_modules وإعادة التثبيت
-npm run clean
-npm install
+cd apps/backend
+npm run build  # إذا كان متوفراً
 ```
 
-### مشكلة: Backend لا يعمل
+## 📚 التوثيق
 
-1. تأكد من وجود ملف `.env` في `apps/backend/`
-2. تأكد من أن المنفذ 5000 غير مستخدم
-3. تحقق من `VAPI_API_KEY` في ملف `.env`
+### توثيق عام
+- [MONOREPO.md](./docs/MONOREPO.md) - بنية Monorepo
+- [N8N_INTEGRATION.md](./docs/N8N_INTEGRATION.md) - تكامل n8n
 
-### مشكلة: Frontend لا يتصل مع Backend
+### توثيق Backend
+- [apps/backend/docs/API.md](./apps/backend/docs/API.md) - وثائق API
+- [apps/backend/docs/DEPLOYMENT.md](./apps/backend/docs/DEPLOYMENT.md) - نشر Backend
+- [apps/backend/docs/QUICKSTART.md](./apps/backend/docs/QUICKSTART.md) - دليل البدء السريع
 
-1. تأكد من أن Backend يعمل على `http://localhost:5000`
-2. تحقق من `FRONTEND_URL` في `apps/backend/.env`
-3. تأكد من إعدادات CORS في Backend
+### توثيق Frontend
+- [apps/frontend/README.md](./apps/frontend/README.md) - دليل Frontend
+- [apps/frontend/PROJECT_STRUCTURE.md](./apps/frontend/PROJECT_STRUCTURE.md) - بنية المشروع
+
+## 🛠️ التقنيات المستخدمة
+
+### Frontend
+- **React 18** - مكتبة UI
+- **Vite** - Build tool
+- **React Router** - Routing
+- **Vapi AI Web SDK** - مقابلات صوتية
+- **GSAP** - Animations
+
+### Backend
+- **Node.js** - Runtime
+- **Express** - Web framework
+- **TypeScript** - Type safety
+- **MongoDB + Mongoose** - قاعدة البيانات
+- **Multer** - رفع الملفات
+
+## 📁 الملفات المهمة
+
+### Frontend
+- `apps/frontend/src/App.jsx` - المكون الرئيسي
+- `apps/frontend/src/components/VapiWidget.jsx` - مكون المساعد الصوتي
+- `apps/frontend/src/pages/Interview.jsx` - صفحة المقابلات الصوتية
+- `apps/frontend/src/config/vapiAssistants.js` - إعدادات Vapi
+
+### Backend
+- `apps/backend/src/server.ts` - السيرفر الرئيسي
+- `apps/backend/src/routes/candidates.ts` - مسارات المرشحين
+- `apps/backend/src/models/Candidate.ts` - نموذج المرشح
+
+## 🔧 الإعدادات
+
+### Vapi AI Configuration
+
+يتم إعداد Vapi Assistants في:
+```
+apps/frontend/src/config/vapiAssistants.js
+```
+
+### MongoDB Connection
+
+يتم إعداد الاتصال بقاعدة البيانات في:
+```
+apps/backend/src/config/database.ts
+```
+
+## 🚢 النشر
+
+### Frontend (GitHub Pages)
+1. بناء المشروع: `npm run build`
+2. رفع محتويات `dist/` إلى GitHub Pages
+
+### Backend (Render/Heroku)
+1. إعداد متغيرات البيئة
+2. رفع الكود إلى المنصة
+3. تشغيل `npm start`
 
 ## 📝 ملاحظات
 
-- جميع ملفات `.env` غير موجودة في Git (موجودة في `.gitignore`)
-- استخدم `env.example` كقالب لإنشاء ملف `.env`
-- في التطوير، يمكن تشغيل Backend و Frontend في نوافذ منفصلة
+- **ملفات حساسة**: لا ترفع ملفات `.env` أو `sendgrid.env` إلى Git
+- **Build files**: مجلد `dist/` يتم تجاهله في Git
+- **Logs**: ملفات `.log` يتم تجاهلها
 
-## 🚀 النشر
+## 🤝 المساهمة
 
-راجع [دليل النشر](./apps/backend/docs/DEPLOYMENT.md) للتفاصيل الكاملة.
+1. Fork المشروع
+2. إنشاء branch جديد (`git checkout -b feature/AmazingFeature`)
+3. Commit التغييرات (`git commit -m 'Add some AmazingFeature'`)
+4. Push إلى Branch (`git push origin feature/AmazingFeature`)
+5. فتح Pull Request
+
+## 📄 الترخيص
+
+هذا المشروع خاص بـ Evaalo.
+
+## 📞 الدعم
+
+للأسئلة والدعم، يرجى فتح Issue في GitHub.
 
 ---
 
-**تم البناء باستخدام:**
-- npm workspaces
-- React + Vite
-- Node.js + Express + TypeScript
-- Vapi AI
+**آخر تحديث**: ديسمبر 2025
