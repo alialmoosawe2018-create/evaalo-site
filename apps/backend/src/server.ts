@@ -11,6 +11,7 @@ import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import os from 'os';
 import { connectDatabase } from './config/database.js';
 import candidateRoutes from './routes/candidates.js';
 import recruitmentCampaignRoutes from './routes/recruitmentCampaigns.js';
@@ -33,20 +34,52 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 // ============================================
 
 // السماح بطلبات من Frontend - جميع المنافذ المحتملة
-app.use(cors({
-    origin: [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://localhost:3002',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001',
-        'http://127.0.0.1:3002',
+// في التطوير: السماح بجميع المنافذ المحلية (localhost, 127.0.0.1, IPs محلية)
+// في الإنتاج: السماح فقط بـ evaalo.com
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const allowedOrigins = isDevelopment
+    ? [
+        // جميع المنافذ المحلية
+        /^http:\/\/localhost:\d+$/,
+        /^http:\/\/127\.0\.0\.1:\d+$/,
+        /^http:\/\/192\.168\.\d+\.\d+:\d+$/, // IPs محلية
+        /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/, // IPs محلية
         'https://www.evaalo.com',
         'https://evaalo.com',
         'http://www.evaalo.com',
         'http://evaalo.com',
         FRONTEND_URL
-    ].filter(Boolean),
+    ].filter(Boolean)
+    : [
+        'https://www.evaalo.com',
+        'https://evaalo.com',
+        'http://www.evaalo.com',
+        'http://evaalo.com',
+        FRONTEND_URL
+    ].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // السماح بطلبات بدون origin (مثل Postman أو mobile apps)
+        if (!origin) return callback(null, true);
+        
+        // التحقق من القائمة الثابتة
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        
+        // في التطوير: التحقق من الأنماط (patterns)
+        if (isDevelopment) {
+            for (const pattern of allowedOrigins) {
+                if (pattern instanceof RegExp && pattern.test(origin)) {
+                    return callback(null, true);
+                }
+            }
+        }
+        
+        // رفض الطلب
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -315,17 +348,52 @@ app.post('/webhook/n8n', upload.array('files', 10), async (req, res) => {
 });
 
 // ============================================
+// دالة للحصول على IP المحلي
+// ============================================
+function getLocalIP(): string {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        const iface = interfaces[name];
+        if (!iface) continue;
+        for (const addr of iface) {
+            // تجاهل IPv6 والعناوين الداخلية
+            if (addr.family === 'IPv4' && !addr.internal) {
+                // إعطاء الأولوية لعناوين 192.168.x.x أو 10.x.x.x
+                if (addr.address.startsWith('192.168.') || addr.address.startsWith('10.')) {
+                    return addr.address;
+                }
+            }
+        }
+    }
+    // إذا لم نجد IP محلي، نرجع أول IP متاح
+    for (const name of Object.keys(interfaces)) {
+        const iface = interfaces[name];
+        if (!iface) continue;
+        for (const addr of iface) {
+            if (addr.family === 'IPv4' && !addr.internal) {
+                return addr.address;
+            }
+        }
+    }
+    return 'localhost';
+}
+
+// ============================================
 // تشغيل السيرفر
 // ============================================
+
+const localIP = getLocalIP();
 
 // الاتصال بقاعدة البيانات ثم تشغيل السيرفر
 connectDatabase().then(() => {
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 Server is running on http://localhost:${PORT}`);
-        console.log(`🌐 Server is accessible from network: http://192.168.1.104:${PORT}`);
+        console.log(`🌐 Server is accessible from network: http://${localIP}:${PORT}`);
         console.log(`📡 Frontend URL: ${FRONTEND_URL}`);
         console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`🔗 n8n Webhook URL: http://192.168.1.104:${PORT}/webhook/n8n`);
+        console.log(`🔗 n8n Webhook URL: http://${localIP}:${PORT}/webhook/n8n`);
+        console.log(`\n💡 للوصول من أجهزة أخرى على نفس الواي فاي:`);
+        console.log(`   استخدم: http://${localIP}:${PORT}\n`);
     });
 }).catch((error) => {
     console.error('❌ Failed to connect to database:', error);
@@ -333,10 +401,12 @@ connectDatabase().then(() => {
     // Start server anyway for development
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 Server is running on http://localhost:${PORT} (without database)`);
-        console.log(`🌐 Server is accessible from network: http://192.168.1.104:${PORT}`);
+        console.log(`🌐 Server is accessible from network: http://${localIP}:${PORT}`);
         console.log(`📡 Frontend URL: ${FRONTEND_URL}`);
         console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`🔗 n8n Webhook URL: http://192.168.1.104:${PORT}/webhook/n8n`);
+        console.log(`🔗 n8n Webhook URL: http://${localIP}:${PORT}/webhook/n8n`);
+        console.log(`\n💡 للوصول من أجهزة أخرى على نفس الواي فاي:`);
+        console.log(`   استخدم: http://${localIP}:${PORT}\n`);
         console.log('⚠️ Warning: Database connection failed. Some features may not work.');
     });
 });
