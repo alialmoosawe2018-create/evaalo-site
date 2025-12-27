@@ -61,10 +61,16 @@ const allowedOrigins = isDevelopment
 app.use(cors({
     origin: (origin, callback) => {
         // السماح بطلبات بدون origin (مثل Postman أو mobile apps)
-        if (!origin) return callback(null, true);
+        if (!origin) {
+            console.log('⚠️ Request without origin - allowing');
+            return callback(null, true);
+        }
+        
+        console.log('🔍 Checking CORS for origin:', origin);
         
         // التحقق من القائمة الثابتة
         if (allowedOrigins.includes(origin)) {
+            console.log('✅ Origin allowed (exact match):', origin);
             return callback(null, true);
         }
         
@@ -72,13 +78,16 @@ app.use(cors({
         if (isDevelopment) {
             for (const pattern of allowedOrigins) {
                 if (pattern instanceof RegExp && pattern.test(origin)) {
+                    console.log('✅ Origin allowed (pattern match):', origin);
                     return callback(null, true);
                 }
             }
         }
         
         // رفض الطلب
-        callback(new Error('Not allowed by CORS'));
+        console.error('❌ CORS blocked origin:', origin);
+        console.log('📋 Allowed origins:', allowedOrigins);
+        callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

@@ -57,6 +57,8 @@ router.post('/', async (req: Request, res: Response) => {
         
         // Log received data for debugging
         console.log('📥 Received candidate data:', JSON.stringify(candidateData, null, 2));
+        console.log('📋 Request headers:', req.headers);
+        console.log('🌐 Request origin:', req.headers.origin);
         
         // Check if database is connected
         if (mongoose.connection.readyState !== 1) {
@@ -85,15 +87,41 @@ router.post('/', async (req: Request, res: Response) => {
         }
         
         // Validate required fields
-        if (!candidateDataForDB.firstName || !candidateDataForDB.lastName || !candidateDataForDB.email || !candidateDataForDB.phone) {
+        const missingFields = [];
+        if (!candidateDataForDB.firstName) missingFields.push('firstName');
+        if (!candidateDataForDB.lastName) missingFields.push('lastName');
+        if (!candidateDataForDB.email) missingFields.push('email');
+        if (!candidateDataForDB.phone) missingFields.push('phone');
+        
+        if (missingFields.length > 0) {
+            console.error('❌ Missing required fields:', missingFields);
             return res.status(400).json({
                 success: false,
                 error: 'Missing required fields',
-                message: 'First name, last name, email, and phone are required'
+                message: `Missing required fields: ${missingFields.join(', ')}`,
+                missingFields: missingFields
             });
         }
         
+        console.log('📝 Creating candidate with data:', JSON.stringify(candidateDataForDB, null, 2));
+        
         const candidate = new Candidate(candidateDataForDB);
+        
+        // Validate before saving
+        const validationError = candidate.validateSync();
+        if (validationError) {
+            console.error('❌ Validation error:', validationError);
+            return res.status(400).json({
+                success: false,
+                error: 'Validation error',
+                message: validationError.message,
+                details: Object.keys(validationError.errors || {}).map(key => ({
+                    field: key,
+                    message: validationError.errors[key].message
+                }))
+            });
+        }
+        
         await candidate.save();
         
         console.log('✅ Candidate saved successfully:', candidate._id);
