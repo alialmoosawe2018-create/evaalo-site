@@ -224,16 +224,21 @@ const Form = () => {
             const submitTimeoutId = setTimeout(() => submitController.abort(), 30000); // 30 seconds timeout
             
             // تحويل languages من objects إلى strings (format: "Language (Level)")
+            // وضمان أن skills و languages هما arrays
             const processedFormData = {
                 ...formData,
-                languages: formData.languages.map(lang => {
+                skills: Array.isArray(formData.skills) ? formData.skills : [],
+                languages: (Array.isArray(formData.languages) ? formData.languages : []).map(lang => {
                     if (typeof lang === 'string') {
                         return lang; // Already a string
                     }
                     // Convert object {name, level} to string "Name (Level)"
-                    return lang.name && lang.level 
-                        ? `${lang.name} (${lang.level})` 
-                        : lang.name || String(lang);
+                    if (lang && typeof lang === 'object') {
+                        return lang.name && lang.level 
+                            ? `${lang.name} (${lang.level})` 
+                            : lang.name || String(lang);
+                    }
+                    return String(lang);
                 })
             };
             
@@ -256,6 +261,8 @@ const Form = () => {
             
             console.log('🌐 API URL:', apiUrl, '| Hostname:', hostname, '| VITE_API_URL:', import.meta.env.VITE_API_URL);
             console.log('📤 Sending request to:', `${apiUrl}/api/candidates`);
+            console.log('📋 Data being sent:', JSON.stringify(dataToSend, null, 2));
+            console.log('📋 Languages format:', Array.isArray(dataToSend.languages) ? dataToSend.languages.map(l => typeof l === 'string' ? l : JSON.stringify(l)) : 'Not an array');
             
             const response = await fetch(`${apiUrl}/api/candidates`, {
                 method: 'POST',
@@ -276,12 +283,17 @@ const Form = () => {
                 let errorDetails = null;
                 try {
                     const errorData = await response.json();
-                    console.error('❌ Backend error response:', errorData);
+                    console.error('❌ Backend error response (full):', JSON.stringify(errorData, null, 2));
+                    console.error('❌ Error:', errorData.error);
+                    console.error('❌ Message:', errorData.message);
+                    console.error('❌ Details:', errorData.details);
                     errorMessage = errorData.error || errorData.message || errorMessage;
                     errorDetails = errorData.details || errorData.missingFields || null;
                 } catch (e) {
                     // If response is not JSON, use status text
                     console.error('❌ Failed to parse error response:', e);
+                    const textResponse = await response.text();
+                    console.error('❌ Raw error response:', textResponse);
                     errorMessage = response.statusText || errorMessage;
                 }
                 
