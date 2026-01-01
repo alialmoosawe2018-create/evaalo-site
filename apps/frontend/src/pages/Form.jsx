@@ -223,10 +223,24 @@ const Form = () => {
             const submitController = new AbortController();
             const submitTimeoutId = setTimeout(() => submitController.abort(), 30000); // 30 seconds timeout
             
+            // تحويل languages من objects إلى strings (format: "Language (Level)")
+            const processedFormData = {
+                ...formData,
+                languages: formData.languages.map(lang => {
+                    if (typeof lang === 'string') {
+                        return lang; // Already a string
+                    }
+                    // Convert object {name, level} to string "Name (Level)"
+                    return lang.name && lang.level 
+                        ? `${lang.name} (${lang.level})` 
+                        : lang.name || String(lang);
+                })
+            };
+            
             // إضافة campaign ID إلى البيانات إذا كان موجوداً في URL
             const dataToSend = campaignId 
-                ? { ...formData, campaignId }
-                : formData;
+                ? { ...processedFormData, campaignId }
+                : processedFormData;
             
             // استخدام VITE_API_URL في الإنتاج، أو IP السيرفر في التطوير
             let apiUrl = import.meta.env.VITE_API_URL;
