@@ -39,7 +39,17 @@ const Dashboard = () => {
         const fetchRecentInterviews = async () => {
             try {
                 setLoadingInterviews(true);
-                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                // استخدام VITE_API_URL في الإنتاج، أو IP السيرفر في التطوير
+                let apiUrl = import.meta.env.VITE_API_URL;
+                const hostname = window.location.hostname;
+                
+                // إذا كان على الدومين (www.evaalo.com أو evaalo.com)، استخدم رابط الباك إند على الإنترنت دائماً
+                if (hostname === 'www.evaalo.com' || hostname === 'evaalo.com') {
+                    apiUrl = 'https://evaalo-backend.onrender.com';
+                } else if (!apiUrl) {
+                    // في التطوير: استخدام hostname الحالي (يعمل من أي جهاز)
+                    apiUrl = `http://${hostname}:5000`;
+                }
                 const response = await fetch(`${apiUrl}/api/candidates`);
                 const result = await response.json();
                 
@@ -419,7 +429,7 @@ const Dashboard = () => {
                                                     navigate('/written-interview');
                                                     break;
                                                 case 'Voice Interview':
-                                                    console.log('Voice Interview');
+                                                    navigate('/voice-interview');
                                                     break;
                                                 case 'Video Interview':
                                                     console.log('Video Interview');

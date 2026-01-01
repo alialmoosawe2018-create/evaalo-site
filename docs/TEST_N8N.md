@@ -20,7 +20,7 @@ npm run dev
 
 افتح `apps/backend/.env` وتأكد من وجود:
 ```env
-N8N_WEBHOOK_URL=https://n8ninstance.amtus.org/webhook/2eabd499-cbaa-4dc9-90c0-59d9e4565d52
+N8N_WEBHOOK_URL=https://n8ninstance.amtus.org/webhook/4f87a279-ec6b-404f-bc8e-a47ac49d0e2b
 ```
 
 ### 3. افتح n8n Workflow:

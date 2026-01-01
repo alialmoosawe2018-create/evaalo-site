@@ -4,10 +4,6 @@ import Vapi from '@vapi-ai/web';
 const VapiWidget = forwardRef(({ 
   apiKey, 
   assistantId, 
-  candidateId = null,
-  candidateName = null,
-  candidateEmail = null,
-  candidate = null, // Full candidate object for metadata (used in Interview page)
   config = {} 
 }, ref) => {
   const [vapi, setVapi] = useState(null);
@@ -139,27 +135,39 @@ const VapiWidget = forwardRef(({
 
     // Real-time conversation events
     vapiInstance.on('speech-start', () => {
-      console.log('User started speaking');
+      console.log('👤 [VapiWidget] User started speaking');
       setIsUserSpeaking(true);
-      if (onUserSpeaking) onUserSpeaking(true);
+      if (onUserSpeaking) {
+        console.log('👤 [VapiWidget] Calling onUserSpeaking(true)');
+        onUserSpeaking(true);
+      }
     });
 
     vapiInstance.on('speech-end', () => {
-      console.log('User stopped speaking');
+      console.log('👤 [VapiWidget] User stopped speaking');
       setIsUserSpeaking(false);
-      if (onUserSpeaking) onUserSpeaking(false);
+      if (onUserSpeaking) {
+        console.log('👤 [VapiWidget] Calling onUserSpeaking(false)');
+        onUserSpeaking(false);
+      }
     });
 
     vapiInstance.on('assistant-speech-start', () => {
-      console.log('Assistant started speaking');
+      console.log('🎤 [VapiWidget] Assistant started speaking');
       setIsSpeaking(true);
-      if (onSpeaking) onSpeaking(true);
+      if (onSpeaking) {
+        console.log('🎤 [VapiWidget] Calling onSpeaking(true)');
+        onSpeaking(true);
+      }
     });
 
     vapiInstance.on('assistant-speech-end', () => {
-      console.log('Assistant stopped speaking');
+      console.log('🎤 [VapiWidget] Assistant stopped speaking');
       setIsSpeaking(false);
-      if (onSpeaking) onSpeaking(false);
+      if (onSpeaking) {
+        console.log('🎤 [VapiWidget] Calling onSpeaking(false)');
+        onSpeaking(false);
+      }
     });
 
     vapiInstance.on('message', (message) => {
@@ -257,7 +265,7 @@ const VapiWidget = forwardRef(({
     };
   }, [apiKey]);
 
-  const startCall = async () => {
+  const startCall = async (systemPrompt = null) => {
     // Clear any previous errors
     setError(null);
     
@@ -277,37 +285,26 @@ const VapiWidget = forwardRef(({
     try {
       console.log('🚀 Starting call with Assistant ID:', assistantId);
       console.log('🔑 API Key:', apiKey ? apiKey.substring(0, 10) + '...' : 'missing');
-      console.log('📋 Candidate ID:', candidateId || 'not provided');
       
-      let result;
-      
-      // If candidate object is provided (Interview page), use metadata
-      if (candidate && candidate._id) {
-        console.log('📤 Using metadata for Interview page');
-        console.log('📋 Candidate data:', {
-          _id: candidate._id,
-          name: candidate.name || `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim(),
-          location: candidate.location,
-          jobTitle: candidate.jobTitle || candidate.positionAppliedFor
+      // إذا كان هناك systemPrompt، نستخدمه كـ firstMessage
+      if (systemPrompt) {
+        console.log('📋 Using dynamic system prompt from backend');
+        console.log('📝 System Prompt preview:', systemPrompt.substring(0, 100) + '...');
+        // Vapi SDK expects: vapi.start(assistantId, { firstMessage: systemPrompt })
+        const result = await vapi.start(assistantId, {
+          firstMessage: systemPrompt,
         });
-        
-        // Use metadata for Interview page
-        result = await vapi.start({
-          assistant: assistantId,
-          metadata: {
-            candidateId: candidate._id,
-            candidateName: candidate.name || `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim(),
-            candidateLocation: candidate.location,
-            jobTitle: candidate.jobTitle || candidate.positionAppliedFor
-          }
-        });
+        console.log('✅ Call started successfully with dynamic system prompt:', result);
+        console.log('🎤 Waiting for speech events...');
+        return result;
       } else {
-        // Simple method for other pages (Home page, etc.)
-        console.log('📤 Using simple method (no metadata)');
-        result = await vapi.start(assistantId);
+        // Simple method - same as Home page (no metadata)
+        console.log('📤 Using simple method (no system prompt)');
+        const result = await vapi.start(assistantId);
+        console.log('✅ Call started successfully:', result);
+        console.log('🎤 Waiting for speech events...');
+        return result;
       }
-      
-      console.log('✅ Call started successfully:', result);
       
     } catch (err) {
       console.error('❌ Error starting call:', err);

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { InterviewTemplateProvider } from './contexts/InterviewTemplateContext';
 import { DesignProvider } from './contexts/DesignContext';
@@ -13,8 +13,12 @@ import Workflow from './pages/Workflow';
 import Candidates from './pages/Candidates';
 import InterviewTemplates from './pages/InterviewTemplates';
 import WrittenInterview from './pages/WrittenInterview';
+import VoiceInterview from './pages/VoiceInterview';
 
-function App() {
+function AppContent() {
+    const location = useLocation();
+    const isInterviewPage = location.pathname.includes('/interview/');
+
     useEffect(() => {
         // Page load animation
         document.body.style.opacity = '0';
@@ -47,12 +51,9 @@ function App() {
     }, []);
 
     return (
-        <LanguageProvider>
-            <InterviewTemplateProvider>
-                <DesignProvider>
-                    <Router>
-                        <Navigation />
-                        <Routes>
+        <>
+            {!isInterviewPage && <Navigation />}
+            <Routes>
                             <Route path="/" element={<Home />} />
                             <Route path="/design" element={<Design />} />
                             <Route path="/form" element={<Form />} />
@@ -62,7 +63,19 @@ function App() {
                             <Route path="/candidates" element={<Candidates />} />
                             <Route path="/interview-templates" element={<InterviewTemplates />} />
                             <Route path="/written-interview" element={<WrittenInterview />} />
-                        </Routes>
+                            <Route path="/voice-interview" element={<VoiceInterview />} />
+            </Routes>
+        </>
+    );
+}
+
+function App() {
+    return (
+        <LanguageProvider>
+            <InterviewTemplateProvider>
+                <DesignProvider>
+                    <Router>
+                        <AppContent />
                     </Router>
                 </DesignProvider>
             </InterviewTemplateProvider>

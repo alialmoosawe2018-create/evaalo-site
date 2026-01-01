@@ -41,6 +41,19 @@ export interface ICandidate extends Document {
         recommendation: 'Hire' | 'Consider' | 'Reject';
         summary: string; // professional 3-5 sentence evaluation
     };
+    voiceInterviewEvaluation?: {
+        overall_score: number; // 0-100
+        fit_for_role: string;
+        strengths: string[];
+        weaknesses: string[];
+        red_flags: string[];
+        recommendation: 'Hire' | 'Consider' | 'Reject';
+        summary: string; // professional 3-5 sentence evaluation
+        communication_score?: number; // 0-100
+        confidence_score?: number; // 0-100
+        technical_score?: number; // 0-100
+        transcript?: string; // نص المقابلة الصوتية
+    };
     files?: Array<{
         filename: string;
         originalName: string;
@@ -175,6 +188,38 @@ const CandidateSchema = new Schema<ICandidate>({
             enum: ['Hire', 'Consider', 'Reject']
         },
         summary: String
+    },
+    voiceInterviewEvaluation: {
+        overall_score: {
+            type: Number,
+            min: 0,
+            max: 100
+        },
+        fit_for_role: String,
+        strengths: [String],
+        weaknesses: [String],
+        red_flags: [String],
+        recommendation: {
+            type: String,
+            enum: ['Hire', 'Consider', 'Reject']
+        },
+        summary: String,
+        communication_score: {
+            type: Number,
+            min: 0,
+            max: 100
+        },
+        confidence_score: {
+            type: Number,
+            min: 0,
+            max: 100
+        },
+        technical_score: {
+            type: Number,
+            min: 0,
+            max: 100
+        },
+        transcript: String
     },
     files: [{
         filename: String,

@@ -85,6 +85,7 @@ const Navigation = () => {
                         )}
                         <Link to="/design" className={`nav-link ${isActive('/design') ? 'active' : ''}`}>Design</Link>
                         <Link to="/form" className={`nav-link ${isActive('/form') ? 'active' : ''}`}>Apply Now</Link>
+                        <Link to="/interview/123" className={`nav-link ${isActive('/interview') ? 'active' : ''}`} style={{ color: '#10b981', fontWeight: '600' }}>🎤 Voice Interview</Link>
                         
                         <div 
                             className="nav-link nav-link-dropdown" 
@@ -154,6 +155,7 @@ const Navigation = () => {
                             )}
                             <Link to="/design" className={`nav-link ${isActive('/design') ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>Design</Link>
                             <Link to="/form" className={`nav-link ${isActive('/form') ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)}>Apply Now</Link>
+                            <Link to="/interview/123" className={`nav-link ${isActive('/interview') ? 'active' : ''}`} onClick={() => setMobileMenuOpen(false)} style={{ color: '#10b981', fontWeight: '600' }}>🎤 Voice Interview</Link>
                         </div>
                     </div>
                 </div>

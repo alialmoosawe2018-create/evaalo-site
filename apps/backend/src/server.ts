@@ -135,26 +135,51 @@ app.use('/api/recruitment-campaigns', recruitmentCampaignRoutes);
 // Route لتحميل الملفات (للملفات المحفوظة)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
+// ============================================
+// 3️⃣ Endpoint بدء المقابلة (Dynamic System Prompt)
+// ============================================
+// ✅ الحل الصحيح: Backend يبني System Prompt فقط ويرجعه للـ Frontend
+app.post('/api/interview-context', async (req, res) => {
+  try {
+    const { candidate } = req.body;
+
+    if (!candidate) {
+      return res.status(400).json({ error: 'candidate is required' });
+    }
+
+    // 1️⃣ بناء System Prompt ديناميكي (مبسّط)
+    const fullName = `${candidate.firstName} ${candidate.lastName}`;
+    const systemPrompt = `Hello ${fullName}, welcome to your interview for the ${candidate.jobTitle} position.
+How are you feeling today?`;
+
+    // 📝 طباعة System Prompt للتحقق (في التطوير فقط)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('📋 System Prompt Generated:');
+      console.log('='.repeat(60));
+      console.log(systemPrompt);
+      console.log('='.repeat(60));
+    }
+
+    // 2️⃣ إرجاع System Prompt للـ Frontend
+    res.json({
+      success: true,
+      systemPrompt: systemPrompt,
+    });
+  } catch (error: any) {
+    console.error('❌ interview-context error:', error.message);
+    res.status(500).json({ error: 'Failed to generate interview context' });
+  }
+});
+
 // Route للتحقق من حالة السيرفر
 app.get('/health', (req, res) => {
     try {
         const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
         
-        // معلومات عن Vapi
-        // ملاحظة: Vapi SDK يعمل في Frontend، لذا لا يوجد اتصال مباشر من Backend
-        // لكن يمكننا التحقق من وجود متغيرات البيئة المتعلقة بـ Vapi
-        const vapiConfig = {
-            available: true, // Vapi متاح للاستخدام من خلال Frontend
-            sdk: 'client-side', // Vapi SDK يعمل في المتصفح
-            webhookEndpoint: '/webhook/vapi', // Endpoint لاستقبال webhooks من Vapi
-            note: 'Vapi is initialized in the frontend using Public API Key'
-        };
-        
         res.json({ 
             status: 'ok', 
             message: 'Server is running',
             database: dbStatus,
-            vapi: vapiConfig,
             timestamp: new Date().toISOString()
         });
     } catch (error: any) {
@@ -162,11 +187,6 @@ app.get('/health', (req, res) => {
             status: 'ok', 
             message: 'Server is running',
             database: 'unknown',
-            vapi: {
-                available: true,
-                sdk: 'client-side',
-                note: 'Vapi is initialized in the frontend'
-            },
             timestamp: new Date().toISOString()
         });
     }
@@ -244,7 +264,7 @@ app.post('/webhook/n8n', upload.array('files', 10), async (req, res) => {
         const data = req.body;
         const files = req.files as Express.Multer.File[];
         
-        console.log('📥 Received webhook from n8n');
+        console.log('📥 Received webhook from n8n (supports both Written & Voice Interview)');
         console.log('📋 Data:', JSON.stringify(data, null, 2));
         console.log('📎 Files:', files?.length || 0, 'file(s)');
 
@@ -285,19 +305,50 @@ app.post('/webhook/n8n', upload.array('files', 10), async (req, res) => {
             console.log('📋 Written Interview Data:', JSON.stringify(data.writtenInterviewEvaluation, null, 2));
         }
         
+        // إذا كان هناك تقييم Voice Interview من n8n
+        if (data.voiceInterviewEvaluation) {
+            updateData.voiceInterviewEvaluation = data.voiceInterviewEvaluation;
+            console.log('✅ Updating Voice Interview evaluation for candidate:', candidateId);
+            console.log('📋 Voice Interview Data:', JSON.stringify(data.voiceInterviewEvaluation, null, 2));
+        }
+
         // دعم أيضاً إرسال البيانات مباشرة (بدون كائن writtenInterviewEvaluation)
-        if (data.overall_score || data.recommendation) {
-            updateData.writtenInterviewEvaluation = {
-                overall_score: data.overall_score || data.writtenInterviewEvaluation?.overall_score,
-                fit_for_role: data.fit_for_role || data.writtenInterviewEvaluation?.fit_for_role,
-                strengths: data.strengths || data.writtenInterviewEvaluation?.strengths || [],
-                weaknesses: data.weaknesses || data.writtenInterviewEvaluation?.weaknesses || [],
-                red_flags: data.red_flags || data.writtenInterviewEvaluation?.red_flags || [],
-                recommendation: data.recommendation || data.writtenInterviewEvaluation?.recommendation,
-                summary: data.summary || data.writtenInterviewEvaluation?.summary
-            };
-            console.log('✅ Updating Written Interview evaluation (direct format) for candidate:', candidateId);
-            console.log('📋 Written Interview Data:', JSON.stringify(updateData.writtenInterviewEvaluation, null, 2));
+        // ملاحظة: إذا كان هناك voiceInterviewEvaluation، لن نستخدم التنسيق المباشر للمقابلة الكتابية
+        if ((data.overall_score || data.recommendation) && !data.voiceInterviewEvaluation && !data.writtenInterviewEvaluation) {
+            // تحديد نوع المقابلة بناءً على وجود حقول خاصة بالمقابلة الصوتية
+            const isVoiceInterview = data.communication_score !== undefined || data.confidence_score !== undefined || data.technical_score !== undefined || data.transcript;
+            
+            if (isVoiceInterview) {
+                // مقابلة صوتية
+                updateData.voiceInterviewEvaluation = {
+                    overall_score: data.overall_score,
+                    fit_for_role: data.fit_for_role,
+                    strengths: data.strengths || [],
+                    weaknesses: data.weaknesses || [],
+                    red_flags: data.red_flags || [],
+                    recommendation: data.recommendation,
+                    summary: data.summary,
+                    communication_score: data.communication_score,
+                    confidence_score: data.confidence_score,
+                    technical_score: data.technical_score,
+                    transcript: data.transcript
+                };
+                console.log('✅ Updating Voice Interview evaluation (direct format) for candidate:', candidateId);
+                console.log('📋 Voice Interview Data:', JSON.stringify(updateData.voiceInterviewEvaluation, null, 2));
+            } else {
+                // مقابلة كتابية
+                updateData.writtenInterviewEvaluation = {
+                    overall_score: data.overall_score,
+                    fit_for_role: data.fit_for_role,
+                    strengths: data.strengths || [],
+                    weaknesses: data.weaknesses || [],
+                    red_flags: data.red_flags || [],
+                    recommendation: data.recommendation,
+                    summary: data.summary
+                };
+                console.log('✅ Updating Written Interview evaluation (direct format) for candidate:', candidateId);
+                console.log('📋 Written Interview Data:', JSON.stringify(updateData.writtenInterviewEvaluation, null, 2));
+            }
         }
 
         // إذا كان هناك حالة محدثة
@@ -357,6 +408,128 @@ app.post('/webhook/n8n', upload.array('files', 10), async (req, res) => {
 });
 
 // ============================================
+// n8n Voice Interview Webhook Handler (استقبال نتائج المقابلة الصوتية من n8n)
+// ============================================
+
+// Webhook endpoint لاستقبال نتائج المقابلة الصوتية من n8n
+app.post('/webhook/n8n-voice', upload.array('files', 10), async (req, res) => {
+    try {
+        const data = req.body;
+        const files = req.files as Express.Multer.File[];
+        
+        console.log('📥 Received voice interview webhook from n8n');
+        console.log('📋 Data:', JSON.stringify(data, null, 2));
+        console.log('📎 Files:', files?.length || 0, 'file(s)');
+
+        // التحقق من وجود candidate ID
+        if (!data.candidateId && !data.candidate?.id) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Candidate ID is required' 
+            });
+        }
+
+        const candidateId = data.candidateId || data.candidate?.id;
+
+        // البحث عن المرشح في قاعدة البيانات
+        const candidate = await Candidate.findById(candidateId);
+        
+        if (!candidate) {
+            console.error(`❌ Candidate not found: ${candidateId}`);
+            return res.status(404).json({ 
+                success: false,
+                error: 'Candidate not found' 
+            });
+        }
+
+        // تحديث بيانات المرشح بناءً على البيانات المرسلة من n8n
+        const updateData: any = {};
+
+        // إذا كان هناك تقييم Voice Interview من n8n
+        if (data.voiceInterviewEvaluation) {
+            updateData.voiceInterviewEvaluation = data.voiceInterviewEvaluation;
+            console.log('✅ Updating Voice Interview evaluation for candidate:', candidateId);
+            console.log('📋 Voice Interview Data:', JSON.stringify(data.voiceInterviewEvaluation, null, 2));
+        }
+        
+        // دعم أيضاً إرسال البيانات مباشرة (بدون كائن voiceInterviewEvaluation)
+        if (data.overall_score || data.recommendation) {
+            updateData.voiceInterviewEvaluation = {
+                overall_score: data.overall_score || data.voiceInterviewEvaluation?.overall_score,
+                fit_for_role: data.fit_for_role || data.voiceInterviewEvaluation?.fit_for_role,
+                strengths: data.strengths || data.voiceInterviewEvaluation?.strengths || [],
+                weaknesses: data.weaknesses || data.voiceInterviewEvaluation?.weaknesses || [],
+                red_flags: data.red_flags || data.voiceInterviewEvaluation?.red_flags || [],
+                recommendation: data.recommendation || data.voiceInterviewEvaluation?.recommendation,
+                summary: data.summary || data.voiceInterviewEvaluation?.summary,
+                communication_score: data.communication_score || data.voiceInterviewEvaluation?.communication_score,
+                confidence_score: data.confidence_score || data.voiceInterviewEvaluation?.confidence_score,
+                technical_score: data.technical_score || data.voiceInterviewEvaluation?.technical_score,
+                transcript: data.transcript || data.voiceInterviewEvaluation?.transcript
+            };
+            console.log('✅ Updating Voice Interview evaluation (direct format) for candidate:', candidateId);
+            console.log('📋 Voice Interview Data:', JSON.stringify(updateData.voiceInterviewEvaluation, null, 2));
+        }
+
+        // إذا كان هناك حالة محدثة
+        if (data.status) {
+            updateData.status = data.status;
+            console.log('✅ Updating status for candidate:', candidateId, 'to', data.status);
+        }
+
+        // إذا كان هناك ملاحظات أو تعليقات
+        if (data.notes || data.comments) {
+            updateData.notes = data.notes || data.comments;
+        }
+
+        // معالجة الملفات المرسلة
+        if (files && files.length > 0) {
+            const fileRecords = files.map(file => ({
+                filename: file.filename,
+                originalName: file.originalname,
+                path: file.path,
+                mimeType: file.mimetype,
+                size: file.size,
+                uploadedAt: new Date()
+            }));
+
+            // إضافة الملفات الجديدة إلى الملفات الموجودة
+            const existingFiles = candidate.files || [];
+            updateData.files = [...existingFiles, ...fileRecords];
+            
+            console.log(`✅ ${files.length} file(s) received and saved for candidate:`, candidateId);
+            files.forEach(file => {
+                console.log(`   - ${file.originalname} (${file.size} bytes) saved as ${file.filename}`);
+            });
+        }
+
+        // تحديث المرشح إذا كان هناك بيانات للتحديث
+        if (Object.keys(updateData).length > 0) {
+            await Candidate.findByIdAndUpdate(candidateId, updateData, { new: true });
+            console.log('✅ Candidate voice interview evaluation updated successfully:', candidateId);
+        } else {
+            console.log('⚠️ No data to update for candidate:', candidateId);
+        }
+
+        // إرجاع استجابة نجاح
+        res.status(200).json({ 
+            success: true,
+            message: 'Voice interview webhook received and processed successfully',
+            candidateId: candidateId,
+            filesReceived: files?.length || 0
+        });
+
+    } catch (error: any) {
+        console.error('❌ Error processing n8n voice interview webhook:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Internal server error',
+            message: error.message 
+        });
+    }
+});
+
+// ============================================
 // دالة للحصول على IP المحلي
 // ============================================
 function getLocalIP(): string {
@@ -400,7 +573,8 @@ connectDatabase().then(() => {
         console.log(`🌐 Server is accessible from network: http://${localIP}:${PORT}`);
         console.log(`📡 Frontend URL: ${FRONTEND_URL}`);
         console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`🔗 n8n Webhook URL: http://${localIP}:${PORT}/webhook/n8n`);
+        console.log(`🔗 n8n Webhook URL (Written Interview): http://${localIP}:${PORT}/webhook/n8n`);
+        console.log(`🔗 n8n Webhook URL (Voice Interview): http://${localIP}:${PORT}/webhook/n8n-voice`);
         console.log(`\n💡 للوصول من أجهزة أخرى على نفس الواي فاي:`);
         console.log(`   استخدم: http://${localIP}:${PORT}\n`);
     });
@@ -413,7 +587,8 @@ connectDatabase().then(() => {
         console.log(`🌐 Server is accessible from network: http://${localIP}:${PORT}`);
         console.log(`📡 Frontend URL: ${FRONTEND_URL}`);
         console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`🔗 n8n Webhook URL: http://${localIP}:${PORT}/webhook/n8n`);
+        console.log(`🔗 n8n Webhook URL (Written Interview): http://${localIP}:${PORT}/webhook/n8n`);
+        console.log(`🔗 n8n Webhook URL (Voice Interview): http://${localIP}:${PORT}/webhook/n8n-voice`);
         console.log(`\n💡 للوصول من أجهزة أخرى على نفس الواي فاي:`);
         console.log(`   استخدم: http://${localIP}:${PORT}\n`);
         console.log('⚠️ Warning: Database connection failed. Some features may not work.');

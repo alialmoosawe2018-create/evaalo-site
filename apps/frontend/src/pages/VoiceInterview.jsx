@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navigation from '../components/Navigation';
 
-const WrittenInterview = () => {
+const VoiceInterview = () => {
     const navigate = useNavigate();
     const [candidates, setCandidates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -32,18 +32,18 @@ const WrittenInterview = () => {
             console.log('📥 Fetched candidates:', result);
             
             if (result.success && result.data) {
-                // تصفية المرشحين الذين لديهم writtenInterviewEvaluation
+                // تصفية المرشحين الذين لديهم voiceInterviewEvaluation
                 const candidatesWithEvaluation = result.data.filter(
                     candidate => {
-                        const hasEvaluation = candidate.writtenInterviewEvaluation;
+                        const hasEvaluation = candidate.voiceInterviewEvaluation;
                         if (hasEvaluation) {
-                            console.log('✅ Candidate with evaluation:', candidate.firstName, candidate.lastName, candidate.writtenInterviewEvaluation);
+                            console.log('✅ Candidate with voice evaluation:', candidate.firstName, candidate.lastName, candidate.voiceInterviewEvaluation);
                         }
                         return hasEvaluation;
                     }
                 );
                 
-                console.log('📊 Candidates with Written Interview Evaluation:', candidatesWithEvaluation.length);
+                console.log('📊 Candidates with Voice Interview Evaluation:', candidatesWithEvaluation.length);
                 console.log('📋 All candidates:', result.data.length);
                 
                 setCandidates(candidatesWithEvaluation);
@@ -123,7 +123,7 @@ const WrittenInterview = () => {
 
     const filteredCandidates = filter === 'all' 
         ? candidates 
-        : candidates.filter(c => c.writtenInterviewEvaluation?.recommendation === filter);
+        : candidates.filter(c => c.voiceInterviewEvaluation?.recommendation === filter);
 
     return (
         <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)' }}>
@@ -147,16 +147,16 @@ const WrittenInterview = () => {
                         <h1 style={{
                             fontSize: '36px',
                             fontWeight: 700,
-                            background: 'linear-gradient(135deg, #60A5FA, #3B82F6)',
+                            background: 'linear-gradient(135deg, #EC4899, #F472B6)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
                             backgroundClip: 'text',
                             marginBottom: '10px'
                         }}>
-                            Written Interview Evaluations
+                            🎤 Voice Interview Evaluations
                         </h1>
                         <p style={{ color: '#94A3B8', fontSize: '16px' }}>
-                            تقييمات المقابلات الكتابية للمرشحين
+                            تقييمات المقابلات الصوتية للمرشحين
                         </p>
                     </div>
 
@@ -167,9 +167,9 @@ const WrittenInterview = () => {
                             style={{
                                 padding: '10px 20px',
                                 borderRadius: '8px',
-                                border: '1px solid rgba(96, 165, 250, 0.4)',
-                                background: 'rgba(96, 165, 250, 0.2)',
-                                color: '#60A5FA',
+                                border: '1px solid rgba(236, 72, 153, 0.4)',
+                                background: 'rgba(236, 72, 153, 0.2)',
+                                color: '#EC4899',
                                 cursor: 'pointer',
                                 fontSize: '14px',
                                 fontWeight: 600,
@@ -183,7 +183,7 @@ const WrittenInterview = () => {
                         {['all', 'Hire', 'Consider', 'Reject'].map((filterOption) => {
                             const isActive = filter === filterOption.toLowerCase();
                             const colors = filterOption === 'all' 
-                                ? { bg: 'rgba(96, 165, 250, 0.2)', border: 'rgba(96, 165, 250, 0.4)', text: '#60A5FA' }
+                                ? { bg: 'rgba(236, 72, 153, 0.2)', border: 'rgba(236, 72, 153, 0.4)', text: '#EC4899' }
                                 : getRecommendationColor(filterOption);
                             
                             return (
@@ -223,16 +223,16 @@ const WrittenInterview = () => {
                         borderRadius: '12px',
                         border: '1px solid rgba(148, 163, 184, 0.1)'
                     }}>
-                        <div style={{ marginBottom: '20px', fontSize: '48px' }}>📋</div>
+                        <div style={{ marginBottom: '20px', fontSize: '48px' }}>🎤</div>
                         <div style={{ fontSize: '18px', marginBottom: '10px', color: '#CBD5E1' }}>
                             {filter === 'all' 
-                                ? 'لا توجد تقييمات مقابلات كتابية'
+                                ? 'لا توجد تقييمات مقابلات صوتية'
                                 : `لا يوجد مرشحون بتوصية "${filter}"`
                             }
                         </div>
                         <div style={{ fontSize: '14px', color: '#94A3B8', marginTop: '10px', marginBottom: '20px' }}>
                             {filter === 'all' 
-                                ? 'تأكد من إرسال البيانات من n8n مع حقل writtenInterviewEvaluation'
+                                ? 'تأكد من إرسال البيانات من n8n مع حقل voiceInterviewEvaluation'
                                 : 'جرب تغيير الفلتر أو تحديث الصفحة'
                             }
                         </div>
@@ -241,9 +241,9 @@ const WrittenInterview = () => {
                             style={{
                                 padding: '10px 20px',
                                 borderRadius: '8px',
-                                border: '1px solid rgba(96, 165, 250, 0.4)',
-                                background: 'rgba(96, 165, 250, 0.2)',
-                                color: '#60A5FA',
+                                border: '1px solid rgba(236, 72, 153, 0.4)',
+                                background: 'rgba(236, 72, 153, 0.2)',
+                                color: '#EC4899',
                                 cursor: 'pointer',
                                 fontSize: '14px',
                                 fontWeight: 600
@@ -268,6 +268,9 @@ const WrittenInterview = () => {
                                     }}>
                                         <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Candidate</th>
                                         <th style={{ padding: '16px', textAlign: 'center', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Overall Score</th>
+                                        <th style={{ padding: '16px', textAlign: 'center', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Communication</th>
+                                        <th style={{ padding: '16px', textAlign: 'center', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Confidence</th>
+                                        <th style={{ padding: '16px', textAlign: 'center', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Technical</th>
                                         <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Fit for Role</th>
                                         <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Strengths</th>
                                         <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Weaknesses</th>
@@ -279,7 +282,7 @@ const WrittenInterview = () => {
                                 </thead>
                                 <tbody>
                                     {filteredCandidates.map((candidate, index) => {
-                                        const evaluation = candidate.writtenInterviewEvaluation;
+                                        const evaluation = candidate.voiceInterviewEvaluation;
                                         const scoreColors = getScoreColor(evaluation?.overall_score || 0);
                                         const recColors = getRecommendationColor(evaluation?.recommendation);
                                         
@@ -321,6 +324,63 @@ const WrittenInterview = () => {
                                                     }}>
                                                         {evaluation?.overall_score || 0}%
                                                     </div>
+                                                </td>
+
+                                                {/* Communication Score */}
+                                                <td style={{ padding: '16px', textAlign: 'center' }}>
+                                                    {evaluation?.communication_score !== undefined ? (
+                                                        <div style={{
+                                                            display: 'inline-block',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            background: getScoreColor(evaluation.communication_score).bg,
+                                                            color: getScoreColor(evaluation.communication_score).text,
+                                                            fontWeight: 600,
+                                                            fontSize: '14px'
+                                                        }}>
+                                                            {evaluation.communication_score}%
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ color: '#94A3B8', fontSize: '13px' }}>N/A</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Confidence Score */}
+                                                <td style={{ padding: '16px', textAlign: 'center' }}>
+                                                    {evaluation?.confidence_score !== undefined ? (
+                                                        <div style={{
+                                                            display: 'inline-block',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            background: getScoreColor(evaluation.confidence_score).bg,
+                                                            color: getScoreColor(evaluation.confidence_score).text,
+                                                            fontWeight: 600,
+                                                            fontSize: '14px'
+                                                        }}>
+                                                            {evaluation.confidence_score}%
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ color: '#94A3B8', fontSize: '13px' }}>N/A</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Technical Score */}
+                                                <td style={{ padding: '16px', textAlign: 'center' }}>
+                                                    {evaluation?.technical_score !== undefined ? (
+                                                        <div style={{
+                                                            display: 'inline-block',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            background: getScoreColor(evaluation.technical_score).bg,
+                                                            color: getScoreColor(evaluation.technical_score).text,
+                                                            fontWeight: 600,
+                                                            fontSize: '14px'
+                                                        }}>
+                                                            {evaluation.technical_score}%
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ color: '#94A3B8', fontSize: '13px' }}>N/A</span>
+                                                    )}
                                                 </td>
 
                                                 {/* Fit for Role */}
@@ -398,7 +458,7 @@ const WrittenInterview = () => {
                                                             height: '48px',
                                                             borderRadius: '12px',
                                                             border: 'none',
-                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                                            background: 'linear-gradient(135deg, #EC4899 0%, #F472B6 100%)',
                                                             color: '#fff',
                                                             cursor: 'pointer',
                                                             display: 'flex',
@@ -407,19 +467,19 @@ const WrittenInterview = () => {
                                                             fontSize: '22px',
                                                             fontWeight: 'bold',
                                                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2)',
+                                                            boxShadow: '0 4px 12px rgba(236, 72, 153, 0.3), 0 0 0 1px rgba(236, 72, 153, 0.2)',
                                                             position: 'relative',
                                                             overflow: 'hidden'
                                                         }}
                                                         onMouseEnter={(e) => {
                                                             e.currentTarget.style.transform = 'scale(1.15) translateY(-2px)';
-                                                            e.currentTarget.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
-                                                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(16, 185, 129, 0.5), 0 0 0 2px rgba(16, 185, 129, 0.4)';
+                                                            e.currentTarget.style.background = 'linear-gradient(135deg, #F472B6 0%, #EC4899 100%)';
+                                                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(236, 72, 153, 0.5), 0 0 0 2px rgba(236, 72, 153, 0.4)';
                                                         }}
                                                         onMouseLeave={(e) => {
                                                             e.currentTarget.style.transform = 'scale(1) translateY(0)';
-                                                            e.currentTarget.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2)';
+                                                            e.currentTarget.style.background = 'linear-gradient(135deg, #EC4899 0%, #F472B6 100%)';
+                                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(236, 72, 153, 0.3), 0 0 0 1px rgba(236, 72, 153, 0.2)';
                                                         }}
                                                         onMouseDown={(e) => {
                                                             e.currentTarget.style.transform = 'scale(0.9) translateY(0)';
@@ -471,7 +531,7 @@ const WrittenInterview = () => {
                         }}>
                             <div style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '8px' }}>Hire</div>
                             <div style={{ color: '#10B981', fontSize: '28px', fontWeight: 700 }}>
-                                {candidates.filter(c => c.writtenInterviewEvaluation?.recommendation === 'Hire').length}
+                                {candidates.filter(c => c.voiceInterviewEvaluation?.recommendation === 'Hire').length}
                             </div>
                         </div>
                         <div style={{
@@ -482,7 +542,7 @@ const WrittenInterview = () => {
                         }}>
                             <div style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '8px' }}>Consider</div>
                             <div style={{ color: '#F59E0B', fontSize: '28px', fontWeight: 700 }}>
-                                {candidates.filter(c => c.writtenInterviewEvaluation?.recommendation === 'Consider').length}
+                                {candidates.filter(c => c.voiceInterviewEvaluation?.recommendation === 'Consider').length}
                             </div>
                         </div>
                         <div style={{
@@ -493,7 +553,7 @@ const WrittenInterview = () => {
                         }}>
                             <div style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '8px' }}>Reject</div>
                             <div style={{ color: '#EF4444', fontSize: '28px', fontWeight: 700 }}>
-                                {candidates.filter(c => c.writtenInterviewEvaluation?.recommendation === 'Reject').length}
+                                {candidates.filter(c => c.voiceInterviewEvaluation?.recommendation === 'Reject').length}
                             </div>
                         </div>
                     </div>
@@ -503,5 +563,7 @@ const WrittenInterview = () => {
     );
 };
 
-export default WrittenInterview;
+export default VoiceInterview;
+
+
 

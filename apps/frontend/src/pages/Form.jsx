@@ -228,7 +228,21 @@ const Form = () => {
                 ? { ...formData, campaignId }
                 : formData;
             
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            // استخدام VITE_API_URL في الإنتاج، أو IP السيرفر في التطوير
+            let apiUrl = import.meta.env.VITE_API_URL;
+            const hostname = window.location.hostname;
+            
+            // إذا كان على الدومين (www.evaalo.com أو evaalo.com)، استخدم رابط الباك إند على الإنترنت دائماً
+            if (hostname === 'www.evaalo.com' || hostname === 'evaalo.com') {
+                apiUrl = 'https://evaalo-backend.onrender.com';
+            } else if (!apiUrl) {
+                // في التطوير: استخدام hostname الحالي (يعمل من أي جهاز)
+                apiUrl = `http://${hostname}:5000`;
+            }
+            
+            console.log('🌐 API URL:', apiUrl, '| Hostname:', hostname, '| VITE_API_URL:', import.meta.env.VITE_API_URL);
+            console.log('📤 Sending request to:', `${apiUrl}/api/candidates`);
+            
             const response = await fetch(`${apiUrl}/api/candidates`, {
                 method: 'POST',
                 headers: {
@@ -238,18 +252,36 @@ const Form = () => {
                 signal: submitController.signal
             });
             
+            console.log('📥 Response status:', response.status, response.statusText);
+            
             clearTimeout(submitTimeoutId);
 
             // Check if response is ok before trying to parse JSON
             if (!response.ok) {
                 let errorMessage = 'Failed to submit application';
+                let errorDetails = null;
                 try {
                     const errorData = await response.json();
+                    console.error('❌ Backend error response:', errorData);
                     errorMessage = errorData.error || errorData.message || errorMessage;
+                    errorDetails = errorData.details || errorData.missingFields || null;
                 } catch (e) {
                     // If response is not JSON, use status text
+                    console.error('❌ Failed to parse error response:', e);
                     errorMessage = response.statusText || errorMessage;
                 }
+                
+                // إنشاء رسالة خطأ مفصلة
+                if (errorDetails) {
+                    if (Array.isArray(errorDetails)) {
+                        errorMessage += `\n\nMissing fields: ${errorDetails.join(', ')}`;
+                    } else if (typeof errorDetails === 'object') {
+                        errorMessage += `\n\nDetails: ${JSON.stringify(errorDetails, null, 2)}`;
+                    } else {
+                        errorMessage += `\n\nDetails: ${errorDetails}`;
+                    }
+                }
+                
                 throw new Error(errorMessage);
             }
 
@@ -295,7 +327,10 @@ const Form = () => {
                 navigate('/');
             }, 2000);
         } catch (error) {
-            console.error('Error submitting form:', error);
+            console.error('❌ Error submitting form:', error);
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
             
             // Better error messages
             let errorMessage = 'خطأ في إرسال الطلب. يرجى المحاولة مرة أخرى.';
@@ -305,7 +340,13 @@ const Form = () => {
             } else if (error.message && error.message.includes('Cannot connect')) {
                 errorMessage = error.message;
             } else if (error.message && error.message.includes('Failed to fetch')) {
-                errorMessage = 'لا يمكن الاتصال بالخادم. يرجى التأكد من أن الخادم الخلفي يعمل على http://localhost:5000';
+                // تحسين رسالة الخطأ حسب البيئة
+                const hostname = window.location.hostname;
+                if (hostname === 'www.evaalo.com' || hostname === 'evaalo.com') {
+                    errorMessage = 'لا يمكن الاتصال بالخادم الخلفي. يرجى التحقق من أن الخادم يعمل على https://evaalo-backend.onrender.com';
+                } else {
+                    errorMessage = 'لا يمكن الاتصال بالخادم. يرجى التأكد من أن الخادم الخلفي يعمل على http://localhost:5000';
+                }
             } else if (error.message) {
                 errorMessage = error.message;
             }
