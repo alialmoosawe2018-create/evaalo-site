@@ -223,13 +223,24 @@ const Form = () => {
             const submitController = new AbortController();
             const submitTimeoutId = setTimeout(() => submitController.abort(), 30000); // 30 seconds timeout
             
+            // تحويل languages من objects إلى strings (Backend يتوقع array of strings)
+            const languagesAsStrings = formData.languages.map(lang => {
+                if (typeof lang === 'string') {
+                    return lang;
+                } else if (lang && lang.name && lang.level) {
+                    return `${lang.name} (${lang.level})`;
+                }
+                return String(lang);
+            });
+            
             // إضافة campaign ID إلى البيانات إذا كان موجوداً في URL
             const dataToSend = campaignId 
-                ? { ...formData, campaignId }
-                : formData;
+                ? { ...formData, languages: languagesAsStrings, campaignId }
+                : { ...formData, languages: languagesAsStrings };
             
             // التحقق من البيانات قبل الإرسال
             console.log('📋 Form data to send:', JSON.stringify(dataToSend, null, 2));
+            console.log('🌐 Languages converted:', languagesAsStrings);
             console.log('🔍 Required fields check:');
             console.log('  - firstName:', dataToSend.firstName ? '✅' : '❌', dataToSend.firstName);
             console.log('  - lastName:', dataToSend.lastName ? '✅' : '❌', dataToSend.lastName);
@@ -293,7 +304,7 @@ const Form = () => {
                     } else if (errorData.error === 'Validation error') {
                         errorMessage = 'خطأ في البيانات المدخلة. يرجى التحقق من جميع الحقول.';
                         if (errorData.details && Array.isArray(errorData.details)) {
-                            const fieldErrors = errorData.details.map((d: any) => `${d.field}: ${d.message}`).join('\n');
+                            const fieldErrors = errorData.details.map((d) => `${d.field}: ${d.message}`).join('\n');
                             errorMessage += `\n\nالتفاصيل:\n${fieldErrors}`;
                         }
                     } else if (errorData.error === 'Failed to create candidate') {
