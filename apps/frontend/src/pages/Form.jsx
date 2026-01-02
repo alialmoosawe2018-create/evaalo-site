@@ -228,6 +228,14 @@ const Form = () => {
                 ? { ...formData, campaignId }
                 : formData;
             
+            // التحقق من البيانات قبل الإرسال
+            console.log('📋 Form data to send:', JSON.stringify(dataToSend, null, 2));
+            console.log('🔍 Required fields check:');
+            console.log('  - firstName:', dataToSend.firstName ? '✅' : '❌', dataToSend.firstName);
+            console.log('  - lastName:', dataToSend.lastName ? '✅' : '❌', dataToSend.lastName);
+            console.log('  - email:', dataToSend.email ? '✅' : '❌', dataToSend.email);
+            console.log('  - phone:', dataToSend.phone ? '✅' : '❌', dataToSend.phone);
+            
             // استخدام VITE_API_URL في الإنتاج، أو IP السيرفر في التطوير
             let apiUrl = import.meta.env.VITE_API_URL;
             const hostname = window.location.hostname;
@@ -262,7 +270,13 @@ const Form = () => {
                 let errorDetails = null;
                 try {
                     const errorData = await response.json();
-                    console.error('❌ Backend error response:', errorData);
+                    console.error('❌ Backend error response (full):', JSON.stringify(errorData, null, 2));
+                    console.error('❌ Error keys:', Object.keys(errorData));
+                    console.error('❌ Error.error:', errorData.error);
+                    console.error('❌ Error.message:', errorData.message);
+                    console.error('❌ Error.details:', errorData.details);
+                    console.error('❌ Error.missingFields:', errorData.missingFields);
+                    
                     errorMessage = errorData.error || errorData.message || errorMessage;
                     errorDetails = errorData.details || errorData.missingFields || null;
                     
@@ -273,17 +287,29 @@ const Form = () => {
                         errorMessage = 'هذا البريد الإلكتروني مسجل بالفعل.';
                     } else if (errorData.error === 'Missing required fields') {
                         errorMessage = 'يرجى ملء جميع الحقول المطلوبة.';
+                        if (errorData.missingFields && Array.isArray(errorData.missingFields)) {
+                            errorMessage += `\nالحقول المفقودة: ${errorData.missingFields.join(', ')}`;
+                        }
                     } else if (errorData.error === 'Validation error') {
                         errorMessage = 'خطأ في البيانات المدخلة. يرجى التحقق من جميع الحقول.';
+                        if (errorData.details && Array.isArray(errorData.details)) {
+                            const fieldErrors = errorData.details.map((d: any) => `${d.field}: ${d.message}`).join('\n');
+                            errorMessage += `\n\nالتفاصيل:\n${fieldErrors}`;
+                        }
+                    } else if (errorData.error === 'Failed to create candidate') {
+                        // إذا كان الخطأ عام، استخدم الرسالة التفصيلية
+                        errorMessage = errorData.message || errorMessage;
                     }
                 } catch (e) {
                     // If response is not JSON, use status text
                     console.error('❌ Failed to parse error response:', e);
+                    const textResponse = await response.text();
+                    console.error('❌ Response text:', textResponse);
                     errorMessage = response.statusText || errorMessage;
                 }
                 
                 // إنشاء رسالة خطأ مفصلة
-                if (errorDetails) {
+                if (errorDetails && !errorMessage.includes('التفاصيل')) {
                     if (Array.isArray(errorDetails)) {
                         errorMessage += `\n\nالحقول المطلوبة: ${errorDetails.join(', ')}`;
                     } else if (typeof errorDetails === 'object') {
@@ -293,6 +319,7 @@ const Form = () => {
                     }
                 }
                 
+                console.error('❌ Final error message:', errorMessage);
                 throw new Error(errorMessage);
             }
 

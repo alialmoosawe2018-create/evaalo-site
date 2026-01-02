@@ -91,18 +91,31 @@ router.post('/', async (req: Request, res: Response) => {
         
         // Validate required fields
         const missingFields = [];
-        if (!candidateDataForDB.firstName) missingFields.push('firstName');
-        if (!candidateDataForDB.lastName) missingFields.push('lastName');
-        if (!candidateDataForDB.email) missingFields.push('email');
-        if (!candidateDataForDB.phone) missingFields.push('phone');
+        console.log('🔍 Validating required fields...');
+        console.log('  - firstName:', candidateDataForDB.firstName ? '✅' : '❌', candidateDataForDB.firstName);
+        console.log('  - lastName:', candidateDataForDB.lastName ? '✅' : '❌', candidateDataForDB.lastName);
+        console.log('  - email:', candidateDataForDB.email ? '✅' : '❌', candidateDataForDB.email);
+        console.log('  - phone:', candidateDataForDB.phone ? '✅' : '❌', candidateDataForDB.phone);
+        
+        if (!candidateDataForDB.firstName || !candidateDataForDB.firstName.trim()) missingFields.push('firstName');
+        if (!candidateDataForDB.lastName || !candidateDataForDB.lastName.trim()) missingFields.push('lastName');
+        if (!candidateDataForDB.email || !candidateDataForDB.email.trim()) missingFields.push('email');
+        if (!candidateDataForDB.phone || !candidateDataForDB.phone.trim()) missingFields.push('phone');
         
         if (missingFields.length > 0) {
             console.error('❌ Missing required fields:', missingFields);
+            console.error('❌ Full candidate data received:', JSON.stringify(candidateDataForDB, null, 2));
             return res.status(400).json({
                 success: false,
                 error: 'Missing required fields',
                 message: `Missing required fields: ${missingFields.join(', ')}`,
-                missingFields: missingFields
+                missingFields: missingFields,
+                receivedData: {
+                    hasFirstName: !!candidateDataForDB.firstName,
+                    hasLastName: !!candidateDataForDB.lastName,
+                    hasEmail: !!candidateDataForDB.email,
+                    hasPhone: !!candidateDataForDB.phone
+                }
             });
         }
         
