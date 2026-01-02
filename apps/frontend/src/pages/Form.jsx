@@ -223,29 +223,10 @@ const Form = () => {
             const submitController = new AbortController();
             const submitTimeoutId = setTimeout(() => submitController.abort(), 30000); // 30 seconds timeout
             
-            // تحويل languages من objects إلى strings (format: "Language (Level)")
-            // وضمان أن skills و languages هما arrays
-            const processedFormData = {
-                ...formData,
-                skills: Array.isArray(formData.skills) ? formData.skills : [],
-                languages: (Array.isArray(formData.languages) ? formData.languages : []).map(lang => {
-                    if (typeof lang === 'string') {
-                        return lang; // Already a string
-                    }
-                    // Convert object {name, level} to string "Name (Level)"
-                    if (lang && typeof lang === 'object') {
-                        return lang.name && lang.level 
-                            ? `${lang.name} (${lang.level})` 
-                            : lang.name || String(lang);
-                    }
-                    return String(lang);
-                })
-            };
-            
             // إضافة campaign ID إلى البيانات إذا كان موجوداً في URL
             const dataToSend = campaignId 
-                ? { ...processedFormData, campaignId }
-                : processedFormData;
+                ? { ...formData, campaignId }
+                : formData;
             
             // استخدام VITE_API_URL في الإنتاج، أو IP السيرفر في التطوير
             let apiUrl = import.meta.env.VITE_API_URL;
@@ -261,8 +242,6 @@ const Form = () => {
             
             console.log('🌐 API URL:', apiUrl, '| Hostname:', hostname, '| VITE_API_URL:', import.meta.env.VITE_API_URL);
             console.log('📤 Sending request to:', `${apiUrl}/api/candidates`);
-            console.log('📋 Data being sent:', JSON.stringify(dataToSend, null, 2));
-            console.log('📋 Languages format:', Array.isArray(dataToSend.languages) ? dataToSend.languages.map(l => typeof l === 'string' ? l : JSON.stringify(l)) : 'Not an array');
             
             const response = await fetch(`${apiUrl}/api/candidates`, {
                 method: 'POST',
@@ -279,32 +258,38 @@ const Form = () => {
 
             // Check if response is ok before trying to parse JSON
             if (!response.ok) {
-                let errorMessage = 'Failed to submit application';
+                let errorMessage = 'Failed to create candidate';
                 let errorDetails = null;
                 try {
                     const errorData = await response.json();
-                    console.error('❌ Backend error response (full):', JSON.stringify(errorData, null, 2));
-                    console.error('❌ Error:', errorData.error);
-                    console.error('❌ Message:', errorData.message);
-                    console.error('❌ Details:', errorData.details);
+                    console.error('❌ Backend error response:', errorData);
                     errorMessage = errorData.error || errorData.message || errorMessage;
                     errorDetails = errorData.details || errorData.missingFields || null;
+                    
+                    // تحسين رسالة الخطأ حسب نوع الخطأ
+                    if (errorData.error === 'Database not connected') {
+                        errorMessage = 'قاعدة البيانات غير متصلة. يرجى المحاولة لاحقاً.';
+                    } else if (errorData.error === 'Email already exists') {
+                        errorMessage = 'هذا البريد الإلكتروني مسجل بالفعل.';
+                    } else if (errorData.error === 'Missing required fields') {
+                        errorMessage = 'يرجى ملء جميع الحقول المطلوبة.';
+                    } else if (errorData.error === 'Validation error') {
+                        errorMessage = 'خطأ في البيانات المدخلة. يرجى التحقق من جميع الحقول.';
+                    }
                 } catch (e) {
                     // If response is not JSON, use status text
                     console.error('❌ Failed to parse error response:', e);
-                    const textResponse = await response.text();
-                    console.error('❌ Raw error response:', textResponse);
                     errorMessage = response.statusText || errorMessage;
                 }
                 
                 // إنشاء رسالة خطأ مفصلة
                 if (errorDetails) {
                     if (Array.isArray(errorDetails)) {
-                        errorMessage += `\n\nMissing fields: ${errorDetails.join(', ')}`;
+                        errorMessage += `\n\nالحقول المطلوبة: ${errorDetails.join(', ')}`;
                     } else if (typeof errorDetails === 'object') {
-                        errorMessage += `\n\nDetails: ${JSON.stringify(errorDetails, null, 2)}`;
+                        errorMessage += `\n\nالتفاصيل: ${JSON.stringify(errorDetails, null, 2)}`;
                     } else {
-                        errorMessage += `\n\nDetails: ${errorDetails}`;
+                        errorMessage += `\n\nالتفاصيل: ${errorDetails}`;
                     }
                 }
                 

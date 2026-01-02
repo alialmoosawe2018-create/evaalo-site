@@ -37,26 +37,23 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 // في التطوير: السماح بجميع المنافذ المحلية (localhost, 127.0.0.1, IPs محلية)
 // في الإنتاج: السماح فقط بـ evaalo.com
 const isDevelopment = process.env.NODE_ENV !== 'production';
-const allowedOrigins = isDevelopment
-    ? [
-        // جميع المنافذ المحلية
-        /^http:\/\/localhost:\d+$/,
-        /^http:\/\/127\.0\.0\.1:\d+$/,
-        /^http:\/\/192\.168\.\d+\.\d+:\d+$/, // IPs محلية
-        /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/, // IPs محلية
-        'https://www.evaalo.com',
-        'https://evaalo.com',
-        'http://www.evaalo.com',
-        'http://evaalo.com',
-        FRONTEND_URL
-    ].filter(Boolean)
-    : [
-        'https://www.evaalo.com',
-        'https://evaalo.com',
-        'http://www.evaalo.com',
-        'http://evaalo.com',
-        FRONTEND_URL
-    ].filter(Boolean);
+
+// قائمة الـ origins المسموحة (ثابتة)
+const staticOrigins = [
+    'https://www.evaalo.com',
+    'https://evaalo.com',
+    'http://www.evaalo.com',
+    'http://evaalo.com',
+    FRONTEND_URL
+].filter(Boolean);
+
+// قائمة الأنماط (patterns) للمنافذ المحلية (في التطوير فقط)
+const patternOrigins = isDevelopment ? [
+    /^http:\/\/localhost:\d+$/,
+    /^http:\/\/127\.0\.0\.1:\d+$/,
+    /^http:\/\/192\.168\.\d+\.\d+:\d+$/, // IPs محلية
+    /^http:\/\/10\.\d+\.\d+\.\d+:\d+$/, // IPs محلية
+] : [];
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -67,26 +64,26 @@ app.use(cors({
         }
         
         console.log('🔍 Checking CORS for origin:', origin);
+        console.log('🌍 Environment:', isDevelopment ? 'development' : 'production');
         
         // التحقق من القائمة الثابتة
-        if (allowedOrigins.includes(origin)) {
+        if (staticOrigins.includes(origin)) {
             console.log('✅ Origin allowed (exact match):', origin);
             return callback(null, true);
         }
         
-        // في التطوير: التحقق من الأنماط (patterns)
-        if (isDevelopment) {
-            for (const pattern of allowedOrigins) {
-                if (pattern instanceof RegExp && pattern.test(origin)) {
-                    console.log('✅ Origin allowed (pattern match):', origin);
-                    return callback(null, true);
-                }
+        // التحقق من الأنماط (patterns) - يعمل في التطوير والإنتاج
+        for (const pattern of patternOrigins) {
+            if (pattern instanceof RegExp && pattern.test(origin)) {
+                console.log('✅ Origin allowed (pattern match):', origin);
+                return callback(null, true);
             }
         }
         
         // رفض الطلب
         console.error('❌ CORS blocked origin:', origin);
-        console.log('📋 Allowed origins:', allowedOrigins);
+        console.log('📋 Static allowed origins:', staticOrigins);
+        console.log('📋 Pattern origins:', patternOrigins.length, 'patterns');
         callback(new Error(`Not allowed by CORS. Origin: ${origin}`));
     },
     credentials: true,

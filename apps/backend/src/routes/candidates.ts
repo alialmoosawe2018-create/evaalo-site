@@ -53,12 +53,15 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/candidates - إضافة مرشح جديد
 router.post('/', async (req: Request, res: Response) => {
     try {
+        console.log('🚀 POST /api/candidates - Request received');
+        console.log('📋 Request method:', req.method);
+        console.log('🌐 Request origin:', req.headers.origin);
+        console.log('📋 Request headers:', JSON.stringify(req.headers, null, 2));
+        
         const candidateData = req.body;
         
         // Log received data for debugging
         console.log('📥 Received candidate data:', JSON.stringify(candidateData, null, 2));
-        console.log('📋 Request headers:', req.headers);
-        console.log('🌐 Request origin:', req.headers.origin);
         
         // Check if database is connected
         if (mongoose.connection.readyState !== 1) {
@@ -170,7 +173,10 @@ router.post('/', async (req: Request, res: Response) => {
             success: false,
             error: 'Failed to create candidate',
             message: errorMessage,
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            details: process.env.NODE_ENV === 'development' ? {
+                originalError: error.message,
+                stack: error.stack
+            } : undefined
         });
     }
 });
