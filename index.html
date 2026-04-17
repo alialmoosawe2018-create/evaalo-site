@@ -5,11 +5,25 @@
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#4a1d9c">
+    <script>
+      // GitHub Pages SPA redirect fallback:
+      // transforms /?/path back to /path after 404.html redirect.
+      (function (l) {
+        if (l.search && l.search[1] === '/') {
+          var decoded = l.search
+            .slice(1)
+            .split('&')
+            .map(function (s) { return s.replace(/~and~/g, '&'); })
+            .join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      })(window.location);
+    </script>
     <title>Career Portal - Join Our Team</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-D8UeRuyl.js"></script>
+  <script type="module" crossorigin src="/assets/index-iELUJWrt.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-CImQwVqG.css">
 </head>
 <body>
