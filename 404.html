@@ -5,14 +5,25 @@
     <title>Redirecting…</title>
     <script>
       // GitHub Pages SPA fallback:
-      // redirect unknown path to index with encoded route in query.
+      // Redirect unknown path to index + encoded route query.
+      // Works for:
+      // - username.github.io/repo-name (keep repo segment)
+      // - custom domain root (keep no segment)
       (function () {
         var l = window.location;
-        var base = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '');
+        var parts = l.pathname.split('/').filter(Boolean);
+        var isGithubIo = /\.github\.io$/i.test(l.hostname);
+        var keep = isGithubIo && parts.length > 0 ? 1 : 0;
+        var prefix = '/' + parts.slice(0, keep).join('/');
+        if (prefix !== '/') prefix += '/';
+        var rest = parts.slice(keep).join('/');
         var next =
-          base +
-          '/?/' +
-          l.pathname.slice(1).replace(/&/g, '~and~') +
+          l.protocol +
+          '//' +
+          l.host +
+          prefix +
+          '?/' +
+          rest.replace(/&/g, '~and~') +
           (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
           l.hash;
         l.replace(next);
@@ -20,4 +31,4 @@
     </script>
   </head>
   <body></body>
-  </html>
+</html>
