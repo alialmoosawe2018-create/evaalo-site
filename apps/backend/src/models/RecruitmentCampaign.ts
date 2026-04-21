@@ -6,6 +6,7 @@ export interface IRecruitmentCampaign extends Document {
     criteria: {
         [key: string]: any; // position, location, job, company, age, gender, educationLevel, etc.
     };
+    jobAdvertisement?: string; // إعلان الوظيفة المُولَّد تلقائياً
     interviewType?: string; // process, video, audio
     templateType?: string;
     templateName?: string;
@@ -25,6 +26,10 @@ const RecruitmentCampaignSchema = new Schema<IRecruitmentCampaign>({
         type: Schema.Types.Mixed,
         required: true,
         default: {}
+    },
+    jobAdvertisement: {
+        type: String,
+        required: false
     },
     interviewType: {
         type: String,

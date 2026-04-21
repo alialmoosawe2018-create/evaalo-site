@@ -1,14 +1,47 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Candidate, { ICandidate } from '../models/Candidate.js';
 import { sendToN8N, sendStatusUpdateToN8N } from '../services/n8nService.js';
+import { upload } from '../middleware/upload.js';
 
 const router = express.Router();
+
+/** الاستمارة قد ترسل languages كـ [{ name, level }] بينما المخطط يخزن string[] */
+function normalizeLanguagesToStringArray(input: unknown): string[] {
+    if (!Array.isArray(input)) return [];
+    return input
+        .map((item) => {
+            if (typeof item === 'string') return item.trim();
+            if (item && typeof item === 'object' && item !== null && 'name' in item) {
+                const name = String((item as { name?: string }).name || '').trim();
+                const level = String((item as { level?: string }).level || '').trim();
+                if (!name && !level) return '';
+                if (level) return `${name} (${level})`;
+                return name;
+            }
+            return String(item ?? '').trim();
+        })
+        .filter((s) => s.length > 0);
+}
 
 // GET /api/candidates - جلب جميع المرشحين
 router.get('/', async (req: Request, res: Response) => {
     try {
-        const candidates = await Candidate.find().sort({ createdAt: -1 });
+        // Check if database is connected
+        if (mongoose.connection.readyState !== 1) {
+            console.warn('⚠️ Database not connected. Returning empty array.');
+            return res.json({
+                success: true,
+                count: 0,
+                data: [],
+                warning: 'Database is not connected. Please check database connection.'
+            });
+        }
+        
+        const campaignFilter = typeof req.query.campaignId === 'string' && req.query.campaignId.trim()
+            ? { campaignId: req.query.campaignId.trim() }
+            : {};
+        const candidates = await Candidate.find(campaignFilter).sort({ createdAt: -1 });
         res.json({
             success: true,
             count: candidates.length,
@@ -24,10 +57,38 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
+// Mock مرشح للتطوير (عند استخدام candidateId=xxx أو test)
+const MOCK_CANDIDATE = {
+    _id: '000000000000000000000001',
+    full_name: 'Test User',
+    email: 'test@example.com',
+    position_applied_for: 'Developer',
+    skills: [],
+    years_of_experience: '0',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+};
+
 // GET /api/candidates/:id - جلب مرشح محدد
 router.get('/:id', async (req: Request, res: Response) => {
     try {
-        const candidate = await Candidate.findById(req.params.id);
+        const id = req.params.id;
+        const isDevMock = (id === 'xxx' || id === 'test') && process.env.NODE_ENV !== 'production';
+        if (isDevMock) {
+            return res.json({
+                success: true,
+                data: MOCK_CANDIDATE,
+                _mock: true
+            });
+        }
+        if (!mongoose.Types.ObjectId.isValid(id) || id.length !== 24) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid candidate ID',
+                message: 'candidateId must be a valid 24-character hex string (e.g. 65f1c2b8e9a3d41c0a12b345)'
+            });
+        }
+        const candidate = await Candidate.findById(id);
         
         if (!candidate) {
             return res.status(404).json({
@@ -50,18 +111,119 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 });
 
+// Multer للحصول على multipart/form-data (مع الملفات أو بدونه)
+const candidateUpload = upload.fields([
+    { name: 'cv', maxCount: 1 },
+    { name: 'photo', maxCount: 1 }
+]);
+
+/** JSON body: لا نمرّر multer لأنه يستهلك الـ stream؛ multipart فقط للاستمارة مع الملفات */
+const candidateUploadOptional = (req: Request, res: Response, next: NextFunction) => {
+    const ct = String(req.headers['content-type'] || '');
+    if (ct.includes('multipart/form-data')) {
+        return candidateUpload(req, res, next);
+    }
+    next();
+};
+
+/** توحيد مفاتيح المرشح: camelCase → snake_case + دمج firstName/lastName → full_name */
+const CAMEL_TO_SNAKE_CANDIDATE: [string, string][] = [
+    ['fullName', 'full_name'],
+    ['positionAppliedFor', 'position_applied_for'],
+    ['companyAppliedTo', 'company_applied_to'],
+    ['yearsOfExperience', 'years_of_experience'],
+    ['currentCompany', 'current_company'],
+    ['highestEducationLevel', 'highest_education_level'],
+];
+
+function normalizeCandidateBodyKeys(body: Record<string, any>): void {
+    for (const [camel, snake] of CAMEL_TO_SNAKE_CANDIDATE) {
+        const snakeVal = body[snake];
+        const snakeEmpty =
+            snakeVal == null || (typeof snakeVal === 'string' && !String(snakeVal).trim());
+        if (snakeEmpty && body[camel] != null && body[camel] !== '') {
+            body[snake] = body[camel];
+        }
+        delete body[camel];
+    }
+    const fn = typeof body.firstName === 'string' ? body.firstName.trim() : '';
+    const ln = typeof body.lastName === 'string' ? body.lastName.trim() : '';
+    const existingFull = typeof body.full_name === 'string' ? body.full_name.trim() : '';
+    if (!existingFull && (fn || ln)) {
+        body.full_name = [fn, ln].filter(Boolean).join(' ').trim();
+    }
+    delete body.firstName;
+    delete body.lastName;
+}
+
+function parseSkillsOrLanguagesArray(raw: unknown): string[] {
+    if (Array.isArray(raw)) {
+        return normalizeLanguagesToStringArray(raw);
+    }
+    if (typeof raw === 'string') {
+        const s = raw.trim();
+        if (!s) return [];
+        try {
+            const parsed = JSON.parse(s);
+            if (Array.isArray(parsed)) {
+                return normalizeLanguagesToStringArray(parsed);
+            }
+        } catch {
+            /* ليست JSON */
+        }
+        return s
+            .split(/[;,]/)
+            .map((x) => x.trim())
+            .filter(Boolean);
+    }
+    return [];
+}
+
 // POST /api/candidates - إضافة مرشح جديد
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', candidateUploadOptional, async (req: Request, res: Response) => {
     try {
-        console.log('🚀 POST /api/candidates - Request received');
-        console.log('📋 Request method:', req.method);
-        console.log('🌐 Request origin:', req.headers.origin);
-        console.log('📋 Request headers:', JSON.stringify(req.headers, null, 2));
+        let candidateData: any = req.body || {};
         
-        const candidateData = req.body;
+        // skills / languages: JSON array أو سلسلة مفصولة
+        candidateData.skills = parseSkillsOrLanguagesArray(candidateData.skills);
+        candidateData.languages = parseSkillsOrLanguagesArray(candidateData.languages);
+        if (typeof candidateData.agreeToTerms === 'string') {
+            candidateData.agreeToTerms = candidateData.agreeToTerms === 'true';
+        }
+        
+        // إضافة الملفات من req.files إلى candidateData.files
+        const files: Array<{ kind: 'cv' | 'photo'; filename: string; originalName: string; path: string; mimeType: string; size: number; uploadedAt: Date }> = [];
+        const uploads = (req as any).files as { cv?: Express.Multer.File[]; photo?: Express.Multer.File[] } | undefined;
+        if (uploads?.cv?.length) {
+            const f = uploads.cv[0];
+            files.push({
+                kind: 'cv',
+                filename: f.filename,
+                originalName: f.originalname,
+                path: f.path,
+                mimeType: f.mimetype,
+                size: f.size,
+                uploadedAt: new Date()
+            });
+        }
+        if (uploads?.photo?.length) {
+            const f = uploads.photo[0];
+            files.push({
+                kind: 'photo',
+                filename: f.filename,
+                originalName: f.originalname,
+                path: f.path,
+                mimeType: f.mimetype,
+                size: f.size,
+                uploadedAt: new Date()
+            });
+        }
+        if (files.length) candidateData.files = files;
+
+        normalizeCandidateBodyKeys(candidateData);
         
         // Log received data for debugging
-        console.log('📥 Received candidate data:', JSON.stringify(candidateData, null, 2));
+        console.log('📥 Received candidate data:', JSON.stringify({ ...candidateData, files: candidateData.files?.length }, null, 2));
         
         // Check if database is connected
         if (mongoose.connection.readyState !== 1) {
@@ -73,11 +235,16 @@ router.post('/', async (req: Request, res: Response) => {
             });
         }
         
-        // قراءة campaignId من body قبل إزالته من candidateData (لأنه ليس جزءاً من Schema)
-        const campaignId = candidateData.campaignId;
-        
-        // إزالة campaignId من candidateData قبل إنشاء الـ candidate (لأنه ليس حقل في Schema)
-        const { campaignId: _, ...candidateDataForDB } = candidateData;
+        const campaignId =
+            typeof candidateData.campaignId === 'string' && candidateData.campaignId.trim()
+                ? candidateData.campaignId.trim()
+                : undefined;
+        if (campaignId) {
+            candidateData.campaignId = campaignId;
+        } else {
+            delete candidateData.campaignId;
+        }
+        const candidateDataForDB = candidateData;
         
         // التحقق من وجود email مكرر
         const existingCandidate = await Candidate.findOne({ email: candidateDataForDB.email });
@@ -90,54 +257,15 @@ router.post('/', async (req: Request, res: Response) => {
         }
         
         // Validate required fields
-        const missingFields = [];
-        console.log('🔍 Validating required fields...');
-        console.log('  - firstName:', candidateDataForDB.firstName ? '✅' : '❌', candidateDataForDB.firstName);
-        console.log('  - lastName:', candidateDataForDB.lastName ? '✅' : '❌', candidateDataForDB.lastName);
-        console.log('  - email:', candidateDataForDB.email ? '✅' : '❌', candidateDataForDB.email);
-        console.log('  - phone:', candidateDataForDB.phone ? '✅' : '❌', candidateDataForDB.phone);
-        
-        if (!candidateDataForDB.firstName || !candidateDataForDB.firstName.trim()) missingFields.push('firstName');
-        if (!candidateDataForDB.lastName || !candidateDataForDB.lastName.trim()) missingFields.push('lastName');
-        if (!candidateDataForDB.email || !candidateDataForDB.email.trim()) missingFields.push('email');
-        if (!candidateDataForDB.phone || !candidateDataForDB.phone.trim()) missingFields.push('phone');
-        
-        if (missingFields.length > 0) {
-            console.error('❌ Missing required fields:', missingFields);
-            console.error('❌ Full candidate data received:', JSON.stringify(candidateDataForDB, null, 2));
+        if (!candidateDataForDB.full_name || !candidateDataForDB.email || !candidateDataForDB.phone) {
             return res.status(400).json({
                 success: false,
                 error: 'Missing required fields',
-                message: `Missing required fields: ${missingFields.join(', ')}`,
-                missingFields: missingFields,
-                receivedData: {
-                    hasFirstName: !!candidateDataForDB.firstName,
-                    hasLastName: !!candidateDataForDB.lastName,
-                    hasEmail: !!candidateDataForDB.email,
-                    hasPhone: !!candidateDataForDB.phone
-                }
+                message: 'Full name, email, and phone are required'
             });
         }
-        
-        console.log('📝 Creating candidate with data:', JSON.stringify(candidateDataForDB, null, 2));
         
         const candidate = new Candidate(candidateDataForDB);
-        
-        // Validate before saving
-        const validationError = candidate.validateSync();
-        if (validationError) {
-            console.error('❌ Validation error:', validationError);
-            return res.status(400).json({
-                success: false,
-                error: 'Validation error',
-                message: validationError.message,
-                details: Object.keys(validationError.errors || {}).map(key => ({
-                    field: key,
-                    message: validationError.errors[key].message
-                }))
-            });
-        }
-        
         await candidate.save();
         
         console.log('✅ Candidate saved successfully:', candidate._id);
@@ -186,10 +314,7 @@ router.post('/', async (req: Request, res: Response) => {
             success: false,
             error: 'Failed to create candidate',
             message: errorMessage,
-            details: process.env.NODE_ENV === 'development' ? {
-                originalError: error.message,
-                stack: error.stack
-            } : undefined
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
@@ -197,9 +322,21 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/candidates/:id - تحديث مرشح
 router.put('/:id', async (req: Request, res: Response) => {
     try {
+        const body = { ...req.body };
+        normalizeCandidateBodyKeys(body);
+        if (body.languages !== undefined) {
+            if (typeof body.languages === 'string') {
+                try {
+                    body.languages = JSON.parse(body.languages) || [];
+                } catch {
+                    body.languages = [];
+                }
+            }
+            body.languages = normalizeLanguagesToStringArray(body.languages);
+        }
         const candidate = await Candidate.findByIdAndUpdate(
             req.params.id,
-            req.body,
+            body,
             { new: true, runValidators: true }
         );
         
@@ -263,7 +400,6 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 export default router;
-
 
 
 

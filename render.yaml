@@ -1,0 +1,33 @@
+# Render Blueprint - نشر الباكند على Render
+# التوثيق: https://render.com/docs/blueprint-spec
+# يتم النشر التلقائي عند الربط مع GitHub
+
+services:
+  - type: web
+    name: evaalo-backend
+    runtime: node
+
+    # المسار لجذر الباكند (monorepo)
+    rootDir: apps/backend
+
+    # أوامر البناء والتشغيل (نسبية لـ rootDir)
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+
+    # متغيرات البيئة - أضف المزيد من Dashboard Render
+    # Render يحدد PORT تلقائياً - لا حاجة لتعريفه
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+    # إعادة النشر عند تغيير ملفات الباكند فقط
+    preDeployCommand: ""
+    # يمكن إضافة healthCheckPath: /health
+
+    # الخصائص المطلوبة يدوياً عبر Dashboard:
+    # - MONGODB_URI
+    # - FRONTEND_URL (مثل https://your-frontend.onrender.com)
+    # - N8N_WEBHOOK_URL
+    # - OPENAI_API_KEY
+    # - ELEVENLABS_API_KEY
+    # وغيرها حسب الحاجة

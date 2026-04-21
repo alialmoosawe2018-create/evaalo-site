@@ -1,8 +1,77 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
+import { generateJobAdvertisement, translateJobAdvertisement } from '../services/llmService.js';
 
 const router = express.Router();
+
+// POST /api/recruitment-campaigns/generate-ad - توليد إعلان الوظيفة تلقائياً من المعايير
+router.post('/generate-ad', async (req: Request, res: Response) => {
+    try {
+        const { language, ...criteria } = req.body || {};
+        const ad = await generateJobAdvertisement(criteria, language);
+        if (!ad) {
+            return res.status(400).json({
+                success: false,
+                error: 'Unable to generate advertisement',
+                message: 'No criteria provided or OpenAI not configured'
+            });
+        }
+        res.json({
+            success: true,
+            jobAdvertisement: ad,
+            language: language || null
+        });
+    } catch (error: any) {
+        console.error('❌ Error generating job advertisement:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to generate job advertisement',
+            message: error.message
+        });
+    }
+});
+
+// POST /api/recruitment-campaigns/translate-ad - ترجمة إعلان الوظيفة إلى لغة أخرى
+router.post('/translate-ad', async (req: Request, res: Response) => {
+    try {
+        const { text, targetLanguage } = req.body || {};
+        if (!text || !String(text).trim()) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing text',
+                message: 'Advertisement text is required to translate'
+            });
+        }
+        if (!targetLanguage || !String(targetLanguage).trim()) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing targetLanguage',
+                message: 'Target language is required'
+            });
+        }
+        const translated = await translateJobAdvertisement(String(text), String(targetLanguage));
+        if (!translated) {
+            return res.status(400).json({
+                success: false,
+                error: 'Unable to translate advertisement',
+                message: 'Translation returned empty result or OpenAI not configured'
+            });
+        }
+        res.json({
+            success: true,
+            translatedText: translated,
+            language: String(targetLanguage)
+        });
+    } catch (error: any) {
+        console.error('❌ Error translating job advertisement:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to translate job advertisement',
+            message: error.message
+        });
+    }
+});
 
 // POST /api/recruitment-campaigns - إنشاء حملة توظيف جديدة وحفظها في قاعدة البيانات
 router.post('/', async (req: Request, res: Response) => {
@@ -14,6 +83,8 @@ router.post('/', async (req: Request, res: Response) => {
         // التحقق من وجود معايير على الأقل
         const criteria = { ...campaignData };
         // إزالة الحقول غير المرتبطة بالمعايير
+        const jobAdvertisement = criteria.jobAdvertisement;
+        delete criteria.jobAdvertisement;
         delete criteria.interviewType;
         delete criteria.templateType;
         delete criteria.templateName;
@@ -35,6 +106,7 @@ router.post('/', async (req: Request, res: Response) => {
         const campaign = new RecruitmentCampaign({
             campaignId,
             criteria: criteria, // جميع المعايير المختارة
+            jobAdvertisement: jobAdvertisement || undefined,
             interviewType: campaignData.interviewType || undefined,
             templateType: campaignData.templateType || undefined,
             templateName: campaignData.templateName || undefined
@@ -80,6 +152,7 @@ router.get('/:campaignId', async (req: Request, res: Response) => {
             data: {
                 campaignId: campaign.campaignId,
                 criteria: campaign.criteria, // جميع المعايير الديناميكية
+                jobAdvertisement: campaign.jobAdvertisement,
                 interviewType: campaign.interviewType,
                 templateType: campaign.templateType,
                 templateName: campaign.templateName

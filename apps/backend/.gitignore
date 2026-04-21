@@ -6,8 +6,9 @@ pnpm-lock.yaml
 
 # Environment variables
 .env
-.env.local
-.env.production
+.env.*
+*.env
+!env.example
 sendgrid.env
 
 # Build output
@@ -37,4 +38,3 @@ Thumbs.db
 coverage/
 .nyc_output/
 
-sendgrid.env

@@ -1,11 +1,10 @@
 // اختبار API بسيط
 const testData = {
-    firstName: 'Test',
-    lastName: 'User',
+    full_name: 'Test User',
     email: `test${Date.now()}@example.com`,
     phone: '1234567890',
-    positionAppliedFor: 'Developer',
-    yearsOfExperience: '5',
+    position_applied_for: 'Developer',
+    years_of_experience: '5',
     agreeToTerms: true
 };
 

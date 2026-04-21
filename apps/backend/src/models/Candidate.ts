@@ -2,20 +2,23 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // Interface للمرشح
 export interface ICandidate extends Document {
-    firstName: string;
-    lastName: string;
+    full_name: string;
     email: string;
     phone: string;
     location?: string;
-    positionAppliedFor: string;
-    yearsOfExperience: string;
-    currentCompany?: string;
-    highestEducationLevel?: string;
+    gender?: string;
+    position_applied_for: string;
+    company_applied_to?: string;
+    years_of_experience: string;
+    current_company?: string;
+    highest_education_level?: string;
     linkedin?: string;
     skills: string[];
     languages: string[];
     certifications?: string;
     availability?: string;
+    /** راتب متوقع واحد من الاستمارة (بدل نطاق min/max) */
+    expectedSalary?: string;
     salaryMin?: string;
     salaryMax?: string;
     salaryCurrency?: string;
@@ -38,23 +41,43 @@ export interface ICandidate extends Document {
         strengths: string[];
         weaknesses: string[];
         red_flags: string[];
+        final_hr_evaluation?: string;
         recommendation: 'Hire' | 'Consider' | 'Reject';
         summary: string; // professional 3-5 sentence evaluation
     };
     voiceInterviewEvaluation?: {
-        overall_score: number; // 0-100
-        fit_for_role: string;
-        strengths: string[];
-        weaknesses: string[];
-        red_flags: string[];
+        /** رقم 0–10 أو نص من n8n */
+        communication?: number | string;
+        language_fluency?: string;
+        confidence?: string;
+        problem_solving?: number | string;
+        digital_skills?: string;
+        overall_fit?: string;
+        professional_attitude?: string;
+        strengths?: string[];
+        weaknesses?: string[];
+        final_hr_evaluation?: string;
+        overall_score: number;
         recommendation: 'Hire' | 'Consider' | 'Reject';
-        summary: string; // professional 3-5 sentence evaluation
-        communication_score?: number; // 0-100
-        confidence_score?: number; // 0-100
-        technical_score?: number; // 0-100
-        transcript?: string; // نص المقابلة الصوتية
+        summary?: string;
+    };
+    videoInterviewEvaluation?: {
+        role_understanding?: number; // 0-10
+        professional_depth?: number; // 0-10
+        problem_handling?: number; // 0-10
+        decision_making?: number; // 0-10
+        prioritization?: number; // 0-10
+        process_thinking?: number; // 0-10
+        responsibility?: number; // 0-10
+        learning_ability?: number; // 0-10
+        job_readiness?: number; // 0-10
+        final_role_fit?: number; // 0-10
+        overall_score: number; // 0-100 percentage
+        recommendation: 'Hire' | 'Consider' | 'Reject';
+        summary?: string;
     };
     files?: Array<{
+        kind?: 'cv' | 'photo';
         filename: string;
         originalName: string;
         path: string;
@@ -63,18 +86,15 @@ export interface ICandidate extends Document {
         uploadedAt: Date;
     }>;
     notes?: string;
+    /** نفس `campaignId` من RecruitmentCampaign — لربط المرشح بالحملة ومقارنة المرشحين ضمنها */
+    campaignId?: string;
     createdAt: Date;
     updatedAt: Date;
 }
 
 // Schema للمرشح
 const CandidateSchema = new Schema<ICandidate>({
-    firstName: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    lastName: {
+    full_name: {
         type: String,
         required: true,
         trim: true
@@ -95,20 +115,29 @@ const CandidateSchema = new Schema<ICandidate>({
         type: String,
         trim: true
     },
-    positionAppliedFor: {
+    gender: {
+        type: String,
+        trim: true,
+        lowercase: true
+    },
+    position_applied_for: {
         type: String,
         required: true,
         trim: true
     },
-    yearsOfExperience: {
-        type: String,
-        required: true
-    },
-    currentCompany: {
+    company_applied_to: {
         type: String,
         trim: true
     },
-    highestEducationLevel: {
+    years_of_experience: {
+        type: String,
+        required: true
+    },
+    current_company: {
+        type: String,
+        trim: true
+    },
+    highest_education_level: {
         type: String,
         trim: true
     },
@@ -132,6 +161,10 @@ const CandidateSchema = new Schema<ICandidate>({
         type: String,
         trim: true
     },
+    expectedSalary: {
+        type: String,
+        trim: true
+    },
     salaryMin: {
         type: String,
         trim: true
@@ -151,6 +184,12 @@ const CandidateSchema = new Schema<ICandidate>({
     hearAboutUs: {
         type: String,
         trim: true
+    },
+    campaignId: {
+        type: String,
+        trim: true,
+        index: true,
+        default: undefined
     },
     agreeToTerms: {
         type: Boolean,
@@ -183,6 +222,7 @@ const CandidateSchema = new Schema<ICandidate>({
         strengths: [String],
         weaknesses: [String],
         red_flags: [String],
+        final_hr_evaluation: String,
         recommendation: {
             type: String,
             enum: ['Hire', 'Consider', 'Reject']
@@ -190,38 +230,94 @@ const CandidateSchema = new Schema<ICandidate>({
         summary: String
     },
     voiceInterviewEvaluation: {
+        communication: Schema.Types.Mixed,
+        language_fluency: String,
+        confidence: String,
+        problem_solving: Schema.Types.Mixed,
+        digital_skills: String,
+        overall_fit: String,
+        professional_attitude: String,
+        strengths: [String],
+        weaknesses: [String],
+        final_hr_evaluation: String,
         overall_score: {
             type: Number,
             min: 0,
             max: 100
         },
-        fit_for_role: String,
-        strengths: [String],
-        weaknesses: [String],
-        red_flags: [String],
         recommendation: {
             type: String,
             enum: ['Hire', 'Consider', 'Reject']
         },
-        summary: String,
-        communication_score: {
+        summary: String
+    },
+    videoInterviewEvaluation: {
+        role_understanding: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        professional_depth: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        problem_handling: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        decision_making: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        prioritization: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        process_thinking: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        responsibility: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        learning_ability: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        job_readiness: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        final_role_fit: {
+            type: Number,
+            min: 0,
+            max: 10
+        },
+        overall_score: {
             type: Number,
             min: 0,
             max: 100
         },
-        confidence_score: {
-            type: Number,
-            min: 0,
-            max: 100
+        recommendation: {
+            type: String,
+            enum: ['Hire', 'Consider', 'Reject']
         },
-        technical_score: {
-            type: Number,
-            min: 0,
-            max: 100
-        },
-        transcript: String
+        summary: String
     },
     files: [{
+        kind: {
+            type: String,
+            enum: ['cv', 'photo']
+        },
         filename: String,
         originalName: String,
         path: String,
