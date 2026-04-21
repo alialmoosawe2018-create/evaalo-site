@@ -136,7 +136,7 @@ export const testDatabaseConnection = async (): Promise<boolean> => {
             return true;
         }
         await connectDatabase();
-        return mongoose.connection.readyState === 1;
+        return Number(mongoose.connection.readyState) === 1;
     } catch (error) {
         console.error('❌ Database connection test failed:', error);
         return false;

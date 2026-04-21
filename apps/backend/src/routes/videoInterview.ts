@@ -508,9 +508,23 @@ router.post('/audio', async (req, res) => {
 
         // Step 5: حفظ الرسائل في conversation history
         try {
-            session.addMessage('user', userText);
-            session.addMessage('assistant', replyText);
-            await session.save();
+            const s = session as {
+                addMessage?: (role: 'user' | 'assistant', content: string) => void;
+                conversationHistory: Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>;
+                markModified?: (path: string) => void;
+                save: () => Promise<unknown>;
+            };
+            if (typeof s.addMessage === 'function') {
+                s.addMessage('user', userText);
+                s.addMessage('assistant', replyText);
+            } else {
+                s.conversationHistory.push(
+                    { role: 'user', content: userText, timestamp: new Date() },
+                    { role: 'assistant', content: replyText, timestamp: new Date() }
+                );
+                s.markModified?.('conversationHistory');
+            }
+            await s.save();
         } catch (saveError: any) {
             // Log error لكن لا نوقف التدفق
             console.error('⚠️ Error saving conversation history (non-blocking):', saveError);

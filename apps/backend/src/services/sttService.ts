@@ -35,7 +35,7 @@ const openai = new OpenAI({
  */
 export async function transcribeAudio(
     audioBuffer: Buffer,
-    format: 'mp3' | 'wav' | 'm4a' | 'webm' | 'ogg' = 'webm'
+    format: 'mp3' | 'wav' | 'm4a' | 'webm' | 'ogg' | 'opus' = 'webm'
 ): Promise<string> {
     let tempFilePath: string | null = null;
     let finalFilePath: string | null = null;

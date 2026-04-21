@@ -1,26 +1,34 @@
-FROM node:18-alpine
-
+# --- Build TypeScript ---
+FROM node:18-alpine AS builder
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy application files
 COPY . .
+RUN npm run build
 
-# Create logs directory
-RUN mkdir -p logs
+# --- Production runtime ---
+FROM node:18-alpine
+WORKDIR /app
 
-# Expose port
+# fluent-ffmpeg يحتاج ffmpeg على السيرفر (ترقية الصوت / التحويل)
+RUN apk add --no-cache ffmpeg
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/dist ./dist
+
+# مجلدات وقت التشغيل
+RUN mkdir -p logs uploads/temp
+
+ENV NODE_ENV=production
+
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+# Render يضبط PORT — الصحة على نفس المنفذ
+HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
+  CMD node -e "const p=process.env.PORT||'3000';require('http').get('http://127.0.0.1:'+p+'/api/health',(r)=>{r.resume();process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1));"
 
-# Start application
-CMD ["node", "src/server.js"]
-
+CMD ["node", "dist/server.js"]

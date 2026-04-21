@@ -129,8 +129,8 @@ export async function createUserToken(
             // jwtResult هو Promise - نستخدم await
             jwtString = await jwtResult;
         } else {
-            // jwtResult هو string مباشرة
-            jwtString = jwtResult as string;
+            // jwtResult هو string مباشرة (أو قيمة متزامنة)
+            jwtString = await Promise.resolve(jwtResult as string | Promise<string>);
         }
 
         // التحقق من أن JWT تم إنشاؤه بشكل صحيح

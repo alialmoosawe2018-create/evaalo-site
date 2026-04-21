@@ -245,7 +245,7 @@ async function runTests() {
     results.tts = ttsResult.success;
     
     // Test 6: Full Flow
-    if (startResult.success && startResult.sessionId) {
+    if (startResult.success && startResult.sessionId && 'candidateId' in startResult && startResult.candidateId) {
         const fullFlowResult = await testFullFlow(startResult.sessionId, startResult.candidateId);
         results.fullFlow = fullFlowResult.success;
     }
