@@ -4,6 +4,7 @@ import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import { generateJobAdvertisement, translateJobAdvertisement } from '../services/llmService.js';
 import { orgScopedQuery, orgScopedDefaults } from '../middleware/orgScope.js';
 import { requirePermission } from '../middleware/rbac.js';
+import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
 import { getOrgId, getClerkUserId } from '../middleware/auth.js';
 import { logAudit } from '../services/auditService.js';
 import { ensureBlueprintForCampaign } from '../services/expertise/ensureBlueprint.js';
@@ -49,7 +50,7 @@ const BILLING_ENFORCE = process.env.BILLING_ENFORCE !== 'false';
 // POST /api/recruitment-campaigns/generate-ad - توليد إعلان الوظيفة تلقائياً من المعايير
 // يتطلب campaign.write (توليد الإعلان جزء من إنشاء الحملة) — والتحصيل JOB_AD = 1 كردت،
 // يُسترد تلقائياً إذا فشل التوليد.
-router.post('/generate-ad', requirePermission('campaign.write'), async (req: Request, res: Response) => {
+router.post('/generate-ad', conditionalRequireAuth(), requirePermission('campaign.write'), async (req: Request, res: Response) => {
     const generationId = crypto.randomUUID();
     let jobAdCharged = false;
     const organizationId = getOrgId(req);
@@ -116,7 +117,8 @@ router.post('/generate-ad', requirePermission('campaign.write'), async (req: Req
 });
 
 // POST /api/recruitment-campaigns/translate-ad - ترجمة إعلان الوظيفة إلى لغة أخرى
-router.post('/translate-ad', async (req: Request, res: Response) => {
+// وكيل OpenAI — مصادقة إلزامية كي لا يستنزف مجهولٌ رصيد OpenAI.
+router.post('/translate-ad', conditionalRequireAuth(), requirePermission('campaign.write'), async (req: Request, res: Response) => {
     try {
         const { text, targetLanguage } = req.body || {};
         if (!text || !String(text).trim()) {
@@ -281,7 +283,7 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
 });
 
 // GET /api/recruitment-campaigns?ids=id1,id2,... — batch metadata (must be before /:campaignId)
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', conditionalRequireAuth(), requirePermission('campaign.read'), async (req: Request, res: Response) => {
     try {
         const rawIds = typeof req.query.ids === 'string' ? req.query.ids.trim() : '';
         if (!rawIds) {
@@ -332,7 +334,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/recruitment-campaigns/:campaignId - الحصول على معايير حملة محددة
-router.get('/:campaignId', async (req: Request, res: Response) => {
+router.get('/:campaignId', conditionalRequireAuth(), requirePermission('campaign.read'), async (req: Request, res: Response) => {
     try {
         const { campaignId } = req.params;
         
@@ -820,7 +822,7 @@ router.post(
  * GET /api/recruitment-campaigns/:campaignId/ai-compare-top[?stage=screening|voice|video]
  * استطلاع نتيجة المقارنة لمرحلة محددة (polling من الواجهة).
  */
-router.get('/:campaignId/ai-compare-top', async (req: Request, res: Response) => {
+router.get('/:campaignId/ai-compare-top', conditionalRequireAuth(), requirePermission('campaign.read'), async (req: Request, res: Response) => {
     try {
         const stage = resolveAiCompareStage(req.query.stage);
         if (!stage) {

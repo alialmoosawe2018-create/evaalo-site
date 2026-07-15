@@ -1,8 +1,51 @@
 import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Candidate, { ICandidate } from '../models/Candidate.js';
-import { sendToN8N, sendStatusUpdateToN8N } from '../services/n8nService.js';
+import CandidateApplication from '../models/CandidateApplication.js';
+import {
+    upsertCandidateApplication,
+    listApplicationsAsStageRows,
+    syncEmailDenormForCandidate,
+    applicationToStageListRow,
+} from '../services/candidateApplicationService.js';
+import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
+import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
+import {
+    buildSubmissionInputFromRequest,
+    mergeValidatedIntoCandidateData,
+    validateApplicationSubmission,
+} from '../services/applicationSubmitValidation.js';
+import {
+    markFirstCandidateIfNeeded,
+    resolveCampaignFormBinding,
+} from '../services/publicCampaignService.js';
+import type { CampaignFormContext } from '../types/campaignFormContext.js';
+import type { CampaignFormBinding } from '../shared/formTemplates/types.js';
+import { sendStatusUpdateToN8N } from '../services/n8nService.js';
+import {
+    enqueueStage1EvaluationOutbox,
+    dispatchStage1EvaluationOutbox,
+    normalizeStage1RubricSnapshotHash,
+} from '../services/stage1EvaluationOutboxService.js';
+import { normalizeStage1EvaluationLanguage } from '../services/stage1EvaluationLanguage.js';
+import {
+    assertStageOutboundSecurityForTrigger,
+    StageCallbackConfigurationError,
+} from '../services/stageCallbackAuth.js';
+import { extractHoneypotFields, isHoneypotTriggered } from '../constants/n8nStage1.js';
 import { upload } from '../middleware/upload.js';
+import { getOrgId } from '../middleware/auth.js';
+import { DEFAULT_ORG_ID } from '../config/multiTenant.js';
+import { orgScopedQuery, orgScopedDefaults } from '../middleware/orgScope.js';
+import { requirePermission } from '../middleware/rbac.js';
+import { logAudit } from '../services/auditService.js';
+import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
+import { getPresignedDownloadUrl } from '../services/r2Service.js';
+import { ensureBlueprintForCampaign } from '../services/expertise/ensureBlueprint.js';
+import {
+    clearVoiceLinkAccess,
+    clearVideoLinkAccess,
+} from '../services/interviewLinkAccess.js';
 
 const router = express.Router();
 
@@ -25,7 +68,8 @@ function normalizeLanguagesToStringArray(input: unknown): string[] {
 }
 
 // GET /api/candidates - جلب جميع المرشحين
-router.get('/', async (req: Request, res: Response) => {
+// قائمة المرشحين — لوحات HR المصادقة فقط (التدفقات العامة للمرشح تستخدم POST / و GET /:id).
+router.get('/', conditionalRequireAuth(), requirePermission('candidate.read'), async (req: Request, res: Response) => {
     try {
         // Check if database is connected
         if (mongoose.connection.readyState !== 1) {
@@ -41,11 +85,44 @@ router.get('/', async (req: Request, res: Response) => {
         const campaignFilter = typeof req.query.campaignId === 'string' && req.query.campaignId.trim()
             ? { campaignId: req.query.campaignId.trim() }
             : {};
-        const candidates = await Candidate.find(campaignFilter).sort({ createdAt: -1 });
+        const forView =
+            typeof req.query.forView === 'string' ? req.query.forView.trim() : '';
+        const viewFilter =
+            forView === 'candidates'
+                ? { hiddenFromViews: { $nin: ['candidates'] } }
+                : {};
+
+        const orgId = getOrgId(req);
+        // Many-to-Many: فضّل صفوف Application إن وُجدت؛ وإلا fallback لـ Candidate القديم.
+        const appRows = await listApplicationsAsStageRows({
+            organizationId: orgId,
+            campaignId: campaignFilter.campaignId as string | undefined,
+            extraFilter: forView === 'candidates' ? { hiddenFromViews: { $nin: ['candidates'] } } : {},
+        });
+        if (appRows.length > 0) {
+            const filtered =
+                forView === 'candidates'
+                    ? appRows.filter((r) => {
+                          const hidden = r.hiddenFromViews;
+                          return !(Array.isArray(hidden) && hidden.includes('candidates'));
+                      })
+                    : appRows;
+            return res.json({
+                success: true,
+                count: filtered.length,
+                data: filtered,
+                rowKind: 'application',
+            });
+        }
+
+        const candidates = await Candidate.find(
+            orgScopedQuery(req, { ...campaignFilter, ...viewFilter })
+        ).sort({ createdAt: -1 });
         res.json({
             success: true,
             count: candidates.length,
-            data: candidates
+            data: candidates,
+            rowKind: 'candidate_legacy',
         });
     } catch (error: any) {
         console.error('Error fetching candidates:', error);
@@ -88,7 +165,26 @@ router.get('/:id', async (req: Request, res: Response) => {
                 message: 'candidateId must be a valid 24-character hex string (e.g. 65f1c2b8e9a3d41c0a12b345)'
             });
         }
-        const candidate = await Candidate.findById(id);
+
+        // قد يكون المعرّف Application MongoId (صفوف Stage بعد M2M)
+        const asApp = await CandidateApplication.findOne({
+            _id: id,
+            deletedAt: null,
+            ...orgScopedQuery(req, {}),
+        }).lean();
+        if (asApp) {
+            const person = await Candidate.findById(asApp.candidateId).lean();
+            return res.json({
+                success: true,
+                data: applicationToStageListRow(
+                    asApp as Record<string, unknown>,
+                    person as Record<string, unknown> | null
+                ),
+                rowKind: 'application',
+            });
+        }
+
+        const candidate = await Candidate.findOne(orgScopedQuery(req, { _id: id }));
         
         if (!candidate) {
             return res.status(404).json({
@@ -110,6 +206,211 @@ router.get('/:id', async (req: Request, res: Response) => {
         });
     }
 });
+
+// توليد رابط تنزيل موقّت (Presigned URL) لتسجيل المقابلة الصوتية للمرشح.
+// لا تُخزَّن روابط دائمة؛ نخزّن المفتاح فقط ونولّد الرابط عند الطلب.
+// لمراجعي HR فقط (VoiceRecordingCell في اللوحة) — ليس جزءاً من تدفق المرشح العام.
+router.get('/:id/voice-recording', conditionalRequireAuth(), requirePermission('candidate.read'), async (req: Request, res: Response) => {
+    try {
+        const id = req.params.id;
+        if (!mongoose.Types.ObjectId.isValid(id) || id.length !== 24) {
+            return res.status(400).json({ success: false, error: 'Invalid candidate ID' });
+        }
+        const candidate = await Candidate.findOne(orgScopedQuery(req, { _id: id }))
+            .select('voiceRecording')
+            .lean();
+        let key = (candidate as any)?.voiceRecording?.key as string | undefined;
+        if (!key) {
+            const app = await CandidateApplication.findOne({
+                $or: [{ _id: id }, { candidateId: id }],
+                deletedAt: null,
+            })
+                .select('voiceRecording organizationId')
+                .lean();
+            key = (app as any)?.voiceRecording?.key as string | undefined;
+        }
+        if (!key) {
+            return res.status(404).json({ success: false, error: 'No recording for this candidate' });
+        }
+        const expiresIn = 3600;
+        const url = await getPresignedDownloadUrl(key, expiresIn);
+        res.json({ success: true, data: { url, expiresIn } });
+    } catch (error: any) {
+        console.error('Error generating voice recording URL:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to generate recording URL',
+            message: error.message
+        });
+    }
+});
+
+// إعادة فتح رابط مقابلة صوتية أو فيديو (HR) بعد استخدام الرابط.
+router.post(
+    '/:id/interview-link-reset',
+    conditionalRequireAuth(),
+    requirePermission('candidate.write'),
+    async (req: Request, res: Response) => {
+        try {
+            const id = req.params.id;
+            if (!mongoose.Types.ObjectId.isValid(id) || id.length !== 24) {
+                return res.status(400).json({ success: false, error: 'Invalid candidate ID' });
+            }
+            const stage = String(req.body?.stage || '').trim().toLowerCase();
+            if (stage !== 'voice' && stage !== 'video') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid stage',
+                    message: 'stage must be "voice" or "video"',
+                });
+            }
+
+            const bodyApplicationId =
+                typeof req.body?.applicationId === 'string' ? req.body.applicationId.trim() : '';
+            const bodyCampaignId =
+                typeof req.body?.campaignId === 'string' ? req.body.campaignId.trim() : '';
+
+            // :id قد يكون Application MongoId (صفوف Stage بعد M2M)
+            let personId = id;
+            let linkScope: { applicationId?: string; campaignId?: string } = {
+                applicationId: bodyApplicationId || undefined,
+                campaignId: bodyCampaignId || undefined,
+            };
+            const asApp = await CandidateApplication.findOne({
+                _id: id,
+                deletedAt: null,
+            })
+                .select('candidateId applicationId campaignId organizationId')
+                .lean();
+            if (asApp) {
+                personId = String(asApp.candidateId);
+                linkScope = {
+                    applicationId: asApp.applicationId || bodyApplicationId || undefined,
+                    campaignId: asApp.campaignId || bodyCampaignId || undefined,
+                };
+            }
+
+            const existing = await Candidate.findById(personId)
+                .select('organizationId voiceInterviewLinkConsumedAt videoInterviewLinkConsumedAt full_name')
+                .lean();
+            if (!existing) {
+                return res.status(404).json({ success: false, error: 'Candidate not found' });
+            }
+            const reqOrg = getOrgId(req);
+            const candidateOrg = existing.organizationId || DEFAULT_ORG_ID;
+            if (candidateOrg !== reqOrg) {
+                return res.status(404).json({ success: false, error: 'Candidate not found' });
+            }
+
+            const cleared =
+                stage === 'voice'
+                    ? await clearVoiceLinkAccess(personId, linkScope)
+                    : await clearVideoLinkAccess(personId, linkScope);
+            if (!cleared) {
+                return res.status(404).json({ success: false, error: 'Candidate not found' });
+            }
+
+            logAudit(req, {
+                action: 'candidate.interview_link_reset',
+                targetType: 'candidate',
+                targetId: personId,
+                metadata: {
+                    stage,
+                    applicationId: linkScope.applicationId || null,
+                    campaignId: linkScope.campaignId || null,
+                    requestId: id,
+                },
+            });
+
+            return res.json({
+                success: true,
+                message:
+                    stage === 'voice'
+                        ? 'Voice interview link has been reopened.'
+                        : 'Video interview link has been reopened.',
+            });
+        } catch (error: any) {
+            console.error('Error resetting interview link:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to reset interview link',
+                message: error.message,
+            });
+        }
+    }
+);
+
+const ALLOWED_PHOTO_MIMES = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+]);
+
+// رفع/استبدال صورة شخصية لمرشح موجود (من مودال التفاصيل).
+router.post(
+    '/:id/photo',
+    requirePermission('candidate.write'),
+    upload.single('photo'),
+    async (req: Request, res: Response) => {
+        try {
+            const id = req.params.id;
+            if (!mongoose.Types.ObjectId.isValid(id) || id.length !== 24) {
+                return res.status(400).json({ success: false, error: 'Invalid candidate ID' });
+            }
+            const file = req.file;
+            if (!file) {
+                return res.status(400).json({ success: false, error: 'No photo file uploaded' });
+            }
+            if (!ALLOWED_PHOTO_MIMES.has(file.mimetype)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP',
+                });
+            }
+
+            const candidate = await Candidate.findOne(orgScopedQuery(req, { _id: id }));
+            if (!candidate) {
+                return res.status(404).json({ success: false, error: 'Candidate not found' });
+            }
+
+            const existingFiles = Array.isArray(candidate.files) ? [...candidate.files] : [];
+            const withoutPhoto = existingFiles.filter(
+                (f) => f.kind !== 'photo' && !String(f.mimeType || '').startsWith('image/')
+            );
+            const newPhoto = {
+                kind: 'photo' as const,
+                filename: file.filename,
+                originalName: file.originalname,
+                path: file.path,
+                mimeType: file.mimetype,
+                size: file.size,
+                uploadedAt: new Date(),
+            };
+            candidate.files = [...withoutPhoto, newPhoto];
+            await candidate.save();
+
+            logAudit(req, {
+                action: 'candidate.photo_uploaded',
+                targetType: 'candidate',
+                targetId: candidate._id?.toString(),
+            });
+
+            res.json({
+                success: true,
+                message: 'Photo uploaded successfully',
+                data: candidate,
+            });
+        } catch (error: any) {
+            console.error('Error uploading candidate photo:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to upload photo',
+                message: error.message,
+            });
+        }
+    }
+);
 
 // Multer للحصول على multipart/form-data (مع الملفات أو بدونه)
 const candidateUpload = upload.fields([
@@ -180,7 +481,7 @@ function parseSkillsOrLanguagesArray(raw: unknown): string[] {
 }
 
 // POST /api/candidates - إضافة مرشح جديد
-router.post('/', candidateUploadOptional, async (req: Request, res: Response) => {
+router.post('/', requirePermission('candidate.write'), candidateUploadOptional, async (req: Request, res: Response) => {
     try {
         let candidateData: any = req.body || {};
         
@@ -191,12 +492,12 @@ router.post('/', candidateUploadOptional, async (req: Request, res: Response) =>
             candidateData.agreeToTerms = candidateData.agreeToTerms === 'true';
         }
         
-        // إضافة الملفات من req.files إلى candidateData.files
-        const files: Array<{ kind: 'cv' | 'photo'; filename: string; originalName: string; path: string; mimeType: string; size: number; uploadedAt: Date }> = [];
+        // Build uploaded file records (attach to candidate after form validation)
+        const uploadedFiles: Array<{ kind: 'cv' | 'photo'; filename: string; originalName: string; path: string; mimeType: string; size: number; uploadedAt: Date }> = [];
         const uploads = (req as any).files as { cv?: Express.Multer.File[]; photo?: Express.Multer.File[] } | undefined;
         if (uploads?.cv?.length) {
             const f = uploads.cv[0];
-            files.push({
+            uploadedFiles.push({
                 kind: 'cv',
                 filename: f.filename,
                 originalName: f.originalname,
@@ -208,7 +509,7 @@ router.post('/', candidateUploadOptional, async (req: Request, res: Response) =>
         }
         if (uploads?.photo?.length) {
             const f = uploads.photo[0];
-            files.push({
+            uploadedFiles.push({
                 kind: 'photo',
                 filename: f.filename,
                 originalName: f.originalname,
@@ -218,12 +519,20 @@ router.post('/', candidateUploadOptional, async (req: Request, res: Response) =>
                 uploadedAt: new Date()
             });
         }
-        if (files.length) candidateData.files = files;
 
         normalizeCandidateBodyKeys(candidateData);
+
+        const honeypotForN8n = extractHoneypotFields(candidateData);
+        if (isHoneypotTriggered(honeypotForN8n)) {
+            console.warn('🤖 Honeypot triggered — submission discarded (no DB write)');
+            return res.status(201).json({
+                success: true,
+                message: 'Application submitted successfully',
+            });
+        }
         
         // Log received data for debugging
-        console.log('📥 Received candidate data:', JSON.stringify({ ...candidateData, files: candidateData.files?.length }, null, 2));
+        console.log('📥 Received candidate data:', JSON.stringify({ ...candidateData, uploadedFileCount: uploadedFiles.length }, null, 2));
         
         // Check if database is connected
         if (mongoose.connection.readyState !== 1) {
@@ -239,53 +548,459 @@ router.post('/', candidateUploadOptional, async (req: Request, res: Response) =>
             typeof candidateData.campaignId === 'string' && candidateData.campaignId.trim()
                 ? candidateData.campaignId.trim()
                 : undefined;
+        let campaignFormBinding: CampaignFormBinding | null = null;
+        let campaignRubricVersion = 1;
+        let campaignRubricHash = '';
+        let campaignOrganizationId: string | undefined;
+        let campaignCreatedByClerkUserId: string | undefined;
         if (campaignId) {
             candidateData.campaignId = campaignId;
+            // رفض الطلبات الجديدة إذا كانت الحملة مُغلقة (إيقاف استلام الطلبات)
+            try {
+                const campaign = await RecruitmentCampaign.findOne({ campaignId })
+                    .select(
+                        'status formBinding rubricVersion rubricSnapshotHash firstCandidateAt organizationId createdByClerkUserId'
+                    )
+                    .lean();
+                if (campaign && campaign.status === 'closed') {
+                    return res.status(403).json({
+                        success: false,
+                        error: 'Campaign closed',
+                        code: 'CAMPAIGN_CLOSED',
+                        message: 'This campaign is no longer accepting applications.',
+                    });
+                }
+                if (campaign) {
+                    campaignFormBinding = resolveCampaignFormBinding(campaign as CampaignFormContext);
+                    campaignRubricVersion = campaign.rubricVersion ?? 1;
+                    campaignRubricHash = campaign.rubricSnapshotHash ?? '';
+                    if (typeof campaign.organizationId === 'string' && campaign.organizationId.trim()) {
+                        campaignOrganizationId = campaign.organizationId.trim();
+                    }
+                    if (
+                        typeof campaign.createdByClerkUserId === 'string' &&
+                        campaign.createdByClerkUserId.trim()
+                    ) {
+                        campaignCreatedByClerkUserId = campaign.createdByClerkUserId.trim();
+                    }
+                }
+            } catch (statusErr) {
+                console.warn('⚠️ Campaign status check failed (allowing submission):', statusErr);
+            }
         } else {
             delete candidateData.campaignId;
         }
+
+        if (campaignFormBinding) {
+            const uploads = req.files as Record<string, Express.Multer.File[]> | undefined;
+            const submissionInput = buildSubmissionInputFromRequest(candidateData, {
+                cv: uploads?.cv?.[0],
+                photo: uploads?.photo?.[0],
+            });
+            const validation = validateApplicationSubmission(
+                campaignFormBinding.snapshot,
+                submissionInput
+            );
+            if (!validation.ok) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Validation failed',
+                    code: 'APPLICATION_VALIDATION_FAILED',
+                    details: validation.errors,
+                });
+            }
+            const merged = mergeValidatedIntoCandidateData(
+                validation.normalized,
+                campaignFormBinding.snapshot
+            );
+            for (const key of Object.keys(candidateData)) {
+                if (
+                    !(key in merged) &&
+                    key !== 'campaignId' &&
+                    key !== 'files' &&
+                    key !== 'headHunterContextId' &&
+                    key !== 'evaluationLanguage' &&
+                    key !== 'roleKey' &&
+                    key !== 'careerLevel' &&
+                    key !== 'managementTrack' &&
+                    key !== 'labelKey' &&
+                    key !== 'roleMatchSource'
+                ) {
+                    delete candidateData[key];
+                }
+            }
+            Object.assign(candidateData, merged);
+        }
+
+        if (uploadedFiles.length) {
+            candidateData.files = uploadedFiles;
+        }
+
+        // Whitelist entryStage to prevent arbitrary client values from polluting routing.
+        if (typeof candidateData.entryStage === 'string') {
+            const stage = candidateData.entryStage.trim().toLowerCase();
+            if (stage === 'audio' || stage === 'video' || stage === 'screening') {
+                candidateData.entryStage = stage;
+            } else {
+                delete candidateData.entryStage;
+            }
+        } else if (candidateData.entryStage != null) {
+            delete candidateData.entryStage;
+        }
+        // Whitelist sourceType (candidate origin) — kept separate from entryStage (pipeline stage).
+        if (typeof candidateData.sourceType === 'string') {
+            const src = candidateData.sourceType.trim().toLowerCase();
+            const ALLOWED_SOURCE_TYPES = ['public_screening', 'linkedin', 'career_page', 'referral', 'manual'];
+            if (ALLOWED_SOURCE_TYPES.includes(src)) {
+                candidateData.sourceType = src;
+            } else {
+                delete candidateData.sourceType;
+            }
+        } else if (candidateData.sourceType != null) {
+            delete candidateData.sourceType;
+        }
+
+        // إثراء من لقطة سياق الهيد هانتر (headHunterContextId) — نملأ الحقول الفارغة فقط ببيانات LinkedIn.
+        const headHunterContextId =
+            typeof candidateData.headHunterContextId === 'string'
+                ? candidateData.headHunterContextId.trim()
+                : '';
+        if (headHunterContextId && /^[a-f0-9]{8,64}$/i.test(headHunterContextId)) {
+            candidateData.headHunterContextId = headHunterContextId;
+            try {
+                const ctx = await HeadHunterSourcingContext.findOne({
+                    contextId: headHunterContextId,
+                }).lean();
+                const profile = (ctx?.candidateProfile || {}) as Record<string, unknown>;
+                const isEmpty = (v: unknown) =>
+                    v == null || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && v.length === 0);
+                const profStr = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+
+                if (Array.isArray(profile.skills) && profile.skills.length && isEmpty(candidateData.skills)) {
+                    candidateData.skills = profile.skills;
+                }
+                if (Array.isArray(profile.languages) && profile.languages.length && isEmpty(candidateData.languages)) {
+                    candidateData.languages = profile.languages;
+                }
+                if (isEmpty(candidateData.linkedin) && profStr(profile.linkedin_url)) {
+                    candidateData.linkedin = profStr(profile.linkedin_url);
+                }
+                if (isEmpty(candidateData.current_company) && profStr(profile.current_company)) {
+                    candidateData.current_company = profStr(profile.current_company);
+                }
+                if (isEmpty(candidateData.location) && profStr(profile.location)) {
+                    candidateData.location = profStr(profile.location);
+                }
+                const yearsRaw = profile.years_experience;
+                const yearsStr =
+                    typeof yearsRaw === 'number' && Number.isFinite(yearsRaw)
+                        ? String(yearsRaw)
+                        : profStr(yearsRaw);
+                const curYears = profStr(candidateData.years_of_experience);
+                if (yearsStr && (!curYears || curYears.toUpperCase() === 'N/A')) {
+                    candidateData.years_of_experience = yearsStr;
+                }
+                const summary = profStr(profile.ai_summary) || profStr(profile.summary);
+                if (summary) {
+                    const prefix = 'LinkedIn (sourced via Head Hunter): ';
+                    candidateData.notes = isEmpty(candidateData.notes)
+                        ? `${prefix}${summary}`
+                        : `${profStr(candidateData.notes)}\n\n${prefix}${summary}`;
+                }
+            } catch (enrichErr) {
+                console.warn(
+                    `⚠️ candidate enrich from sourcing context ${headHunterContextId} failed:`,
+                    enrichErr instanceof Error ? enrichErr.message : enrichErr
+                );
+            }
+        } else if (candidateData.headHunterContextId != null) {
+            delete candidateData.headHunterContextId;
+        }
+
+        delete candidateData.agreeToTerms;
+
         const candidateDataForDB = candidateData;
-        
-        // التحقق من وجود email مكرر
-        const existingCandidate = await Candidate.findOne({ email: candidateDataForDB.email });
-        if (existingCandidate) {
+
+        const orgForLookup = campaignOrganizationId || getOrgId(req);
+        const emailNorm = String(candidateDataForDB.email || '').trim().toLowerCase();
+
+        // Many-to-Many: البريد مكرر على مستوى المنظمة مسموح عبر حملات مختلفة.
+        // الرفض فقط عند تقديم مسبق لنفس الحملة (أو شخص موجود بدون حملة جديدة ويُطلب نفس الحملة).
+        let existingPerson = emailNorm
+            ? await Candidate.findOne(
+                  orgScopedQuery(
+                      req,
+                      campaignOrganizationId
+                          ? { email: emailNorm, organizationId: campaignOrganizationId }
+                          : { email: emailNorm }
+                  )
+              )
+            : null;
+        // orgScopedQuery قد يتجاهل organizationId الممرّر إن كان من الحملة — أعد البحث المباشر عند الحاجة
+        if (!existingPerson && emailNorm && campaignOrganizationId) {
+            existingPerson = await Candidate.findOne({
+                email: emailNorm,
+                organizationId: campaignOrganizationId,
+            });
+        }
+
+        if (existingPerson && campaignId) {
+            const existingApp = await CandidateApplication.findOne({
+                candidateId: existingPerson._id,
+                campaignId,
+                deletedAt: null,
+            }).lean();
+            if (existingApp) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Already applied to this campaign',
+                    code: 'APPLICATION_EXISTS',
+                    message: 'This email is already registered for this campaign',
+                    applicationId: existingApp.applicationId,
+                    candidateId: String(existingPerson._id),
+                });
+            }
+        }
+
+        if (existingPerson && !campaignId) {
             return res.status(400).json({
                 success: false,
                 error: 'Email already exists',
-                message: 'This email is already registered'
+                message: 'This email is already registered',
             });
         }
         
-        // Validate required fields
-        if (!candidateDataForDB.full_name || !candidateDataForDB.email || !candidateDataForDB.phone) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing required fields',
-                message: 'Full name, email, and phone are required'
+        // Validate required fields (legacy path when no formBinding snapshot)
+        if (!campaignFormBinding) {
+            if (!candidateDataForDB.full_name || !candidateDataForDB.email || !candidateDataForDB.phone) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Missing required fields',
+                    message: 'Full name, email, and phone are required',
+                });
+            }
+        }
+
+        const n8nWebhookConfigured = Boolean(process.env.N8N_WEBHOOK_URL?.trim());
+        const willSendStage1N8n =
+            candidateDataForDB.sourceType !== 'public_screening' && n8nWebhookConfigured;
+        const submissionEvaluationLanguage = normalizeStage1EvaluationLanguage(
+            candidateDataForDB.evaluationLanguage ?? candidateDataForDB.language
+        );
+        delete candidateDataForDB.evaluationLanguage;
+        delete candidateDataForDB.language;
+        if (willSendStage1N8n) {
+            try {
+                assertStageOutboundSecurityForTrigger();
+            } catch (e) {
+                if (e instanceof StageCallbackConfigurationError) {
+                    return res.status(503).json({
+                        success: false,
+                        error: 'Stage callback security is not configured',
+                    });
+                }
+                throw e;
+            }
+        }
+
+        let candidate: ICandidate;
+        let createdNewPerson = false;
+
+        if (existingPerson) {
+            // حدّث ملف الشخص بالحقول غير الفارغة الواردة، ثم أنشئ Application جديد للحملة.
+            const personPatch: Record<string, unknown> = {};
+            for (const key of [
+                'full_name',
+                'phone',
+                'location',
+                'gender',
+                'linkedin',
+                'skills',
+                'languages',
+                'current_company',
+                'current_title',
+                'years_of_experience',
+            ] as const) {
+                const v = candidateDataForDB[key];
+                if (v != null && !(typeof v === 'string' && !String(v).trim())) {
+                    personPatch[key] = v;
+                }
+            }
+            if (Object.keys(personPatch).length) {
+                await Candidate.findByIdAndUpdate(existingPerson._id, { $set: personPatch });
+            }
+            // Dual-write campaignId على الشخص لأحدث تقديم
+            if (campaignId) {
+                await Candidate.findByIdAndUpdate(existingPerson._id, { $set: { campaignId } });
+            }
+            const refreshed = await Candidate.findById(existingPerson._id);
+            if (!refreshed) {
+                return res.status(500).json({ success: false, error: 'Failed to load existing candidate' });
+            }
+            candidate = refreshed;
+        } else {
+            createdNewPerson = true;
+            candidate = new Candidate({
+                ...candidateDataForDB,
+                ...(campaignOrganizationId
+                    ? {
+                          organizationId: campaignOrganizationId,
+                          ...(campaignCreatedByClerkUserId
+                              ? { createdByClerkUserId: campaignCreatedByClerkUserId }
+                              : {}),
+                      }
+                    : orgScopedDefaults(req)),
+                ...(campaignFormBinding
+                    ? {
+                          status: willSendStage1N8n ? 'pending_evaluation' : 'pending',
+                          evaluationContext: {
+                              formSchemaVersion: campaignFormBinding.schemaVersion,
+                              formSchemaHash: campaignFormBinding.schemaHash,
+                              rubricVersion: campaignRubricVersion,
+                              rubricSnapshotHash: normalizeStage1RubricSnapshotHash(campaignRubricHash),
+                              evaluationLanguage: submissionEvaluationLanguage,
+                          },
+                      }
+                    : {}),
+            });
+            await candidate.save();
+        }
+
+        // أنشئ Application (أو أعد استخدامه) لكل تقديم لحملة.
+        const application = await upsertCandidateApplication({
+            organizationId:
+                (typeof candidate.organizationId === 'string' && candidate.organizationId) ||
+                orgForLookup,
+            candidate,
+            campaignId,
+            entryStage: candidate.entryStage,
+            sourceType: candidate.sourceType,
+            source:
+                typeof (candidateDataForDB as { source?: string }).source === 'string'
+                    ? (candidateDataForDB as { source?: string }).source
+                    : candidate.headHunterContextId
+                      ? 'HeadHunter'
+                      : undefined,
+            headHunterContextId: candidate.headHunterContextId,
+            jobPostingId: candidate.jobPostingId,
+            status: campaignFormBinding
+                ? willSendStage1N8n
+                    ? 'pending_evaluation'
+                    : 'pending'
+                : candidate.status,
+            evaluationContext: candidate.evaluationContext,
+            reuseExisting: true,
+            eventType: 'applied',
+        });
+
+        // إن كان الشخص موجوداً مسبقاً ونقلنا بيانات الاستمارة من هذا الطلب، حدّث Application.
+        if (!createdNewPerson) {
+            await CandidateApplication.findByIdAndUpdate(application._id, {
+                $set: {
+                    position_applied_for: candidateDataForDB.position_applied_for,
+                    company_applied_to: candidateDataForDB.company_applied_to,
+                    years_of_experience: candidateDataForDB.years_of_experience,
+                    current_company: candidateDataForDB.current_company,
+                    highest_education_level: candidateDataForDB.highest_education_level,
+                    skills: candidateDataForDB.skills || [],
+                    languages: candidateDataForDB.languages || [],
+                    coverLetter: candidateDataForDB.coverLetter,
+                    files: candidateDataForDB.files,
+                    attachments: (candidateDataForDB.files || []).map((f: any) => ({
+                        type: f.kind === 'photo' ? 'photo' : 'cv',
+                        filename: f.filename,
+                        originalName: f.originalName,
+                        path: f.path,
+                        mimeType: f.mimeType,
+                        size: f.size,
+                        uploadedAt: f.uploadedAt || new Date(),
+                    })),
+                    ...(campaignFormBinding
+                        ? {
+                              status: willSendStage1N8n ? 'pending_evaluation' : 'pending',
+                              evaluationContext: {
+                                  formSchemaVersion: campaignFormBinding.schemaVersion,
+                                  formSchemaHash: campaignFormBinding.schemaHash,
+                                  rubricVersion: campaignRubricVersion,
+                                  rubricSnapshotHash: normalizeStage1RubricSnapshotHash(campaignRubricHash),
+                                  evaluationLanguage: submissionEvaluationLanguage,
+                              },
+                          }
+                        : {}),
+                },
             });
         }
+
+        if (campaignId) {
+            await markFirstCandidateIfNeeded(campaignId);
+        }
+        logAudit(req, {
+            action: createdNewPerson ? 'candidate.created' : 'application.created',
+            targetType: 'candidate',
+            targetId: candidate._id?.toString(),
+            metadata: {
+                email: candidate.email,
+                campaignId,
+                applicationId: application.applicationId,
+                createdNewPerson,
+            },
+        });
         
-        const candidate = new Candidate(candidateDataForDB);
-        await candidate.save();
-        
-        console.log('✅ Candidate saved successfully:', candidate._id);
+        console.log(
+            `✅ Candidate/Application saved: person=${candidate._id} app=${application.applicationId} newPerson=${createdNewPerson}`
+        );
         if (campaignId) {
             console.log('📋 Campaign ID found:', campaignId);
         }
+
+        // مقابلات الفيديو فقط (مرشح Specific/Head Hunter): ولّد وثبّت Blueprint الحملة تلقائياً
+        // قبل إرسال رابط الفيديو (idempotent، fail-open). يتخطّى بأمان عند غياب campaignId.
+        if (campaignId && String(candidateDataForDB.entryStage || '').trim().toLowerCase() === 'video') {
+            ensureBlueprintForCampaign(campaignId).catch((err) => {
+                console.error(`⚠️ ensureBlueprintForCampaign (candidate create) failed for ${campaignId} (non-blocking):`, err?.message || err);
+            });
+        }
         
         // إرسال البيانات + المعايير إلى n8n للتحليل (غير متزامن - لا يمنع الاستجابة)
+        // المسار العام (public_screening): لا توجد مقابلة مكتوبة — نتخطّى Stage 1؛ فقط الترانسكريبت الصوتي يُرسل لاحقاً.
         const candidateObj = candidate.toObject();
-        sendToN8N({
-            ...candidateObj,
-            _id: candidateObj._id?.toString() || candidateObj._id
-        } as any, campaignId).catch(err => {
-            console.error('Failed to send to n8n (non-blocking):', err);
-        });
+        if (candidateObj.sourceType === 'public_screening') {
+            console.log('↩️ Skipping Stage 1 n8n send for public_screening candidate:', candidateObj._id?.toString?.() || candidateObj._id);
+        } else if (createdNewPerson || campaignFormBinding) {
+            try {
+                const { outboxId, shouldDispatch } = await enqueueStage1EvaluationOutbox({
+                    candidateId: String(candidateObj._id?.toString?.() || candidateObj._id),
+                    campaignId,
+                    organizationId:
+                        typeof candidateObj.organizationId === 'string'
+                            ? candidateObj.organizationId
+                            : undefined,
+                    rubricSnapshotHash: normalizeStage1RubricSnapshotHash(campaignRubricHash),
+                    formSchemaHash: campaignFormBinding?.schemaHash,
+                });
+                if (shouldDispatch) {
+                    dispatchStage1EvaluationOutbox(outboxId);
+                }
+            } catch (err) {
+                if (err instanceof StageCallbackConfigurationError) {
+                    console.error('Stage callback security configuration error (post-save):', err.message);
+                } else {
+                    console.error('Failed to enqueue Stage 1 evaluation outbox (non-blocking):', err);
+                }
+            }
+        }
         
         res.status(201).json({
             success: true,
-            message: 'Candidate added successfully',
-            data: candidate
+            message: createdNewPerson
+                ? 'Candidate added successfully'
+                : 'Application created for existing candidate',
+            data: {
+                ...candidate.toObject(),
+                applicationId: application.applicationId,
+                applicationMongoId: application._id,
+                candidateId: candidate._id,
+            },
         });
     } catch (error: any) {
         console.error('❌ Error creating candidate:', error);
@@ -320,7 +1035,7 @@ router.post('/', candidateUploadOptional, async (req: Request, res: Response) =>
 });
 
 // PUT /api/candidates/:id - تحديث مرشح
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', requirePermission('candidate.write'), async (req: Request, res: Response) => {
     try {
         const body = { ...req.body };
         normalizeCandidateBodyKeys(body);
@@ -334,8 +1049,8 @@ router.put('/:id', async (req: Request, res: Response) => {
             }
             body.languages = normalizeLanguagesToStringArray(body.languages);
         }
-        const candidate = await Candidate.findByIdAndUpdate(
-            req.params.id,
+        const candidate = await Candidate.findOneAndUpdate(
+            orgScopedQuery(req, { _id: req.params.id }),
             body,
             { new: true, runValidators: true }
         );
@@ -346,6 +1061,17 @@ router.put('/:id', async (req: Request, res: Response) => {
                 error: 'Candidate not found'
             });
         }
+        if (typeof body.email === 'string' && body.email.trim()) {
+            await syncEmailDenormForCandidate(String(candidate._id), body.email).catch((err) =>
+                console.warn('emailDenorm sync failed:', err?.message || err)
+            );
+        }
+        logAudit(req, {
+            action: 'candidate.updated',
+            targetType: 'candidate',
+            targetId: candidate._id?.toString(),
+            metadata: { fields: Object.keys(body) },
+        });
         
         // إرسال تحديث الحالة إلى n8n إذا تم تحديث الحالة
         if (req.body.status) {
@@ -374,9 +1100,129 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/candidates/:id - حذف مرشح
-router.delete('/:id', async (req: Request, res: Response) => {
+const HIDEABLE_STAGES = ['screening', 'voice', 'video'] as const;
+type HideableStage = (typeof HIDEABLE_STAGES)[number];
+const HIDEABLE_VIEWS = ['candidates'] as const;
+type HideableView = (typeof HIDEABLE_VIEWS)[number];
+
+/**
+ * POST /api/candidates/bulk-hide
+ * إخفاء بطاقة حملة من قائمة مرحلة، أو إخفاء مرشح من واجهة (مثل Database) — دون حذف البيانات.
+ * body: { ids, stage?: 'screening'|'voice'|'video', view?: 'candidates', hidden?: boolean }
+ * stage → hiddenFromStages | view → hiddenFromViews (exactly one of stage | view required)
+ */
+router.post(
+    '/bulk-hide',
+    conditionalRequireAuth(),
+    requirePermission('candidate.write'),
+    async (req: Request, res: Response) => {
+        try {
+            const body = req.body || {};
+            const rawIds: unknown = body.ids;
+            const ids = (Array.isArray(rawIds) ? rawIds : [])
+                .map((x) => (typeof x === 'string' ? x.trim() : ''))
+                .filter((x) => x && mongoose.Types.ObjectId.isValid(x));
+
+            const stage = typeof body.stage === 'string' ? body.stage.trim() : '';
+            const view = typeof body.view === 'string' ? body.view.trim() : '';
+            const hasStage = Boolean(stage);
+            const hasView = Boolean(view);
+
+            if (hasStage === hasView) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid hide target',
+                    message: 'Provide exactly one of: stage or view',
+                });
+            }
+
+            if (hasStage && !HIDEABLE_STAGES.includes(stage as HideableStage)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid stage',
+                    message: `stage must be one of: ${HIDEABLE_STAGES.join(', ')}`,
+                });
+            }
+
+            if (hasView && !HIDEABLE_VIEWS.includes(view as HideableView)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid view',
+                    message: `view must be one of: ${HIDEABLE_VIEWS.join(', ')}`,
+                });
+            }
+
+            if (ids.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'No valid candidate ids provided',
+                });
+            }
+            if (ids.length > 1000) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Too many ids (max 1000)',
+                });
+            }
+
+            const hidden = body.hidden !== false;
+            let update: Record<string, unknown>;
+            let auditAction: string;
+            let auditMeta: Record<string, unknown>;
+
+            if (hasStage) {
+                update = hidden
+                    ? { $addToSet: { hiddenFromStages: stage } }
+                    : { $pull: { hiddenFromStages: stage } };
+                auditAction = hidden ? 'candidate.card_hidden' : 'candidate.card_unhidden';
+                auditMeta = { stage, requested: ids.length };
+            } else {
+                update = hidden
+                    ? { $addToSet: { hiddenFromViews: view } }
+                    : { $pull: { hiddenFromViews: view } };
+                auditAction = hidden ? 'candidate.view_hidden' : 'candidate.view_unhidden';
+                auditMeta = { view, requested: ids.length };
+            }
+
+            const result = await Candidate.updateMany(
+                orgScopedQuery(req, { _id: { $in: ids } }),
+                update
+            );
+
+            logAudit(req, {
+                action: auditAction,
+                targetType: 'candidate',
+                targetId: ids.join(','),
+                metadata: { ...auditMeta, modified: result.modifiedCount ?? 0 },
+            });
+
+            return res.json({
+                success: true,
+                modifiedCount: result.modifiedCount ?? 0,
+                hidden,
+                ...(hasStage ? { stage } : { view }),
+                message: hidden
+                    ? hasStage
+                        ? 'Campaign card hidden'
+                        : 'Candidate cleared from view'
+                    : hasStage
+                      ? 'Campaign card restored'
+                      : 'Candidate restored to view',
+            });
+        } catch (error: any) {
+            console.error('Error bulk-hiding candidates:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to hide campaign card',
+                message: error.message,
+            });
+        }
+    }
+);
+
+router.delete('/:id', conditionalRequireAuth(), requirePermission('candidate.delete'), async (req: Request, res: Response) => {
     try {
-        const candidate = await Candidate.findByIdAndDelete(req.params.id);
+        const candidate = await Candidate.findOneAndDelete(orgScopedQuery(req, { _id: req.params.id }));
         
         if (!candidate) {
             return res.status(404).json({
@@ -384,6 +1230,12 @@ router.delete('/:id', async (req: Request, res: Response) => {
                 error: 'Candidate not found'
             });
         }
+        logAudit(req, {
+            action: 'candidate.deleted',
+            targetType: 'candidate',
+            targetId: candidate._id?.toString(),
+            metadata: { email: candidate.email, full_name: candidate.full_name },
+        });
         
         res.json({
             success: true,
