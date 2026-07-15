@@ -1,54 +1,251 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Navigation from '../components/Navigation';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+    API_BASE,
+    PdfCvLink,
+    candidateAvatarImageProps,
+    candidatePhotoUrl,
+    stage1FilesFromCandidate,
+} from '../utils/candidateAssets';
+import { absoluteAppUrl } from '../config/apiBase.js';
+import '../design-styles.css';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useBilling } from '../contexts/BillingContext';
+import { fillI18nTemplate } from '../utils/i18nTemplate.js';
+import { canonicalStageRecommendation, hasMeaningfulStageEvaluation, normalizeStageEvalStringList, normalizeStageEvalText, resolveStageOverallScore } from '../utils/stageRecommendation.js';
+import { scriptTextProps } from '../utils/textScript.js';
+import ScreeningCampaignList from '../components/screening/ScreeningCampaignList.jsx';
+import ScreeningAiComparePanel from '../components/screening/ScreeningAiComparePanel.jsx';
+import StageEvalBackButton from '../components/screening/StageEvalBackButton.jsx';
+import AiCompareTopEmailModal from '../components/screening/AiCompareTopEmailModal.jsx';
+import { countEligibleCompareCandidates } from '../utils/compareTopCreditCost.js';
+import ScreeningAiCompareNeedTwoNotice from '../components/screening/ScreeningAiCompareNeedTwoNotice.jsx';
+import MobilePinchPanViewport from '../components/MobilePinchPanViewport.jsx';
+import StageEvalShareButton from '../components/screening/StageEvalShareButton.jsx';
+import { useStageEvalDeepLink } from '../hooks/useStageEvalDeepLink.js';
+import {
+    buildScreeningCampaignGroups,
+    collectCampaignIdsFromCandidates,
+    findCampaignGroup,
+    splitScreeningCandidates,
+} from '../utils/screeningCampaigns.js';
+import {
+    buildShareCompanyLine,
+    resolveShareAdvertisingCompany,
+} from '../utils/shareInterviewLink.js';
+import { buildCandidateInterviewQuery, resolveSharePersonId, resolveShareApplicationId } from '../utils/interviewShareLink.js';
+import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
+import apiClient, { ApiError } from '../services/apiClient';
 
 const WrittenInterview = () => {
-    const navigate = useNavigate();
-    const [candidates, setCandidates] = useState([]);
+    const { t, currentLang } = useLanguage();
+    const { refetch: refetchBilling } = useBilling();
+    const [campaignGroups, setCampaignGroups] = useState({ active: [], uncategorized: null });
+    /** null = campaign list; string = drill-down selection key */
+    const [selectedCampaignKey, setSelectedCampaignKey] = useState(null);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, hire, consider, reject
+    const [expandedRows, setExpandedRows] = useState(new Set());
+
+    // AI Compare Top (مستقل عن باقي الـ webhooks)
+    const [aiCompareModalOpen, setAiCompareModalOpen] = useState(false);
+    const [aiCompareSubmitting, setAiCompareSubmitting] = useState(false);
+    /** 'idle' | 'pending' | 'completed' | 'failed' | 'timeout' */
+    const [aiCompareStatus, setAiCompareStatus] = useState('idle');
+    const [aiCompareResult, setAiCompareResult] = useState(null);
+    const [aiCompareRequestId, setAiCompareRequestId] = useState(null);
+    const [aiComparePanelOpen, setAiComparePanelOpen] = useState(false);
+    const [aiCompareNeedTwoOpen, setAiCompareNeedTwoOpen] = useState(false);
+
+    const selectedGroup = useMemo(
+        () => (selectedCampaignKey ? findCampaignGroup(campaignGroups, selectedCampaignKey) : null),
+        [campaignGroups, selectedCampaignKey]
+    );
+
+    const recommendationMatchesFilter = (rawRec, filterVal) => {
+        if (filterVal === 'all') return true;
+        const n = String(rawRec ?? '').trim().toLowerCase();
+        return n === filterVal;
+    };
+
+    const evaluatedCandidates = selectedGroup?.evaluated ?? [];
+    const campaignCandidates = useMemo(() => {
+        if (!selectedGroup) return [];
+        const all = [...evaluatedCandidates, ...(selectedGroup.pending ?? [])];
+        return all.sort((a, b) => {
+            const ta = new Date(a.createdAt || a.updatedAt || 0).getTime();
+            const tb = new Date(b.createdAt || b.updatedAt || 0).getTime();
+            return tb - ta;
+        });
+    }, [selectedGroup, evaluatedCandidates]);
+
+    const compareCandidateCount = useMemo(
+        () => countEligibleCompareCandidates(campaignCandidates, 'screening'),
+        [campaignCandidates],
+    );
+
+    const filteredCandidates = useMemo(
+        () =>
+            campaignCandidates.filter((c) => {
+                if (!hasMeaningfulStageEvaluation(c.writtenInterviewEvaluation)) {
+                    return filter === 'all';
+                }
+                return recommendationMatchesFilter(c.writtenInterviewEvaluation?.recommendation, filter);
+            }),
+        [campaignCandidates, filter]
+    );
+
+    useStageEvalDeepLink({
+        loading,
+        campaignGroups,
+        campaignCandidates,
+        selectedCampaignKey,
+        setSelectedCampaignKey,
+        setExpandedRows,
+        setFilter,
+    });
 
     useEffect(() => {
         fetchCandidates();
-    }, []);
+    }, [currentLang]);
+
+    const selectedCampaignId = selectedGroup?.campaignId ?? null;
+
+    const handleOpenAiCompare = () => {
+        if (campaignCandidates.length < 2) {
+            setAiCompareNeedTwoOpen(true);
+            return;
+        }
+        setAiCompareNeedTwoOpen(false);
+        setAiCompareModalOpen(true);
+    };
+
+    useEffect(() => {
+        setExpandedRows(new Set());
+        setFilter('all');
+        // إعادة ضبط حالة المقارنة عند تبديل الحملة + جلب آخر نتيجة محفوظة إن وُجدت
+        setAiCompareModalOpen(false);
+        setAiCompareSubmitting(false);
+        setAiCompareStatus('idle');
+        setAiCompareResult(null);
+        setAiCompareRequestId(null);
+        setAiComparePanelOpen(false);
+        setAiCompareNeedTwoOpen(false);
+
+        if (!selectedCampaignId) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const json = await apiClient.get(
+                    `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top?stage=screening`
+                );
+                if (cancelled || !json?.success || !json.result) return;
+                const r = json.result;
+                setAiCompareResult(r);
+                setAiCompareRequestId(r.requestId || null);
+                if (r.status === 'completed') {
+                    setAiCompareStatus('completed');
+                    setAiComparePanelOpen(true);
+                } else if (r.status === 'failed' || r.status === 'refunded' || r.status === 'expired') {
+                    setAiCompareStatus('failed');
+                    setAiComparePanelOpen(true);
+                } else if (r.status === 'pending' || r.status === 'processing') {
+                    setAiCompareStatus('pending');
+                    setAiComparePanelOpen(true);
+                }
+            } catch (err) {
+                console.warn('⚠️ AI compare hydrate failed:', err);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedCampaignKey, selectedCampaignId]);
+
+    // Polling: عند pending نستطلع كل 3 ثوانٍ، بحد أقصى 40 محاولة (≈120 ثانية)
+    useEffect(() => {
+        if (aiCompareStatus !== 'pending' || !selectedCampaignId || !aiCompareRequestId) {
+            return undefined;
+        }
+        let attempts = 0;
+        let stopped = false;
+        const interval = setInterval(async () => {
+            attempts += 1;
+            if (attempts > 40) {
+                clearInterval(interval);
+                if (!stopped) setAiCompareStatus('timeout');
+                return;
+            }
+            try {
+                const json = await apiClient.get(
+                    `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top?stage=screening`
+                );
+                const r = json?.result;
+                // تجاهل النتائج التي لا تطابق آخر طلب (stale)
+                if (!r || r.requestId !== aiCompareRequestId) return;
+                const terminal = r.status === 'completed'
+                    ? 'completed'
+                    : (r.status === 'failed' || r.status === 'refunded' || r.status === 'expired')
+                        ? 'failed'
+                        : null;
+                if (terminal) {
+                    clearInterval(interval);
+                    if (!stopped) {
+                        setAiCompareResult(r);
+                        setAiCompareStatus(terminal);
+                    }
+                }
+            } catch (err) {
+                console.warn('⚠️ AI compare poll failed:', err);
+            }
+        }, 3000);
+        return () => {
+            stopped = true;
+            clearInterval(interval);
+        };
+    }, [aiCompareStatus, selectedCampaignId, aiCompareRequestId]);
+
+    useEffect(() => {
+        const previous = document.title;
+        document.title = `${t('writtenInterviewPageTitle')} · ${t('companyName')}`;
+        return () => {
+            document.title = previous;
+        };
+    }, [t, currentLang]);
 
     const fetchCandidates = async () => {
         try {
             setLoading(true);
-            // استخدام VITE_API_URL في الإنتاج، أو IP السيرفر في التطوير
-            let apiUrl = import.meta.env.VITE_API_URL;
-            const hostname = window.location.hostname;
-            
-            // إذا كان على الدومين (www.evaalo.com أو evaalo.com)، استخدم رابط الباك إند على الإنترنت دائماً
-            if (hostname === 'www.evaalo.com' || hostname === 'evaalo.com') {
-                apiUrl = 'https://evaalo-backend.onrender.com';
-            } else if (!apiUrl) {
-                // في التطوير: استخدام hostname الحالي (يعمل من أي جهاز)
-                apiUrl = `http://${hostname}:5000`;
-            }
-            const response = await fetch(`${apiUrl}/api/candidates`);
-            const result = await response.json();
-            
-            console.log('📥 Fetched candidates:', result);
+            const result = await apiClient.get('/api/candidates');
             
             if (result.success && result.data) {
-                // تصفية المرشحين الذين لديهم writtenInterviewEvaluation
-                const candidatesWithEvaluation = result.data.filter(
-                    candidate => {
-                        const hasEvaluation = candidate.writtenInterviewEvaluation;
-                        if (hasEvaluation) {
-                            console.log('✅ Candidate with evaluation:', candidate.firstName, candidate.lastName, candidate.writtenInterviewEvaluation);
+                const { evaluated, pending } = splitScreeningCandidates(result.data);
+                const campaignIds = collectCampaignIdsFromCandidates(evaluated, pending);
+
+                const metaByCampaignId = {};
+                if (campaignIds.length > 0) {
+                    try {
+                        const metaJson = await apiClient.get(
+                            `/api/recruitment-campaigns?ids=${encodeURIComponent(campaignIds.join(','))}`
+                        );
+                        if (metaJson.success && Array.isArray(metaJson.data)) {
+                            for (const row of metaJson.data) {
+                                if (row?.campaignId) metaByCampaignId[row.campaignId] = row;
+                            }
                         }
-                        return hasEvaluation;
+                    } catch (metaErr) {
+                        console.warn('⚠️ Campaign metadata batch fetch failed:', metaErr);
                     }
-                );
-                
-                console.log('📊 Candidates with Written Interview Evaluation:', candidatesWithEvaluation.length);
-                console.log('📋 All candidates:', result.data.length);
-                
-                setCandidates(candidatesWithEvaluation);
+                }
+
+                const groups = buildScreeningCampaignGroups(evaluated, pending, metaByCampaignId, {
+                    uncategorized: t('screeningCampaignUncategorized'),
+                    deleted: t('screeningCampaignDeleted'),
+                    unknownCampaign: t('writtenInterviewPageTitle'),
+                });
+                setCampaignGroups(groups);
             } else {
                 console.warn('⚠️ No candidates data received');
+                setCampaignGroups({ active: [], uncategorized: null });
             }
         } catch (error) {
             console.error('❌ Error fetching candidates:', error);
@@ -57,8 +254,104 @@ const WrittenInterview = () => {
         }
     };
 
-    const getRecommendationColor = (recommendation) => {
-        switch (recommendation) {
+    const handleStartAiCompare = async (emails) => {
+        if (!selectedCampaignId) return;
+        setAiCompareSubmitting(true);
+        try {
+            const json = await apiClient.post(
+                `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top?stage=screening`,
+                { emails }
+            );
+            if (!json?.success) {
+                const noCredits = json?.error === 'INSUFFICIENT_CREDITS';
+                setAiCompareStatus('failed');
+                setAiCompareResult({
+                    status: 'failed',
+                    emails,
+                    error: noCredits ? t('aiCompareTop_noCredits') : json?.message || json?.error,
+                });
+                setAiComparePanelOpen(true);
+                setAiCompareModalOpen(false);
+                return;
+            }
+            setAiCompareRequestId(json.requestId);
+            setAiCompareResult({ status: 'pending', emails, requestId: json.requestId });
+            setAiCompareStatus('pending');
+            setAiComparePanelOpen(true);
+            setAiCompareModalOpen(false);
+            refetchBilling();
+        } catch (err) {
+            const noCredits =
+                err instanceof ApiError &&
+                (err.status === 402 || err.data?.error === 'INSUFFICIENT_CREDITS');
+            console.error('❌ AI compare trigger failed:', err);
+            setAiCompareStatus('failed');
+            setAiCompareResult({
+                status: 'failed',
+                emails,
+                error: noCredits
+                    ? t('aiCompareTop_noCredits')
+                    : err instanceof ApiError
+                      ? err.data?.message || err.message
+                      : String(err?.message || err),
+            });
+            setAiComparePanelOpen(true);
+            setAiCompareModalOpen(false);
+        } finally {
+            setAiCompareSubmitting(false);
+        }
+    };
+
+    const handleHideCampaign = async (row) => {
+        const ids = [...(row?.evaluated || []), ...(row?.pending || [])]
+            .map((c) => c._id || c.id)
+            .filter(Boolean);
+        if (ids.length === 0) {
+            await fetchCandidates();
+            return;
+        }
+        try {
+            await apiClient.post('/api/candidates/bulk-hide', { ids, stage: 'screening' });
+        } catch (err) {
+            console.error('❌ Campaign hide failed:', err);
+        } finally {
+            setSelectedCampaignKey(null);
+            await fetchCandidates();
+        }
+    };
+
+    const handleToggleCampaignStatus = async (row, nextStatus) => {
+        const campaignId = row?.campaignId;
+        if (!campaignId) return;
+        try {
+            await apiClient.patch(
+                `/api/recruitment-campaigns/${encodeURIComponent(campaignId)}/status`,
+                { status: nextStatus }
+            );
+        } catch (err) {
+            console.error('❌ Campaign status update failed:', err);
+        } finally {
+            await fetchCandidates();
+        }
+    };
+
+    const translateRecLabel = (canonical) => {
+        switch (canonical) {
+            case 'Hire':
+                return t('stageEval_recHire');
+            case 'Consider':
+                return t('stageEval_recConsider');
+            case 'Reject':
+                return t('stageEval_recReject');
+            case 'N/A':
+                return t('stageEval_recNa');
+            default:
+                return canonical;
+        }
+    };
+
+    const getRecommendationColor = (label) => {
+        switch (label) {
             case 'Hire':
                 return { bg: 'rgba(16, 185, 129, 0.2)', border: 'rgba(16, 185, 129, 0.4)', text: '#10B981' };
             case 'Consider':
@@ -70,436 +363,769 @@ const WrittenInterview = () => {
         }
     };
 
+    /** إصلاح عرض مثل 42.00000000000001٪ */
+    const formatWrittenPercentDisplay = (value) => {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return '0';
+        const rounded = Math.round(n * 100) / 100;
+        return rounded.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 0 });
+    };
+
     const getScoreColor = (score) => {
-        if (score >= 80) return { bg: 'rgba(16, 185, 129, 0.2)', text: '#10B981' };
-        if (score >= 60) return { bg: 'rgba(245, 158, 11, 0.2)', text: '#F59E0B' };
+        const n = Number(score);
+        const s = Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+        if (s >= 80) return { bg: 'rgba(16, 185, 129, 0.2)', text: '#10B981' };
+        if (s >= 60) return { bg: 'rgba(245, 158, 11, 0.2)', text: '#F59E0B' };
         return { bg: 'rgba(239, 68, 68, 0.2)', text: '#EF4444' };
     };
 
-    const handleShare = async (candidate) => {
-        // إنشاء رابط المقابلة الصوتية
-        const candidateId = candidate._id || candidate.id;
-        const baseUrl = window.location.origin;
-        const interviewLink = `${baseUrl}/#/interview/${candidateId}`;
-        
-        const candidateName = `${candidate.firstName || ''} ${candidate.lastName || ''}`.trim() || candidate.email?.split('@')[0] || 'Unknown';
-        const candidateEmail = candidate.email || 'N/A';
-        
-        const shareText = `🎤 مقابلة صوتية ذكية\n\n` +
-            `مرحباً ${candidateName},\n\n` +
-            `تم دعوتك لإجراء مقابلة صوتية ذكية.\n\n` +
-            `🔗 رابط المقابلة:\n${interviewLink}\n\n` +
-            `يرجى الضغط على الرابط أعلاه لبدء المقابلة.\n\n` +
-            `مع تحياتنا،\nفريق التوظيف`;
+    /** Stage 1: المشاركة = رابط المقابلة الصوتية التالية (بريد/واتساب/نسخ، بلا تكلفة) */
+    const buildShareData = (candidate) => {
+        const candidateId = resolveSharePersonId(candidate);
+        const camp = candidate.campaignId;
+        const q = buildCandidateInterviewQuery({
+            candidateId,
+            campaignId: camp,
+            applicationId: resolveShareApplicationId(candidate),
+            language: currentLang,
+        });
+        const interviewLink = absoluteAppUrl(`/interview?${q.toString()}`);
 
-        const shareData = {
-            title: `مقابلة صوتية - ${candidateName}`,
-            text: shareText,
-            url: interviewLink
-        };
+        const name =
+            ((candidate.full_name || candidate.fullName) || '').trim()
+            || candidate.email?.split('@')[0]
+            || t('stageEval_unknownCandidate');
+        const position = localizeCatalogLabel(
+            candidate.position_applied_for || candidate.positionAppliedFor || t('stageEval_notApplicable'),
+            currentLang,
+        );
+        const phone = typeof candidate.phone === 'string' ? candidate.phone.trim() : '';
+        const email = typeof candidate.email === 'string' ? candidate.email.trim() : '';
 
-        // Try Web Share API first (mobile/desktop)
-        if (navigator.share) {
-            try {
-                await navigator.share(shareData);
-                return;
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    console.error('Error sharing:', err);
-                }
-            }
-        }
+        const company = resolveShareAdvertisingCompany(candidate, selectedGroup);
+        const companyLine = buildShareCompanyLine(t, company);
 
-        // Fallback: Copy link to clipboard
-        try {
-            await navigator.clipboard.writeText(interviewLink);
-            alert(`✅ تم نسخ رابط المقابلة الصوتية إلى الحافظة!\n\nالرابط:\n${interviewLink}\n\nيمكنك إرساله إلى: ${candidateEmail}`);
-        } catch (err) {
-            console.error('Failed to copy:', err);
-            // Fallback: Show link in a prompt
-            prompt(`رابط المقابلة الصوتية للمرشح ${candidateName}:\n(انسخ الرابط وأرسله إلى ${candidateEmail})`, interviewLink);
-        }
+        const shareText = fillI18nTemplate(t('writtenInterview_shareBody'), {
+            name,
+            position,
+            companyLine,
+            link: interviewLink,
+            score: formatWrittenPercentDisplay(
+                resolveStageOverallScore(candidate.writtenInterviewEvaluation, [
+                    candidate.aiEvaluation?.score,
+                ]) ?? 0
+            ),
+            recommendation: translateRecLabel(
+                canonicalStageRecommendation(candidate.writtenInterviewEvaluation?.recommendation)
+            ),
+            email: email || t('stageEval_notApplicable'),
+            phone: phone || t('stageEval_notApplicable'),
+        });
+
+        const emailSubject = fillI18nTemplate(t('writtenInterview_shareNavigatorTitle'), { name });
+
+        return { shareText, interviewLink, phone, email, name, emailSubject };
     };
 
-    const filteredCandidates = filter === 'all' 
-        ? candidates 
-        : candidates.filter(c => c.writtenInterviewEvaluation?.recommendation === filter);
+    const showCampaignList = selectedCampaignKey === null;
 
-    return (
-        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)' }}>
-            <Navigation />
-            
-            <div style={{
-                padding: '120px 20px 40px',
-                maxWidth: '1400px',
-                margin: '0 auto'
-            }}>
-                {/* Header */}
-                <div style={{
-                    marginBottom: '40px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '20px'
-                }}>
-                    <div>
-                        <h1 style={{
-                            fontSize: '36px',
-                            fontWeight: 700,
-                            background: 'linear-gradient(135deg, #60A5FA, #3B82F6)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                            backgroundClip: 'text',
-                            marginBottom: '10px'
-                        }}>
-                            Written Interview Evaluations
-                        </h1>
-                        <p style={{ color: '#94A3B8', fontSize: '16px' }}>
-                            تقييمات المقابلات الكتابية للمرشحين
-                        </p>
+    const listView = (
+        <div
+            className="dashboard-page dashboard-page--evaalo-visual ai-head-hunter-page headhunter-campaign-history-page dashboard-page--full-viewport-shell"
+            style={{ color: '#ffffff', position: 'relative' }}
+        >
+            <div className="design-background design-background--evaalo-visual">
+                <div className="design-orb-1" />
+                <div className="design-orb-2" />
+                <div className="design-orb-3" />
                     </div>
+            <div className="dashboard-evaalo-visual-texture" aria-hidden="true" />
+            <div className="dashboard-evaalo-visual-gridlines" aria-hidden="true" />
 
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <button
-                            onClick={fetchCandidates}
-                            style={{
-                                padding: '10px 20px',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(96, 165, 250, 0.4)',
-                                background: 'rgba(96, 165, 250, 0.2)',
-                                color: '#60A5FA',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                fontWeight: 600,
-                                transition: 'all 0.3s ease'
-                            }}
-                        >
-                            🔄 تحديث
+            <MobilePinchPanViewport className="mobile-pinch-pan-viewport--dashboard-shell">
+            <div className="container dashboard-visual-container">
+                <div className="dashboard-grid">
+                    <div className="dashboard-card dashboard-card--page-active platform-features-card">
+                        {loading ? (
+                            <div className="dashboard-card-body">
+                                <p className="headhunter-campaign-history-empty" role="status">
+                                    {t('stageEval_loading')}
+                                </p>
+                            </div>
+                        ) : (
+                            <ScreeningCampaignList
+                                activeCampaigns={campaignGroups.active}
+                                uncategorized={campaignGroups.uncategorized}
+                                onSelect={(key) => setSelectedCampaignKey(key)}
+                                onRefresh={fetchCandidates}
+                                onHideCampaign={handleHideCampaign}
+                                onToggleCampaignStatus={handleToggleCampaignStatus}
+                            />
+                        )}
+                    </div>
+                </div>
+            </div>
+            </MobilePinchPanViewport>
+        </div>
+    );
+
+    const detailView = (
+        <div
+            className="dashboard-page dashboard-page--evaalo-visual ai-head-hunter-page headhunter-campaign-history-page dashboard-page--full-viewport-shell"
+            style={{ color: '#ffffff', position: 'relative' }}
+        >
+            <div className="design-background design-background--evaalo-visual">
+                <div className="design-orb-1" />
+                <div className="design-orb-2" />
+                <div className="design-orb-3" />
+            </div>
+            <div className="dashboard-evaalo-visual-texture" aria-hidden="true" />
+            <div className="dashboard-evaalo-visual-gridlines" aria-hidden="true" />
+
+            <MobilePinchPanViewport className="mobile-pinch-pan-viewport--dashboard-shell">
+            <div className="container dashboard-visual-container">
+                <div className="design-header" style={{ marginBottom: '28px' }}>
+                    <div className="header-content">
+                        <h1 className="design-title" style={{ marginBottom: 0 }}>
+                            {selectedGroup?.title
+                                ? localizeCatalogLabel(selectedGroup.title, currentLang)
+                                : t('writtenInterviewPageTitle')}
+                        </h1>
+                        {selectedGroup?.location ? (
+                            <p className="design-subtitle" style={{ marginTop: '10px', fontSize: '15px' }}>
+                                {localizeCatalogLabel(selectedGroup.location, currentLang)}
+                            </p>
+                        ) : null}
+                    </div>
+                    <div className="header-actions" style={{ flexWrap: 'wrap', gap: '10px' }}>
+                        <StageEvalBackButton onClick={() => setSelectedCampaignKey(null)} />
+                        <button type="button" className="btn btn-secondary candidates-toolbar-filter-btn" onClick={fetchCandidates}>
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M16 10C16 13.3137 13.3137 16 10 16C6.68629 16 4 13.3137 4 10C4 6.68629 6.68629 4 10 4C11.82 4 13.45 4.81 14.55 6.08" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                    <path d="M16 4V8H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            <span className="btn-text">{t('stageEval_refresh')}</span>
                         </button>
-                        
-                        {/* Filter Buttons */}
                         {['all', 'Hire', 'Consider', 'Reject'].map((filterOption) => {
                             const isActive = filter === filterOption.toLowerCase();
-                            const colors = filterOption === 'all' 
-                                ? { bg: 'rgba(96, 165, 250, 0.2)', border: 'rgba(96, 165, 250, 0.4)', text: '#60A5FA' }
-                                : getRecommendationColor(filterOption);
-                            
                             return (
                                 <button
                                     key={filterOption}
+                                    type="button"
+                                    className={`btn btn-secondary candidates-toolbar-filter-btn stage-eval-filter-btn${isActive ? ' stage-eval-filter-btn--active' : ''}`}
                                     onClick={() => setFilter(filterOption.toLowerCase())}
-                                    style={{
-                                        padding: '10px 20px',
-                                        borderRadius: '8px',
-                                        border: `1px solid ${isActive ? colors.border : 'rgba(148, 163, 184, 0.3)'}`,
-                                        background: isActive ? colors.bg : 'transparent',
-                                        color: isActive ? colors.text : '#94A3B8',
-                                        cursor: 'pointer',
-                                        fontSize: '14px',
-                                        fontWeight: isActive ? 600 : 400,
-                                        transition: 'all 0.3s ease'
-                                    }}
-                                >
-                                    {filterOption === 'all' ? 'All' : filterOption}
+                                    >
+                                        {filterOption === 'all' && (
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M2.5 5H17.5M5 10H15M7.5 15H12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                            </svg>
+                                        )}
+                                        {filterOption === 'Hire' && (
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M10 2.5L12.5 7.5L17.5 8.75L14.5 12.5L15.5 17.5L10 15L4.5 17.5L5.5 12.5L2.5 8.75L7.5 7.5L10 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                            </svg>
+                                        )}
+                                        {filterOption === 'Consider' && (
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="2"/>
+                                                <path d="M10 6V10L13 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                            </svg>
+                                        )}
+                                        {filterOption === 'Reject' && (
+                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="2"/>
+                                                <path d="M7.5 7.5L12.5 12.5M12.5 7.5L7.5 12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                            </svg>
+                                        )}
+                                    <span className="btn-text">
+                                        {filterOption === 'all'
+                                            ? t('stageEval_all')
+                                            : filterOption === 'Hire'
+                                              ? t('stageEval_recHire')
+                                              : filterOption === 'Consider'
+                                                ? t('stageEval_recConsider')
+                                                : t('stageEval_recReject')}
+                                    </span>
                                 </button>
                             );
                         })}
+                        {selectedCampaignId ? (
+                            <button
+                                type="button"
+                                className="workflow-btn-primary head-hunter-submit-btn ai-compare-top-btn"
+                                onClick={handleOpenAiCompare}
+                                disabled={aiCompareStatus === 'pending'}
+                            >
+                                <span className="head-hunter-submit-btn__content">
+                                    <svg
+                                        className="head-hunter-submit-btn__ai-spark"
+                                        width="22"
+                                        height="22"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        aria-hidden
+                                    >
+                                        <path
+                                            fill="currentColor"
+                                            d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                                        />
+                                    </svg>
+                                    <span className="btn-text btn-text--full">{t('aiCompareTop_button')}</span>
+                                    <span className="btn-text btn-text--short">{t('aiCompareTop_buttonShort')}</span>
+                                </span>
+                            </button>
+                        ) : null}
                     </div>
                 </div>
 
-                {/* Table */}
+                <ScreeningAiCompareNeedTwoNotice
+                    open={aiCompareNeedTwoOpen}
+                    onDismiss={() => setAiCompareNeedTwoOpen(false)}
+                    t={t}
+                />
+
+                {aiComparePanelOpen && aiCompareStatus !== 'idle' ? (
+                    <div style={{ marginBottom: '24px' }}>
+                        <ScreeningAiComparePanel
+                            status={aiCompareStatus}
+                            result={aiCompareResult}
+                            onDismiss={() => setAiComparePanelOpen(false)}
+                                                            />
+                                                        </div>
+                ) : null}
+
+                {/* Table — مرشحو الحملة (مكتمل + بانتظار التقييم) */}
                 {loading ? (
-                    <div style={{ textAlign: 'center', padding: '60px', color: '#94A3B8' }}>
-                        Loading...
+                    <div className="stage-eval-loading">
+                        {t('stageEval_loading')}
                     </div>
-                ) : filteredCandidates.length === 0 ? (
-                    <div style={{ 
-                        textAlign: 'center', 
-                        padding: '60px', 
-                        color: '#94A3B8',
-                        background: 'rgba(15, 23, 42, 0.5)',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(148, 163, 184, 0.1)'
-                    }}>
-                        <div style={{ marginBottom: '20px', fontSize: '48px' }}>📋</div>
-                        <div style={{ fontSize: '18px', marginBottom: '10px', color: '#CBD5E1' }}>
-                            {filter === 'all' 
-                                ? 'لا توجد تقييمات مقابلات كتابية'
-                                : `لا يوجد مرشحون بتوصية "${filter}"`
-                            }
-                        </div>
-                        <div style={{ fontSize: '14px', color: '#94A3B8', marginTop: '10px', marginBottom: '20px' }}>
-                            {filter === 'all' 
-                                ? 'تأكد من إرسال البيانات من n8n مع حقل writtenInterviewEvaluation'
-                                : 'جرب تغيير الفلتر أو تحديث الصفحة'
-                            }
-                        </div>
-                        <button
-                            onClick={fetchCandidates}
-                            style={{
-                                padding: '10px 20px',
-                                borderRadius: '8px',
-                                border: '1px solid rgba(96, 165, 250, 0.4)',
-                                background: 'rgba(96, 165, 250, 0.2)',
-                                color: '#60A5FA',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                fontWeight: 600
-                            }}
-                        >
-                            🔄 تحديث البيانات
-                        </button>
-                    </div>
-                ) : (
-                    <div style={{
-                        background: 'rgba(15, 23, 42, 0.5)',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(148, 163, 184, 0.1)',
-                        overflow: 'hidden'
-                    }}>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                ) : campaignCandidates.length > 0 ? (
+                    <div className="stage-eval-table-shell">
+                        <div className="stage-eval-table-scroll">
+                            <table className="stage-eval-table">
                                 <thead>
                                     <tr style={{ 
-                                        background: 'rgba(30, 41, 59, 0.8)',
-                                        borderBottom: '2px solid rgba(148, 163, 184, 0.2)'
+                                        background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%)',
+                                        borderBottom: '2px solid rgba(34, 211, 238, 0.5)'
                                     }}>
-                                        <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Candidate</th>
-                                        <th style={{ padding: '16px', textAlign: 'center', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Overall Score</th>
-                                        <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Fit for Role</th>
-                                        <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Strengths</th>
-                                        <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Weaknesses</th>
-                                        <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Red Flags</th>
-                                        <th style={{ padding: '16px', textAlign: 'center', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Recommendation</th>
-                                        <th style={{ padding: '16px', textAlign: 'left', color: '#CBD5E1', fontWeight: 600, fontSize: '14px' }}>Summary</th>
-                                        <th style={{ padding: '16px', textAlign: 'center', color: '#CBD5E1', fontWeight: 600, fontSize: '14px', width: '80px' }}>Share</th>
+                                        <th style={{ 
+                                            padding: '16px', 
+                                            textAlign: 'left', 
+                                            color: '#22d3ee', 
+                                            fontWeight: 600, 
+                                            fontSize: '14px', 
+                                            width: '40px',
+                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
+                                        }}></th>
+                                        <th style={{ 
+                                            padding: '16px', 
+                                            textAlign: 'left', 
+                                            color: '#22d3ee', 
+                                            fontWeight: 600, 
+                                            fontSize: '14px',
+                                            minWidth: '250px',
+                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
+                                        }}>{t('stageEval_colCandidate')}</th>
+                                        <th style={{ 
+                                            padding: '16px', 
+                                            textAlign: 'left', 
+                                            color: '#22d3ee', 
+                                            fontWeight: 600, 
+                                            fontSize: '14px',
+                                            minWidth: '360px',
+                                            width: '52%',
+                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
+                                        }}>{t('writtenInterviewColFitForRole')}</th>
+                                        <th style={{ 
+                                            padding: '16px 8px', 
+                                            textAlign: 'center', 
+                                            color: '#22d3ee', 
+                                            fontWeight: 600, 
+                                            fontSize: '13px',
+                                            width: '80px',
+                                            maxWidth: '88px',
+                                            minWidth: '76px',
+                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
+                                        }}>{t('stageEval_colCv')}</th>
+                                        <th style={{ 
+                                            padding: '16px 8px', 
+                                            textAlign: 'center', 
+                                            color: '#22d3ee', 
+                                            fontWeight: 600, 
+                                            fontSize: '13px',
+                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)',
+                                            whiteSpace: 'nowrap',
+                                            width: '1%',
+                                            maxWidth: '118px',
+                                            minWidth: '100px'
+                                        }}>{t('stageEval_colRecommendation')}</th>
+                                        <th style={{ 
+                                            padding: '10px 8px', 
+                                            textAlign: 'center', 
+                                            verticalAlign: 'middle',
+                                            color: '#22d3ee', 
+                                            fontWeight: 600, 
+                                            fontSize: '12px', 
+                                            width: '64px',
+                                            maxWidth: '68px',
+                                            minWidth: '60px'
+                                        }}>{t('stageEval_colShare')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredCandidates.map((candidate, index) => {
+                                    {filteredCandidates.length === 0 ? (
+                                        <tr>
+                                            <td
+                                                colSpan={6}
+                                                className="stage-eval-empty-cell"
+                                            >
+                                                {filter === 'all'
+                                                    ? t('writtenInterviewNoEvaluations')
+                                                    : fillI18nTemplate(t('writtenInterviewNoFilterMatch'), {
+                                                          filter:
+                                                              filter === 'hire'
+                                                                  ? t('stageEval_recHire')
+                                                                  : filter === 'consider'
+                                                                    ? t('stageEval_recConsider')
+                                                                    : t('stageEval_recReject'),
+                                                      })}
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                    filteredCandidates.map((candidate, index) => {
                                         const evaluation = candidate.writtenInterviewEvaluation;
-                                        const scoreColors = getScoreColor(evaluation?.overall_score || 0);
-                                        const recColors = getRecommendationColor(evaluation?.recommendation);
+                                        const hasEval = hasMeaningfulStageEvaluation(evaluation);
+                                        const writtenScore = resolveStageOverallScore(evaluation, [
+                                            candidate.aiEvaluation?.score,
+                                        ]);
+                                        const scoreColors = getScoreColor(writtenScore ?? 0);
+                                        const recCanon = canonicalStageRecommendation(evaluation?.recommendation);
+                                        const recColors = getRecommendationColor(recCanon);
+                                        const candidateId = candidate._id || candidate.id;
+                                        const isExpanded = expandedRows.has(candidateId);
+                                        const { cv } = stage1FilesFromCandidate(candidate);
+                                        const photoUrl = candidatePhotoUrl(candidate);
+                                        const cvUrl = cv ? `${API_BASE}/uploads/${encodeURIComponent(cv.filename)}` : null;
+                                        
+                                        const toggleRow = (e) => {
+                                            // Don't expand if clicking on share button
+                                            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                                                return;
+                                            }
+                                            setExpandedRows(prev => {
+                                                const newSet = new Set(prev);
+                                                if (newSet.has(candidateId)) {
+                                                    newSet.delete(candidateId);
+                                                } else {
+                                                    newSet.add(candidateId);
+                                                }
+                                                return newSet;
+                                            });
+                                        };
                                         
                                         return (
+                                            <React.Fragment key={candidateId}>
                                             <tr 
-                                                key={candidate._id || candidate.id}
-                                                style={{
-                                                    borderBottom: index < filteredCandidates.length - 1 ? '1px solid rgba(148, 163, 184, 0.1)' : 'none',
-                                                    transition: 'background 0.2s ease'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(30, 41, 59, 0.3)'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                className="stage-eval-table-row"
+                                                data-stage-candidate-id={String(candidateId)}
+                                                onClick={toggleRow}
                                             >
+                                                {/* Expand/Collapse Icon */}
+                                                <td style={{ 
+                                                    padding: '16px', 
+                                                    textAlign: 'center', 
+                                                    width: '40px',
+                                                    borderRight: '1px solid rgba(34, 211, 238, 0.3)',
+                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
+                                                }}>
+                                                    <svg 
+                                                        width="20" 
+                                                        height="20" 
+                                                        viewBox="0 0 20 20" 
+                                                        fill="none" 
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className="stage-eval-row-toggle"
+                                                        style={{
+                                                            transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                        }}
+                                                    >
+                                                        <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    </svg>
+                                                </td>
                                                 {/* Candidate Name */}
-                                                <td style={{ padding: '16px' }}>
-                                                    <div>
-                                                        <div style={{ color: '#F1F5F9', fontWeight: 600, marginBottom: '4px' }}>
-                                                            {candidate.firstName && candidate.lastName
-                                                                ? `${candidate.firstName} ${candidate.lastName}`
-                                                                : candidate.email?.split('@')[0] || 'Unknown'
-                                                            }
+                                                <td style={{ 
+                                                    padding: '16px', 
+                                                    minWidth: '250px',
+                                                    borderRight: '1px solid rgba(34, 211, 238, 0.3)',
+                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)',
+                                                    verticalAlign: 'middle'
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                                        {/* Profile Photo */}
+                                                        <div
+                                                            className="candidate-avatar-ring"
+                                                            style={{
+                                                            width: '54px',
+                                                            height: '54px',
+                                                            borderRadius: '50%',
+                                                            overflow: 'hidden',
+                                                            flexShrink: 0,
+                                                            border: '2px solid rgba(34, 211, 238, 0.35)',
+                                                            background: 'linear-gradient(135deg, #06B6D4, #3B82F6)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            boxShadow: '0 2px 8px rgba(6, 182, 212, 0.2)'
+                                                        }}
+                                                        >
+                                                            {photoUrl ? (
+                                                                <img 
+                                                                    alt={((candidate.full_name || candidate.fullName) || '').trim() || t('stageEval_profilePhotoAlt')} 
+                                                                    className="candidate-avatar-photo"
+                                                                    decoding="async"
+                                                                    draggable={false}
+                                                                    {...candidateAvatarImageProps(photoUrl, 54)}
+                                                                    style={{ 
+                                                                        width: '100%', 
+                                                                        height: '100%', 
+                                                                        objectFit: 'cover' 
+                                                                    }}
+                                                                    onError={(e) => {
+                                                                        e.target.style.display = 'none';
+                                                                        const fall = e.target.nextElementSibling;
+                                                                        if (fall) fall.style.display = 'flex';
+                                                                    }}
+                                                                />
+                                                            ) : null}
+                                                            <div style={{ 
+                                                                display: photoUrl ? 'none' : 'flex',
+                                                                alignItems: 'center', 
+                                                                justifyContent: 'center',
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                fontSize: '21px',
+                                                                fontWeight: 600,
+                                                                color: '#fff'
+                                                            }}>
+                                                                {((candidate.full_name || candidate.fullName)?.[0] || candidate.email?.[0] || '?').toUpperCase()}
+                                                            </div>
                                                         </div>
-                                                        <div style={{ color: '#94A3B8', fontSize: '12px' }}>
-                                                            {candidate.positionAppliedFor || 'N/A'}
+                                                        <div className="stage-eval-candidate-cell" style={{ flex: 1, minWidth: 0 }}>
+                                                            {(() => {
+                                                                const candidateName = ((candidate.full_name || candidate.fullName) || '').trim()
+                                                                    ? (candidate.full_name || candidate.fullName).trim()
+                                                                    : candidate.email?.split('@')[0] || t('stageEval_unknownCandidate');
+                                                                const positionLabel = localizeCatalogLabel(
+                                                                    candidate.position_applied_for ||
+                                                                        candidate.positionAppliedFor ||
+                                                                        t('stageEval_notApplicable'),
+                                                                    currentLang,
+                                                                );
+                                                                return (
+                                                                    <>
+                                                                        <div {...scriptTextProps(candidateName)}>{candidateName}</div>
+                                                                        <div {...scriptTextProps(positionLabel)}>{positionLabel}</div>
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        {candidate.createdAt && (
+                                                            <div>
+                                                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.7 }}>
+                                                                    <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1"/>
+                                                                    <path d="M6 3V6L8 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+                                                                </svg>
+                                                                {new Date(candidate.createdAt).toLocaleString('en-US', {
+                                                                    year: 'numeric',
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                            </div>
+                                                        )}
                                                         </div>
                                                     </div>
                                                 </td>
+                                                {/* Fit for Role — أعرض عمود */}
+                                                <td className="stage-eval-written-fit-cell" style={{ 
+                                                    padding: '16px', 
+                                                    verticalAlign: 'top',
+                                                    minWidth: '280px',
+                                                    borderRight: '1px solid rgba(34, 211, 238, 0.3)',
+                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
+                                                }}>
+                                                    {(() => {
+                                                        const fitText = normalizeStageEvalText(evaluation?.fit_for_role) || t('stageEval_notApplicable');
+                                                        return <span {...scriptTextProps(fitText)}>{fitText}</span>;
+                                                    })()}
+                                                </td>
+                                                <td style={{ 
+                                                    padding: '12px 8px', 
+                                                    verticalAlign: 'middle',
+                                                    textAlign: 'center',
+                                                    width: '80px',
+                                                    maxWidth: '88px',
+                                                    minWidth: '76px',
+                                                    borderRight: '1px solid rgba(34, 211, 238, 0.3)',
+                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
+                                                }}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {cvUrl ? (
+                                                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', minHeight: '48px' }}>
+                                                            <PdfCvLink
+                                                                href={cvUrl}
+                                                                fileName={cv?.originalName}
+                                                                size={46}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ color: '#64748B', fontSize: '12px', display: 'block', textAlign: 'center' }}>—</span>
+                                                    )}
+                                                </td>
 
-                                                {/* Overall Score */}
-                                                <td style={{ padding: '16px', textAlign: 'center' }}>
+                                                {/* الدرجة + التوصية في حقل واحد */}
+                                                <td style={{ 
+                                                    padding: '10px 6px', 
+                                                    textAlign: 'center',
+                                                    verticalAlign: 'middle',
+                                                    maxWidth: '118px',
+                                                    borderRight: '1px solid rgba(34, 211, 238, 0.3)',
+                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
+                                                }}>
                                                     <div style={{
-                                                        display: 'inline-block',
-                                                        padding: '8px 16px',
-                                                        borderRadius: '8px',
-                                                        background: scoreColors.bg,
-                                                        color: scoreColors.text,
-                                                        fontWeight: 700,
-                                                        fontSize: '18px'
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '6px',
+                                                        width: '100%'
                                                     }}>
-                                                        {evaluation?.overall_score || 0}%
-                                                    </div>
-                                                </td>
-
-                                                {/* Fit for Role */}
-                                                <td style={{ padding: '16px', color: '#CBD5E1', fontSize: '14px' }}>
-                                                    {evaluation?.fit_for_role || 'N/A'}
-                                                </td>
-
-                                                {/* Strengths */}
-                                                <td style={{ padding: '16px', maxWidth: '200px' }}>
-                                                    {evaluation?.strengths && evaluation.strengths.length > 0 ? (
-                                                        <ul style={{ margin: 0, paddingLeft: '20px', color: '#10B981', fontSize: '13px' }}>
-                                                            {evaluation.strengths.map((strength, i) => (
-                                                                <li key={i} style={{ marginBottom: '4px' }}>{strength}</li>
-                                                            ))}
-                                                        </ul>
-                                                    ) : (
-                                                        <span style={{ color: '#94A3B8', fontSize: '13px' }}>None</span>
-                                                    )}
-                                                </td>
-
-                                                {/* Weaknesses */}
-                                                <td style={{ padding: '16px', maxWidth: '200px' }}>
-                                                    {evaluation?.weaknesses && evaluation.weaknesses.length > 0 ? (
-                                                        <ul style={{ margin: 0, paddingLeft: '20px', color: '#F59E0B', fontSize: '13px' }}>
-                                                            {evaluation.weaknesses.map((weakness, i) => (
-                                                                <li key={i} style={{ marginBottom: '4px' }}>{weakness}</li>
-                                                            ))}
-                                                        </ul>
-                                                    ) : (
-                                                        <span style={{ color: '#94A3B8', fontSize: '13px' }}>None</span>
-                                                    )}
-                                                </td>
-
-                                                {/* Red Flags */}
-                                                <td style={{ padding: '16px', maxWidth: '200px' }}>
-                                                    {evaluation?.red_flags && evaluation.red_flags.length > 0 ? (
-                                                        <ul style={{ margin: 0, paddingLeft: '20px', color: '#EF4444', fontSize: '13px' }}>
-                                                            {evaluation.red_flags.map((flag, i) => (
-                                                                <li key={i} style={{ marginBottom: '4px' }}>{flag}</li>
-                                                            ))}
-                                                        </ul>
-                                                    ) : (
-                                                        <span style={{ color: '#94A3B8', fontSize: '13px' }}>None</span>
-                                                    )}
-                                                </td>
-
-                                                {/* Recommendation */}
-                                                <td style={{ padding: '16px', textAlign: 'center' }}>
+                                                        {hasEval ? (
+                                                            <>
+                                                        <div style={{
+                                                            display: 'inline-block',
+                                                            padding: '5px 10px',
+                                                            borderRadius: '6px',
+                                                            background: scoreColors.bg,
+                                                            color: scoreColors.text,
+                                                            fontWeight: 700,
+                                                            fontSize: '14px',
+                                                            lineHeight: 1.15
+                                                        }}>
+                                                            {formatWrittenPercentDisplay(writtenScore ?? 0)}%
+                                                        </div>
                                                     <div style={{
                                                         display: 'inline-block',
-                                                        padding: '6px 12px',
-                                                        borderRadius: '6px',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '5px',
                                                         background: recColors.bg,
                                                         border: `1px solid ${recColors.border}`,
                                                         color: recColors.text,
                                                         fontWeight: 600,
-                                                        fontSize: '13px'
+                                                            fontSize: '11px',
+                                                            lineHeight: 1.15,
+                                                            letterSpacing: '0.02em',
                                                     }}>
-                                                        {evaluation?.recommendation || 'N/A'}
+                                                        {translateRecLabel(recCanon)}
+                                                        </div>
+                                                            </>
+                                                        ) : (
+                                                            <div style={{
+                                                                display: 'inline-block',
+                                                                padding: '5px 10px',
+                                                                borderRadius: '6px',
+                                                                background: 'rgba(245, 158, 11, 0.2)',
+                                                                border: '1px solid rgba(245, 158, 11, 0.4)',
+                                                                color: '#FBBF24',
+                                                                fontWeight: 600,
+                                                                fontSize: '12px',
+                                                                lineHeight: 1.15,
+                                                            }}>
+                                                                {t('writtenInterviewStatusPending')}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
 
-                                                {/* Summary */}
-                                                <td style={{ padding: '16px', maxWidth: '300px', color: '#CBD5E1', fontSize: '13px', lineHeight: '1.5' }}>
-                                                    {evaluation?.summary || 'No summary available'}
-                                                </td>
-
                                                 {/* Share Button */}
-                                                <td style={{ padding: '16px', textAlign: 'center' }}>
-                                                    <button
-                                                        onClick={() => handleShare(candidate)}
-                                                        title="مشاركة رابط المقابلة الصوتية"
-                                                        style={{
-                                                            width: '48px',
-                                                            height: '48px',
-                                                            borderRadius: '12px',
-                                                            border: 'none',
-                                                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                                            color: '#fff',
-                                                            cursor: 'pointer',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            fontSize: '22px',
-                                                            fontWeight: 'bold',
-                                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2)',
-                                                            position: 'relative',
-                                                            overflow: 'hidden'
-                                                        }}
-                                                        onMouseEnter={(e) => {
-                                                            e.currentTarget.style.transform = 'scale(1.15) translateY(-2px)';
-                                                            e.currentTarget.style.background = 'linear-gradient(135deg, #059669 0%, #047857 100%)';
-                                                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(16, 185, 129, 0.5), 0 0 0 2px rgba(16, 185, 129, 0.4)';
-                                                        }}
-                                                        onMouseLeave={(e) => {
-                                                            e.currentTarget.style.transform = 'scale(1) translateY(0)';
-                                                            e.currentTarget.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-                                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(16, 185, 129, 0.2)';
-                                                        }}
-                                                        onMouseDown={(e) => {
-                                                            e.currentTarget.style.transform = 'scale(0.9) translateY(0)';
-                                                        }}
-                                                        onMouseUp={(e) => {
-                                                            e.currentTarget.style.transform = 'scale(1.15) translateY(-2px)';
-                                                        }}
-                                                    >
-                                                        <span style={{
-                                                            display: 'inline-block',
-                                                            transition: 'transform 0.3s ease',
-                                                            filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))'
-                                                        }}>
-                                                            📤
-                                                        </span>
-                                                    </button>
+                                                <td style={{ 
+                                                    padding: '10px 8px', 
+                                                    textAlign: 'center',
+                                                    verticalAlign: 'middle',
+                                                    width: '64px',
+                                                    maxWidth: '68px',
+                                                    minWidth: '60px',
+                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', minHeight: '52px' }}>
+                                                        <StageEvalShareButton
+                                                            candidate={candidate}
+                                                            getShareData={buildShareData}
+                                                            t={t}
+                                                            shareTitle={t('writtenInterviewShareTitle')}
+                                                            interviewLinkReset={{
+                                                                stage: 'voice',
+                                                                consumedAt: candidate.voiceInterviewLinkConsumedAt,
+                                                                onReset: fetchCandidates,
+                                                            }}
+                                                        />
+                                                    </div>
                                                 </td>
                                             </tr>
+                                            
+                                            {/* Expanded Details Row */}
+                                            {isExpanded && (
+                                                <tr className="stage-eval-expanded-row">
+                                                    <td colSpan={6} style={{ padding: '0' }}>
+                                                        <div style={{
+                                                            padding: '24px',
+                                                            animation: 'slideDown 0.3s ease-out'
+                                                        }}>
+                                                            <div style={{
+                                                                display: 'grid',
+                                                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                                                gap: '20px',
+                                                                marginBottom: '20px'
+                                                            }}>
+                                                                {/* Summary */}
+                                                                <div className="stage-eval-detail-card">
+                                                                    <h4 className="stage-eval-detail-card__title">
+                                                                        {t('stageEval_summary')}
+                                                                    </h4>
+                                                                    {(() => {
+                                                                        const text = normalizeStageEvalText(evaluation?.summary) || t('stageEval_noSummary');
+                                                                        return <p {...scriptTextProps(text, 'stage-eval-detail-card__body')}>{text}</p>;
+                                                                    })()}
+                                                                </div>
+
+                                                                {/* Weaknesses */}
+                                                                <div className="stage-eval-detail-card">
+                                                                    <h4 className="stage-eval-detail-card__title">
+                                                                        {t('stageEval_weaknesses')}
+                                                                    </h4>
+                                                                    {normalizeStageEvalStringList(evaluation?.weaknesses).length > 0 ? (
+                                                                        <ul {...scriptTextProps(normalizeStageEvalStringList(evaluation?.weaknesses).join(' '), 'stage-eval-detail-card__list')}>
+                                                                            {normalizeStageEvalStringList(evaluation?.weaknesses).map((weakness, i) => (
+                                                                                <li key={i} style={{ marginBottom: '6px' }} {...scriptTextProps(weakness)}>{weakness}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    ) : evaluation?.red_flags && evaluation.red_flags.length > 0 ? (
+                                                                        <ul {...scriptTextProps(evaluation.red_flags.join(' '), 'stage-eval-detail-card__list')}>
+                                                                            {evaluation.red_flags.map((flag, i) => (
+                                                                                <li key={i} style={{ marginBottom: '6px' }} {...scriptTextProps(flag)}>{flag}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    ) : (
+                                                                        <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Strengths */}
+                                                                <div className="stage-eval-detail-card">
+                                                                    <h4 className="stage-eval-detail-card__title">
+                                                                        {t('stageEval_strengths')}
+                                                                    </h4>
+                                                                    {normalizeStageEvalStringList(evaluation?.strengths).length > 0 ? (
+                                                                        <ul {...scriptTextProps(normalizeStageEvalStringList(evaluation?.strengths).join(' '), 'stage-eval-detail-card__list')}>
+                                                                            {normalizeStageEvalStringList(evaluation?.strengths).map((strength, i) => (
+                                                                                <li key={i} style={{ marginBottom: '6px' }} {...scriptTextProps(strength)}>{strength}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    ) : (
+                                                                        <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Final HR Evaluation */}
+                                                                <div className="stage-eval-detail-card">
+                                                                    <h4 className="stage-eval-detail-card__title">
+                                                                        {t('stageEval_finalHrEval')}
+                                                                    </h4>
+                                                                    {(() => {
+                                                                        const text = normalizeStageEvalText(evaluation?.final_hr_evaluation)
+                                                                            || normalizeStageEvalText(evaluation?.finalHrEvaluation)
+                                                                            || t('voiceInterview_noFinalHr');
+                                                                        return <p {...scriptTextProps(text, 'stage-eval-detail-card__body')}>{text}</p>;
+                                                                    })()}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                            </React.Fragment>
                                         );
-                                    })}
+                                    })
+                                    )}
                                 </tbody>
                             </table>
                         </div>
                     </div>
+                ) : (
+                    <div className="stage-eval-empty-panel">
+                        {t('writtenInterviewNoEvaluations')}
+                    </div>
                 )}
 
-                {/* Stats */}
-                {!loading && candidates.length > 0 && (
-                    <div style={{
-                        marginTop: '30px',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '20px'
-                    }}>
-                        <div style={{
-                            background: 'rgba(15, 23, 42, 0.5)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            border: '1px solid rgba(148, 163, 184, 0.1)'
-                        }}>
-                            <div style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '8px' }}>Total Evaluations</div>
-                            <div style={{ color: '#F1F5F9', fontSize: '28px', fontWeight: 700 }}>{candidates.length}</div>
+                {/* Stats — interview-eval-stat-card في index.css (زجاج سماوي عند hover) */}
+                {!loading && evaluatedCandidates.length > 0 && (
+                    <div className="interview-eval-stats-grid">
+                        <div className="interview-eval-stat-card">
+                            <div className="interview-eval-stat-card__label">{t('stageEval_totalEvaluations')}</div>
+                            <div className="interview-eval-stat-card__value">{evaluatedCandidates.length}</div>
                         </div>
-                        <div style={{
-                            background: 'rgba(15, 23, 42, 0.5)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            border: '1px solid rgba(148, 163, 184, 0.1)'
-                        }}>
-                            <div style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '8px' }}>Hire</div>
-                            <div style={{ color: '#10B981', fontSize: '28px', fontWeight: 700 }}>
-                                {candidates.filter(c => c.writtenInterviewEvaluation?.recommendation === 'Hire').length}
+                        <div className="interview-eval-stat-card">
+                            <div className="interview-eval-stat-card__label">{t('stageEval_recHire')}</div>
+                            <div className="interview-eval-stat-card__value interview-eval-stat-card__value--hire">
+                                {evaluatedCandidates.filter(c => c.writtenInterviewEvaluation?.recommendation === 'Hire').length}
                             </div>
                         </div>
-                        <div style={{
-                            background: 'rgba(15, 23, 42, 0.5)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            border: '1px solid rgba(148, 163, 184, 0.1)'
-                        }}>
-                            <div style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '8px' }}>Consider</div>
-                            <div style={{ color: '#F59E0B', fontSize: '28px', fontWeight: 700 }}>
-                                {candidates.filter(c => c.writtenInterviewEvaluation?.recommendation === 'Consider').length}
+                        <div className="interview-eval-stat-card">
+                            <div className="interview-eval-stat-card__label">{t('stageEval_recConsider')}</div>
+                            <div className="interview-eval-stat-card__value interview-eval-stat-card__value--consider">
+                                {evaluatedCandidates.filter(c => c.writtenInterviewEvaluation?.recommendation === 'Consider').length}
                             </div>
                         </div>
-                        <div style={{
-                            background: 'rgba(15, 23, 42, 0.5)',
-                            padding: '20px',
-                            borderRadius: '12px',
-                            border: '1px solid rgba(148, 163, 184, 0.1)'
-                        }}>
-                            <div style={{ color: '#94A3B8', fontSize: '14px', marginBottom: '8px' }}>Reject</div>
-                            <div style={{ color: '#EF4444', fontSize: '28px', fontWeight: 700 }}>
-                                {candidates.filter(c => c.writtenInterviewEvaluation?.recommendation === 'Reject').length}
+                        <div className="interview-eval-stat-card">
+                            <div className="interview-eval-stat-card__label">{t('stageEval_recReject')}</div>
+                            <div className="interview-eval-stat-card__value interview-eval-stat-card__value--reject">
+                                {evaluatedCandidates.filter(c => c.writtenInterviewEvaluation?.recommendation === 'Reject').length}
                             </div>
                         </div>
                     </div>
                 )}
             </div>
+            </MobilePinchPanViewport>
         </div>
+    );
+
+    return (
+        <>
+            <style>{`
+                @keyframes slideDown {
+                    from {
+                        opacity: 0;
+                        max-height: 0;
+                        transform: translateY(-10px);
+                    }
+                    to {
+                        opacity: 1;
+                        max-height: 1000px;
+                        transform: translateY(0);
+                    }
+                }
+            `}</style>
+            {showCampaignList ? listView : detailView}
+            <AiCompareTopEmailModal
+                open={aiCompareModalOpen}
+                submitting={aiCompareSubmitting}
+                onClose={() => setAiCompareModalOpen(false)}
+                onSubmit={handleStartAiCompare}
+                compareCandidateCount={compareCandidateCount}
+            />
+        </>
     );
 };
 
