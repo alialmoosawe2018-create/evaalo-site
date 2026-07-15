@@ -1,14 +1,36 @@
 <!DOCTYPE html>
-<html lang="en" id="htmlLang">
+<html lang="en" id="htmlLang" dir="ltr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
     <meta name="theme-color" content="#4a1d9c">
-    <title>Career Portal - Join Our Team</title>
+    <script>
+      // GitHub Pages SPA redirect fallback (supports both repo subpath and custom domain root)
+      (function (l) {
+        if (!l.search || l.search[1] !== '/') return;
+        var pathSegments = l.pathname.split('/').filter(Boolean);
+        var isGithubIo = /\.github\.io$/i.test(l.hostname);
+        var segmentsToKeep = isGithubIo && pathSegments.length > 0 ? 1 : 0;
+        var prefix = '/' + pathSegments.slice(0, segmentsToKeep).join('/');
+        if (prefix !== '/') prefix += '/';
+        var decoded = l.search
+          .slice(1)
+          .split('&')
+          .map(function (s) { return s.replace(/~and~/g, '&'); })
+          .join('?');
+        var normalized = decoded[0] === '/' ? decoded.slice(1) : decoded;
+        window.history.replaceState(null, null, prefix + normalized + l.hash);
+      })(window.location);
+    </script>
+    <title>evaalo | AI-Powered Candidate Screening and Interview Platform</title>
+    <meta name="description" content="evaalo helps hiring teams screen, interview, and evaluate candidates with AI-powered voice, video, and written assessments.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
 </head>
 <body>
     <div id="root"></div>

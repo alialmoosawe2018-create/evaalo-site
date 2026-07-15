@@ -1,0 +1,724 @@
+{
+  "generatedAt": "2026-07-06T14:28:41.645Z",
+  "wave1aPackVersion": "1.1.0",
+  "packs": {
+    "hr_recruiter": {
+      "packKey": "hr_recruiter",
+      "packVersion": "1.1.0",
+      "roleKey": "recruiter",
+      "position": "recruiter",
+      "specialization": "Recruitment / Talent Acquisition",
+      "terminology": [
+        "intake meeting",
+        "sourcing",
+        "candidate pipeline",
+        "ATS",
+        "HRIS",
+        "time to fill",
+        "offer acceptance rate",
+        "source effectiveness",
+        "boolean search",
+        "structured interview",
+        "candidate experience",
+        "screening",
+        "talent pool"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي دور واجهت صعوبة بتوظيفه، شنو كان أصعب تحدي بيه؟",
+        "شلون تاخذ متطلبات الدور من المدير قبل ما تبدي البحث؟",
+        "شنو قنوات الاستقطاب اللي تعتمد عليها أكثر شي؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate",
+            "first recruiting"
+          ],
+          "acceptableEvidence": [
+            "تدريب HR",
+            "مشاريع جامعية",
+            "تطوع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة سويتها بالتوظيف أو الHR — شنو تعلمت منها؟",
+            "شنو أصعب موقف واجهته وأنت لسه مبتدئ بالاستقطاب؟"
+          ],
+          "followUpHints": [
+            "اطلب خطوة بخطوة",
+            "اسأل شنو ساعدك تتعلم"
+          ]
+        },
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "اكاديمي",
+            "بدون خبرة عملية",
+            "university",
+            "hr degree only"
+          ],
+          "acceptableEvidence": [
+            "مشاريع جامعية",
+            "معرفة نظرية ATS",
+            "تدريب قصير"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع أو دراسة حالة درستها بالجامعة عن التوظيف أو الاستقطاب؟",
+            "شنو تعلمت نظرياً عن pipeline المرشحين قبل أول خبرة عملية؟"
+          ],
+          "followUpHints": [
+            "اربط النظرية بسيناريو افتراضي واقعي"
+          ]
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "trainee",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة بالتدريب",
+            "ملاحظات من المشرف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي شنو سويت بفترة التدريب بالتوظيف — شنو كان دورك؟",
+            "شنو أهم أداة أو عملية تعرّفت عليها بالتدريب؟"
+          ],
+          "followUpHints": [
+            "اسأل عن دور الفريق والإشراف"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "pipeline",
+            "filled roles",
+            "time to fill",
+            "linkedin"
+          ],
+          "acceptableEvidence": [
+            "أدوار ملّيتها",
+            "قنوات متعددة",
+            "مؤشرات"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "اذكرلي دور صعب ملّيته — شنو القنوات اللي نجحت وشنو المؤشرات اللي تابعتها؟",
+            "شلون بنيت خطة استقطاب لدور تقني أو متخصص؟"
+          ],
+          "followUpHints": [
+            "اسأل عن تعديل الخطة عند الفشل"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "strategy",
+            "قاد",
+            "كبير",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قيادة فريق توظيف",
+            "تحسين عملية",
+            "تعاون مع الإدارة"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار استراتيجي غيّرت بيه عملية التوظيف بالشركة؟",
+            "شلون توازن بين سرعة التوظيف وجودة المرشح وتجربتهم؟"
+          ],
+          "followUpHints": [
+            "اسأل عن مقاييس قبل/بعد"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "switched from",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "مهارات قابلة للنقل",
+            "تعلم سريع",
+            "نتائج مبكرة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت للتوظيف وشنو نقلته من مجالك السابق؟",
+            "شنو أصعب فرق لاحظته بين شغلك السابق والاستقطاب؟"
+          ],
+          "followUpHints": [
+            "اربط بمثال نجاح مبكر"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "recruiter_default",
+          "steps": [
+            {
+              "stepKey": "background",
+              "topicLabel": "Background",
+              "sampleQuestion": "شنو نوع الأدوار اللي ركّزت عليها أكثر بالتوظيف؟"
+            },
+            {
+              "stepKey": "sourcing_channels",
+              "competencyKey": "sourcing_strategy",
+              "topicLabel": "Sourcing channels",
+              "sampleQuestion": "شنو قنوات الاستقطاب اللي استخدمتها بآخر دور صعب؟"
+            },
+            {
+              "stepKey": "channel_quality",
+              "competencyKey": "sourcing_strategy",
+              "topicLabel": "Channel quality",
+              "sampleQuestion": "شلون قيّمت جودة المرشحين من كل قناة؟"
+            },
+            {
+              "stepKey": "screening",
+              "competencyKey": "structured_evaluation",
+              "topicLabel": "Screening",
+              "sampleQuestion": "شلون تفرّق بين مرشح قوي ومرشح يبدو جيد بس ضعيف بالتقييم؟"
+            },
+            {
+              "stepKey": "manager_alignment",
+              "competencyKey": "role_intake_alignment",
+              "topicLabel": "Hiring manager alignment",
+              "sampleQuestion": "شلون تتفق وية المدير على المتطلبات الضرورية مقابل المفضّلة؟"
+            },
+            {
+              "stepKey": "difficult_role",
+              "competencyKey": "hard_to_fill_roles",
+              "topicLabel": "Difficult role",
+              "sampleQuestion": "اذكرلي دور ما لقيت له مرشح بسرعة — شنو سويت؟"
+            },
+            {
+              "stepKey": "candidate_experience",
+              "competencyKey": "candidate_experience",
+              "topicLabel": "Candidate experience",
+              "sampleQuestion": "شلون تحافظ على تجربة مرشح جيد حتى لو ما نجح بالعرض؟"
+            },
+            {
+              "stepKey": "metrics",
+              "competencyKey": "recruiting_metrics",
+              "topicLabel": "Metrics",
+              "sampleQuestion": "شنو مؤشر واحد تتابعه دايماً بخط المرشحين؟"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "petroleum_engineer": {
+      "packKey": "petroleum_engineer",
+      "packVersion": "1.1.0",
+      "roleKey": "petroleum_engineer",
+      "position": "petroleum engineer",
+      "specialization": "Petroleum Engineering",
+      "terminology": [
+        "reservoir simulation",
+        "CMG",
+        "Eclipse",
+        "Petrel",
+        "well testing",
+        "nodal analysis",
+        "water cut",
+        "GOR",
+        "bottomhole pressure",
+        "wellhead pressure",
+        "productivity index",
+        "decline curve",
+        "artificial lift",
+        "ESP",
+        "gas lift",
+        "HSE",
+        "permit to work",
+        "PVT",
+        "material balance",
+        "history matching"
+      ],
+      "suggestedAnchorQuestions": [
+        "شنو أهم مشروع بترولي اشتغلت عليه — أكاديمي أو ميداني — وشنو كان دورك؟",
+        "شلون تقرأ بيانات بئر أو مكمن عشان تتخذ قرار — شنو المؤشرات اللي تبدي بيها؟",
+        "اذكرلي موقف اضطررت تختار بين السلامة وضغط الإنتاج — شنو سويت؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "محاكاة",
+            "cmg",
+            "eclipse",
+            "petrel",
+            "ما عندي خبرة ميدانية",
+            "نظري",
+            "thesis",
+            "graduation project"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "محاكاة مكمن",
+            "بيانات أكاديمية",
+            "PVT lab"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع تخرج أو محاكاة مكمن سويتها — شنو كان الهدف وشنو تعلمت؟",
+            "شنو أصعب مفهوم بترولي درسته وطبّقته بمثال نظري أو محاكاة؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة حقل",
+            "اسأل عن مدخلات وافتراضات النموذج"
+          ],
+          "rubricAdjustments": "اقبل أدلة أكاديمية ومحاكاة — لا تخصم غياب تجربة حقل."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op",
+            "فترة تدريب"
+          ],
+          "acceptableEvidence": [
+            "ملاحظات ميدان",
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي شنو شفت وشنو تعلمت بفترة التدريب بنفط وغاز؟",
+            "شنو أهم أداة أو إجراء تعرّفت عليه بالموقع وأنت متدرب؟"
+          ],
+          "followUpHints": [
+            "اسأل عن دور الفريق والإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بترولية بعد التخرج — شنو سويت وشنو ساعدك؟",
+            "شلون تتأكد إن تحليلك صحيح وأنت لسه مبتدئ؟"
+          ],
+          "followUpHints": [
+            "اطلب خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "حقل",
+            "بئر",
+            "ميدان",
+            "اشتغلت",
+            "water cut",
+            "gor",
+            "well testing",
+            "field"
+          ],
+          "acceptableEvidence": [
+            "بيانات حقيقية",
+            "إجراء ميداني",
+            "نتيجة قابلة للقياس"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي بئر أو حقل اشتغلت عليه — شنو كان التحدي وشنو البيانات اللي راجعتها؟",
+            "شلون فرّقت بين مشكلة مكمن ومشكلة رفع اصطناعي بحالة حقيقية؟"
+          ],
+          "followUpHints": [
+            "اطلب أرقام ومؤشرات",
+            "اسأل عن النتيجة بعد الإجراء"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية",
+            "تحسين إنتاج"
+          ],
+          "acceptableEvidence": [
+            "قرار استراتيجي",
+            "قيادة فريق",
+            "تحسين قابل للقياس"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار تشغيلي أو فني مهم قدته — شنو كان التأثير على الإنتاج أو الفريق؟",
+            "شلون قدت تحسين إنتاج أو عملية بحقل أو مجموعة آبار؟"
+          ],
+          "followUpHints": [
+            "اسأل عن trade-offs ومخاطر"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "switched from",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "مهارات قابلة للنقل",
+            "تعلم بترول",
+            "نتائج مبكرة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لهندسة البترول وشنو نقلته من مجالك السابق؟",
+            "شنو أصعب فرق لاحظته بين مجالك السابق والنفط والغاز؟"
+          ],
+          "followUpHints": [
+            "اربط بمثال تعلم سريع"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "petroleum_experienced",
+          "steps": [
+            {
+              "stepKey": "experience_mode",
+              "topicLabel": "Experience mode",
+              "sampleQuestion": "خبرتك أكثر أكاديمية ولا ميدانية ولا الاثنين؟"
+            },
+            {
+              "stepKey": "background",
+              "topicLabel": "Background",
+              "sampleQuestion": "شنو نوع المشاريع اللي اشتغلت عليها — حفر، إنتاج، محاكاة؟"
+            },
+            {
+              "stepKey": "project_example",
+              "competencyKey": "field_data_analysis",
+              "topicLabel": "Project example",
+              "sampleQuestion": "اذكرلي مثال محدد — شنو المشكلة وشنو البيانات اللي استخدمتها؟"
+            },
+            {
+              "stepKey": "data_reviewed",
+              "competencyKey": "field_data_analysis",
+              "topicLabel": "Data reviewed",
+              "sampleQuestion": "شنو المؤشرات أو التقارير اللي راجعتها قبل القرار؟"
+            },
+            {
+              "stepKey": "problem",
+              "topicLabel": "Problem",
+              "sampleQuestion": "شنو كان أصعب جزء بالتحليل أو التشخيص؟"
+            },
+            {
+              "stepKey": "analysis",
+              "competencyKey": "reservoir_fundamentals",
+              "topicLabel": "Analysis",
+              "sampleQuestion": "شلون وصلت للسبب الجذري — شنو الخطوات؟"
+            },
+            {
+              "stepKey": "action",
+              "competencyKey": "production_operations",
+              "topicLabel": "Action",
+              "sampleQuestion": "شنو الإجراء اللي اقترحته أو نفذته؟"
+            },
+            {
+              "stepKey": "result",
+              "topicLabel": "Result",
+              "sampleQuestion": "شنو النتيجة أو التعلم اللي طلع من هالحالة؟"
+            }
+          ]
+        },
+        {
+          "pathKey": "petroleum_academic_only",
+          "steps": [
+            {
+              "stepKey": "experience_mode",
+              "topicLabel": "Academic background",
+              "sampleQuestion": "شنو تركيزك بالجامعة — مكمن، حفر، إنتاج؟"
+            },
+            {
+              "stepKey": "graduation_project",
+              "competencyKey": "simulation_and_tools",
+              "topicLabel": "Graduation project",
+              "sampleQuestion": "اذكرلي مشروع تخرجك — شنو النموذج أو الأداة اللي استخدمتها؟"
+            },
+            {
+              "stepKey": "simulation_data",
+              "competencyKey": "simulation_and_tools",
+              "topicLabel": "Simulation data",
+              "sampleQuestion": "شنو المدخلات والافتراضات اللي بنيت عليها المحاكاة؟"
+            },
+            {
+              "stepKey": "findings",
+              "competencyKey": "reservoir_fundamentals",
+              "topicLabel": "Findings",
+              "sampleQuestion": "شنو أهم نتيجة طلعت من المشروع أو المحاكاة؟"
+            },
+            {
+              "stepKey": "learning",
+              "topicLabel": "Learning",
+              "sampleQuestion": "شنو التحدي الأكبر وشنو تعلمت منه؟"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "survey_engineer": {
+      "packKey": "survey_engineer",
+      "packVersion": "1.1.0",
+      "roleKey": "survey_engineer",
+      "position": "survey engineer",
+      "specialization": "Survey Engineering",
+      "terminology": [
+        "GPS",
+        "GNSS",
+        "RTK",
+        "Total Station",
+        "leveling",
+        "benchmark",
+        "control point",
+        "coordinate system",
+        "UTM",
+        "geoid",
+        "datum",
+        "traversing",
+        "stakeout",
+        "as-built survey",
+        "topographic survey",
+        "closure error",
+        "accuracy tolerance"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي مشروع مسح أو رفع طبوغرافي — شنو كان نوعه وشنو دورك؟",
+        "شنو الجهاز أو الطريقة اللي استخدمتها أكثر — GPS ولا Total Station ولا غيره؟",
+        "شلون تتأكد من دقة الإحداثيات قبل ما تسلّم الملف؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "اكاديمي",
+            "بدون ميدان",
+            "thesis"
+          ],
+          "acceptableEvidence": [
+            "مشاريع جامعية",
+            "معمل",
+            "تمارين إحداثيات"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع مساحة أو رفع طبوغرافي درستته بالجامعة — شنو تعلمت؟",
+            "شنو أهم مفهوم إحداثيات أو دقة درسته نظرياً؟"
+          ],
+          "followUpHints": [
+            "لا تفترض معدات ميدانية بلا ذكر"
+          ]
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "trainee"
+          ],
+          "acceptableEvidence": [
+            "مهام ميدانية محدودة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي شنو سويت بفترة التدريب بمشروع مسح — شنو كان دورك؟",
+            "شنو أول جهاز تعاملت ويةه بالميدان؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف والسلامة"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مشروع",
+            "تعلم أدوات"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مشروع مسح اشتغلت عليه — شنو الأداة وشنو التحدي؟",
+            "شلون تطلب المساعدة لما تتردد بالدقة؟"
+          ],
+          "followUpHints": [
+            "اطلب خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "gps",
+            "gnss",
+            "total station",
+            "rtk",
+            "ميدان",
+            "اشتغلت",
+            "مسح",
+            "field"
+          ],
+          "acceptableEvidence": [
+            "مشروع حقيقي",
+            "دقة",
+            "تصحيح أخطاء"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي مشروع مسح صعب — شنو الأداة وشنو معيار الدقة اللي التزمت بيه؟",
+            "شلون تعاملت وية فرق إحداثيات أو إغلاق خطأ قبل التسليم؟"
+          ],
+          "followUpHints": [
+            "ميّز GPS عن Total Station حسب كلام المرشح"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "supervisor",
+            "قاد",
+            "مسؤول مساحة"
+          ],
+          "acceptableEvidence": [
+            "إدارة فريق",
+            "مراجعة QA",
+            "تسليم للعميل"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي مشروع قدت فيه فريق مسح — شنو ضبطت الجودة والدقة؟",
+            "شلون راجعت مخرجات الفريق قبل التسليم للعميل؟"
+          ],
+          "followUpHints": [
+            "اسأل عن معايير القبول"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم مساحة",
+            "شهادات",
+            "مشروع انتقالي"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت للمساحة وشنو نقلته من مجالك السابق؟",
+            "شنو أصعب فرق بين شغلك السابق ومهندس المساحة؟"
+          ],
+          "followUpHints": [
+            "اربط بمثال تعلم أدوات"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "survey_default",
+          "steps": [
+            {
+              "stepKey": "project_type",
+              "competencyKey": "survey_project_setup",
+              "topicLabel": "Project type",
+              "sampleQuestion": "شنو نوع مشروع المسح اللي اشتغلت عليه — طبوغرافي، stakeout، as-built؟"
+            },
+            {
+              "stepKey": "tool_used",
+              "competencyKey": "instrument_selection",
+              "topicLabel": "Tool used",
+              "sampleQuestion": "شنو الجهاز أو النظام اللي استخدمته ولماذا اخترته؟"
+            },
+            {
+              "stepKey": "coordinate_control",
+              "competencyKey": "coordinate_control",
+              "topicLabel": "Coordinate control",
+              "sampleQuestion": "شلون ثبتّ نقاط التحكم أو نظام الإحداثيات بالمشروع؟"
+            },
+            {
+              "stepKey": "accuracy_check",
+              "competencyKey": "accuracy_qc",
+              "topicLabel": "Accuracy check",
+              "sampleQuestion": "شنو فحوصات الدقة اللي سويتها قبل التسليم؟"
+            },
+            {
+              "stepKey": "issue_error",
+              "competencyKey": "field_problem_solving",
+              "topicLabel": "Issue/error",
+              "sampleQuestion": "اذكرلي خطأ أو مشكلة ميدانية واجهتها — شنو كان السبب؟"
+            },
+            {
+              "stepKey": "correction",
+              "competencyKey": "field_problem_solving",
+              "topicLabel": "Correction",
+              "sampleQuestion": "شلون صححت الخطأ أو عالجت المشكلة؟"
+            },
+            {
+              "stepKey": "deliverable",
+              "competencyKey": "deliverable_reporting",
+              "topicLabel": "Deliverable",
+              "sampleQuestion": "شنو سلّمت بالنهاية وكيف تأكدت إن الملف مقبول؟"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    }
+  }
+}

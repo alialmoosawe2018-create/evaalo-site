@@ -135,6 +135,7 @@ export const DesignProvider = ({ children }) => {
         questions,
         setQuestions,
         editingQuestionIndex,
+        setEditingQuestionIndex,
         currentQuestionType,
         setCurrentQuestionType,
         showQuestionModal,
@@ -164,6 +165,25 @@ export const DesignProvider = ({ children }) => {
         </DesignContext.Provider>
     );
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -4,10 +4,12 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
-# Environment variables (keep .env.production and .env.development templates)
+# Environment variables
 .env
 .env.local
-# .env.production and .env.development should be committed (they contain public URLs)
+.env.production
+backend/.env
+frontend/.env
 
 # Build outputs
 dist/

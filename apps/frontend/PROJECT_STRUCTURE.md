@@ -11,7 +11,7 @@ cursor-react/
 │   ├── vite.config.js
 │   └── ...
 │
-├── backend/               # Backend (Node.js + Express + Vapi)
+├── backend/               # Backend (Node.js + Express)
 │   ├── src/
 │   │   ├── server.ts
 │   │   ├── assistant.ts

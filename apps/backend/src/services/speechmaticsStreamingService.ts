@@ -5,7 +5,7 @@
 
 import { createSpeechmaticsJWT } from "@speechmatics/auth";
 import { RealtimeClient } from "@speechmatics/real-time-client";
-import { getVoiceVadSettings } from "../voice/voiceTimingEnv.js";
+import { getVoiceVadSettings } from "../evaalo-only-voice/voiceTimingEnv.js";
 
 function getSpeechmaticsApiKey(): string | undefined {
   const raw = process.env.SPEECHMATICS_API_KEY;
@@ -29,6 +29,28 @@ const speechmaticsConnections = new Map<
   }
 >();
 
+function isSocketNotReadyError(error: unknown): boolean {
+  const msg = (error as { message?: string })?.message || String(error || "");
+  return /not ready to receive audio|socket not ready|websocket is not open/i.test(msg);
+}
+
+/**
+ * ثقة تمثيلية للمقطع النهائي: متوسط ثقة كل الكلمات بدل أول كلمة فقط.
+ * مهم للتبديل اللغوي (ar_en): الكلمات الإنجليزية داخل جملة عربية تأتي أحياناً
+ * بثقة أقل، فلا يجب أن تُسقط كلمة واحدة منخفضة الثقة المقطع كاملاً.
+ */
+function computeSegmentConfidence(results: any): number {
+  if (!Array.isArray(results) || results.length === 0) return 1;
+  const confs: number[] = [];
+  for (const r of results) {
+    if (r?.type && r.type !== "word") continue; // تجاهل علامات الترقيم
+    const c = r?.alternatives?.[0]?.confidence;
+    if (typeof c === "number" && Number.isFinite(c)) confs.push(c);
+  }
+  if (confs.length === 0) return 1;
+  return confs.reduce((a, b) => a + b, 0) / confs.length;
+}
+
 async function flushBufferedAudio(sessionId: string): Promise<void> {
   const conn = speechmaticsConnections.get(sessionId);
   if (!conn || !conn.client || !conn.isOpen || !conn.isReadyForAudio) return;
@@ -39,7 +61,22 @@ async function flushBufferedAudio(sessionId: string): Promise<void> {
     while (conn.buffer.length > 0) {
       const chunk = conn.buffer.shift();
       if (!chunk || chunk.length === 0) continue;
-      conn.client.sendAudio(chunk);
+      try {
+        conn.client.sendAudio(chunk);
+      } catch (error) {
+        // Race condition: SDK socket may still not be ready even if our flag is true.
+        if (isSocketNotReadyError(error)) {
+          conn.buffer.unshift(chunk);
+          conn.isReadyForAudio = false;
+          setTimeout(() => {
+            const current = speechmaticsConnections.get(sessionId);
+            if (!current || !current.isOpen || !current.isReadyForAudio) return;
+            flushBufferedAudio(sessionId).catch(() => {});
+          }, 250);
+          return;
+        }
+        throw error;
+      }
     }
   } catch (error) {
     console.error("❌ Error flushing buffered Speechmatics audio:", error);
@@ -86,7 +123,7 @@ export async function createSpeechmaticsConnection(
       if (data.message === "AddTranscript") {
         const transcript = data.metadata?.transcript || "";
         if (transcript.trim().length > 0) {
-          const confidence = data.results?.[0]?.alternatives?.[0]?.confidence ?? 1;
+          const confidence = computeSegmentConfidence(data.results);
           onTranscript(transcript.trim(), true, confidence);
         }
       } else if (data.message === "RecognitionStarted") {
@@ -151,16 +188,11 @@ export async function createSpeechmaticsConnection(
 
     conn.isOpen = true;
 
-    // Fallback: sometimes RecognitionStarted arrives late; avoid blocking forever.
+    // If RecognitionStarted is late, keep buffering audio (bounded) instead of forcing ready.
     setTimeout(() => {
       const current = speechmaticsConnections.get(sessionId);
       if (!current || !current.isOpen || current.isReadyForAudio) return;
-      current.isReadyForAudio = true;
-      flushBufferedAudio(sessionId).catch((e) =>
-        console.error("❌ Error flushing buffered chunk after readiness fallback:", e)
-      );
-      if (current.onReady) current.onReady();
-      console.warn(`⚠️ Speechmatics readiness fallback used: ${sessionId.substring(0, 8)}...`);
+      console.warn(`⚠️ Speechmatics still not ready (waiting RecognitionStarted): ${sessionId.substring(0, 8)}...`);
     }, 1500);
 
     if (conn.onReady && conn.isReadyForAudio) {
@@ -199,6 +231,14 @@ export async function sendAudioToSpeechmatics(
       conn.client.sendAudio(audioChunk);
     }
   } catch (error) {
+    if (isSocketNotReadyError(error)) {
+      conn.isReadyForAudio = false;
+      conn.buffer.push(audioChunk);
+      if (conn.buffer.length > 200) {
+        conn.buffer.splice(0, conn.buffer.length - 200);
+      }
+      return;
+    }
     console.error("❌ Error sending audio to Speechmatics:", error);
     conn.onError(error as Error);
   }

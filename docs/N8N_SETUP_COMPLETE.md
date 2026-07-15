@@ -2,7 +2,7 @@
 
 ## 🔗 رابط n8n Webhook:
 ```
-https://n8ninstance.amtus.org/webhook/4f87a279-ec6b-404f-bc8e-a47ac49d0e2b
+https://n8n.amtus.org/webhook/cc4f6e33-27c8-444e-bd55-e21963bb7e56
 ```
 
 ## ✅ ما تم إنجازه:
@@ -17,7 +17,7 @@ https://n8ninstance.amtus.org/webhook/4f87a279-ec6b-404f-bc8e-a47ac49d0e2b
 
 افتح ملف `apps/backend/.env` وتأكد من وجود:
 ```env
-N8N_WEBHOOK_URL=https://n8ninstance.amtus.org/webhook/4f87a279-ec6b-404f-bc8e-a47ac49d0e2b
+N8N_WEBHOOK_URL=https://n8n.amtus.org/webhook/cc4f6e33-27c8-444e-bd55-e21963bb7e56
 ```
 
 ### 2. إعادة تشغيل Backend:
@@ -79,7 +79,7 @@ npm run dev
 ### 1. عند تقديم استمارة جديدة:
 - **Event**: `candidate_submitted`
 - **Trigger**: بعد حفظ البيانات في MongoDB
-- **URL**: `https://n8ninstance.amtus.org/webhook/4f87a279-ec6b-404f-bc8e-a47ac49d0e2b`
+- **URL**: `https://n8n.amtus.org/webhook/cc4f6e33-27c8-444e-bd55-e21963bb7e56`
 
 ### 2. عند تحديث حالة المرشح:
 - **Event**: `candidate_status_updated`

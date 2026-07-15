@@ -1,6 +1,6 @@
 // ============================================
 // ملف: services/sttRouterService.ts
-// الوظيفة: توجيه STT حسب اللغة (LID → Deepgram إنجليزي | Speechmatics عربي | Whisper fallback)
+// الوظيفة: توجيه STT — بث Speechmatics ثنائي اللغة (ar_en) عند التوفّر، ثم Deepgram للإنجليزي إن نقص SM، ثم batch
 // ============================================
 
 import axios from "axios";
@@ -21,7 +21,8 @@ import {
   closeSpeechmaticsConnection,
   hasSpeechmaticsConnection,
 } from "./speechmaticsStreamingService.js";
-import { getVoiceVadSettings } from "../voice/voiceTimingEnv.js";
+import { getVoiceVadSettings } from "../evaalo-only-voice/voiceTimingEnv.js";
+import { getSttPurgeToken } from "../evaalo-only-voice/sttPurgeToken.js";
 
 /** لقطة إعدادات VAD عند التشغيل — يعاد تشغيل الخادم بعد تغيير .env */
 const STT_VAD = getVoiceVadSettings();
@@ -215,6 +216,7 @@ async function processAudioBuffer(sessionId: string): Promise<void> {
   const shouldProcess = bySilence || byMaxDuration;
   if (!shouldProcess) return;
 
+  const tokenAtBatchStart = getSttPurgeToken(sessionId);
   conn.buffers = [];
   conn.lastProcessTime = now;
   conn.lastLoudTime = now;
@@ -230,6 +232,10 @@ async function processAudioBuffer(sessionId: string): Promise<void> {
       transcript = await deepgramTranscribe(audioData);
     } else {
       transcript = await transcribeWithRouting(audioData);
+    }
+    if (getSttPurgeToken(sessionId) !== tokenAtBatchStart) {
+      console.log(`[STT DROP] ${sessionId.substring(0, 8)}... stale batch transcript (purged while transcribing)`);
+      return;
     }
     if (conn) conn.consecutiveErrors = 0;
 
@@ -263,34 +269,31 @@ export function createSTTRouterConnection(
   language?: string
 ): void {
   const preferEn = language === "en" || language === "english";
-  const preferAr = language === "ar" || language === "arabic";
 
-  // إنجليزي فقط: Deepgram streaming مستمر (لا إغلاق عند TTS)
-  if (preferEn && hasDeepgram()) {
-    if (hasDeepgramConnection(sessionId)) {
-      console.log(`[STT LISTENING] ${sessionId.substring(0, 8)}... Deepgram already open (en)`);
-      if (onReady) onReady();
-      return;
-    }
-    // نغلق فقط إذا كان هناك وضع STT سابق مختلف
-    closeSTTRouterConnection(sessionId);
-    console.log(`[STT START] ${sessionId.substring(0, 8)}... mode: Deepgram streaming (en)`);
-    createDeepgramConnection(sessionId, onTranscript, onError, onReady, "en");
-    if (onReady) onReady();
-    return;
-  }
-
-  // عربي أو auto: Speechmatics streaming (ar_en = عربي+إنجليزي في نفس الجلسة)
-  if ((preferAr || !preferEn) && hasSpeechmatics()) {
+  /** مسار موحّد: Speechmatics ar_en كلما كان المفتاح متوفراً (عربي + إنجليزي في جلسة واحدة)، بغضّ النظر عن language. */
+  if (hasSpeechmatics()) {
     if (hasSpeechmaticsConnection(sessionId)) {
       console.log(`[STT LISTENING] ${sessionId.substring(0, 8)}... Speechmatics already open (ar_en)`);
       if (onReady) onReady();
       return;
     }
-    // نغلق فقط إذا كان هناك وضع STT سابق مختلف
     closeSTTRouterConnection(sessionId);
     console.log(`[STT START] ${sessionId.substring(0, 8)}... mode: Speechmatics streaming (ar_en bilingual)`);
     createSpeechmaticsConnection(sessionId, onTranscript, onError, onReady).catch(() => {});
+    return;
+  }
+
+  /** بدون Speechmatics: جلسة إنجليزية (?language=en) تستخدم Deepgram ثنائي اللغة حتى يُسمع العرب ويُمرَّر للـLLM نصاً صحيحاً. */
+  if (preferEn && hasDeepgram()) {
+    if (hasDeepgramConnection(sessionId)) {
+      console.log(`[STT LISTENING] ${sessionId.substring(0, 8)}... Deepgram already open (multi)`);
+      if (onReady) onReady();
+      return;
+    }
+    closeSTTRouterConnection(sessionId);
+    console.log(`[STT START] ${sessionId.substring(0, 8)}... mode: Deepgram streaming (multi, en site session)`);
+    createDeepgramConnection(sessionId, onTranscript, onError, onReady, "multi");
+    if (onReady) onReady();
     return;
   }
 

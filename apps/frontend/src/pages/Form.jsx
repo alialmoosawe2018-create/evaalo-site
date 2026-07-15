@@ -1,16 +1,68 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useInterviewTemplate } from '../contexts/InterviewTemplateContext';
+import DynamicApplicationForm from '../components/form/DynamicApplicationForm.jsx';
+import { shouldUsePublicDynamicForm } from '../components/form/dynamicFormFeature.js';
+import PositionSuggestCombobox from '../components/PositionSuggestCombobox.jsx';
+import JobRoleFields from '../components/JobRoleFields.jsx';
+import LanguageStyleSingleSelect from '../components/LanguageStyleSingleSelect.jsx';
+import { applyRoleResolutionToState, mergeRoleResolution, roleResolutionCriteriaFields } from '../utils/jobCatalogRole.js';
+import { resolveJobRole } from '@evaalo/job-catalog';
+import { fillI18nTemplate } from '../utils/i18nTemplate.js';
+import { parseInterviewUrlLanguage } from '../utils/interviewShareLink.js';
+import {
+    buildAvailabilityOptions,
+    buildEducationOptions,
+    buildExperienceOptions,
+    buildGenderOptions,
+    buildGovernorateSuggestions,
+    buildHearAboutOptions,
+    buildLanguageLevelOptions,
+    buildLanguageSuggestionOptions,
+    buildSkillSuggestionOptions,
+    languageLevelLabel,
+    SALARY_CURRENCY_OPTIONS,
+} from '../utils/formSelectOptions.js';
 import '../styles.css';
+import apiClient, { ApiError } from '../services/apiClient.js';
 
-const Form = () => {
+const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+
+const LegacyApplicationForm = () => {
     const { t, currentLang } = useLanguage();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { templates, selectedTemplate } = useInterviewTemplate();
     const templateId = searchParams.get('template');
     const campaignId = searchParams.get('campaign'); // قراءة campaign ID من URL
+    const isPreviewMode = searchParams.get('preview') === '1';
+    const formPageDir = currentLang === 'ar' || currentLang === 'ku' ? 'rtl' : 'ltr';
+
+    const genderOptions = useMemo(() => buildGenderOptions(t), [t, currentLang]);
+    const educationOptions = useMemo(() => buildEducationOptions(t), [t, currentLang]);
+    const experienceOptions = useMemo(() => buildExperienceOptions(t), [t, currentLang]);
+    const availabilityOptions = useMemo(() => buildAvailabilityOptions(t), [t, currentLang]);
+    const hearAboutOptions = useMemo(() => buildHearAboutOptions(t), [t, currentLang]);
+    const languageLevelOptions = useMemo(() => buildLanguageLevelOptions(t), [t, currentLang]);
+    const governorateSuggestions = useMemo(
+        () => buildGovernorateSuggestions(currentLang),
+        [currentLang],
+    );
+    const skillSuggestionOptions = useMemo(
+        () => buildSkillSuggestionOptions(currentLang),
+        [currentLang],
+    );
+    const languageSuggestionOptions = useMemo(
+        () => buildLanguageSuggestionOptions(currentLang),
+        [currentLang],
+    );
+
+    const ft = (fieldId) => t(`formField_${fieldId}`);
+    const fph = (fieldId) => t(`formField_${fieldId}_ph`);
+    const requiredErr = (fieldId) =>
+        fillI18nTemplate(t('formValidation_required'), { field: ft(fieldId) });
+
     const [currentSection, setCurrentSection] = useState(0);
     
     // تحديد القالب المستخدم (من URL أو المختار في Context)
@@ -19,16 +71,23 @@ const Form = () => {
         : selectedTemplate;
     const [formData, setFormData] = useState({
         // Personal Information
-        firstName: '',
-        lastName: '',
+        full_name: '',
         email: '',
         phone: '',
         location: '',
+        gender: '',
         // Professional Details
-        positionAppliedFor: '',
-        yearsOfExperience: '',
-        currentCompany: '',
-        highestEducationLevel: '',
+        position_applied_for: '',
+        roleKey: '',
+        careerLevel: '',
+        managementTrack: '',
+        labelKey: '',
+        roleMatchSource: '',
+        researchDomain: '',
+        company_applied_to: '',
+        years_of_experience: '',
+        current_company: '',
+        highest_education_level: '',
         linkedin: '',
         // Skills
         skills: [],
@@ -36,8 +95,7 @@ const Form = () => {
         certifications: '',
         // Additional
         availability: '',
-        salaryMin: '',
-        salaryMax: '',
+        expectedSalary: '',
         salaryCurrency: 'USD',
         coverLetter: '',
         hearAboutUs: '',
@@ -47,50 +105,101 @@ const Form = () => {
     const [languages, setLanguages] = useState([]);
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [cvFile, setCvFile] = useState(null);
+    const [photoFile, setPhotoFile] = useState(null);
+    const [cvPreview, setCvPreview] = useState(null);
+    const [photoPreview, setPhotoPreview] = useState(null);
+    const [languageInputValue, setLanguageInputValue] = useState('');
+    const [languageLevelDraft, setLanguageLevelDraft] = useState('');
+    const [skillInputValue, setSkillInputValue] = useState('');
+    const honeypotRef = useRef(null);
 
-    const sections = ['personal', 'professional', 'skills', 'additional'];
+    const sections = ['personal', 'professional', 'skills', 'additional', 'files'];
+    const progressPercent = isPreviewMode
+        ? 100
+        : Math.round(((currentSection + 1) / sections.length) * 100);
+    const inputPreviewProps = isPreviewMode ? { readOnly: true, tabIndex: -1 } : {};
 
     useEffect(() => {
+        if (isPreviewMode) return;
         // Load saved form data from localStorage
         const savedData = localStorage.getItem('applicationFormData');
         if (savedData) {
             try {
                 const parsed = JSON.parse(savedData);
+                const legacyMap = [
+                    ['fullName', 'full_name'],
+                    ['positionAppliedFor', 'position_applied_for'],
+                    ['companyAppliedTo', 'company_applied_to'],
+                    ['yearsOfExperience', 'years_of_experience'],
+                    ['currentCompany', 'current_company'],
+                    ['highestEducationLevel', 'highest_education_level'],
+                ];
+                for (const [oldK, newK] of legacyMap) {
+                    if ((parsed[newK] === undefined || parsed[newK] === '') && parsed[oldK] != null) {
+                        parsed[newK] = parsed[oldK];
+                    }
+                    delete parsed[oldK];
+                }
+                if (!parsed.full_name && (parsed.firstName || parsed.lastName)) {
+                    parsed.full_name = [parsed.firstName, parsed.lastName].filter(Boolean).join(' ').trim();
+                    delete parsed.firstName;
+                    delete parsed.lastName;
+                }
+                if (parsed.salaryMin != null || parsed.salaryMax != null) {
+                    if (!parsed.expectedSalary && (parsed.salaryMin || parsed.salaryMax)) {
+                        parsed.expectedSalary =
+                            parsed.salaryMin && parsed.salaryMax
+                                ? `${parsed.salaryMin}–${parsed.salaryMax}`
+                                : String(parsed.salaryMin || parsed.salaryMax || '');
+                    }
+                    delete parsed.salaryMin;
+                    delete parsed.salaryMax;
+                }
+                const allowedCurrency = ['USD', 'IQD'];
+                if (parsed.salaryCurrency != null) {
+                    const c = String(parsed.salaryCurrency).trim().toUpperCase();
+                    parsed.salaryCurrency = allowedCurrency.includes(c) ? c : 'USD';
+                }
+                delete parsed.files;
+                delete parsed.cv;
+                delete parsed.photo;
+                if (parsed.position_applied_for && !parsed.roleKey) {
+                    const resolved = resolveJobRole(String(parsed.position_applied_for));
+                    if (resolved.roleKey) {
+                        parsed.roleKey = resolved.roleKey;
+                        parsed.careerLevel = resolved.careerLevel ?? '';
+                        parsed.managementTrack = resolved.managementTrack ?? '';
+                        parsed.labelKey = resolved.labelKey ?? '';
+                        parsed.roleMatchSource = resolved.matchSource ?? '';
+                        parsed.position_applied_for = resolved.displayTitle || parsed.position_applied_for;
+                    }
+                }
                 setFormData(prev => ({ ...prev, ...parsed }));
             } catch (e) {
                 console.error('Error loading saved form data:', e);
             }
         }
-
-        // Remove body padding and change background for Form page
-        const originalBodyStyle = {
-            padding: document.body.style.padding,
-            background: document.body.style.background,
-            margin: document.body.style.margin
-        };
-        
-        document.body.style.padding = '0';
-        document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-        document.body.style.margin = '0';
-
-        // Cleanup: restore original body style when component unmounts
-        return () => {
-            document.body.style.padding = originalBodyStyle.padding || '';
-            document.body.style.background = originalBodyStyle.background || '';
-            document.body.style.margin = originalBodyStyle.margin || '';
-        };
-    }, []);
+    }, [isPreviewMode]);
 
     // Save form data to localStorage whenever it changes
     useEffect(() => {
+        if (isPreviewMode) return;
         localStorage.setItem('applicationFormData', JSON.stringify(formData));
-    }, [formData]);
+    }, [formData, isPreviewMode]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        const nextValue =
+            name === 'salaryCurrency'
+                ? ['USD', 'IQD'].includes(String(value).toUpperCase())
+                    ? String(value).toUpperCase()
+                    : 'USD'
+                : value;
         setFormData(prev => ({
             ...prev,
-            [name]: value
+            [name]: nextValue
         }));
         // Clear error for this field
         if (errors[name]) {
@@ -102,18 +211,90 @@ const Form = () => {
         }
     };
 
+    const handleRoleResolved = (resolution) => {
+        setFormData((prev) =>
+            applyRoleResolutionToState(
+                { ...prev, position_applied_for: resolution?.displayTitle ?? prev.position_applied_for },
+                resolution
+            )
+        );
+    };
+
+    const handleFileChange = (e, fileType) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (fileType === 'cv') {
+            // Validate CV file type - PDF only
+            const allowedTypes = ['application/pdf'];
+            if (!allowedTypes.includes(file.type)) {
+                setErrors(prev => ({
+                    ...prev,
+                    cvFile: fillI18nTemplate(t('formValidation_file'), { field: ft('cv') }),
+                }));
+                return;
+            }
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                setErrors(prev => ({
+                    ...prev,
+                    cvFile: fillI18nTemplate(t('formValidation_maxFileSize'), { max: '5MB' }),
+                }));
+                return;
+            }
+            setCvFile(file);
+            setCvPreview(file.name);
+            if (errors.cvFile) {
+                setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.cvFile;
+                    return newErrors;
+                });
+            }
+        } else if (fileType === 'photo') {
+            // Validate photo file type
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            if (!allowedTypes.includes(file.type)) {
+                setErrors(prev => ({
+                    ...prev,
+                    photoFile: fillI18nTemplate(t('formValidation_file'), { field: ft('photo') }),
+                }));
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                setErrors(prev => ({
+                    ...prev,
+                    photoFile: fillI18nTemplate(t('formValidation_maxFileSize'), { max: '2MB' }),
+                }));
+                return;
+            }
+            setPhotoFile(file);
+            // Create preview URL
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPhotoPreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+            if (errors.photoFile) {
+                setErrors(prev => {
+                    const newErrors = { ...prev };
+                    delete newErrors.photoFile;
+                    return newErrors;
+                });
+            }
+        }
+    };
+
 
     const addSkill = () => {
-        const skillInput = document.getElementById('skillInput');
-        if (skillInput && skillInput.value.trim()) {
-            const newSkill = skillInput.value.trim();
-            setSkills(prev => [...prev, newSkill]);
-            setFormData(prev => ({
-                ...prev,
-                skills: [...prev.skills, newSkill]
-            }));
-            skillInput.value = '';
-        }
+        if (!skillInputValue.trim()) return;
+        const newSkill = skillInputValue.trim();
+        setSkills(prev => [...prev, newSkill]);
+        setFormData(prev => ({
+            ...prev,
+            skills: [...prev.skills, newSkill]
+        }));
+        setSkillInputValue('');
     };
 
     const removeSkill = (index) => {
@@ -128,21 +309,18 @@ const Form = () => {
     };
 
     const addLanguage = () => {
-        const langInput = document.getElementById('languageInput');
-        const langLevel = document.getElementById('languageLevel');
-        if (langInput && langInput.value.trim() && langLevel && langLevel.value) {
-            const newLanguage = {
-                name: langInput.value.trim(),
-                level: langLevel.value
-            };
-            setLanguages(prev => [...prev, newLanguage]);
-            setFormData(prev => ({
-                ...prev,
-                languages: [...prev.languages, newLanguage]
-            }));
-            langInput.value = '';
-            langLevel.value = '';
-        }
+        if (!languageInputValue.trim() || !languageLevelDraft) return;
+        const newLanguage = {
+            name: languageInputValue.trim(),
+            level: languageLevelDraft
+        };
+        setLanguages(prev => [...prev, newLanguage]);
+        setFormData(prev => ({
+            ...prev,
+            languages: [...prev.languages, newLanguage]
+        }));
+        setLanguageInputValue('');
+        setLanguageLevelDraft('');
     };
 
     const removeLanguage = (index) => {
@@ -160,22 +338,38 @@ const Form = () => {
     const validateSection = (sectionIndex) => {
         const newErrors = {};
         
-        if (sectionIndex === 0) { // Personal Information
-            if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
-            if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+        if (sectionIndex === 0) {
+            if (!formData.full_name.trim()) newErrors.full_name = requiredErr('full_name');
             if (!formData.email.trim()) {
-                newErrors.email = 'Email is required';
+                newErrors.email = requiredErr('email');
             } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-                newErrors.email = 'Invalid email format';
+                newErrors.email = fillI18nTemplate(t('formValidation_invalidFormat'), {
+                    field: ft('email'),
+                });
             }
-            if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
-        } else if (sectionIndex === 1) { // Professional Details
-            if (!formData.positionAppliedFor.trim()) newErrors.positionAppliedFor = 'Position applied for is required';
-            if (!formData.yearsOfExperience.trim()) newErrors.yearsOfExperience = 'Years of experience is required';
-        } else if (sectionIndex === 2) { // Skills
-            if (formData.skills.length < 3) newErrors.skills = 'Add at least 3 skills';
-        } else if (sectionIndex === 3) { // Additional
-            if (!formData.agreeToTerms) newErrors.agreeToTerms = 'You must agree to the Terms and Conditions';
+            if (!formData.phone.trim()) newErrors.phone = requiredErr('phone');
+        } else if (sectionIndex === 1) {
+            if (!String(formData.roleKey || formData.position_applied_for || '').trim()) {
+                newErrors.position_applied_for = requiredErr('position_applied_for');
+            }
+            if (!formData.years_of_experience.trim()) {
+                newErrors.years_of_experience = requiredErr('years_of_experience');
+            }
+        } else if (sectionIndex === 2) {
+            if (formData.skills.length < 3) {
+                newErrors.skills = fillI18nTemplate(t('formValidation_minItems'), {
+                    min: 3,
+                    field: ft('skills'),
+                });
+            }
+        } else if (sectionIndex === 3) {
+            if (!formData.agreeToTerms) {
+                newErrors.agreeToTerms = fillI18nTemplate(t('formValidation_required'), {
+                    field: t('formField_agreeToTerms'),
+                });
+            }
+        } else if (sectionIndex === 4) {
+            if (!cvFile) newErrors.cvFile = requiredErr('cv');
         }
 
         setErrors(newErrors);
@@ -200,6 +394,7 @@ const Form = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isPreviewMode) return;
         
         // Validate all sections
         let isValid = true;
@@ -215,6 +410,13 @@ const Form = () => {
             return;
         }
 
+        const honeypotValue = honeypotRef.current?.value?.trim() || '';
+        if (honeypotValue) {
+            console.warn('Honeypot triggered — discarding submission');
+            alert('Application submitted successfully!');
+            return;
+        }
+
         setIsSubmitting(true);
         
         // إرسال البيانات إلى Backend
@@ -223,179 +425,137 @@ const Form = () => {
             const submitController = new AbortController();
             const submitTimeoutId = setTimeout(() => submitController.abort(), 30000); // 30 seconds timeout
             
-            // تحويل languages من objects إلى strings (Backend يتوقع array of strings)
-            const languagesAsStrings = formData.languages.map(lang => {
-                if (typeof lang === 'string') {
-                    return lang;
-                } else if (lang && lang.name && lang.level) {
-                    return `${lang.name} (${lang.level})`;
-                }
-                return String(lang);
-            });
-            
             // إضافة campaign ID إلى البيانات إذا كان موجوداً في URL
             const dataToSend = campaignId 
-                ? { ...formData, languages: languagesAsStrings, campaignId }
-                : { ...formData, languages: languagesAsStrings };
+                ? { ...formData, campaignId }
+                : formData;
+
+            const roleMetaKeys = new Set([
+                'roleKey',
+                'careerLevel',
+                'managementTrack',
+                'labelKey',
+                'roleMatchSource',
+            ]);
+            const skipBodyKeys = new Set([
+                ...roleMetaKeys,
+                'files',
+                'cv',
+                'photo',
+            ]);
+
+            // Create FormData for file uploads
+            const formDataToSend = new FormData();
             
-            // التحقق من البيانات قبل الإرسال
-            console.log('📋 Form data to send:', JSON.stringify(dataToSend, null, 2));
-            console.log('🌐 Languages converted:', languagesAsStrings);
-            console.log('🔍 Required fields check:');
-            console.log('  - firstName:', dataToSend.firstName ? '✅' : '❌', dataToSend.firstName);
-            console.log('  - lastName:', dataToSend.lastName ? '✅' : '❌', dataToSend.lastName);
-            console.log('  - email:', dataToSend.email ? '✅' : '❌', dataToSend.email);
-            console.log('  - phone:', dataToSend.phone ? '✅' : '❌', dataToSend.phone);
-            
-            // استخدام VITE_API_URL في الإنتاج، أو IP السيرفر في التطوير
-            let apiUrl = import.meta.env.VITE_API_URL;
-            const hostname = window.location.hostname;
-            
-            // إذا كان على الدومين (www.evaalo.com أو evaalo.com)، استخدم رابط الباك إند على الإنترنت دائماً
-            if (hostname === 'www.evaalo.com' || hostname === 'evaalo.com') {
-                apiUrl = 'https://evaalo-backend.onrender.com';
-            } else if (!apiUrl) {
-                // في التطوير: استخدام hostname الحالي (يعمل من أي جهاز)
-                apiUrl = `http://${hostname}:5000`;
-            }
-            
-            console.log('🌐 API URL:', apiUrl, '| Hostname:', hostname, '| VITE_API_URL:', import.meta.env.VITE_API_URL);
-            console.log('📤 Sending request to:', `${apiUrl}/api/candidates`);
-            
-            const response = await fetch(`${apiUrl}/api/candidates`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(dataToSend),
-                signal: submitController.signal
+            // Add all form fields
+            Object.keys(dataToSend).forEach(key => {
+                if (skipBodyKeys.has(key)) return;
+                if (key === 'skills' || key === 'languages') {
+                    // Handle arrays
+                    formDataToSend.append(key, JSON.stringify(dataToSend[key]));
+                } else if (key === 'agreeToTerms') {
+                    // Handle boolean
+                    formDataToSend.append(key, dataToSend[key] ? 'true' : 'false');
+                } else {
+                    formDataToSend.append(key, dataToSend[key] || '');
+                }
             });
+
+            for (const [key, value] of Object.entries(roleResolutionCriteriaFields(dataToSend))) {
+                formDataToSend.append(key, value);
+            }
+
+            // Add files if they exist
+            if (cvFile) {
+                formDataToSend.append('cv', cvFile);
+            }
+            if (photoFile) {
+                formDataToSend.append('photo', photoFile);
+            }
+            formDataToSend.append('website', honeypotRef.current?.value ?? '');
+            formDataToSend.append('evaluationLanguage', currentLang === 'en' ? 'en' : 'ar');
             
-            console.log('📥 Response status:', response.status, response.statusText);
+            const response = await apiClient.postForm('/api/candidates', formDataToSend, {
+                signal: submitController.signal,
+            });
             
             clearTimeout(submitTimeoutId);
 
-            // Check if response is ok before trying to parse JSON
-            if (!response.ok) {
-                let errorMessage = 'Failed to create candidate';
-                let errorDetails = null;
-                try {
-                    const errorData = await response.json();
-                    console.error('❌ Backend error response (full):', JSON.stringify(errorData, null, 2));
-                    console.error('❌ Error keys:', Object.keys(errorData));
-                    console.error('❌ Error.error:', errorData.error);
-                    console.error('❌ Error.message:', errorData.message);
-                    console.error('❌ Error.details:', errorData.details);
-                    console.error('❌ Error.missingFields:', errorData.missingFields);
-                    
-                    errorMessage = errorData.error || errorData.message || errorMessage;
-                    errorDetails = errorData.details || errorData.missingFields || null;
-                    
-                    // تحسين رسالة الخطأ حسب نوع الخطأ
-                    if (errorData.error === 'Database not connected') {
-                        errorMessage = 'قاعدة البيانات غير متصلة. يرجى المحاولة لاحقاً.';
-                    } else if (errorData.error === 'Email already exists') {
-                        errorMessage = 'هذا البريد الإلكتروني مسجل بالفعل.';
-                    } else if (errorData.error === 'Missing required fields') {
-                        errorMessage = 'يرجى ملء جميع الحقول المطلوبة.';
-                        if (errorData.missingFields && Array.isArray(errorData.missingFields)) {
-                            errorMessage += `\nالحقول المفقودة: ${errorData.missingFields.join(', ')}`;
-                        }
-                    } else if (errorData.error === 'Validation error') {
-                        errorMessage = 'خطأ في البيانات المدخلة. يرجى التحقق من جميع الحقول.';
-                        if (errorData.details && Array.isArray(errorData.details)) {
-                            const fieldErrors = errorData.details.map((d) => `${d.field}: ${d.message}`).join('\n');
-                            errorMessage += `\n\nالتفاصيل:\n${fieldErrors}`;
-                        }
-                    } else if (errorData.error === 'Failed to create candidate') {
-                        // إذا كان الخطأ عام، استخدم الرسالة التفصيلية
-                        errorMessage = errorData.message || errorMessage;
-                    }
-                } catch (e) {
-                    // If response is not JSON, use status text
-                    console.error('❌ Failed to parse error response:', e);
-                    const textResponse = await response.text();
-                    console.error('❌ Response text:', textResponse);
-                    errorMessage = response.statusText || errorMessage;
+            if (!response.success) {
+                let errorMsg = response.error || response.message || 'Failed to submit application';
+                if (Array.isArray(response.details) && response.details.length > 0) {
+                    errorMsg =
+                        response.details.map((d) => d.message).filter(Boolean).join('; ') ||
+                        errorMsg;
+                } else if (response.error === 'Email already exists') {
+                    errorMsg = t('formSubmit_emailExists');
                 }
-                
-                // إنشاء رسالة خطأ مفصلة
-                if (errorDetails && !errorMessage.includes('التفاصيل')) {
-                    if (Array.isArray(errorDetails)) {
-                        errorMessage += `\n\nالحقول المطلوبة: ${errorDetails.join(', ')}`;
-                    } else if (typeof errorDetails === 'object') {
-                        errorMessage += `\n\nالتفاصيل: ${JSON.stringify(errorDetails, null, 2)}`;
-                    } else {
-                        errorMessage += `\n\nالتفاصيل: ${errorDetails}`;
-                    }
-                }
-                
-                console.error('❌ Final error message:', errorMessage);
-                throw new Error(errorMessage);
-            }
-
-            const result = await response.json();
-
-            if (!result.success) {
-                // Better error message based on error type
-                let errorMsg = result.error || result.message || 'Failed to submit application';
-                
-                // Check if it's a database connection issue
-                if (result.error === 'Database not connected' || result.message?.includes('database')) {
-                    errorMsg = 'قاعدة البيانات غير متصلة. يرجى التحقق من اتصال قاعدة البيانات.';
-                } else if (result.error === 'Email already exists') {
-                    errorMsg = 'هذا البريد الإلكتروني مسجل بالفعل.';
-                } else if (result.error === 'Missing required fields') {
-                    errorMsg = 'يرجى ملء جميع الحقول المطلوبة.';
-                }
-                
                 throw new Error(errorMsg);
             }
 
-            console.log('Form submitted successfully:', result);
+            console.log('Form submitted successfully:', response);
             
-            // Show success message
-            alert('Application submitted successfully!');
+            setSubmitSuccess(true);
             
             // Clear form data
             localStorage.removeItem('applicationFormData');
             setFormData({
-                firstName: '', lastName: '', email: '', phone: '', location: '',
-                positionAppliedFor: '', yearsOfExperience: '', currentCompany: '',
-                highestEducationLevel: '', linkedin: '',
+                full_name: '', email: '', phone: '', location: '', gender: '',
+                position_applied_for: '', company_applied_to: '', years_of_experience: '', current_company: '',
+                highest_education_level: '', linkedin: '',
                 skills: [], languages: [], certifications: '',
-                availability: '', salaryMin: '', salaryMax: '', salaryCurrency: 'USD',
+                availability: '', expectedSalary: '', salaryCurrency: 'USD',
                 coverLetter: '', hearAboutUs: '', agreeToTerms: false
             });
             setSkills([]);
             setLanguages([]);
+            setLanguageInputValue('');
+            setLanguageLevelDraft('');
+            setSkillInputValue('');
             setCurrentSection(0);
+            setCvFile(null);
+            setPhotoFile(null);
+            setCvPreview(null);
+            setPhotoPreview(null);
+            // Clear file inputs
+            const cvInput = document.getElementById('cvFile');
+            const photoInput = document.getElementById('photo');
+            if (cvInput) cvInput.value = '';
+            if (photoInput) photoInput.value = '';
             
-            // Navigate to home
+            // التوجيه إلى Stage 1 — ملفات المرشح في جدول «بانتظار التقييم» أدناه
             setTimeout(() => {
-                navigate('/');
-            }, 2000);
+                const screeningUrl = campaignId
+                    ? `/screening?campaignId=${encodeURIComponent(campaignId)}`
+                    : '/screening';
+                navigate(screeningUrl);
+            }, 1800);
         } catch (error) {
-            console.error('❌ Error submitting form:', error);
-            console.error('Error name:', error.name);
-            console.error('Error message:', error.message);
-            console.error('Error stack:', error.stack);
+            console.error('Error submitting form:', error);
             
             // Better error messages
-            let errorMessage = 'خطأ في إرسال الطلب. يرجى المحاولة مرة أخرى.';
+            let errorMessage = t('formSubmit_error');
             
-            if (error.name === 'AbortError') {
+            if (error instanceof ApiError) {
+                if (error.data?.code === 'APPLICATION_VALIDATION_FAILED' && Array.isArray(error.data.details)) {
+                    errorMessage =
+                        error.data.details.map((d) => d.message).filter(Boolean).join('; ') ||
+                        errorMessage;
+                } else if (error.data?.error === 'Email already exists') {
+                    errorMessage = t('formSubmit_emailExists');
+                } else if (error.data?.error === 'Database not connected' || error.data?.message?.includes('database')) {
+                    errorMessage = 'قاعدة البيانات غير متصلة. يرجى التحقق من اتصال قاعدة البيانات.';
+                } else if (error.data?.error === 'Missing required fields') {
+                    errorMessage = 'يرجى ملء جميع الحقول المطلوبة.';
+                } else {
+                    errorMessage = error.data?.message || error.data?.error || error.message || errorMessage;
+                }
+            } else if (error.name === 'AbortError') {
                 errorMessage = 'انتهت مهلة الاتصال. يرجى التحقق من الاتصال والمحاولة مرة أخرى.';
             } else if (error.message && error.message.includes('Cannot connect')) {
                 errorMessage = error.message;
             } else if (error.message && error.message.includes('Failed to fetch')) {
-                // تحسين رسالة الخطأ حسب البيئة
-                const hostname = window.location.hostname;
-                if (hostname === 'www.evaalo.com' || hostname === 'evaalo.com') {
-                    errorMessage = 'لا يمكن الاتصال بالخادم الخلفي. يرجى التحقق من أن الخادم يعمل على https://evaalo-backend.onrender.com';
-                } else {
-                    errorMessage = 'لا يمكن الاتصال بالخادم. يرجى التأكد من أن الخادم الخلفي يعمل على http://localhost:5000';
-                }
+                errorMessage = `لا يمكن الاتصال بالخادم. يرجى التأكد من أن الخادم الخلفي يعمل على ${API_BASE}`;
             } else if (error.message) {
                 errorMessage = error.message;
             }
@@ -408,78 +568,362 @@ const Form = () => {
 
     const renderPersonalSection = () => (
         <div className="form-section">
-            <h2 className="section-title">Personal Information</h2>
+            <h2 className="section-title">{t('formSection_personal')}</h2>
             <div>
                 <div className="form-group">
-                    <label htmlFor="firstName">First Name</label>
+                    <label htmlFor="full_name">{ft('full_name')}</label>
                     <input
                         type="text"
-                        id="firstName"
-                        name="firstName"
-                        value={formData.firstName}
+                        id="full_name"
+                        name="full_name"
+                        value={formData.full_name}
                         onChange={handleInputChange}
-                        placeholder="Enter your first name"
-                        className={errors.firstName ? 'error' : ''}
-                        required
+                        placeholder={fph('full_name')}
+                        className={errors.full_name ? 'error' : ''}
+                        required={!isPreviewMode}
+                        {...inputPreviewProps}
                     />
-                    {errors.firstName && <span className="error-message">{errors.firstName}</span>}
+                    {errors.full_name && <span className="error-message">{errors.full_name}</span>}
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="lastName">Last Name</label>
-                    <input
-                        type="text"
-                        id="lastName"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleInputChange}
-                        placeholder="Enter your last name"
-                        className={errors.lastName ? 'error' : ''}
-                        required
-                    />
-                    {errors.lastName && <span className="error-message">{errors.lastName}</span>}
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="email">Email Address</label>
+                    <label htmlFor="email">{ft('email')}</label>
                     <input
                         type="email"
                         id="email"
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        placeholder="your.email@example.com"
+                        placeholder={fph('email')}
                         className={errors.email ? 'error' : ''}
-                        required
+                        required={!isPreviewMode}
+                        {...inputPreviewProps}
                     />
                     {errors.email && <span className="error-message">{errors.email}</span>}
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="phone">Phone Number</label>
+                    <label htmlFor="phone">{ft('phone')}</label>
                     <input
                         type="tel"
                         id="phone"
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
-                        placeholder="(123) 456-7890"
+                        placeholder={fph('phone')}
                         className={errors.phone ? 'error' : ''}
-                        required
+                        required={!isPreviewMode}
+                        {...inputPreviewProps}
                     />
                     {errors.phone && <span className="error-message">{errors.phone}</span>}
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="location">Location</label>
-                    <input
-                        type="text"
+                    <label htmlFor="location">{ft('location')}</label>
+                    <PositionSuggestCombobox
                         id="location"
                         name="location"
                         value={formData.location}
                         onChange={handleInputChange}
-                        placeholder="City, State/Country"
+                        placeholder={fph('location')}
+                        suggestions={governorateSuggestions}
+                        listboxId="form-location-suggestions"
+                        disabled={isPreviewMode}
                     />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="gender">{ft('gender')}</label>
+                    <LanguageStyleSingleSelect
+                        id="gender"
+                        value={formData.gender}
+                        onChange={(val) =>
+                            handleInputChange({ target: { name: 'gender', value: val } })
+                        }
+                        options={genderOptions}
+                        placeholder={fph('gender')}
+                        aria-label={ft('gender')}
+                        listboxId="form-gender-menu"
+                        disabled={isPreviewMode}
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label>{ft('languages')}</label>
+                    <div className="input-with-button">
+                        <div
+                        style={{ flex: 1, marginRight: '10px', minWidth: 0 }}>
+                            <PositionSuggestCombobox
+                                id="languageInput"
+                                name="languageInput"
+                                value={languageInputValue}
+                                onChange={(e) => setLanguageInputValue(e.target.value)}
+                                placeholder={fph('languages')}
+                                suggestionOptions={languageSuggestionOptions}
+                                listboxId="form-language-suggestions"
+                                disabled={isPreviewMode}
+                            />
+                        </div>
+                        <div
+                        style={{ flex: 1, marginRight: '10px', minWidth: 0 }}>
+                            <LanguageStyleSingleSelect
+                                id="languageLevel"
+                                value={languageLevelDraft}
+                                onChange={setLanguageLevelDraft}
+                                options={languageLevelOptions}
+                                placeholder={t('formField_languageLevel_ph')}
+                                aria-label={t('formField_languageLevel_ph')}
+                                listboxId="form-language-level-menu"
+                                disabled={isPreviewMode}
+                            />
+                        </div>
+                        {!isPreviewMode && (
+                        <button type="button" className="btn btn-secondary" onClick={addLanguage}>
+                            {t('formAdd')}
+                        </button>
+                        )}
+                    </div>
+                    <div className="tags-container">
+                        {languages.map((lang, index) => (
+                            <span key={index} className="tag">
+                                {lang.name} ({languageLevelLabel(t, lang.level)})
+                                {!isPreviewMode && (
+                                <button type="button" className="tag-remove" onClick={() => removeLanguage(index)}>×</button>
+                                )}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderFilesSection = () => (
+        <div className="form-section">
+            <h2 className="section-title">{t('formSection_files')}</h2>
+            <div>
+                <div className="form-group">
+                    <label htmlFor="photo">{ft('photo')}</label>
+                    <div
+                        className="form-upload-dropzone"
+                        style={{
+                        border: '2px dashed rgba(91, 66, 246, 0.4)',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        background: 'linear-gradient(135deg, rgba(91, 66, 246, 0.05), rgba(139, 92, 246, 0.05))',
+                        transition: 'all 0.3s ease',
+                        cursor: isPreviewMode ? 'default' : 'pointer',
+                        position: 'relative'
+                    }}
+                    {...(!isPreviewMode && {
+                        onMouseEnter: (e) => {
+                            e.currentTarget.style.borderColor = 'rgba(91, 66, 246, 0.6)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(91, 66, 246, 0.1), rgba(139, 92, 246, 0.1))';
+                        },
+                        onMouseLeave: (e) => {
+                            e.currentTarget.style.borderColor = 'rgba(91, 66, 246, 0.4)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(91, 66, 246, 0.05), rgba(139, 92, 246, 0.05))';
+                        },
+                        onClick: () => document.getElementById('photo').click(),
+                    })}
+                    >
+                        {!photoPreview ? (
+                            <div style={{ textAlign: 'center' }}>
+                                <div className="form-upload-empty-icon">📷</div>
+                                <div className="form-upload-empty-title">
+                                    {t('formUpload_click')}
+                                </div>
+                                <div className="form-upload-empty-hint">
+                                    {t('formUpload_photoHint')}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="form-upload-preview">
+                                <img 
+                                    src={photoPreview} 
+                                    alt="Profile preview" 
+                                    style={{ 
+                                        width: '120px', 
+                                        height: '120px', 
+                                        borderRadius: '12px',
+                                        border: '2px solid rgba(91, 66, 246, 0.3)',
+                                        objectFit: 'cover',
+                                        boxShadow: '0 4px 12px rgba(91, 66, 246, 0.2)'
+                                    }} 
+                                />
+                                <div style={{ flex: 1 }}>
+                                    <div className="form-upload-preview-title">
+                                        {t('formUpload_photoDone')}
+                                    </div>
+                                    {!isPreviewMode && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPhotoFile(null);
+                                            setPhotoPreview(null);
+                                            const photoInput = document.getElementById('photo');
+                                            if (photoInput) photoInput.value = '';
+                                        }}
+                                        style={{
+                                            padding: '8px 16px',
+                                            background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
+                                        }}
+                                    >
+                                        {t('formUpload_remove')}
+                                    </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {!isPreviewMode && (
+                        <input
+                            type="file"
+                            id="photo"
+                            accept="image/jpeg,image/jpg,image/png,image/gif"
+                            onChange={(e) => handleFileChange(e, 'photo')}
+                            style={{ display: 'none' }}
+                        />
+                        )}
+                        {errors.photoFile && (
+                            <div
+                        style={{ marginTop: '12px', color: '#EF4444', fontSize: '13px' }}>
+                                {errors.photoFile}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="cvFile">{ft('cv')}</label>
+                    <div
+                        className="form-upload-dropzone"
+                        style={{
+                        border: '2px dashed rgba(6, 182, 212, 0.4)',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(59, 130, 246, 0.05))',
+                        transition: 'all 0.3s ease',
+                        cursor: isPreviewMode ? 'default' : 'pointer',
+                        position: 'relative'
+                    }}
+                    {...(!isPreviewMode && {
+                        onMouseEnter: (e) => {
+                            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.6)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(59, 130, 246, 0.1))';
+                        },
+                        onMouseLeave: (e) => {
+                            e.currentTarget.style.borderColor = 'rgba(6, 182, 212, 0.4)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(59, 130, 246, 0.05))';
+                        },
+                        onClick: () => document.getElementById('cvFile').click(),
+                    })}
+                    >
+                        {!cvPreview ? (
+                            <div style={{ textAlign: 'center' }}>
+                                <div className="form-upload-empty-icon">📄</div>
+                                <div className="form-upload-empty-title">
+                                    {t('formUpload_click')}
+                                </div>
+                                <div className="form-upload-empty-hint">
+                                    {t('formUpload_cvHint')}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="form-upload-preview">
+                                <div
+                                    style={{
+                                    width: '64px',
+                                    height: '64px',
+                                    borderRadius: '12px',
+                                    background: 'linear-gradient(135deg, #06B6D4, #3B82F6)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '32px',
+                                    boxShadow: '0 4px 12px rgba(6, 182, 212, 0.3)'
+                                }}>
+                                    📄
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div
+                                        className="form-upload-preview-title"
+                                        style={{ wordBreak: 'break-word', marginBottom: '4px' }}
+                                    >
+                                        {cvPreview}
+                                    </div>
+                                    <div className="form-upload-empty-hint" style={{ marginBottom: '8px' }}>
+                                        {t('formUpload_cvDone')}
+                                    </div>
+                                    {!isPreviewMode && (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setCvFile(null);
+                                            setCvPreview(null);
+                                            const cvInput = document.getElementById('cvFile');
+                                            if (cvInput) cvInput.value = '';
+                                        }}
+                                        style={{
+                                            padding: '8px 16px',
+                                            background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                                            transition: 'all 0.3s ease'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-2px)';
+                                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
+                                        }}
+                                    >
+                                        {t('formUpload_remove')}
+                                    </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {!isPreviewMode && (
+                        <input
+                            type="file"
+                            id="cvFile"
+                            accept=".pdf,application/pdf"
+                            onChange={(e) => handleFileChange(e, 'cv')}
+                            style={{ display: 'none' }}
+                        />
+                        )}
+                        {errors.cvFile && (
+                            <div
+                        style={{ marginTop: '12px', color: '#EF4444', fontSize: '13px' }}>
+                                {errors.cvFile}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
@@ -487,89 +931,108 @@ const Form = () => {
 
     const renderProfessionalSection = () => (
         <div className="form-section">
-            <h2 className="section-title">Professional Information</h2>
+            <h2 className="section-title">{t('formSection_professional')}</h2>
             <div>
                 <div className="form-group">
-                    <label htmlFor="positionAppliedFor">Position Applied For</label>
-                    <select
-                        id="positionAppliedFor"
-                        name="positionAppliedFor"
-                        value={formData.positionAppliedFor}
-                        onChange={handleInputChange}
-                        className={errors.positionAppliedFor ? 'error' : ''}
-                        required
-                    >
-                        <option value="">Select a position</option>
-                        <option value="software-engineer">Software Engineer</option>
-                        <option value="frontend-developer">Frontend Developer</option>
-                        <option value="backend-developer">Backend Developer</option>
-                        <option value="fullstack-developer">Full Stack Developer</option>
-                        <option value="data-scientist">Data Scientist</option>
-                        <option value="product-manager">Product Manager</option>
-                        <option value="designer">Designer</option>
-                        <option value="other">Other</option>
-                    </select>
-                    {errors.positionAppliedFor && <span className="error-message">{errors.positionAppliedFor}</span>}
+                    <label htmlFor="position_applied_for">{ft('position_applied_for')}</label>
+                    <JobRoleFields
+                        roleKey={formData.roleKey || ''}
+                        careerLevel={formData.careerLevel || ''}
+                        researchDomain={formData.researchDomain || ''}
+                        position={formData.position_applied_for || ''}
+                        onRoleResolved={handleRoleResolved}
+                        onStateChange={setFormData}
+                        roleInputId="position_applied_for"
+                        roleInputName="position_applied_for"
+                        levelInputId="form-career-level"
+                        levelInputName="careerLevel"
+                        rolePlaceholder={fph('position_applied_for')}
+                        levelPlaceholder={t('jobRole_level_placeholder')}
+                        roleListboxId="legacy-form-position-suggestions"
+                        disabled={isPreviewMode}
+                        roleRequired={!isPreviewMode}
+                        layout="stacked"
+                        roleInputClassName={errors.position_applied_for ? 'error' : ''}
+                        levelInputClassName={errors.position_applied_for ? 'error' : ''}
+                        levelInputStyle={{ width: '100%', marginTop: '8px' }}
+                    />
+                    <span style={{ display: 'block', marginTop: '6px', fontSize: '12px', color: 'var(--text-secondary, #64748b)' }}>
+                        {t('formHelp_positionRole')}
+                    </span>
+                    {errors.position_applied_for && <span className="error-message">{errors.position_applied_for}</span>}
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="yearsOfExperience">Years of Experience</label>
-                    <select
-                        id="yearsOfExperience"
-                        name="yearsOfExperience"
-                        value={formData.yearsOfExperience}
-                        onChange={handleInputChange}
-                        className={errors.yearsOfExperience ? 'error' : ''}
-                        required
-                    >
-                        <option value="">Select years</option>
-                        <option value="0-1">0-1 years</option>
-                        <option value="2-3">2-3 years</option>
-                        <option value="4-5">4-5 years</option>
-                        <option value="6-10">6-10 years</option>
-                        <option value="10+">10+ years</option>
-                    </select>
-                    {errors.yearsOfExperience && <span className="error-message">{errors.yearsOfExperience}</span>}
-                </div>
-
-                <div className="form-group">
-                    <label htmlFor="currentCompany">Current Company</label>
+                    <label htmlFor="company_applied_to">{ft('company_applied_to')}</label>
                     <input
                         type="text"
-                        id="currentCompany"
-                        name="currentCompany"
-                        value={formData.currentCompany}
+                        id="company_applied_to"
+                        name="company_applied_to"
+                        value={formData.company_applied_to}
                         onChange={handleInputChange}
-                        placeholder="Your current employer (optional)"
+                        placeholder={fph('company_applied_to')}
+                        {...inputPreviewProps}
                     />
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="highestEducationLevel">Highest Education Level</label>
-                    <select
-                        id="highestEducationLevel"
-                        name="highestEducationLevel"
-                        value={formData.highestEducationLevel}
+                    <label htmlFor="years_of_experience">{ft('years_of_experience')}</label>
+                    <PositionSuggestCombobox
+                        id="years_of_experience"
+                        name="years_of_experience"
+                        value={formData.years_of_experience}
                         onChange={handleInputChange}
-                    >
-                        <option value="">Select education level</option>
-                        <option value="high-school">High School</option>
-                        <option value="bachelor">Bachelor's Degree</option>
-                        <option value="master">Master's Degree</option>
-                        <option value="phd">PhD</option>
-                        <option value="other">Other</option>
-                    </select>
+                        suggestionOptions={experienceOptions}
+                        placeholder={fph('years_of_experience')}
+                        className={errors.years_of_experience ? 'error' : ''}
+                        required={!isPreviewMode}
+                        listboxId="form-years-experience-suggestions"
+                        disabled={isPreviewMode}
+                    />
+                    {errors.years_of_experience && <span className="error-message">{errors.years_of_experience}</span>}
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="linkedin">LinkedIn Profile</label>
+                    <label htmlFor="current_company">{ft('current_company')}</label>
+                    <input
+                        type="text"
+                        id="current_company"
+                        name="current_company"
+                        value={formData.current_company}
+                        onChange={handleInputChange}
+                        placeholder={fph('current_company')}
+                        {...inputPreviewProps}
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="highest_education_level">{ft('highest_education_level')}</label>
+                    <LanguageStyleSingleSelect
+                        id="highest_education_level"
+                        value={formData.highest_education_level}
+                        onChange={(val) =>
+                            handleInputChange({
+                                target: { name: 'highest_education_level', value: val },
+                            })
+                        }
+                        options={educationOptions}
+                        placeholder={fph('highest_education_level')}
+                        aria-label={ft('highest_education_level')}
+                        listboxId="form-highest-education-menu"
+                        disabled={isPreviewMode}
+                    />
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="linkedin">{ft('linkedin')}</label>
                     <input
                         type="url"
                         id="linkedin"
                         name="linkedin"
                         value={formData.linkedin}
                         onChange={handleInputChange}
-                        placeholder="https://linkedin.com/in/yourprofile"
+                        placeholder={fph('linkedin')}
+                        {...inputPreviewProps}
                     />
                 </div>
             </div>
@@ -578,79 +1041,65 @@ const Form = () => {
 
     const renderSkillsSection = () => (
         <div className="form-section">
-            <h2 className="section-title">Skills & Qualifications</h2>
+            <h2 className="section-title">{t('formSection_skills')}</h2>
             
             <div className="form-group">
-                <label>Key Skills</label>
+                <label>{ft('skills')}</label>
                 <div className="input-with-button">
-                    <input
-                        type="text"
-                        id="skillInput"
-                        placeholder="Type a skill and press Enter or click Add"
-                        onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                addSkill();
-                            }
-                        }}
-                    />
+                    <div
+                        style={{ flex: 1, minWidth: 0 }}>
+                        <PositionSuggestCombobox
+                            id="skillInput"
+                            name="skillInput"
+                            value={skillInputValue}
+                            onChange={(e) => setSkillInputValue(e.target.value)}
+                            suggestionOptions={skillSuggestionOptions}
+                            placeholder={fph('skills')}
+                            listboxId="form-key-skills-suggestions"
+                            disabled={isPreviewMode}
+                            onKeyDown={(e) => {
+                                if (isPreviewMode) return;
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    addSkill();
+                                }
+                            }}
+                        />
+                    </div>
+                    {!isPreviewMode && (
                     <button type="button" className="btn btn-secondary" onClick={addSkill}>
-                        Add
+                        {t('formAdd')}
                     </button>
+                    )}
                 </div>
                 {errors.skills && <span className="error-message">{errors.skills}</span>}
                 {!errors.skills && formData.skills.length < 3 && (
-                    <span className="help-text">Add at least 3 skills</span>
+                    <span className="help-text">
+                        {fillI18nTemplate(t('formValidation_minItems'), { min: 3, field: ft('skills') })}
+                    </span>
                 )}
                 <div className="tags-container">
                     {skills.map((skill, index) => (
                         <span key={index} className="tag">
                             {skill}
+                            {!isPreviewMode && (
                             <button type="button" className="tag-remove" onClick={() => removeSkill(index)}>×</button>
+                            )}
                         </span>
                     ))}
                 </div>
             </div>
 
             <div className="form-group">
-                <label>Languages Spoken</label>
-                <div className="input-with-button">
-                    <input
-                        type="text"
-                        id="languageInput"
-                        placeholder="Language (e.g., English, Spanish)"
-                        style={{ flex: 1, marginRight: '10px' }}
-                    />
-                    <select id="languageLevel" style={{ marginRight: '10px' }}>
-                        <option value="">Level</option>
-                        <option value="beginner">Beginner</option>
-                        <option value="intermediate">Intermediate</option>
-                        <option value="advanced">Advanced</option>
-                        <option value="native">Native</option>
-                    </select>
-                    <button type="button" className="btn btn-secondary" onClick={addLanguage}>
-                        Add
-                    </button>
-                </div>
-                <div className="tags-container">
-                    {languages.map((lang, index) => (
-                        <span key={index} className="tag">
-                            {lang.name} ({lang.level})
-                            <button type="button" className="tag-remove" onClick={() => removeLanguage(index)}>×</button>
-                        </span>
-                    ))}
-                </div>
-            </div>
-
-            <div className="form-group">
-                <label htmlFor="certifications">Certifications</label>
+                <label htmlFor="certifications">{ft('certifications')}</label>
                 <textarea
                     id="certifications"
                     name="certifications"
                     value={formData.certifications}
                     onChange={handleInputChange}
                     rows="4"
-                    placeholder="List any professional certifications you hold..."
+                    placeholder={fph('certifications')}
+                    {...inputPreviewProps}
                 />
             </div>
         </div>
@@ -658,60 +1107,57 @@ const Form = () => {
 
     const renderAdditionalSection = () => (
         <div className="form-section">
-            <h2 className="section-title">Additional Information</h2>
+            <h2 className="section-title">{t('formSection_additional')}</h2>
             
             <div className="form-group">
-                <label htmlFor="availability">Availability</label>
-                <select
+                <label htmlFor="availability">{ft('availability')}</label>
+                <PositionSuggestCombobox
                     id="availability"
                     name="availability"
                     value={formData.availability}
                     onChange={handleInputChange}
-                >
-                    <option value="">Select availability</option>
-                    <option value="immediate">Immediate</option>
-                    <option value="1-week">1 Week</option>
-                    <option value="2-weeks">2 Weeks</option>
-                    <option value="1-month">1 Month</option>
-                    <option value="2-months">2+ Months</option>
-                </select>
+                    suggestionOptions={availabilityOptions}
+                    placeholder={fph('availability')}
+                    listboxId="form-availability-suggestions"
+                    disabled={isPreviewMode}
+                />
             </div>
 
             <div className="form-group">
-                <label>Expected Salary Range</label>
+                <label htmlFor="expectedSalary">{ft('expectedSalary')}</label>
                 <div className="salary-range">
                     <input
                         type="number"
-                        id="salaryMin"
-                        name="salaryMin"
-                        value={formData.salaryMin}
+                        id="expectedSalary"
+                        name="expectedSalary"
+                        value={formData.expectedSalary}
                         onChange={handleInputChange}
-                        placeholder="Min"
+                        placeholder={fph('expectedSalary')}
+                        min="0"
+                        step="any"
+                        {...inputPreviewProps}
                     />
-                    <span className="range-separator">-</span>
-                    <input
-                        type="number"
-                        id="salaryMax"
-                        name="salaryMax"
-                        value={formData.salaryMax}
-                        onChange={handleInputChange}
-                        placeholder="Max"
-                    />
-                    <select
+                    <LanguageStyleSingleSelect
                         id="salaryCurrency"
-                        name="salaryCurrency"
-                        value={formData.salaryCurrency}
-                        onChange={handleInputChange}
-                    >
-                        <option value="USD">USD ($)</option>
-                        <option value="EUR">EUR (€)</option>
-                        <option value="GBP">GBP (£)</option>
-                    </select>
+                        className="salary-currency-select"
+                        aria-label={ft('salaryCurrency')}
+                        listboxId="form-salary-currency-menu"
+                        value={
+                            ['USD', 'IQD'].includes(String(formData.salaryCurrency || '').toUpperCase())
+                                ? String(formData.salaryCurrency).trim().toUpperCase()
+                                : 'USD'
+                        }
+                        onChange={(val) =>
+                            handleInputChange({ target: { name: 'salaryCurrency', value: val } })
+                        }
+                        options={SALARY_CURRENCY_OPTIONS}
+                        disabled={isPreviewMode}
+                    />
                 </div>
             </div>
 
             <div className="form-group">
-                <label htmlFor="coverLetter">Cover Letter / Why are you interested in this position?</label>
+                <label htmlFor="coverLetter">{ft('coverLetter')}</label>
                 <textarea
                     id="coverLetter"
                     name="coverLetter"
@@ -719,27 +1165,31 @@ const Form = () => {
                     onChange={handleInputChange}
                     rows="6"
                     maxLength={500}
-                    placeholder="Tell us why you're interested in this role and what makes you a great fit..."
+                    placeholder={fph('coverLetter')}
+                    {...inputPreviewProps}
                 />
-                <span className="char-count">{formData.coverLetter.length}/500 characters</span>
+                <span className="char-count">
+                    {fillI18nTemplate(t('formCharCount'), {
+                        current: formData.coverLetter.length,
+                        max: 500,
+                    })}
+                </span>
             </div>
 
             <div className="form-group">
-                <label htmlFor="hearAboutUs">How did you hear about us?</label>
-                <select
+                <label htmlFor="hearAboutUs">{t('formField_hearAboutUs')}</label>
+                <LanguageStyleSingleSelect
                     id="hearAboutUs"
-                    name="hearAboutUs"
                     value={formData.hearAboutUs}
-                    onChange={handleInputChange}
-                >
-                    <option value="">Select source</option>
-                    <option value="linkedin">LinkedIn</option>
-                    <option value="job-board">Job Board</option>
-                    <option value="company-website">Company Website</option>
-                    <option value="referral">Referral</option>
-                    <option value="social-media">Social Media</option>
-                    <option value="other">Other</option>
-                </select>
+                    onChange={(val) =>
+                        handleInputChange({ target: { name: 'hearAboutUs', value: val } })
+                    }
+                    options={hearAboutOptions}
+                    placeholder={t('formField_hearAboutUs_ph')}
+                    aria-label={t('formField_hearAboutUs')}
+                    listboxId="form-hear-about-menu"
+                    disabled={isPreviewMode}
+                />
             </div>
 
             <div className="form-group">
@@ -751,9 +1201,10 @@ const Form = () => {
                             name="agreeToTerms"
                             checked={formData.agreeToTerms}
                             onChange={(e) => setFormData(prev => ({ ...prev, agreeToTerms: e.target.checked }))}
-                            required
+                            required={!isPreviewMode}
+                            disabled={isPreviewMode}
                         />
-                        <span>I agree to the <a href="#" target="_blank">Terms and Conditions</a> and <a href="#" target="_blank">Privacy Policy</a> *</span>
+                        <span>{t('formField_agreeToTerms')} *</span>
                     </label>
                     {errors.agreeToTerms && <span className="error-message">{errors.agreeToTerms}</span>}
                 </div>
@@ -761,40 +1212,85 @@ const Form = () => {
         </div>
     );
 
-    return (
-        <div className="container" style={{
-            background: 'transparent',
-            minHeight: '100vh',
-            margin: 0,
-            padding: '40px 20px',
-            width: '100%',
-            maxWidth: '100%'
-        }}>
-            <div className="language-selector-wrapper">
-                <Link to="/" className="form-logo-link">
-                    <img src="/images/last logo.png" alt="evaalo Logo" className="form-logo-image" />
-                </Link>
+    if (submitSuccess) {
+        return (
+            <div className="form-page" dir={formPageDir} lang={currentLang}>
+                <div className="container">
+                    <div className="form-wrapper">
+                        <header className="form-header">
+                            <h1>{t('title') || 'Job Application Form'}</h1>
+                            <p className="subtitle" style={{ color: '#10B981', fontSize: '18px', lineHeight: 1.5 }}>
+                                {t('formSubmit_success')}
+                            </p>
+                            <p className="subtitle" style={{ marginTop: '12px' }}>
+                                {t('writtenInterviewSubtitle')}
+                            </p>
+                        </header>
+                    </div>
+                </div>
             </div>
+        );
+    }
 
+    return (
+        <div
+            className={`form-page${isPreviewMode ? ' form-page--preview' : ''}`}
+            dir={formPageDir}
+            lang={currentLang}
+        >
+        <div className="container">
             <div className="form-wrapper">
                 <header className="form-header">
                     <h1>{t('title') || 'Job Application Form'}</h1>
                     <p className="subtitle">{t('subtitle') || 'Tell us about yourself'}</p>
                     <div className="progress-bar">
-                        <div className="progress-fill" style={{ width: `${((currentSection + 1) / sections.length) * 100}%` }}></div>
+                        <div className="progress-fill" style={{ width: `${progressPercent}%` }}></div>
                     </div>
                     <p className="progress-text">
-                        <span>{Math.round(((currentSection + 1) / sections.length) * 100)}</span>
+                        <span>{progressPercent}</span>
                         <span> {t('complete') || '% Complete'}</span>
                     </p>
                 </header>
 
                 <form id="applicationForm" onSubmit={handleSubmit} noValidate>
-                    {currentSection === 0 && renderPersonalSection()}
-                    {currentSection === 1 && renderProfessionalSection()}
-                    {currentSection === 2 && renderSkillsSection()}
-                    {currentSection === 3 && renderAdditionalSection()}
+                    {!isPreviewMode && (
+                        <input
+                            ref={honeypotRef}
+                            type="text"
+                            name="website"
+                            tabIndex={-1}
+                            autoComplete="off"
+                            aria-hidden="true"
+                            defaultValue=""
+                            style={{
+                                position: 'absolute',
+                                left: '-9999px',
+                                width: '1px',
+                                height: '1px',
+                                opacity: 0,
+                                pointerEvents: 'none',
+                            }}
+                        />
+                    )}
+                    {isPreviewMode ? (
+                        <>
+                            {renderPersonalSection()}
+                            {renderProfessionalSection()}
+                            {renderSkillsSection()}
+                            {renderAdditionalSection()}
+                            {renderFilesSection()}
+                        </>
+                    ) : (
+                        <>
+                            {currentSection === 0 && renderPersonalSection()}
+                            {currentSection === 1 && renderProfessionalSection()}
+                            {currentSection === 2 && renderSkillsSection()}
+                            {currentSection === 3 && renderAdditionalSection()}
+                            {currentSection === 4 && renderFilesSection()}
+                        </>
+                    )}
 
+                    {!isPreviewMode && (
                     <div className="form-navigation">
                         {currentSection > 0 && (
                             <button 
@@ -815,12 +1311,6 @@ const Form = () => {
                                 type="button" 
                                 className="btn btn-primary" 
                                 onClick={handleNext}
-                                style={{
-                                    backgroundColor: '#5B42F6',
-                                    color: '#FFFFFF',
-                                    border: 'none',
-                                    backgroundImage: 'none'
-                                }}
                             >
                                 {t('next') || 'Next'}
                             </button>
@@ -829,21 +1319,35 @@ const Form = () => {
                                 type="submit" 
                                 className="btn btn-submit" 
                                 disabled={isSubmitting}
-                                style={{
-                                    backgroundColor: '#5B42F6',
-                                    color: '#FFFFFF',
-                                    border: 'none',
-                                    backgroundImage: 'none'
-                                }}
                             >
-                                {isSubmitting ? 'Submitting...' : (t('submit') || 'Submit Application')}
+                                {isSubmitting ? t('formSubmitting') : t('submit')}
                             </button>
                         )}
                     </div>
+                    )}
                 </form>
             </div>
         </div>
+        </div>
     );
+};
+
+const Form = () => {
+    const [searchParams] = useSearchParams();
+    const { currentLang, changeLanguage } = useLanguage();
+
+    useEffect(() => {
+        const fromUrl = parseInterviewUrlLanguage(searchParams.get('language'));
+        if (fromUrl && fromUrl !== currentLang) {
+            changeLanguage(fromUrl);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams]);
+
+    if (shouldUsePublicDynamicForm(searchParams)) {
+        return <DynamicApplicationForm pubToken={searchParams.get('pub').trim()} />;
+    }
+    return <LegacyApplicationForm />;
 };
 
 export default Form;

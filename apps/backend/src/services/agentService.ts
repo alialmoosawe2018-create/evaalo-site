@@ -12,14 +12,23 @@ const __dirname = dirname(__filename);
 
 const activeAgents = new Map<string, ChildProcess>();
 const GLOBAL_AGENT_KEY = '__global_agent__';
+const GLOBAL_RECEPTION_AGENT_KEY = '__global_reception_agent__';
 
 const AGENT_PATH = path.resolve(__dirname, '../../../avatar-evaalov2');
+const RECEPTION_AGENT_PATH = path.resolve(__dirname, '../../../avatar-evaalo-reception');
 const AGENT_SCRIPT = path.join(AGENT_PATH, 'src', 'agent.py');
+const RECEPTION_AGENT_SCRIPT = path.join(RECEPTION_AGENT_PATH, 'src', 'agent.py');
 
 function isExternalAgentMode(): boolean {
   return ['1', 'true', 'yes', 'on'].includes(
     String(process.env.AGENT_EXTERNAL_MODE || '').trim().toLowerCase()
   );
+}
+
+function resolveReceptionAgentPath(): string {
+  const raw = String(process.env.RECEPTION_AGENT_PATH || '').trim();
+  if (raw) return path.resolve(raw);
+  return RECEPTION_AGENT_PATH;
 }
 
 type SpawnOptions = {
@@ -82,7 +91,11 @@ async function spawnAgentProcess(options: SpawnOptions): Promise<boolean> {
     ) {
       startupFailed = true;
     }
-    if (key === GLOBAL_AGENT_KEY && (err.includes('WARNING') || err.includes('INFO'))) return;
+    if (
+      (key === GLOBAL_AGENT_KEY || key === GLOBAL_RECEPTION_AGENT_KEY) &&
+      (err.includes('WARNING') || err.includes('INFO'))
+    )
+      return;
     console.error(`[${label} Error] ${err.trim()}`);
   });
 
@@ -112,6 +125,97 @@ async function spawnAgentProcess(options: SpawnOptions): Promise<boolean> {
 
   if (!startupMatched) {
     console.log(`ℹ️ ${label} is alive (PID: ${proc.pid}), waiting for first job logs...`);
+  }
+  return true;
+}
+
+async function spawnReceptionAgentProcess(options: SpawnOptions): Promise<boolean> {
+  const receptionRoot = resolveReceptionAgentPath();
+  const fs = await import('fs');
+  const scriptPath = path.join(receptionRoot, 'src', 'agent.py');
+  if (!fs.existsSync(scriptPath)) {
+    console.error(`❌ Reception agent script not found: ${scriptPath}`);
+    return false;
+  }
+
+  const isWindows = process.platform === 'win32';
+  const command = isWindows ? 'powershell' : 'uv';
+  const args = isWindows
+    ? [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        `cd "${receptionRoot}"; if (Get-Command uv -ErrorAction SilentlyContinue) { uv run python src/agent.py dev } elseif (Get-Command python -ErrorAction SilentlyContinue) { python src/agent.py dev } elseif (Get-Command py -ErrorAction SilentlyContinue) { py -3 src/agent.py dev } else { Write-Host "python runtime not found"; exit 1 }`,
+      ]
+    : ['run', 'python', 'src/agent.py', 'dev'];
+
+  let startupMatched = false;
+  let startupFailed = false;
+
+  const proc = spawn(command, args, {
+    cwd: receptionRoot,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: false,
+    env: { ...process.env, PYTHONUNBUFFERED: '1', LOG_LEVEL: 'INFO' },
+  });
+
+  activeAgents.set(options.key, proc);
+
+  proc.stdout?.on('data', (data: Buffer) => {
+    const output = data.toString();
+    if (options.successPatterns.some((p) => output.includes(p))) {
+      startupMatched = true;
+      console.log(`✅ ${options.label} started (PID: ${proc.pid})`);
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[${options.label}] ${output.trim()}`);
+    }
+  });
+
+  proc.stderr?.on('data', (data: Buffer) => {
+    const err = data.toString();
+    if (
+      err.includes('SyntaxError') ||
+      err.includes('Traceback') ||
+      err.includes('ModuleNotFoundError') ||
+      err.includes('ImportError')
+    ) {
+      startupFailed = true;
+    }
+    if (
+      (options.key === GLOBAL_AGENT_KEY || options.key === GLOBAL_RECEPTION_AGENT_KEY) &&
+      (err.includes('WARNING') || err.includes('INFO'))
+    )
+      return;
+    console.error(`[${options.label} Error] ${err.trim()}`);
+  });
+
+  proc.on('exit', (code, signal) => {
+    console.log(`⚠️ ${options.label} exited`, { code, signal });
+    activeAgents.delete(options.key);
+  });
+
+  proc.on('error', (err) => {
+    console.error(`❌ Failed to start ${options.label}`, err);
+    activeAgents.delete(options.key);
+  });
+
+  await new Promise((r) => setTimeout(r, options.waitMs));
+
+  if (proc.killed || proc.exitCode !== null || proc.signalCode !== null || startupFailed) {
+    activeAgents.delete(options.key);
+    if (proc.exitCode !== null || proc.signalCode !== null) {
+      console.error(`❌ ${options.label} failed during startup`, {
+        exitCode: proc.exitCode,
+        signal: proc.signalCode,
+      });
+    }
+    return false;
+  }
+
+  if (!startupMatched) {
+    console.log(`ℹ️ ${options.label} is alive (PID: ${proc.pid}), waiting for first job logs...`);
   }
   return true;
 }
@@ -208,6 +312,36 @@ export async function ensureAgentRunning(): Promise<boolean> {
   return ok;
 }
 
+/** وكيل الاستقبال (evaalo-reception-agent) — مشروع Python منفصل */
+export async function ensureReceptionAgentRunning(): Promise<boolean> {
+  if (isExternalAgentMode()) {
+    console.log(`ℹ️ AGENT_EXTERNAL_MODE=true: backend expects reception agent externally`);
+    return true;
+  }
+  const existing = activeAgents.get(GLOBAL_RECEPTION_AGENT_KEY);
+  if (existing && !existing.killed) {
+    console.log(`ℹ️ Reception Agent Service already running (PID: ${existing.pid})`);
+    return true;
+  }
+  if (existing) activeAgents.delete(GLOBAL_RECEPTION_AGENT_KEY);
+
+  console.log(`🚀 Starting Reception Agent Service (evaalo-reception)...`);
+  const ok = await spawnReceptionAgentProcess({
+    key: GLOBAL_RECEPTION_AGENT_KEY,
+    label: 'Reception Agent Service',
+    successPatterns: ['registered worker', 'Agent is running'],
+    waitMs: 3000,
+  });
+  if (ok) console.log(`   Reception worker will handle evaalo-reception-agent dispatches`);
+  return ok;
+}
+
+export function isReceptionAgentServiceRunning(): boolean {
+  if (isExternalAgentMode()) return true;
+  const proc = activeAgents.get(GLOBAL_RECEPTION_AGENT_KEY);
+  return proc !== undefined && !proc.killed;
+}
+
 /**
  * التحقق من حالة Agent Service (global)
  */
@@ -223,5 +357,7 @@ export default {
   stopAllAgents,
   isAgentRunning,
   ensureAgentRunning,
+  ensureReceptionAgentRunning,
   isAgentServiceRunning,
+  isReceptionAgentServiceRunning,
 };

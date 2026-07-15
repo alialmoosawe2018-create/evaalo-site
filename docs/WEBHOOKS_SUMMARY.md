@@ -11,7 +11,7 @@
 
 ### الرابط:
 ```
-https://n8ninstance.amtus.org/webhook/4f87a279-ec6b-404f-bc8e-a47ac49d0e2b
+https://n8n.amtus.org/webhook/cc4f6e33-27c8-444e-bd55-e21963bb7e56
 ```
 
 ### الموقع في الكود:
@@ -98,7 +98,7 @@ https://your-domain.com/webhook/vapi
 
 | # | النوع | الاتجاه | الحالة | الرابط/Endpoint |
 |---|-------|---------|--------|------------------|
-| 1 | n8n (إرسال) | Outgoing | ✅ مفعل | `https://n8ninstance.amtus.org/webhook/...` |
+| 1 | n8n (إرسال) | Outgoing | ✅ مفعل | `https://n8n.amtus.org/webhook/cc4f6e33-27c8-444e-bd55-e21963bb7e56` |
 | 2 | n8n (استقبال) | Incoming | ✅ مفعل | `POST /webhook/n8n` |
 | 3 | Vapi | Incoming | ✅ مفعل | `POST /webhook/vapi` |
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import QRCode from 'qrcode';
 import { useDesign } from '../contexts/DesignContext';
-import { getTypeLabel, calculateEstimatedTime, formatTime, applyColorTheme, applyBackgroundColor, applyFontFamily, applyTextColor, loadGoogleFont } from '../utils/designUtils';
+import { getTypeLabel, formatTime, applyColorTheme, applyBackgroundColor, applyFontFamily, applyTextColor, loadGoogleFont } from '../utils/designUtils';
 import { formColorOptions, textColorOptions } from '../utils/colorOptions';
 import { fontOptions } from '../utils/fontOptions';
 import '../design-styles.css';
@@ -12,6 +13,7 @@ const Design = () => {
         questions,
         setQuestions,
         editingQuestionIndex,
+        setEditingQuestionIndex,
         currentQuestionType,
         setCurrentQuestionType,
         showQuestionModal,
@@ -35,7 +37,7 @@ const Design = () => {
         showToast
     } = useDesign();
 
-    const [questionsTitle, setQuestionsTitle] = useState('Interview Questions');
+    const [questionsTitle, setQuestionsTitle] = useState('Form');
     const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
     const [backgroundColorDropdownOpen, setBackgroundColorDropdownOpen] = useState(false);
     const [fontDropdownOpen, setFontDropdownOpen] = useState(false);
@@ -48,9 +50,17 @@ const Design = () => {
     const [questionFormData, setQuestionFormData] = useState({});
     const [options, setOptions] = useState([]);
     const [shareLink, setShareLink] = useState('');
+    const [shareQrDataUrl, setShareQrDataUrl] = useState('');
+    const [showModelModal, setShowModelModal] = useState(false);
+    const [showConnectModal, setShowConnectModal] = useState(false);
+    const [modelSettings, setModelSettings] = useState({ label: 'Default', temperature: '0.7' });
 
     const questionsListRef = useRef(null);
     const questionsTitleRef = useRef(null);
+    const colorDropdownRef = useRef(null);
+    const backgroundColorDropdownRef = useRef(null);
+    const fontDropdownRef = useRef(null);
+    const textColorDropdownRef = useRef(null);
 
     // Load saved title and settings
     useEffect(() => {
@@ -58,7 +68,11 @@ const Design = () => {
         const timer = setTimeout(() => {
             const savedTitle = localStorage.getItem('questionsTitle');
             if (savedTitle) {
-                setQuestionsTitle(savedTitle);
+                const normalized = savedTitle === 'Interview Questions' ? 'Form' : savedTitle;
+                setQuestionsTitle(normalized);
+                if (normalized !== savedTitle) {
+                    localStorage.setItem('questionsTitle', normalized);
+                }
             }
             
             // Load saved form color theme
@@ -110,20 +124,81 @@ const Design = () => {
         
         return () => clearTimeout(timer);
     }, []);
-    
-    // Close dropdowns when clicking outside
+
     useEffect(() => {
-        const handleClickOutside = (e) => {
-            if (!e.target.closest('.custom-color-dropdown') && !e.target.closest('.custom-font-dropdown')) {
-                setColorDropdownOpen(false);
-                setBackgroundColorDropdownOpen(false);
-                setFontDropdownOpen(false);
-                setTextColorDropdownOpen(false);
-                setCategoryDropdownOpen(false);
+        try {
+            const raw = localStorage.getItem('designAiModelSettings');
+            if (raw) {
+                const p = JSON.parse(raw);
+                if (p && typeof p === 'object') {
+                    setModelSettings((prev) => ({ ...prev, ...p }));
+                }
             }
+        } catch {
+            /* ignore */
+        }
+    }, []);
+
+    /** عند فتح نافذة التعديل: تعبئة الحقول من السؤال الحالي */
+    useEffect(() => {
+        if (!showQuestionModal || editingQuestionIndex === null) return;
+        const q = questions[editingQuestionIndex];
+        if (!q) return;
+        setQuestionFormData({
+            text: q.text || '',
+            timeLimit: q.timeLimit != null && q.timeLimit !== '' ? String(q.timeLimit) : '',
+            points: q.points != null && q.points !== '' ? String(q.points) : '10',
+            required: Boolean(q.required),
+            optionInput: '',
+        });
+        if (Array.isArray(q.options) && q.options.length > 0) {
+            setOptions(
+                q.options.map((o) => (typeof o === 'string' ? { text: o, correct: false } : { text: o.text, correct: Boolean(o.correct) }))
+            );
+        } else {
+            setOptions([]);
+        }
+    }, [showQuestionModal, editingQuestionIndex, questions]);
+
+    useEffect(() => {
+        if (!showShareModal || !shareLink) {
+            setShareQrDataUrl('');
+            return;
+        }
+        let cancelled = false;
+        QRCode.toDataURL(shareLink, { width: 200, margin: 2, color: { dark: '#0f172a', light: '#ffffff' } })
+            .then((url) => {
+                if (!cancelled) setShareQrDataUrl(url);
+            })
+            .catch(() => {
+                if (!cancelled) setShareQrDataUrl('');
+            });
+        return () => {
+            cancelled = true;
         };
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
+    }, [showShareModal, shareLink]);
+    
+    // Close dropdowns when pressing outside (pointerdown avoids races with synthetic click / stopPropagation)
+    useEffect(() => {
+        const handlePointerDownOutside = (e) => {
+            const node = e.target;
+            if (!(node instanceof Node)) return;
+            if (
+                colorDropdownRef.current?.contains(node) ||
+                backgroundColorDropdownRef.current?.contains(node) ||
+                fontDropdownRef.current?.contains(node) ||
+                textColorDropdownRef.current?.contains(node)
+            ) {
+                return;
+            }
+            setColorDropdownOpen(false);
+            setBackgroundColorDropdownOpen(false);
+            setFontDropdownOpen(false);
+            setTextColorDropdownOpen(false);
+            setCategoryDropdownOpen(false);
+        };
+        document.addEventListener('pointerdown', handlePointerDownOutside);
+        return () => document.removeEventListener('pointerdown', handlePointerDownOutside);
     }, []);
     
     // Handle form color selection
@@ -188,6 +263,7 @@ const Design = () => {
         
         if (textColorOption.color === 'none') {
             localStorage.removeItem('formTextColor');
+            localStorage.removeItem('formTextColorHex');
         } else {
             localStorage.setItem('formTextColor', textColorOption.color);
             localStorage.setItem('formTextColorHex', textColorOption.hex);
@@ -203,7 +279,7 @@ const Design = () => {
             setQuestionsTitle(titleText);
             localStorage.setItem('questionsTitle', titleText);
         } else {
-            const placeholder = e.target.dataset.placeholder || 'Interview Questions';
+            const placeholder = e.target.dataset.placeholder || 'Form';
             e.target.textContent = placeholder;
             setQuestionsTitle(placeholder);
             localStorage.setItem('questionsTitle', placeholder);
@@ -229,22 +305,39 @@ const Design = () => {
     const estimatedTimeFormatted = formatTime(stats.estimatedTime);
 
     // Open question modal
-    const handleOpenQuestionModal = useCallback((type) => {
-        setCurrentQuestionType(type);
-        setShowQuestionModal(true);
+    const handleOpenQuestionModal = useCallback(
+        (type) => {
+            setEditingQuestionIndex(null);
+            setCurrentQuestionType(type);
+            setShowQuestionModal(true);
+            setQuestionFormData({});
+            setOptions([]);
+        },
+        [setCurrentQuestionType, setShowQuestionModal, setEditingQuestionIndex]
+    );
+
+    const closeQuestionModal = useCallback(() => {
+        setShowQuestionModal(false);
+        setEditingQuestionIndex(null);
         setQuestionFormData({});
         setOptions([]);
-    }, [setCurrentQuestionType, setShowQuestionModal]);
+    }, [setShowQuestionModal, setEditingQuestionIndex]);
 
     // Save question
     const handleSaveQuestion = useCallback(() => {
+        const textTrim = (questionFormData.text || '').trim();
+        if (!textTrim) {
+            showToast('Please enter question text.');
+            return;
+        }
+
         const questionData = {
+            ...questionFormData,
             type: currentQuestionType,
-            text: questionFormData.text || '',
-            timeLimit: parseInt(questionFormData.timeLimit) || 0,
-            points: parseInt(questionFormData.points) || 10,
+            text: textTrim,
+            timeLimit: parseInt(questionFormData.timeLimit, 10) || 0,
+            points: parseInt(questionFormData.points, 10) || 10,
             required: questionFormData.required || false,
-            ...questionFormData
         };
 
         if (currentQuestionType === 'multiple' || currentQuestionType === 'checkbox' || currentQuestionType === 'dropdown') {
@@ -255,12 +348,23 @@ const Design = () => {
             updateQuestion(editingQuestionIndex, { ...questions[editingQuestionIndex], ...questionData });
         } else {
             addQuestion(questionData);
+            setShowQuestionModal(false);
+            setEditingQuestionIndex(null);
         }
-        
-        setShowQuestionModal(false);
         setQuestionFormData({});
         setOptions([]);
-    }, [currentQuestionType, questionFormData, options, editingQuestionIndex, questions, addQuestion, updateQuestion, setShowQuestionModal]);
+    }, [
+        currentQuestionType,
+        questionFormData,
+        options,
+        editingQuestionIndex,
+        questions,
+        addQuestion,
+        updateQuestion,
+        setShowQuestionModal,
+        setEditingQuestionIndex,
+        showToast,
+    ]);
 
     // Add option for multiple choice
     const handleAddOption = useCallback(() => {
@@ -290,6 +394,14 @@ const Design = () => {
         setShowPreviewModal(true);
     }, [questions, setShowPreviewModal]);
 
+    const handleRunInterview = useCallback(() => {
+        if (questions.length === 0) {
+            alert('Add at least one question to run the interview');
+            return;
+        }
+        navigate('/interview-design');
+    }, [questions, navigate]);
+
     // Share
     const handleShare = useCallback(() => {
         if (questions.length === 0) {
@@ -305,9 +417,15 @@ const Design = () => {
         };
 
         const formId = Math.random().toString(36).substring(2, 10) + Date.now().toString(36).substring(2, 8);
-        const currentUrl = window.location.origin + window.location.pathname.replace('/design', '');
-        const shareUrl = `${currentUrl}/form-preview?id=${formId}`;
-        
+        try {
+            localStorage.setItem(`designShare_${formId}`, JSON.stringify(interviewData));
+        } catch (e) {
+            console.warn('Could not store share payload', e);
+        }
+        const base = import.meta.env.BASE_URL || '/';
+        const prefix = base === '/' ? '' : base.replace(/\/$/, '');
+        const shareUrl = `${window.location.origin}${prefix}/form-preview?id=${encodeURIComponent(formId)}`;
+
         setShareLink(shareUrl);
         setShowShareModal(true);
     }, [questions, settings, setShowShareModal]);
@@ -324,8 +442,28 @@ const Design = () => {
             alert('Add at least one question before saving');
             return;
         }
-        showToast('Interview saved successfully!');
+        showToast('All changes are saved automatically in this browser.');
     }, [questions, showToast]);
+
+    const handleExportInterviewJson = useCallback(() => {
+        const interviewData = {
+            title: settings.title || questionsTitle || 'Untitled Interview',
+            questions,
+            settings,
+            exportedAt: new Date().toISOString(),
+        };
+        const dataStr = JSON.stringify(interviewData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${String(interviewData.title).replace(/\s+/g, '_')}_interview.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showToast('Interview JSON downloaded.');
+    }, [questions, settings, questionsTitle, showToast]);
 
     // Render question item
     const renderQuestionItem = useCallback((question, index) => {
@@ -412,11 +550,11 @@ const Design = () => {
                 {/* Header */}
                 <div className="design-header">
                     <div className="header-content">
-                        <h1 className="design-title">Interview Designer</h1>
-                        <p className="design-subtitle">Create and customize your AI-powered interview</p>
+                        <h1 className="design-title">Form Designer</h1>
+                        <p className="design-subtitle">Create and customize your AI-powered form</p>
                     </div>
                     <div className="header-actions">
-                        <button className="btn btn-secondary" onClick={() => showToast('Model settings coming soon!')}>
+                        <button type="button" className="btn btn-secondary" onClick={() => setShowModelModal(true)}>
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M10 2.5L12.5 7.5L17.5 8.75L14.5 12.5L15.5 17.5L10 15L4.5 17.5L5.5 12.5L2.5 8.75L7.5 7.5L10 2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                 <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
@@ -433,7 +571,7 @@ const Design = () => {
                             </svg>
                             <span className="btn-text">Workflow</span>
                         </button>
-                        <button className="btn btn-secondary" onClick={() => showToast('Connect integrations coming soon!')}>
+                        <button type="button" className="btn btn-secondary" onClick={() => setShowConnectModal(true)}>
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M10 13.3333C11.8409 13.3333 13.3333 11.8409 13.3333 10C13.3333 8.15905 11.8409 6.66667 10 6.66667C8.15905 6.66667 6.66667 8.15905 6.66667 10C6.66667 11.8409 8.15905 13.3333 10 13.3333Z" stroke="currentColor" strokeWidth="2"/>
                                 <path d="M3.33333 10C3.33333 10 5.83333 7.5 10 7.5C14.1667 7.5 16.6667 10 16.6667 10C16.6667 10 14.1667 12.5 10 12.5C5.83333 12.5 3.33333 10 3.33333 10Z" stroke="currentColor" strokeWidth="2"/>
@@ -441,12 +579,18 @@ const Design = () => {
                             </svg>
                             <span className="btn-text">Connect</span>
                         </button>
-                        <button className="btn btn-secondary" onClick={handlePreview}>
+                        <button type="button" className="btn btn-secondary" onClick={handlePreview}>
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M10 3.33334C5.83337 3.33334 2.27504 5.73334 0.833374 9.16668C2.27504 12.6 5.83337 15 10 15C14.1667 15 17.725 12.6 19.1667 9.16668C17.725 5.73334 14.1667 3.33334 10 3.33334Z" stroke="currentColor" strokeWidth="2"/>
                                 <circle cx="10" cy="9.16668" r="2.5" stroke="currentColor" strokeWidth="2"/>
                             </svg>
                             <span className="btn-text">Preview</span>
+                        </button>
+                        <button type="button" className="btn btn-secondary" onClick={handleRunInterview} title="Open candidate-style run (uses sidebar settings)">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                <path d="M6.66667 4.16667L15.8333 10L6.66667 15.8333V4.16667Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+                            </svg>
+                            <span className="btn-text">Run</span>
                         </button>
                         <button className="btn btn-share" onClick={handleShare}>
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -457,13 +601,19 @@ const Design = () => {
                             </svg>
                             <span className="btn-text">Share</span>
                         </button>
-                        <button className="btn btn-primary" onClick={handleSaveInterview}>
+                        <button type="button" className="btn btn-secondary" onClick={handleExportInterviewJson} title="Download interview as JSON">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M17.5 12.5v3.3333c0 .9205-.7462 1.6667-1.6667 1.6667H4.16667c-.92047 0-1.66667-.7462-1.66667-1.6667V12.5M5.83333 8.33333L10 12.5l4.1667-4.16667M10 12.5V2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            <span className="btn-text">Export JSON</span>
+                        </button>
+                        <button type="button" className="btn btn-primary" onClick={handleSaveInterview}>
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M15.8333 17.5H4.16667C3.25 17.5 2.5 16.75 2.5 15.8333V4.16667C2.5 3.25 3.25 2.5 4.16667 2.5H13.3333L17.5 6.66667V15.8333C17.5 16.75 16.75 17.5 15.8333 17.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                 <path d="M13.3333 17.5V11.6667H6.66667V17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                 <path d="M6.66667 2.5V6.66667H12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
-                            <span className="btn-text">Save</span>
+                            <span className="btn-text">Saved</span>
                         </button>
                         {questions.length > 0 && (
                             <button className="btn btn-clear-all" onClick={clearAllQuestions}>
@@ -490,7 +640,7 @@ const Design = () => {
                                 onBlur={handleTitleBlur}
                                 onKeyDown={handleTitleKeyDown}
                                 onPaste={handleTitlePaste}
-                                data-placeholder="Interview Questions"
+                                data-placeholder="Form"
                             >
                                 {questionsTitle}
                             </h2>
@@ -530,10 +680,10 @@ const Design = () => {
                         </button>
 
                         <div className="sidebar-section">
-                            <h3 className="sidebar-title">Interview Settings</h3>
+                            <h3 className="sidebar-title">Settings</h3>
                             
                             <div className="form-group">
-                                <label className="form-label">Interview Title</label>
+                                <label className="form-label">Title</label>
                                 <input 
                                     type="text" 
                                     className="form-input" 
@@ -546,7 +696,7 @@ const Design = () => {
                             {/* Form Color Theme Dropdown */}
                             <div className="form-group">
                                 <label className="form-label">Form Color Theme</label>
-                                <div className="custom-color-dropdown" id="colorDropdown">
+                                <div ref={colorDropdownRef} className="custom-color-dropdown" id="colorDropdown" data-dropdown-open={colorDropdownOpen || undefined}>
                                     <div 
                                         className={`color-dropdown-selected ${colorDropdownOpen ? 'open' : ''}`}
                                         onClick={(e) => { e.stopPropagation(); setColorDropdownOpen(!colorDropdownOpen); }}
@@ -577,7 +727,7 @@ const Design = () => {
                             {/* Question Color Dropdown */}
                             <div className="form-group">
                                 <label className="form-label">Question Color</label>
-                                <div className="custom-color-dropdown" id="backgroundColorDropdown">
+                                <div ref={backgroundColorDropdownRef} className="custom-color-dropdown" id="backgroundColorDropdown" data-dropdown-open={backgroundColorDropdownOpen || undefined}>
                                     <div 
                                         className={`color-dropdown-selected ${backgroundColorDropdownOpen ? 'open' : ''}`}
                                         onClick={(e) => { e.stopPropagation(); setBackgroundColorDropdownOpen(!backgroundColorDropdownOpen); }}
@@ -608,7 +758,7 @@ const Design = () => {
                             {/* Font Dropdown */}
                             <div className="form-group">
                                 <label className="form-label">Font</label>
-                                <div className="custom-font-dropdown" id="fontDropdown">
+                                <div ref={fontDropdownRef} className="custom-font-dropdown" id="fontDropdown" data-dropdown-open={fontDropdownOpen || undefined}>
                                     <div 
                                         className={`font-dropdown-selected ${fontDropdownOpen ? 'open' : ''}`}
                                         onClick={(e) => { e.stopPropagation(); setFontDropdownOpen(!fontDropdownOpen); }}
@@ -639,7 +789,7 @@ const Design = () => {
                             {/* Text Color Dropdown */}
                             <div className="form-group">
                                 <label className="form-label">Text Color</label>
-                                <div className="custom-color-dropdown" id="textColorDropdown">
+                                <div ref={textColorDropdownRef} className="custom-color-dropdown" id="textColorDropdown" data-dropdown-open={textColorDropdownOpen || undefined}>
                                     <div 
                                         className={`color-dropdown-selected ${textColorDropdownOpen ? 'open' : ''}`}
                                         onClick={(e) => { e.stopPropagation(); setTextColorDropdownOpen(!textColorDropdownOpen); }}
@@ -867,11 +1017,11 @@ const Design = () => {
 
             {/* Question Modal */}
             {showQuestionModal && (
-                <div className="modal show" onClick={(e) => e.target.classList.contains('modal') && setShowQuestionModal(false)}>
+                <div className="modal show" onClick={(e) => e.target.classList.contains('modal') && closeQuestionModal()}>
                     <div className="modal-content large">
                         <div className="modal-header">
                             <h2 className="modal-title">{editingQuestionIndex !== null ? 'Edit Question' : 'Add Question'}</h2>
-                            <button className="modal-close" onClick={() => setShowQuestionModal(false)}>
+                            <button type="button" className="modal-close" onClick={closeQuestionModal}>
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                                 </svg>
@@ -964,10 +1114,10 @@ const Design = () => {
                             </div>
                         </div>
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={() => setShowQuestionModal(false)}>
+                            <button type="button" className="btn btn-secondary" onClick={closeQuestionModal}>
                                 Cancel
                             </button>
-                            <button className="btn btn-primary" onClick={handleSaveQuestion}>
+                            <button type="button" className="btn btn-primary" onClick={handleSaveQuestion}>
                                 {editingQuestionIndex !== null ? 'Update Question' : 'Add Question'}
                             </button>
                         </div>
@@ -1009,6 +1159,24 @@ const Design = () => {
                                     <p style={{ color: '#F8FAFC', fontSize: '16px', fontWeight: '600', marginBottom: '15px', lineHeight: '1.6' }}>
                                         {q.text}
                                     </p>
+                                    {Array.isArray(q.options) && q.options.length > 0 && (
+                                        <ul
+                                            style={{
+                                                margin: '0 0 16px 0',
+                                                paddingLeft: '20px',
+                                                color: '#cbd5e1',
+                                                fontSize: '14px',
+                                                lineHeight: 1.6,
+                                            }}
+                                        >
+                                            {q.options.map((opt, oi) => (
+                                                <li key={oi} style={{ marginBottom: '6px' }}>
+                                                    {typeof opt === 'string' ? opt : opt.text}
+                                                    {opt && typeof opt === 'object' && opt.correct ? ' (correct)' : ''}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
                                     {(q.timeLimit || q.points) && (
                                         <p style={{ color: '#94A3B8', fontSize: '14px', marginTop: '10px' }}>
                                             {q.timeLimit ? `⏱️ ${q.timeLimit}s` : ''} {q.points ? `⭐ ${q.points} points` : ''}
@@ -1070,18 +1238,25 @@ const Design = () => {
                                     </svg>
                                     <span>Email</span>
                                 </button>
-                                <button className="share-option-btn" onClick={() => showToast('QR Code generation coming soon!')}>
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <rect x="3" y="3" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
-                                        <rect x="13" y="3" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
-                                        <rect x="3" y="13" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
-                                        <rect x="13" y="13" width="3" height="3" fill="currentColor"/>
-                                        <rect x="18" y="13" width="3" height="3" fill="currentColor"/>
-                                        <rect x="13" y="18" width="3" height="3" fill="currentColor"/>
-                                        <rect x="18" y="18" width="3" height="3" fill="currentColor"/>
-                                    </svg>
-                                    <span>QR Code</span>
-                                </button>
+                                <div className="share-option-btn share-qr-wrap" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                            <rect x="3" y="3" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
+                                            <rect x="13" y="3" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
+                                            <rect x="3" y="13" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
+                                            <rect x="13" y="13" width="3" height="3" fill="currentColor"/>
+                                            <rect x="18" y="13" width="3" height="3" fill="currentColor"/>
+                                            <rect x="13" y="18" width="3" height="3" fill="currentColor"/>
+                                            <rect x="18" y="18" width="3" height="3" fill="currentColor"/>
+                                        </svg>
+                                        <span>QR Code</span>
+                                    </div>
+                                    {shareQrDataUrl ? (
+                                        <img src={shareQrDataUrl} alt="QR code for share link" style={{ width: 200, height: 200, alignSelf: 'center', borderRadius: 8 }} />
+                                    ) : (
+                                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>Generating…</span>
+                                    )}
+                                </div>
                                 <button className="share-option-btn" onClick={() => {
                                     const interviewData = {
                                         title: settings.title || 'Untitled Interview',
@@ -1107,6 +1282,98 @@ const Design = () => {
                                     <span>Download</span>
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showModelModal && (
+                <div className="modal show" onClick={(e) => e.target.classList.contains('modal') && setShowModelModal(false)}>
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h2 className="modal-title">Model preferences</h2>
+                            <button type="button" className="modal-close" onClick={() => setShowModelModal(false)} aria-label="Close">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: 14, lineHeight: 1.5, marginTop: 0 }}>
+                                These values are saved in this browser only. Connecting to a live LLM API is not wired yet.
+                            </p>
+                            <div className="modal-form-group">
+                                <label>Preset name</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={modelSettings.label}
+                                    onChange={(e) => setModelSettings((prev) => ({ ...prev, label: e.target.value }))}
+                                />
+                            </div>
+                            <div className="modal-form-group">
+                                <label>Temperature (0–1)</label>
+                                <input
+                                    type="number"
+                                    step="0.05"
+                                    min="0"
+                                    max="1"
+                                    className="form-input"
+                                    value={modelSettings.temperature}
+                                    onChange={(e) => setModelSettings((prev) => ({ ...prev, temperature: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button type="button" className="btn btn-secondary" onClick={() => setShowModelModal(false)}>
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => {
+                                    try {
+                                        localStorage.setItem('designAiModelSettings', JSON.stringify(modelSettings));
+                                    } catch {
+                                        /* ignore */
+                                    }
+                                    setShowModelModal(false);
+                                    showToast('Model preferences saved locally.');
+                                }}
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showConnectModal && (
+                <div className="modal show" onClick={(e) => e.target.classList.contains('modal') && setShowConnectModal(false)}>
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h2 className="modal-title">Integrations</h2>
+                            <button type="button" className="modal-close" onClick={() => setShowConnectModal(false)} aria-label="Close">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="modal-body">
+                            <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: 14, lineHeight: 1.5, marginTop: 0 }}>
+                                Third-party connections are planned. Nothing is activated until you configure credentials in a future
+                                release.
+                            </p>
+                            <ul style={{ color: '#cbd5e1', fontSize: 14, lineHeight: 1.7, paddingLeft: 20, margin: '16px 0 0' }}>
+                                <li>Webhooks / Zapier-style automation</li>
+                                <li>ATS export (CSV / API)</li>
+                                <li>Calendar (Calendly-style) handoff</li>
+                            </ul>
+                        </div>
+                        <div className="modal-footer">
+                            <button type="button" className="btn btn-primary" onClick={() => setShowConnectModal(false)}>
+                                Close
+                            </button>
                         </div>
                     </div>
                 </div>

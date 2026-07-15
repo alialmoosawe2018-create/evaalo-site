@@ -1,0 +1,11 @@
+const fs = require('node:fs');
+const enginePath = 'src/scripts/jobCatalogI18nEngine.ts';
+let s = fs.readFileSync(enginePath, 'utf8');
+s = s.replace(/کۆntrۆ/g, 'کۆنتڕۆ');
+s = s.replace("Brand: 'نیshanە'", "Brand: 'نیشانە'");
+s = s.replace("Content: 'ناوەڕۆk'", "Content: 'ناوەڕۆک'");
+s = s.replace(/,\n    Intern: 'ڕاهێن',\n};\n\ntype Rule/, '\n};\n\ntype Rule');
+s = s.replace('شێفی جێبەjێkar', 'شێفی جێبەجێkar');
+s = s.replace('ڕاهێنەری چalak', 'ڕاهێنەری چalak');
+fs.writeFileSync(enginePath, s);
+console.log('Patched KU engine strings');

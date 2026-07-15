@@ -1,0 +1,198 @@
+[
+  {
+    "id": "8LCx6AaeD0iExU5H",
+    "name": "Campaign Compare — Stage 2 (Secure Draft)",
+    "description": "Secure Campaign Compare Stage 2: backend-owned candidatePool, inbound secret validation, signed callback with candidateSnapshotHash. Inactive — do not publish. Zero MongoDB nodes.",
+    "active": false,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "992dab24-7989-44bf-a286-f829a4c42989",
+          "responseMode": "onReceived",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          0
+        ],
+        "id": "4a8b2f77-d3ff-4f8d-8079-920dd5071edf",
+        "name": "Webhook",
+        "webhookId": "992dab24-7989-44bf-a286-f829a4c42989"
+      },
+      {
+        "parameters": {
+          "jsCode": "const crypto = require('crypto');\nconst body = $input.first().json.body || {};\nconst expected = String($env.N8N_CAMPAIGN_COMPARE_INBOUND_SECRET || '').trim();\nconst received = String(body.inboundSecret ?? '').trim();\n\nif (!expected) throw new Error('CCMP_INBOUND_SECRET_UNCONFIGURED');\nif (!received || received.length !== expected.length) throw new Error('CCMP_INBOUND_SECRET_REJECTED');\nif (!crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected))) {\n  throw new Error('CCMP_INBOUND_SECRET_REJECTED');\n}\n\nconst required = [\n  'requestId','campaignId','organizationId','compareStage','topN',\n  'criteria','candidatePool','candidateSnapshotHash','callbackUrl','inboundSecret',\n];\nfor (const key of required) {\n  const val = body[key];\n  if (val === undefined || val === null || val === '') {\n    throw new Error('CCMP_MISSING_FIELD:' + key);\n  }\n}\nif (body.compareStage !== 'stage2') throw new Error('CCMP_STAGE_MISMATCH');\nif (!Array.isArray(body.candidatePool) || body.candidatePool.length === 0) {\n  throw new Error('CCMP_EMPTY_POOL');\n}\n\nconst candidatePool = body.candidatePool;\nconst requestedTopN = Number(body.topN);\nif (!Number.isFinite(requestedTopN) || requestedTopN < 1) {\n  throw new Error('CCMP_INVALID_TOPN');\n}\nconst rankingLimit = Math.min(Math.floor(requestedTopN), candidatePool.length, 10);\n\nreturn [{\n  json: {\n    requestId: String(body.requestId),\n    campaignId: String(body.campaignId),\n    organizationId: String(body.organizationId),\n    compareStage: 'stage2',\n    topN: requestedTopN,\n    rankingLimit,\n    criteria: body.criteria,\n    candidateSnapshotHash: String(body.candidateSnapshotHash),\n    callbackUrl: String(body.callbackUrl),\n    candidatePool,\n    pool_size: candidatePool.length,\n  },\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          240,
+          0
+        ],
+        "id": "bd538a77-02ca-40a3-bd6c-77c0f47b893a",
+        "name": "Validate Inbound Secret"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "=Target Role: {{ $('Validate Inbound Secret').item.json.criteria?.position || 'Not specified' }}\nCampaign Criteria: {{ JSON.stringify($('Validate Inbound Secret').item.json.criteria || {}) }}\nFull Stage 2 voice-evaluated candidate pool ({{ $json.pool_size }} candidates): {{ JSON.stringify($json.candidatePool, null, 2) }}\nReturn exactly {{ $json.rankingLimit }} ranked candidates (at most min(topN, pool size)).",
+          "messages": {
+            "messageValues": [
+              {
+                "message": "Role & Task:\nYou are a Senior Talent Selection Panel AI. Compare ALL Stage 2 voice-interview candidates in the supplied candidatePool. Consider every candidate before producing the final ranking. Rank only the best candidates up to the requested ranking limit for progression to video interview.\n\nRules:\n- Compare the complete candidatePool first. Do not ignore any candidate during analysis.\n- Return candidateRanking with exactly rankingLimit items (or fewer only if the pool is smaller), sorted best (#1) to worst.\n- rankingLimit = min(topN, candidatePool.length) and must not exceed 10.\n- Use candidateId and candidateName exactly from the supplied pool. Do not invent IDs or add candidates outside the pool.\n- Weigh overallScore plus voice dimensions: communication, languageFluency, confidence, problemSolving, digitalSkills, professionalAttitude, summary, strengths, weaknesses, finalHrEvaluation.\n- recommendation per row must be one of: Hire, Consider, Reject (when present).\n- Respond in Arabic if evaluations are primarily Arabic; otherwise English.\n- Return ONLY a single JSON object (no markdown, no code fences).\n\nREQUIRED top-level keys (camelCase, all mandatory):\n- comparativeSummary (string; must reflect comparison across the full pool)\n- candidateRanking (array, length <= rankingLimit, sorted best to worst)\n- topRecommendation (string, full name of rank #1)\n- interviewFocus (string; focus areas for the next video interview stage)\n\nEach candidateRanking item MUST include:\n- rank (integer starting at 1, unique)\n- candidateId (from pool)\n- candidateName (from pool)\n- stageScore (number or string; use pool overallScore when appropriate)\n- competitiveAdvantage (string)\n- recommendation (optional: Hire | Consider | Reject)\n\nOptional:\n- wildcard: { candidateId, candidateName, reason } for a notable non-top pick from the compared pool"
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          720,
+          0
+        ],
+        "id": "1169da12-8bb2-49ce-b182-82fe72ec167a",
+        "name": "Compare Stage 2 LLM"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "gpt-4.1",
+            "mode": "list",
+            "cachedResultName": "gpt-4.1"
+          },
+          "builtInTools": {},
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          720,
+          180
+        ],
+        "id": "b99f14e4-b7a8-4479-b534-5bfa6a639abd",
+        "name": "OpenAI Chat Model",
+        "credentials": {
+          "openAiApi": {
+            "id": "xr8zb16RIutIemnJ",
+            "name": "OpenAI account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $input.first().json;\nconst ctx = $('Validate Inbound Secret').first().json;\nconst allowed = new Set((ctx.candidatePool || []).map((c) => String(c.candidateId)));\n\nfunction stripMarkdownFence(s) {\n  return String(s || '').replace(/^\\`\\`\\`(?:json)?\\s*/i, '').replace(/\\s*\\`\\`\\`$/i, '').trim();\n}\n\nfunction parseLlmJson(raw) {\n  if (!raw) return {};\n  if (typeof raw === 'object' && !Array.isArray(raw)) {\n    if (raw.comparativeSummary || raw.candidateRanking || raw.comparative_summary || raw.candidate_ranking) return raw;\n    if (raw.output && typeof raw.output === 'object') return raw.output;\n  }\n  const text = stripMarkdownFence(typeof raw === 'string' ? raw : (raw.text || raw.output || ''));\n  if (!text) return {};\n  try { return JSON.parse(text); } catch {\n    const match = text.match(/\\{[\\s\\S]*\\}/);\n    if (match) { try { return JSON.parse(match[0]); } catch { return {}; } }\n    return {};\n  }\n}\n\nconst parsed = parseLlmJson(item);\nconst rawRanking = Array.isArray(parsed.candidateRanking)\n  ? parsed.candidateRanking\n  : (Array.isArray(parsed.candidate_ranking) ? parsed.candidate_ranking : []);\n\nconst candidateRanking = rawRanking.map((row, idx) => {\n  const r = row && typeof row === 'object' ? row : {};\n  const candidateId = String(r.candidateId || r.candidate_id || r.CandidateID || '').trim();\n  const rank = Number(r.rank ?? idx + 1);\n  return {\n    rank,\n    candidateId,\n    candidateName: String(r.candidateName || r.candidate_name || r.ApplicantName || '').trim(),\n    stageScore: r.stageScore ?? r.initial_screening_score ?? r.OverallScore ?? r.overallScore ?? '',\n    competitiveAdvantage: String(r.competitiveAdvantage || r.competitive_advantage || '').trim(),\n    recommendation: r.recommendation || r.Recommendation,\n  };\n}).filter((row) => row.candidateId && allowed.has(row.candidateId));\n\nif (candidateRanking.length === 0) {\n  throw new Error('CCMP_EMPTY_RANKING');\n}\n\nlet wildcard = parsed.wildcard ?? null;\nif (wildcard && typeof wildcard === 'object') {\n  wildcard = {\n    candidateId: String(wildcard.candidateId || '').trim(),\n    candidateName: String(wildcard.candidateName || '').trim(),\n    reason: String(wildcard.reason || '').trim(),\n  };\n  if (!wildcard.candidateId) wildcard = null;\n}\n\nreturn [{\n  json: {\n    requestId: ctx.requestId,\n    compareStage: 'stage2',\n    candidateSnapshotHash: ctx.candidateSnapshotHash,\n    comparativeSummary: String(parsed.comparativeSummary || parsed.comparative_summary || '').trim(),\n    candidateRanking,\n    topRecommendation: String(parsed.topRecommendation || parsed.top_recommendation || '').trim(),\n    interviewFocus: String(parsed.interviewFocus || parsed.video_interview_focus || parsed.voice_interview_focus || parsed.next_stage_focus || '').trim(),\n    wildcard,\n    callbackUrl: ctx.callbackUrl,\n  },\n}];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          960,
+          0
+        ],
+        "id": "2e884d5b-5a09-4c36-9d9c-d9582ce6b4f3",
+        "name": "Build Callback Body"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.callbackUrl }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Campaign-Compare-Secret",
+                "value": "={{ $env.N8N_CAMPAIGN_COMPARE_INBOUND_SECRET }}"
+              },
+              {
+                "name": "X-Idempotency-Key",
+                "value": "={{ $execution.id }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ requestId: $json.requestId, compareStage: $json.compareStage, candidateSnapshotHash: $json.candidateSnapshotHash, comparativeSummary: $json.comparativeSummary, candidateRanking: $json.candidateRanking, topRecommendation: $json.topRecommendation, interviewFocus: $json.interviewFocus, wildcard: $json.wildcard ?? null }) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          1200,
+          0
+        ],
+        "id": "fcb27575-dfa1-4191-9d2c-da2327caa0c9",
+        "name": "Callback to Backend",
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "onError": "continueRegularOutput"
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Validate Inbound Secret",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Inbound Secret": {
+        "main": [
+          [
+            {
+              "node": "Compare Stage 2 LLM",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Compare Stage 2 LLM",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Compare Stage 2 LLM": {
+        "main": [
+          [
+            {
+              "node": "Build Callback Body",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Callback Body": {
+        "main": [
+          [
+            {
+              "node": "Callback to Backend",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "availableInMCP": false
+    },
+    "tags": []
+  }
+]

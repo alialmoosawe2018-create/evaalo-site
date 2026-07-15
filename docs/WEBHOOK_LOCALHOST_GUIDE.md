@@ -3,7 +3,7 @@
 ## ✅ الوضع الحالي:
 
 ### 1. **إرسال إلى n8n** (يعمل ✅):
-- Backend يرسل إلى: `https://n8ninstance.amtus.org/webhook/...`
+- Backend يرسل إلى: `https://n8n.amtus.org/webhook/cc4f6e33-27c8-444e-bd55-e21963bb7e56`
 - ✅ **يعمل** لأن n8n على VPS متاح من الإنترنت
 
 ### 2. **استقبال من n8n** (مشكلة ⚠️):
@@ -12,7 +12,7 @@
 
 ## 🔍 المشكلة:
 
-n8n يعمل على VPS (`n8ninstance.amtus.org`) ولا يمكنه الوصول إلى `localhost:5000` على جهازك المحلي.
+n8n يعمل على VPS (`n8n.amtus.org`) ولا يمكنه الوصول إلى `localhost:5000` على جهازك المحلي.
 
 ## 💡 الحلول:
 

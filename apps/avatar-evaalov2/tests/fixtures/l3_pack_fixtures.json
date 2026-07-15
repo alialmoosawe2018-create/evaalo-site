@@ -1,0 +1,4834 @@
+{
+  "generatedAt": "2026-07-07T08:02:38.880Z",
+  "packCount": 20,
+  "packs": {
+    "oil_gas_production": {
+      "packKey": "oil_gas_production",
+      "packVersion": "1.4.0",
+      "roleKey": "production_engineer_oil_gas",
+      "position": "production engineer",
+      "specialization": "Production Engineering (Oil & Gas)",
+      "terminology": [
+        "bottomhole pressure",
+        "wellhead pressure",
+        "water cut",
+        "GOR",
+        "artificial lift",
+        "ESP",
+        "gas lift",
+        "rod pump",
+        "nodal analysis",
+        "well testing",
+        "productivity index",
+        "decline curve",
+        "production optimization",
+        "HSE",
+        "permit to work"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكر حالة انخفض فيها إنتاج أحد الآبار بشكل ملحوظ — كيف حددت السبب، ما البيانات التي راجعتها، وما الإجراء الذي اقترحته أو نفذته؟",
+        "في دور Production Engineer، ما المؤشرات التي تراجعها أولاً عند انخفاض معدل الإنتاج، وكيف تحدد إن كانت المشكلة من البئر أو نظام الرفع أو خط الإنتاج؟",
+        "حدثني عن تجربة استخدمت فيها Well Testing أو Nodal Analysis لتحسين إنتاج بئر، وما النتيجة التي حققتها؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "محاكاة",
+            "nodal",
+            "thesis",
+            "اكاديمي",
+            "ما عندي خبرة ميدانية",
+            "university",
+            "simulation"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "nodal analysis",
+            "well testing نظري",
+            "محاكاة"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع أو محاكاة إنتاج/بئر درستها — شنو المدخلات وشنو تعلمت؟",
+            "شنو أصعب مفهوم إنتاج نفطي طبّقته نظرياً؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة حقل"
+          ],
+          "rubricAdjustments": "اقبل أدلة أكاديمية ومحاكاة — لا تخصم غياب تجربة حقل."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op",
+            "فترة تدريب"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف",
+            "ملاحظات ميدانية"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو شفت وشنو تعلمت بفترة التدريب بالإنتاج النفطي؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف والأدوات"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة إنتاج أو بئر بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "حقل",
+            "oilfield",
+            "بئر",
+            "آبار",
+            "water cut",
+            "gor",
+            "artificial lift",
+            "اشتغلت",
+            "field",
+            "well",
+            "production engineer",
+            "ESP",
+            "gas lift"
+          ],
+          "acceptableEvidence": [
+            "بيانات بئر",
+            "Water Cut",
+            "GOR",
+            "إجراء",
+            "نتيجة"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي بئر أو موقع إنتاج تابعته — شنو المؤشرات اللي راجعتها يومياً؟",
+            "شلون تشخّص انخفاض إنتاج بئر ببيانات حقيقية؟"
+          ],
+          "followUpHints": [
+            "اطلب أرقام ومؤشرات"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية",
+            "optimization"
+          ],
+          "acceptableEvidence": [
+            "قرار تشغيلي",
+            "تحسين إنتاج",
+            "فريق"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار تحسين إنتاج أو تشغيل مهم — شنو التأثير؟"
+          ],
+          "followUpHints": [
+            "trade-offs بين الإنتاج والسلامة"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لإنتاج نفطي وشنو نقلته من مجالك السابق؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم سريع"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "production_field_ops",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "context",
+              "topicLabel": "Context",
+              "sampleQuestion": "شنو نوع الحقل أو الآبار اللي اشتغلت عليها؟",
+              "clusterKey": "context"
+            },
+            {
+              "stepKey": "diagnosis",
+              "competencyKey": "production_well_diagnosis",
+              "topicLabel": "Diagnosis",
+              "sampleQuestion": "اذكرلي انخفاض إنتاج — شنو البيانات اللي راجعتها؟",
+              "clusterKey": "production_well_diagnosis"
+            },
+            {
+              "stepKey": "lift",
+              "competencyKey": "artificial_lift",
+              "topicLabel": "Lift",
+              "sampleQuestion": "شلون فرّقت بين مشكلة الرفع والمكمن؟",
+              "clusterKey": "artificial_lift"
+            },
+            {
+              "stepKey": "surface",
+              "competencyKey": "surface_facilities",
+              "topicLabel": "Surface",
+              "sampleQuestion": "هل راجعت choke أو flowline أو separator؟",
+              "clusterKey": "surface_facilities"
+            },
+            {
+              "stepKey": "optimize",
+              "competencyKey": "production_optimization",
+              "topicLabel": "Optimize",
+              "sampleQuestion": "شنو الإجراء اللي اقترحته وشنو النتيجة؟",
+              "clusterKey": "production_optimization"
+            },
+            {
+              "stepKey": "hse",
+              "competencyKey": "operational_safety_hse",
+              "topicLabel": "HSE",
+              "sampleQuestion": "شلون ضمنت السلامة أثناء الإجراء؟",
+              "clusterKey": "operational_safety_hse"
+            },
+            {
+              "stepKey": "review",
+              "competencyKey": "integrated_production_review",
+              "topicLabel": "Review",
+              "sampleQuestion": "شلون تتابع الإنتاج بعد التعديل؟",
+              "clusterKey": "integrated_production_review"
+            }
+          ]
+        },
+        {
+          "pathKey": "production_academic",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee"
+          ],
+          "steps": [
+            {
+              "stepKey": "project",
+              "competencyKey": "production_optimization",
+              "topicLabel": "Project",
+              "sampleQuestion": "اذكرلي مشروع أو محاكاة إنتاج — شنو الهدف؟",
+              "clusterKey": "production_optimization"
+            },
+            {
+              "stepKey": "data",
+              "topicLabel": "Data",
+              "sampleQuestion": "شنو البيانات أو المدخلات اللي استخدمتها؟",
+              "clusterKey": "data"
+            },
+            {
+              "stepKey": "method",
+              "competencyKey": "production_well_diagnosis",
+              "topicLabel": "Method",
+              "sampleQuestion": "شلون حللت المشكلة نظرياً؟",
+              "clusterKey": "production_well_diagnosis"
+            },
+            {
+              "stepKey": "lift_theory",
+              "competencyKey": "artificial_lift",
+              "topicLabel": "Lift theory",
+              "sampleQuestion": "شنو نوع الرفع اللي درسته ولماذا؟",
+              "clusterKey": "artificial_lift"
+            },
+            {
+              "stepKey": "learning",
+              "topicLabel": "Learning",
+              "sampleQuestion": "شنو أهم تعلم من المشروع؟",
+              "clusterKey": "learning"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "hr_recruiter": {
+      "packKey": "hr_recruiter",
+      "packVersion": "1.4.0",
+      "roleKey": "recruiter",
+      "position": "recruiter",
+      "specialization": "Recruitment / Talent Acquisition",
+      "terminology": [
+        "intake meeting",
+        "sourcing",
+        "candidate pipeline",
+        "ATS",
+        "HRIS",
+        "time to fill",
+        "offer acceptance rate",
+        "source effectiveness",
+        "boolean search",
+        "structured interview",
+        "candidate experience",
+        "screening",
+        "talent pool"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي دور واجهت صعوبة بتوظيفه، شنو كان أصعب تحدي بيه؟",
+        "شلون تاخذ متطلبات الدور من المدير قبل ما تبدي البحث؟",
+        "شنو قنوات الاستقطاب اللي تعتمد عليها أكثر شي؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate",
+            "first recruiting"
+          ],
+          "acceptableEvidence": [
+            "تدريب HR",
+            "مشاريع جامعية",
+            "تطوع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة سويتها بالتوظيف أو الHR — شنو تعلمت منها؟",
+            "شنو أصعب موقف واجهته وأنت لسه مبتدئ بالاستقطاب؟"
+          ],
+          "followUpHints": [
+            "اطلب خطوة بخطوة",
+            "اسأل شنو ساعدك تتعلم"
+          ]
+        },
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "اكاديمي",
+            "بدون خبرة عملية",
+            "university",
+            "hr degree only"
+          ],
+          "acceptableEvidence": [
+            "مشاريع جامعية",
+            "معرفة نظرية ATS",
+            "تدريب قصير"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع أو دراسة حالة درستها بالجامعة عن التوظيف أو الاستقطاب؟",
+            "شنو تعلمت نظرياً عن pipeline المرشحين قبل أول خبرة عملية؟"
+          ],
+          "followUpHints": [
+            "اربط النظرية بسيناريو افتراضي واقعي"
+          ]
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "trainee",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة بالتدريب",
+            "ملاحظات من المشرف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي شنو سويت بفترة التدريب بالتوظيف — شنو كان دورك؟",
+            "شنو أهم أداة أو عملية تعرّفت عليها بالتدريب؟"
+          ],
+          "followUpHints": [
+            "اسأل عن دور الفريق والإشراف"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "pipeline",
+            "filled roles",
+            "time to fill",
+            "linkedin"
+          ],
+          "acceptableEvidence": [
+            "أدوار ملّيتها",
+            "قنوات متعددة",
+            "مؤشرات"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "اذكرلي دور صعب ملّيته — شنو القنوات اللي نجحت وشنو المؤشرات اللي تابعتها؟",
+            "شلون بنيت خطة استقطاب لدور تقني أو متخصص؟"
+          ],
+          "followUpHints": [
+            "اسأل عن تعديل الخطة عند الفشل"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "strategy",
+            "قاد",
+            "كبير",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قيادة فريق توظيف",
+            "تحسين عملية",
+            "تعاون مع الإدارة"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار استراتيجي غيّرت بيه عملية التوظيف بالشركة؟",
+            "شلون توازن بين سرعة التوظيف وجودة المرشح وتجربتهم؟"
+          ],
+          "followUpHints": [
+            "اسأل عن مقاييس قبل/بعد"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "switched from",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "مهارات قابلة للنقل",
+            "تعلم سريع",
+            "نتائج مبكرة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت للتوظيف وشنو نقلته من مجالك السابق؟",
+            "شنو أصعب فرق لاحظته بين شغلك السابق والاستقطاب؟"
+          ],
+          "followUpHints": [
+            "اربط بمثال نجاح مبكر"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "recruiter_default",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee",
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "background",
+              "topicLabel": "Background",
+              "sampleQuestion": "شنو نوع الأدوار اللي ركّزت عليها أكثر بالتوظيف؟",
+              "clusterKey": "background"
+            },
+            {
+              "stepKey": "sourcing_channels",
+              "competencyKey": "sourcing_strategy",
+              "topicLabel": "Sourcing channels",
+              "sampleQuestion": "شنو قنوات الاستقطاب اللي استخدمتها بآخر دور صعب؟",
+              "clusterKey": "sourcing_strategy"
+            },
+            {
+              "stepKey": "channel_quality",
+              "competencyKey": "sourcing_strategy",
+              "topicLabel": "Channel quality",
+              "sampleQuestion": "شلون قيّمت جودة المرشحين من كل قناة؟",
+              "clusterKey": "sourcing_strategy"
+            },
+            {
+              "stepKey": "screening",
+              "competencyKey": "structured_evaluation",
+              "topicLabel": "Screening",
+              "sampleQuestion": "شلون تفرّق بين مرشح قوي ومرشح يبدو جيد بس ضعيف بالتقييم؟",
+              "clusterKey": "structured_evaluation"
+            },
+            {
+              "stepKey": "manager_alignment",
+              "competencyKey": "role_intake_alignment",
+              "topicLabel": "Hiring manager alignment",
+              "sampleQuestion": "شلون تتفق وية المدير على المتطلبات الضرورية مقابل المفضّلة؟",
+              "clusterKey": "role_intake_alignment"
+            },
+            {
+              "stepKey": "difficult_role",
+              "competencyKey": "hard_to_fill_roles",
+              "topicLabel": "Difficult role",
+              "sampleQuestion": "اذكرلي دور ما لقيت له مرشح بسرعة — شنو سويت؟",
+              "clusterKey": "hard_to_fill_roles"
+            },
+            {
+              "stepKey": "candidate_experience",
+              "competencyKey": "candidate_experience",
+              "topicLabel": "Candidate experience",
+              "sampleQuestion": "شلون تحافظ على تجربة مرشح جيد حتى لو ما نجح بالعرض؟",
+              "clusterKey": "candidate_experience"
+            },
+            {
+              "stepKey": "metrics",
+              "competencyKey": "recruiting_metrics",
+              "topicLabel": "Metrics",
+              "sampleQuestion": "شنو مؤشر واحد تتابعه دايماً بخط المرشحين؟",
+              "clusterKey": "recruiting_metrics"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "petroleum_engineer": {
+      "packKey": "petroleum_engineer",
+      "packVersion": "1.4.0",
+      "roleKey": "petroleum_engineer",
+      "position": "petroleum engineer",
+      "specialization": "Petroleum Engineering",
+      "terminology": [
+        "reservoir simulation",
+        "CMG",
+        "Eclipse",
+        "Petrel",
+        "well testing",
+        "nodal analysis",
+        "water cut",
+        "GOR",
+        "bottomhole pressure",
+        "wellhead pressure",
+        "productivity index",
+        "decline curve",
+        "artificial lift",
+        "ESP",
+        "gas lift",
+        "HSE",
+        "permit to work",
+        "PVT",
+        "material balance",
+        "history matching"
+      ],
+      "suggestedAnchorQuestions": [
+        "شنو أهم مشروع بترولي اشتغلت عليه — أكاديمي أو ميداني — وشنو كان دورك؟",
+        "شلون تقرأ بيانات بئر أو مكمن عشان تتخذ قرار — شنو المؤشرات اللي تبدي بيها؟",
+        "اذكرلي موقف اضطررت تختار بين السلامة وضغط الإنتاج — شنو سويت؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "محاكاة",
+            "cmg",
+            "eclipse",
+            "petrel",
+            "ما عندي خبرة ميدانية",
+            "نظري",
+            "thesis",
+            "graduation project"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "محاكاة مكمن",
+            "بيانات أكاديمية",
+            "PVT lab"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع تخرج أو محاكاة مكمن سويتها — شنو كان الهدف وشنو تعلمت؟",
+            "شنو أصعب مفهوم بترولي درسته وطبّقته بمثال نظري أو محاكاة؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة حقل",
+            "اسأل عن مدخلات وافتراضات النموذج"
+          ],
+          "rubricAdjustments": "اقبل أدلة أكاديمية ومحاكاة — لا تخصم غياب تجربة حقل."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op",
+            "فترة تدريب"
+          ],
+          "acceptableEvidence": [
+            "ملاحظات ميدان",
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي شنو شفت وشنو تعلمت بفترة التدريب بنفط وغاز؟",
+            "شنو أهم أداة أو إجراء تعرّفت عليه بالموقع وأنت متدرب؟"
+          ],
+          "followUpHints": [
+            "اسأل عن دور الفريق والإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بترولية بعد التخرج — شنو سويت وشنو ساعدك؟",
+            "شلون تتأكد إن تحليلك صحيح وأنت لسه مبتدئ؟"
+          ],
+          "followUpHints": [
+            "اطلب خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "حقل",
+            "بئر",
+            "ميدان",
+            "اشتغلت",
+            "water cut",
+            "gor",
+            "well testing",
+            "field"
+          ],
+          "acceptableEvidence": [
+            "بيانات حقيقية",
+            "إجراء ميداني",
+            "نتيجة قابلة للقياس"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي بئر أو حقل اشتغلت عليه — شنو كان التحدي وشنو البيانات اللي راجعتها؟",
+            "شلون فرّقت بين مشكلة مكمن ومشكلة رفع اصطناعي بحالة حقيقية؟"
+          ],
+          "followUpHints": [
+            "اطلب أرقام ومؤشرات",
+            "اسأل عن النتيجة بعد الإجراء"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية",
+            "تحسين إنتاج"
+          ],
+          "acceptableEvidence": [
+            "قرار استراتيجي",
+            "قيادة فريق",
+            "تحسين قابل للقياس"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار تشغيلي أو فني مهم قدته — شنو كان التأثير على الإنتاج أو الفريق؟",
+            "شلون قدت تحسين إنتاج أو عملية بحقل أو مجموعة آبار؟"
+          ],
+          "followUpHints": [
+            "اسأل عن trade-offs ومخاطر"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "switched from",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "مهارات قابلة للنقل",
+            "تعلم بترول",
+            "نتائج مبكرة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لهندسة البترول وشنو نقلته من مجالك السابق؟",
+            "شنو أصعب فرق لاحظته بين مجالك السابق والنفط والغاز؟"
+          ],
+          "followUpHints": [
+            "اربط بمثال تعلم سريع"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "petroleum_experienced",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "experience_mode",
+              "topicLabel": "Experience mode",
+              "sampleQuestion": "خبرتك أكثر أكاديمية ولا ميدانية ولا الاثنين؟",
+              "clusterKey": "experience_mode"
+            },
+            {
+              "stepKey": "background",
+              "topicLabel": "Background",
+              "sampleQuestion": "شنو نوع المشاريع اللي اشتغلت عليها — حفر، إنتاج، محاكاة؟",
+              "clusterKey": "background"
+            },
+            {
+              "stepKey": "project_example",
+              "competencyKey": "field_data_analysis",
+              "topicLabel": "Project example",
+              "sampleQuestion": "اذكرلي مثال محدد — شنو المشكلة وشنو البيانات اللي استخدمتها؟",
+              "clusterKey": "field_data_analysis"
+            },
+            {
+              "stepKey": "data_reviewed",
+              "competencyKey": "field_data_analysis",
+              "topicLabel": "Data reviewed",
+              "sampleQuestion": "شنو المؤشرات أو التقارير اللي راجعتها قبل القرار؟",
+              "clusterKey": "field_data_analysis"
+            },
+            {
+              "stepKey": "problem",
+              "topicLabel": "Problem",
+              "sampleQuestion": "شنو كان أصعب جزء بالتحليل أو التشخيص؟",
+              "clusterKey": "problem"
+            },
+            {
+              "stepKey": "analysis",
+              "competencyKey": "reservoir_fundamentals",
+              "topicLabel": "Analysis",
+              "sampleQuestion": "شلون وصلت للسبب الجذري — شنو الخطوات؟",
+              "clusterKey": "reservoir_fundamentals"
+            },
+            {
+              "stepKey": "action",
+              "competencyKey": "production_operations",
+              "topicLabel": "Action",
+              "sampleQuestion": "شنو الإجراء اللي اقترحته أو نفذته؟",
+              "clusterKey": "production_operations"
+            },
+            {
+              "stepKey": "result",
+              "topicLabel": "Result",
+              "sampleQuestion": "شنو النتيجة أو التعلم اللي طلع من هالحالة؟",
+              "clusterKey": "result"
+            }
+          ]
+        },
+        {
+          "pathKey": "petroleum_academic_only",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee"
+          ],
+          "steps": [
+            {
+              "stepKey": "experience_mode",
+              "topicLabel": "Academic background",
+              "sampleQuestion": "شنو تركيزك بالجامعة — مكمن، حفر، إنتاج؟",
+              "clusterKey": "experience_mode"
+            },
+            {
+              "stepKey": "graduation_project",
+              "competencyKey": "simulation_and_tools",
+              "topicLabel": "Graduation project",
+              "sampleQuestion": "اذكرلي مشروع تخرجك — شنو النموذج أو الأداة اللي استخدمتها؟",
+              "clusterKey": "simulation_and_tools"
+            },
+            {
+              "stepKey": "simulation_data",
+              "competencyKey": "simulation_and_tools",
+              "topicLabel": "Simulation data",
+              "sampleQuestion": "شنو المدخلات والافتراضات اللي بنيت عليها المحاكاة؟",
+              "clusterKey": "simulation_and_tools"
+            },
+            {
+              "stepKey": "findings",
+              "competencyKey": "reservoir_fundamentals",
+              "topicLabel": "Findings",
+              "sampleQuestion": "شنو أهم نتيجة طلعت من المشروع أو المحاكاة؟",
+              "clusterKey": "reservoir_fundamentals"
+            },
+            {
+              "stepKey": "learning",
+              "topicLabel": "Learning",
+              "sampleQuestion": "شنو التحدي الأكبر وشنو تعلمت منه؟",
+              "clusterKey": "learning"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "survey_engineer": {
+      "packKey": "survey_engineer",
+      "packVersion": "1.4.0",
+      "roleKey": "survey_engineer",
+      "position": "survey engineer",
+      "specialization": "Survey Engineering",
+      "terminology": [
+        "GPS",
+        "GNSS",
+        "RTK",
+        "Total Station",
+        "leveling",
+        "benchmark",
+        "control point",
+        "coordinate system",
+        "UTM",
+        "geoid",
+        "datum",
+        "traversing",
+        "stakeout",
+        "as-built survey",
+        "topographic survey",
+        "closure error",
+        "accuracy tolerance"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي مشروع مسح أو رفع طبوغرافي — شنو كان نوعه وشنو دورك؟",
+        "شنو الجهاز أو الطريقة اللي استخدمتها أكثر — GPS ولا Total Station ولا غيره؟",
+        "شلون تتأكد من دقة الإحداثيات قبل ما تسلّم الملف؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "اكاديمي",
+            "بدون ميدان",
+            "thesis"
+          ],
+          "acceptableEvidence": [
+            "مشاريع جامعية",
+            "معمل",
+            "تمارين إحداثيات"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع مساحة أو رفع طبوغرافي درستته بالجامعة — شنو تعلمت؟",
+            "شنو أهم مفهوم إحداثيات أو دقة درسته نظرياً؟"
+          ],
+          "followUpHints": [
+            "لا تفترض معدات ميدانية بلا ذكر"
+          ],
+          "rubricAdjustments": "اقبل مشروع تخرج وأدوات أكاديمية — لا تخصم غياب موقع بناء."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "trainee"
+          ],
+          "acceptableEvidence": [
+            "مهام ميدانية محدودة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي شنو سويت بفترة التدريب بمشروع مسح — شنو كان دورك؟",
+            "شنو أول جهاز تعاملت ويةه بالميدان؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف والسلامة"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مشروع",
+            "تعلم أدوات"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مشروع مسح اشتغلت عليه — شنو الأداة وشنو التحدي؟",
+            "شلون تطلب المساعدة لما تتردد بالدقة؟"
+          ],
+          "followUpHints": [
+            "اطلب خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "gps",
+            "gnss",
+            "total station",
+            "rtk",
+            "ميدان",
+            "اشتغلت",
+            "مسح",
+            "field"
+          ],
+          "acceptableEvidence": [
+            "مشروع حقيقي",
+            "دقة",
+            "تصحيح أخطاء"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي مشروع مسح صعب — شنو الأداة وشنو معيار الدقة اللي التزمت بيه؟",
+            "شلون تعاملت وية فرق إحداثيات أو إغلاق خطأ قبل التسليم؟"
+          ],
+          "followUpHints": [
+            "ميّز GPS عن Total Station حسب كلام المرشح"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "supervisor",
+            "قاد",
+            "مسؤول مساحة"
+          ],
+          "acceptableEvidence": [
+            "إدارة فريق",
+            "مراجعة QA",
+            "تسليم للعميل"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي مشروع قدت فيه فريق مسح — شنو ضبطت الجودة والدقة؟",
+            "شلون راجعت مخرجات الفريق قبل التسليم للعميل؟"
+          ],
+          "followUpHints": [
+            "اسأل عن معايير القبول"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم مساحة",
+            "شهادات",
+            "مشروع انتقالي"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت للمساحة وشنو نقلته من مجالك السابق؟",
+            "شنو أصعب فرق بين شغلك السابق ومهندس المساحة؟"
+          ],
+          "followUpHints": [
+            "اربط بمثال تعلم أدوات"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "survey_default",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee",
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "project_type",
+              "competencyKey": "survey_project_setup",
+              "topicLabel": "Project type",
+              "sampleQuestion": "شنو نوع مشروع المسح اللي اشتغلت عليه — طبوغرافي، stakeout، as-built؟",
+              "clusterKey": "survey_project_setup"
+            },
+            {
+              "stepKey": "tool_used",
+              "competencyKey": "instrument_selection",
+              "topicLabel": "Tool used",
+              "sampleQuestion": "شنو الجهاز أو النظام اللي استخدمته ولماذا اخترته؟",
+              "clusterKey": "instrument_selection"
+            },
+            {
+              "stepKey": "coordinate_control",
+              "competencyKey": "coordinate_control",
+              "topicLabel": "Coordinate control",
+              "sampleQuestion": "شلون ثبتّ نقاط التحكم أو نظام الإحداثيات بالمشروع؟",
+              "clusterKey": "coordinate_control"
+            },
+            {
+              "stepKey": "accuracy_check",
+              "competencyKey": "accuracy_qc",
+              "topicLabel": "Accuracy check",
+              "sampleQuestion": "شنو فحوصات الدقة اللي سويتها قبل التسليم؟",
+              "clusterKey": "accuracy_qc"
+            },
+            {
+              "stepKey": "issue_error",
+              "competencyKey": "field_problem_solving",
+              "topicLabel": "Issue/error",
+              "sampleQuestion": "اذكرلي خطأ أو مشكلة ميدانية واجهتها — شنو كان السبب؟",
+              "clusterKey": "field_problem_solving"
+            },
+            {
+              "stepKey": "correction",
+              "competencyKey": "field_problem_solving",
+              "topicLabel": "Correction",
+              "sampleQuestion": "شلون صححت الخطأ أو عالجت المشكلة؟",
+              "clusterKey": "field_problem_solving"
+            },
+            {
+              "stepKey": "deliverable",
+              "competencyKey": "deliverable_reporting",
+              "topicLabel": "Deliverable",
+              "sampleQuestion": "شنو سلّمت بالنهاية وكيف تأكدت إن الملف مقبول؟",
+              "clusterKey": "deliverable_reporting"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "reservoir_engineer": {
+      "packKey": "reservoir_engineer",
+      "packVersion": "1.4.0",
+      "roleKey": "reservoir_engineer",
+      "position": "reservoir engineer",
+      "specialization": "Reservoir Engineering",
+      "terminology": [
+        "reservoir simulation",
+        "history matching",
+        "material balance",
+        "PVT",
+        "decline curve analysis",
+        "recovery factor",
+        "OOIP",
+        "OGIP",
+        "CMG",
+        "Eclipse",
+        "Petrel",
+        "permeability",
+        "porosity",
+        "saturation",
+        "bottomhole pressure",
+        "productivity index",
+        "well test analysis"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي دراسة مكمن أو نموذج محاكاة اشتغلت عليه — شنو كان الهدف وشنو النتيجة؟",
+        "شلون تقيّم أداء المكمن من بيانات الضغط والإنتاج — شنو المؤشرات الأساسية؟",
+        "اذكرلي موقف ظهر فيه اختلاف كبير بين التنبؤ والإنتاج الفعلي — شنو سويت؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "محاكاة",
+            "مشروع تخرج",
+            "thesis",
+            "cmg",
+            "eclipse"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "محاكاة",
+            "بيانات أكاديمية"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع تخرج أو محاكاة مكمن — شنو المدخلات وشنو النتيجة؟",
+            "شنو أصعب افتراض بالنموذج وكيف تحققت منه نظرياً؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة حقل"
+          ],
+          "rubricAdjustments": "اقبل أدلة أكاديمية ومحاكاة."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف",
+            "ملاحظات"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت عن تحليل المكمن بفترة التدريب؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف والأدوات"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول تحليل مكمن بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "اطلب خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "حقل",
+            "مكمن",
+            "history matching",
+            "decline",
+            "اشتغلت",
+            "field"
+          ],
+          "acceptableEvidence": [
+            "بيانات حقيقية",
+            "نموذج مُحقق",
+            "توصية"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي حقل أو مكمن اشتغلت عليه — شنو التحدي وشنو البيانات؟",
+            "شلون عملت history matching لحالة حقيقية؟"
+          ],
+          "followUpHints": [
+            "اطلب أرقام ومؤشرات"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "استراتيجية",
+            "احتياطي"
+          ],
+          "acceptableEvidence": [
+            "قرار تطوير",
+            "فريق",
+            "تأثير على الحقل"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي توصية تطوير مكمن مهم — شنو التأثير؟"
+          ],
+          "followUpHints": [
+            "اسأل عن trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لهندسة المكامن وشنو نقلته من مجالك السابق؟"
+          ],
+          "followUpHints": [
+            "اربط بمثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "reservoir_experienced",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "mode",
+              "topicLabel": "Mode",
+              "sampleQuestion": "خبرتك أكثر محاكاة ولا تحليل إنتاج ميداني؟",
+              "clusterKey": "mode"
+            },
+            {
+              "stepKey": "asset",
+              "competencyKey": "reservoir_characterization",
+              "topicLabel": "Asset",
+              "sampleQuestion": "اذكرلي مكمن أو حقل — شنو خصائصه الأساسية؟",
+              "clusterKey": "reservoir_characterization"
+            },
+            {
+              "stepKey": "data",
+              "competencyKey": "production_analysis",
+              "topicLabel": "Data",
+              "sampleQuestion": "شنو البيانات اللي راجعتها قبل بناء النموذج؟",
+              "clusterKey": "production_analysis"
+            },
+            {
+              "stepKey": "model",
+              "competencyKey": "simulation_and_forecast",
+              "topicLabel": "Model",
+              "sampleQuestion": "شلون بنيت أو حدّثت النموذج؟",
+              "clusterKey": "simulation_and_forecast"
+            },
+            {
+              "stepKey": "match",
+              "competencyKey": "simulation_and_forecast",
+              "topicLabel": "History match",
+              "sampleQuestion": "شلون طابقت النموذج مع الإنتاج الفعلي؟",
+              "clusterKey": "simulation_and_forecast"
+            },
+            {
+              "stepKey": "forecast",
+              "competencyKey": "reserves_and_recovery",
+              "topicLabel": "Forecast",
+              "sampleQuestion": "شنو التوقع أو التوصية اللي طلعت؟",
+              "clusterKey": "reserves_and_recovery"
+            },
+            {
+              "stepKey": "result",
+              "topicLabel": "Result",
+              "sampleQuestion": "شنو القرار أو النتيجة بعد التحليل؟",
+              "clusterKey": "result"
+            }
+          ]
+        },
+        {
+          "pathKey": "reservoir_academic",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee"
+          ],
+          "steps": [
+            {
+              "stepKey": "project",
+              "competencyKey": "simulation_and_forecast",
+              "topicLabel": "Project",
+              "sampleQuestion": "اذكرلي مشروع تخرج أو محاكاة — شنو الهدف؟",
+              "clusterKey": "simulation_and_forecast"
+            },
+            {
+              "stepKey": "characterize",
+              "competencyKey": "reservoir_characterization",
+              "topicLabel": "Characterize",
+              "sampleQuestion": "شنو خصائص المكمن أو البيانات اللي استخدمتها؟",
+              "clusterKey": "reservoir_characterization"
+            },
+            {
+              "stepKey": "inputs",
+              "topicLabel": "Inputs",
+              "sampleQuestion": "شنو المدخلات والافتراضات؟",
+              "clusterKey": "inputs"
+            },
+            {
+              "stepKey": "model",
+              "competencyKey": "simulation_and_forecast",
+              "topicLabel": "Model",
+              "sampleQuestion": "شلون بنيت أو شغّلت النموذج؟",
+              "clusterKey": "simulation_and_forecast"
+            },
+            {
+              "stepKey": "validation",
+              "competencyKey": "uncertainty_management",
+              "topicLabel": "Validation",
+              "sampleQuestion": "شلون تحققت من منطقية النتائج؟",
+              "clusterKey": "uncertainty_management"
+            },
+            {
+              "stepKey": "learning",
+              "topicLabel": "Learning",
+              "sampleQuestion": "شنو أهم تعلم من المشروع؟",
+              "clusterKey": "learning"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "drilling_engineer": {
+      "packKey": "drilling_engineer",
+      "packVersion": "1.4.0",
+      "roleKey": "drilling_engineer",
+      "position": "drilling engineer",
+      "specialization": "Drilling Engineering",
+      "terminology": [
+        "well control",
+        "mud weight",
+        "casing design",
+        "BHA",
+        "ROP",
+        "NPT",
+        "directional drilling",
+        "kick detection",
+        "choke manifold",
+        "cementing",
+        "pore pressure",
+        "fracture gradient",
+        "trip sheet",
+        "drilling program",
+        "MWD/LWD",
+        "derrick",
+        "blowout preventer",
+        "HSE",
+        "permit to work"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي بئر أو عملية حفر شاركت بيها — شنو كان دورك وشنو التحدي الأصعب؟",
+        "شلون تتعامل مع ضغط البئر أو سيطرة البئر أثناء الحفر — شنو الإجراءات اللي تتأكد منها؟",
+        "اذكرلي حالة تغيّر فيها مخطط الحفر بسبب ظروف downhole — شنو القرار اللي اتخذته؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "نظري",
+            "thesis"
+          ],
+          "acceptableEvidence": [
+            "تصميم برنامج حفر نظري",
+            "مشروع أكاديمي"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع حفر أكاديمي — شنو صممت أو حللت؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة rig"
+          ]
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "rig visit"
+          ],
+          "acceptableEvidence": [
+            "ملاحظات rig",
+            "مهام بإشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو شفت على الحفرية وأنت متدرب؟"
+          ],
+          "followUpHints": [
+            "اسأل عن well control basics"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة"
+          ],
+          "acceptableEvidence": [
+            "أول بئر",
+            "تعلم"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة حفر بعد التخرج — شنو تعلمت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "rig",
+            "حفرية",
+            "npt",
+            "kick",
+            "bha",
+            "اشتغلت",
+            "field"
+          ],
+          "acceptableEvidence": [
+            "قرار حفر",
+            "well control",
+            "نتيجة"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي حالة NPT أو مشكلة downhole — شنو التشخيص والحل؟",
+            "شلون قررت تعديل وزن الطين أو البرنامج ميدانياً؟"
+          ],
+          "followUpHints": [
+            "اطلب معاملات وأرقام"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "supervisor",
+            "manager",
+            "lead",
+            "برنامج حفر"
+          ],
+          "acceptableEvidence": [
+            "قيادة",
+            "تحسين تكلفة/وقت",
+            "HSE"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي برنامج حفر قدته — شنو أكبر تحدي ونتيجته؟"
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change"
+          ],
+          "acceptableEvidence": [
+            "تعلم حفر",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لهندسة الحفر وشنو نقلته؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم سريع"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "drilling_operations",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "well",
+              "topicLabel": "Well",
+              "sampleQuestion": "اذكرلي بئر — شنو نوع الحفر والبيئة؟",
+              "clusterKey": "well"
+            },
+            {
+              "stepKey": "plan",
+              "competencyKey": "drilling_program_design",
+              "topicLabel": "Plan",
+              "sampleQuestion": "شنو أهم قرار بالبرنامج قبل البدء؟",
+              "clusterKey": "drilling_program_design"
+            },
+            {
+              "stepKey": "mud",
+              "competencyKey": "mud_and_fluids",
+              "topicLabel": "Mud",
+              "sampleQuestion": "شلون اخترت أو عدّلت وزن الطين؟",
+              "clusterKey": "mud_and_fluids"
+            },
+            {
+              "stepKey": "ops",
+              "competencyKey": "drilling_operations",
+              "topicLabel": "Operations",
+              "sampleQuestion": "شنو المشكلة التشغيلية اللي واجهتك؟",
+              "clusterKey": "drilling_operations"
+            },
+            {
+              "stepKey": "control",
+              "competencyKey": "well_control",
+              "topicLabel": "Well control",
+              "sampleQuestion": "كيف تتأكد من جاهزية well control؟",
+              "clusterKey": "well_control"
+            },
+            {
+              "stepKey": "hse",
+              "competencyKey": "hse_rig_safety",
+              "topicLabel": "HSE",
+              "sampleQuestion": "شنو إجراء السلامة اللي تأكدت منه؟",
+              "clusterKey": "hse_rig_safety"
+            },
+            {
+              "stepKey": "result",
+              "topicLabel": "Result",
+              "sampleQuestion": "شنو النتيجة أو الدرس المستفاد؟",
+              "clusterKey": "result"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "civil_engineer": {
+      "packKey": "civil_engineer",
+      "packVersion": "1.4.0",
+      "roleKey": "civil_engineer",
+      "position": "civil engineer",
+      "specialization": "Civil Engineering",
+      "terminology": [
+        "AutoCAD",
+        "Civil 3D",
+        "ETABS",
+        "SAP2000",
+        "rebar detailing",
+        "concrete mix",
+        "soil investigation",
+        "bearing capacity",
+        "BOQ",
+        "shop drawings",
+        "as-built",
+        "RFI",
+        "method statement",
+        "QA/QC",
+        "earthworks",
+        "pavement design",
+        "retaining wall",
+        "formwork"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي مشروع مدني اشتغلت عليه — شنو نوعه وشنو مسؤولياتك؟",
+        "شلون تتأكد إن التصاميم أو الكميات مطابقة للمواصفات قبل التنفيذ؟",
+        "اذكرلي مشكلة جودة أو سلامة بالموقع واجهتها كمهندس مدني — شنو سويت؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis"
+          ],
+          "acceptableEvidence": [
+            "تصميم أكاديمي",
+            "حسابات"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع تخرج مدني — شنو صممت؟"
+          ],
+          "followUpHints": [
+            "لا تفترض موقع كبير"
+          ]
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "مخططات"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب بالمكتب أو الموقع؟"
+          ],
+          "followUpHints": [
+            "إشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة"
+          ],
+          "acceptableEvidence": [
+            "أول مشروع",
+            "تعلم"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة مدنية بعد التخرج."
+          ],
+          "followUpHints": [
+            "خطوات"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "مشروع",
+            "موقع",
+            "اشتغلت",
+            "autocad",
+            "etabs",
+            "concrete"
+          ],
+          "acceptableEvidence": [
+            "مشروع كامل",
+            "مراجعة",
+            "نتيجة"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي مشروع مدني كبير — شنو دورك بالتصميم أو المراجعة؟",
+            "شلون تعاملت مع تعارض بالمخططات أو الكميات؟"
+          ],
+          "followUpHints": [
+            "تفاصيل تقنية"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "رئيس مهندسين"
+          ],
+          "acceptableEvidence": [
+            "اعتماد",
+            "قيادة فريق",
+            "قرار تقني"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار تقني مهم قدته على مشروع مدني."
+          ],
+          "followUpHints": [
+            "تأثير"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change"
+          ],
+          "acceptableEvidence": [
+            "تعلم مدني"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت للهندسة المدنية؟"
+          ],
+          "followUpHints": [
+            "مهارات منقولة"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "civil_design_review",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "project",
+              "topicLabel": "Project",
+              "sampleQuestion": "شنو نوع المشروع وحجمه؟",
+              "clusterKey": "project"
+            },
+            {
+              "stepKey": "role",
+              "competencyKey": "design_and_analysis",
+              "topicLabel": "Role",
+              "sampleQuestion": "شنو مسؤوليتك بالتصميم أو التحليل؟",
+              "clusterKey": "design_and_analysis"
+            },
+            {
+              "stepKey": "drawings",
+              "competencyKey": "drawings_and_documentation",
+              "topicLabel": "Drawings",
+              "sampleQuestion": "شنو راجعت بالمخططات أو الكميات؟",
+              "clusterKey": "drawings_and_documentation"
+            },
+            {
+              "stepKey": "quality",
+              "competencyKey": "specifications_qa",
+              "topicLabel": "Quality",
+              "sampleQuestion": "اذكرلي مشكلة مواصفات أو جودة — شنو سويت؟",
+              "clusterKey": "specifications_qa"
+            },
+            {
+              "stepKey": "coordination",
+              "competencyKey": "site_coordination",
+              "topicLabel": "Coordination",
+              "sampleQuestion": "شلون نسّقت مع الموقع أو المقاول؟",
+              "clusterKey": "site_coordination"
+            },
+            {
+              "stepKey": "safety",
+              "competencyKey": "safety_and_risk",
+              "topicLabel": "Safety",
+              "sampleQuestion": "شنو مخاطر لاحظتها مبكراً؟",
+              "clusterKey": "safety_and_risk"
+            },
+            {
+              "stepKey": "outcome",
+              "topicLabel": "Outcome",
+              "sampleQuestion": "شنو النتيجة؟",
+              "clusterKey": "outcome"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "site_engineer": {
+      "packKey": "site_engineer",
+      "packVersion": "1.4.0",
+      "roleKey": "site_engineer",
+      "position": "site engineer",
+      "specialization": "Site Engineering",
+      "terminology": [
+        "RFI",
+        "method statement",
+        "ITP",
+        "inspection test plan",
+        "daily report",
+        "work permit",
+        "HSE",
+        "NCR",
+        "punch list",
+        "as-built",
+        "variation order",
+        "lookahead",
+        "manpower histogram",
+        "concrete pour",
+        "rebar inspection",
+        "site logistics",
+        "coordination meeting",
+        "BOQ progress"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي موقع بناء أو مشروع اشرفت عليه — شنو كان حجم العمل وشنو دورك اليومي؟",
+        "شلون تنسّق مع المقاولين والاستشاريين لما يصير تعارض بالمخططات؟",
+        "اذكرلي موقف تأخّر فيه المشروع بسبب مشكلة ميدانية — شنو خطواتك؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "زيارة موقع",
+            "مشروع تخرج"
+          ],
+          "acceptableEvidence": [
+            "زيارات",
+            "تقارير أكاديمية"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي تجربة موقع بالجامعة — شنو شفت؟"
+          ],
+          "followUpHints": [
+            "لا تفترض إشراف كامل"
+          ]
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "تقارير"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو مسؤولياتك اليومية وأنت متدرب موقع؟"
+          ],
+          "followUpHints": [
+            "إشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة"
+          ],
+          "acceptableEvidence": [
+            "أول موقع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول موقع بعد التخرج — شنو تعلمت؟"
+          ],
+          "followUpHints": [
+            "خطوات"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "موقع",
+            "مقاول",
+            "rfi",
+            "inspection",
+            "اشتغلت",
+            "site"
+          ],
+          "acceptableEvidence": [
+            "مشكلة حُلت",
+            "تفتيش",
+            "تقرير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي موقع صعب — شنو أكبر تحدي يومي واجهته؟",
+            "شلون أغلقت NCR أو مشكلة جودة ميدانية؟"
+          ],
+          "followUpHints": [
+            "تفاصيل"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "resident",
+            "مشرف",
+            "manager"
+          ],
+          "acceptableEvidence": [
+            "قيادة",
+            "قرار",
+            "تأثير جدول"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار ميداني مهم أثّر على سير المشروع."
+          ],
+          "followUpHints": [
+            "تأثير"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change"
+          ],
+          "acceptableEvidence": [
+            "تعلم موقع"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لإشراف المواقع؟"
+          ],
+          "followUpHints": [
+            "مهارات منقولة"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "site_daily_flow",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "site",
+              "topicLabel": "Site",
+              "sampleQuestion": "شنو نوع المشروع ومرحلته؟",
+              "clusterKey": "site"
+            },
+            {
+              "stepKey": "routine",
+              "competencyKey": "daily_site_management",
+              "topicLabel": "Routine",
+              "sampleQuestion": "شلون يبدأ يومك بالموقع؟",
+              "clusterKey": "daily_site_management"
+            },
+            {
+              "stepKey": "hse",
+              "competencyKey": "safety_site",
+              "topicLabel": "HSE",
+              "sampleQuestion": "شلون تتأكد من التصاريح وHSE قبل الأعمال؟",
+              "clusterKey": "safety_site"
+            },
+            {
+              "stepKey": "issue",
+              "competencyKey": "schedule_problem_solving",
+              "topicLabel": "Issue",
+              "sampleQuestion": "اذكرلي مشكلة ميدانية — شنو السبب؟",
+              "clusterKey": "schedule_problem_solving"
+            },
+            {
+              "stepKey": "coordination",
+              "competencyKey": "contractor_coordination",
+              "topicLabel": "Coordination",
+              "sampleQuestion": "شلون نسّقت الحل مع المقاول؟",
+              "clusterKey": "contractor_coordination"
+            },
+            {
+              "stepKey": "quality",
+              "competencyKey": "quality_inspections",
+              "topicLabel": "Quality",
+              "sampleQuestion": "شلون تأكدت من جودة التنفيذ؟",
+              "clusterKey": "quality_inspections"
+            },
+            {
+              "stepKey": "close",
+              "topicLabel": "Close",
+              "sampleQuestion": "شنو النتيجة أو الدرس؟",
+              "clusterKey": "close"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "process_engineer": {
+      "packKey": "process_engineer",
+      "packVersion": "1.4.0",
+      "roleKey": "process_engineer",
+      "position": "process engineer",
+      "specialization": "Process Engineering",
+      "terminology": [
+        "PFD",
+        "P&ID",
+        "mass balance",
+        "energy balance",
+        "HAZOP",
+        "LOPA",
+        "relief sizing",
+        "heat exchanger",
+        "distillation column",
+        "separator",
+        "debottlenecking",
+        "operating envelope",
+        "DCS",
+        "start-up shutdown",
+        "catalyst",
+        "utility consumption",
+        "process safety",
+        "HSE"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي عملية أو وحدة هندسة عمليات صممتها أو حسّنتها — شنو الهدف وشنو النتيجة؟",
+        "شلون تراجع توازن الكتلة أو الطاقة قبل تعديل العملية؟",
+        "اذكرلي حالة اكتشفت فيها مخاطر عملية — شنو الإجراء اللي اتخذته؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "محاكاة"
+          ],
+          "acceptableEvidence": [
+            "تصميم أكاديمي",
+            "توازن نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع عمليات بالجامعة — شنو صممت؟"
+          ],
+          "followUpHints": [
+            "لا تفترض تشغيل مصنع"
+          ]
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "plant visit"
+          ],
+          "acceptableEvidence": [
+            "ملاحظات",
+            "مهام"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بزيارة مصنع أو تدريب عمليات؟"
+          ],
+          "followUpHints": [
+            "إشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة عمليات بعد التخرج."
+          ],
+          "followUpHints": [
+            "خطوات"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "مصنع",
+            "وحدة",
+            "p&id",
+            "hazop",
+            "plant",
+            "اشتغلت",
+            "refinery"
+          ],
+          "acceptableEvidence": [
+            "تحسين قابل للقياس",
+            "سلامة"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي وحدة عمليات حسّنتها — شنو المشكلة والحل؟",
+            "شلون شاركت بـ HAZOP أو مراجعة أمان؟"
+          ],
+          "followUpHints": [
+            "أرقام"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "head"
+          ],
+          "acceptableEvidence": [
+            "قرار استثمار",
+            "فريق",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار عمليات مهم أثّر على الإنتاج أو السلامة."
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change"
+          ],
+          "acceptableEvidence": [
+            "تعلم عمليات"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لهندسة العمليات؟"
+          ],
+          "followUpHints": [
+            "مهارات منقولة"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "process_improvement",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "unit",
+              "topicLabel": "Unit",
+              "sampleQuestion": "شنو الوحدة أو العملية؟",
+              "clusterKey": "unit"
+            },
+            {
+              "stepKey": "design",
+              "competencyKey": "process_design",
+              "topicLabel": "Design",
+              "sampleQuestion": "شلون راجعت PFD/P&ID قبل التعديل؟",
+              "clusterKey": "process_design"
+            },
+            {
+              "stepKey": "problem",
+              "competencyKey": "troubleshooting",
+              "topicLabel": "Problem",
+              "sampleQuestion": "شنو المشكلة أو الهدف؟",
+              "clusterKey": "troubleshooting"
+            },
+            {
+              "stepKey": "analysis",
+              "competencyKey": "mass_energy_balance",
+              "topicLabel": "Analysis",
+              "sampleQuestion": "شلون حللت بالتوازن أو البيانات؟",
+              "clusterKey": "mass_energy_balance"
+            },
+            {
+              "stepKey": "safety",
+              "competencyKey": "process_safety",
+              "topicLabel": "Safety",
+              "sampleQuestion": "شنو اعتبار السلامة بالقرار؟",
+              "clusterKey": "process_safety"
+            },
+            {
+              "stepKey": "coordination",
+              "competencyKey": "cross_functional",
+              "topicLabel": "Coordination",
+              "sampleQuestion": "شلون نسّقت مع العمليات والصيانة؟",
+              "clusterKey": "cross_functional"
+            },
+            {
+              "stepKey": "result",
+              "competencyKey": "optimization",
+              "topicLabel": "Result",
+              "sampleQuestion": "شنو النتيجة القابلة للقياس؟",
+              "clusterKey": "optimization"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "frontend_developer": {
+      "packKey": "frontend_developer",
+      "packVersion": "1.4.0",
+      "roleKey": "frontend_developer",
+      "position": "frontend developer",
+      "specialization": "Frontend Development",
+      "terminology": [
+        "React",
+        "TypeScript",
+        "component architecture",
+        "state management",
+        "Redux",
+        "accessibility",
+        "performance",
+        "Core Web Vitals",
+        "lazy loading",
+        "bundle size",
+        "responsive design",
+        "testing library",
+        "Cypress",
+        "design system",
+        "API integration",
+        "SSR",
+        "hydration"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي شاشة أو ميزة واجهة بنيتها — شنو التحدي التقني وشنو النتيجة؟",
+        "شلون تحسّن أداء صفحة بطيئة — شنو القياسات اللي استخدمتها؟",
+        "اذكرلي موقف اضطررت تتعاون وية التصميم أو الباكند لحل مشكلة بالواجهة؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "نظري",
+            "react",
+            "vue",
+            "typescript",
+            "frontend",
+            "واجهات"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "دورة",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع واجهة أو React بالجامعة — شنو التقنيات؟",
+            "شنو أصعب تحدي UI طبّقته نظرياً؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة عمل طويلة"
+          ],
+          "rubricAdjustments": "اقبل مشاريع واجهة أكاديمية — لا تخصم غياب إنتاج."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب كمطور واجهات؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة frontend بعد التخرج."
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "خبرة",
+            "مشروع",
+            "فريق",
+            "react",
+            "production",
+            "typescript",
+            "component",
+            "ui",
+            "واجهات",
+            "فرونت"
+          ],
+          "acceptableEvidence": [
+            "مثال حقيقي",
+            "نتيجة",
+            "أرقام"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي ميزة React شغّلتها بالإنتاج — شنو المشكلة اللي حليتها؟",
+            "شلون حسّنت أداء صفحة — شنو القياسات؟"
+          ],
+          "followUpHints": [
+            "اطلب تفاصيل ونتيجة"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قرار",
+            "قيادة",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار معماري UI مهم — شنو التأثير؟"
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لتطوير الواجهات؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "frontend_delivery",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "feature",
+              "topicLabel": "Feature",
+              "sampleQuestion": "شنو الميزة أو الشاشة؟",
+              "clusterKey": "feature"
+            },
+            {
+              "stepKey": "tech",
+              "competencyKey": "ui_architecture",
+              "topicLabel": "Tech",
+              "sampleQuestion": "شنو قرارات المكونات والحالة؟",
+              "clusterKey": "ui_architecture"
+            },
+            {
+              "stepKey": "api",
+              "competencyKey": "api_integration",
+              "topicLabel": "API",
+              "sampleQuestion": "شلون ربطت الواجهة بالخدمات والأخطاء؟",
+              "clusterKey": "api_integration"
+            },
+            {
+              "stepKey": "perf",
+              "competencyKey": "performance",
+              "topicLabel": "Performance",
+              "sampleQuestion": "واجهت مشكلة أداء — شنو القياسات؟",
+              "clusterKey": "performance"
+            },
+            {
+              "stepKey": "a11y",
+              "competencyKey": "accessibility",
+              "topicLabel": "Accessibility",
+              "sampleQuestion": "شلون تأكدت من الوصول accessibility؟",
+              "clusterKey": "accessibility"
+            },
+            {
+              "stepKey": "test",
+              "competencyKey": "testing",
+              "topicLabel": "Testing",
+              "sampleQuestion": "شنو اختبرت قبل الإطلاق؟",
+              "clusterKey": "testing"
+            },
+            {
+              "stepKey": "result",
+              "topicLabel": "Result",
+              "sampleQuestion": "شنو النتيجة؟",
+              "clusterKey": "result"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "devops_engineer": {
+      "packKey": "devops_engineer",
+      "packVersion": "1.4.0",
+      "roleKey": "devops_engineer",
+      "position": "devops engineer",
+      "specialization": "DevOps / Platform Engineering",
+      "terminology": [
+        "CI/CD",
+        "Kubernetes",
+        "Docker",
+        "Terraform",
+        "IaC",
+        "GitOps",
+        "observability",
+        "prometheus",
+        "grafana",
+        "incident response",
+        "SLO",
+        "SLA",
+        "rollback",
+        "canary",
+        "secrets management",
+        "autoscaling",
+        "helm"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي pipeline أو بنية تحتية حسّنتها — شنو المشكلة وشنو النتيجة؟",
+        "شلون تتعامل مع حادث إنتاج — شنو خطواتك من الاكتشاف للحل؟",
+        "اذكرلي قرار استخدمت بيه Terraform أو Kubernetes وشنو المقايضة؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "نظري",
+            "kubernetes",
+            "terraform",
+            "ci/cd",
+            "docker",
+            "lab"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "دورة",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع DevOps أكاديمي أو معملي.",
+            "شنو تعلمت عن CI/CD نظرياً؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة عمل طويلة"
+          ],
+          "rubricAdjustments": "اقبل مشاريع معملية — لا تخصم غياب on-call."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب كـ DevOps/SRE؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "خبرة",
+            "مشروع",
+            "فريق",
+            "kubernetes",
+            "terraform",
+            "ci/cd",
+            "incident",
+            "on-call",
+            "pipeline",
+            "ديفوبس"
+          ],
+          "acceptableEvidence": [
+            "مثال حقيقي",
+            "نتيجة",
+            "أرقام"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي incident أو deployment حسّنته فعلياً.",
+            "شلون pipeline أو K8s أثر على الموثوقية؟"
+          ],
+          "followUpHints": [
+            "اطلب تفاصيل ونتيجة"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قرار",
+            "قيادة",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي تحسين موثوقية أو تكلفة بنية — شنو المقايضة؟"
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لـ DevOps/SRE؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "devops_incident",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "context",
+              "clusterKey": "context",
+              "topicLabel": "Context",
+              "sampleQuestion": "شنو النظام أو الخدمة؟"
+            },
+            {
+              "stepKey": "detect",
+              "competencyKey": "observability",
+              "clusterKey": "observability",
+              "topicLabel": "Detect",
+              "sampleQuestion": "شلون اكتشفت المشكلة؟"
+            },
+            {
+              "stepKey": "cicd",
+              "competencyKey": "cicd_pipelines",
+              "clusterKey": "cicd",
+              "topicLabel": "CI/CD",
+              "sampleQuestion": "شلون pipeline ساعد أو تأثر؟"
+            },
+            {
+              "stepKey": "fix",
+              "competencyKey": "incident_response",
+              "clusterKey": "incident",
+              "topicLabel": "Fix",
+              "sampleQuestion": "شنو الإجراء؟"
+            },
+            {
+              "stepKey": "iac",
+              "competencyKey": "infra_as_code",
+              "clusterKey": "iac",
+              "topicLabel": "IaC",
+              "sampleQuestion": "هل Terraform/K8s لعب دور؟"
+            },
+            {
+              "stepKey": "prevent",
+              "competencyKey": "security_ops",
+              "clusterKey": "prevent",
+              "topicLabel": "Prevent",
+              "sampleQuestion": "شنو منعت التكرار؟"
+            },
+            {
+              "stepKey": "postmortem",
+              "topicLabel": "Postmortem",
+              "sampleQuestion": "شنو تعلمت من الحادث؟",
+              "clusterKey": "postmortem"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "data_analyst": {
+      "packKey": "data_analyst",
+      "packVersion": "1.4.0",
+      "roleKey": "data_analyst",
+      "position": "data analyst",
+      "specialization": "Data Analysis",
+      "terminology": [
+        "SQL",
+        "Excel",
+        "Power BI",
+        "Tableau",
+        "ETL",
+        "data quality",
+        "KPI",
+        "cohort",
+        "funnel",
+        "A/B test",
+        "dashboard",
+        "stakeholder",
+        "variance",
+        "data validation",
+        "sampling",
+        "visualization",
+        "root cause"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي تحليل بيانات أثر على قرار — شنو السؤال وشنو النتيجة؟",
+        "شلون تتأكد من جودة البيانات قبل ما تقدم تقرير؟",
+        "اذكرلي dashboard أو KPI تابعته — شنو اللي اكتشفته؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "نظري",
+            "sql",
+            "power bi",
+            "tableau",
+            "تحليل",
+            "dashboard"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "دورة",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع تحليل بيانات بالجامعة.",
+            "شنو استعلام SQL أو رسم درسته؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة عمل طويلة"
+          ],
+          "rubricAdjustments": "اقبل تحليلات أكاديمية — لا تخصم غياب stakeholder حقيقي."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب كمحلل بيانات؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "خبرة",
+            "مشروع",
+            "فريق",
+            "sql",
+            "power bi",
+            "tableau",
+            "kpi",
+            "dashboard",
+            "stakeholder",
+            "بيانات"
+          ],
+          "acceptableEvidence": [
+            "مثال حقيقي",
+            "نتيجة",
+            "أرقام"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي تحليل SQL أو BI أثر على قرار عمل.",
+            "شلون dashboard غيّر توصية الإدارة؟"
+          ],
+          "followUpHints": [
+            "اطلب تفاصيل ونتيجة"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قرار",
+            "قيادة",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي KPI أو نموذج قدته — شنو التأثير؟"
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لتحليل البيانات؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "data_insight",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee",
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "question",
+              "clusterKey": "question",
+              "topicLabel": "Question",
+              "sampleQuestion": "شنو سؤال العمل؟"
+            },
+            {
+              "stepKey": "data",
+              "competencyKey": "sql_analysis",
+              "clusterKey": "sql",
+              "topicLabel": "Data",
+              "sampleQuestion": "شنو البيانات والاستعلام؟"
+            },
+            {
+              "stepKey": "quality",
+              "competencyKey": "data_quality",
+              "clusterKey": "quality",
+              "topicLabel": "Quality",
+              "sampleQuestion": "شلون تحققت من جودة البيانات؟"
+            },
+            {
+              "stepKey": "metrics",
+              "competencyKey": "metrics_definition",
+              "clusterKey": "metrics",
+              "topicLabel": "Metrics",
+              "sampleQuestion": "شنو KPI أو المؤشر؟"
+            },
+            {
+              "stepKey": "insight",
+              "competencyKey": "visualization",
+              "clusterKey": "viz",
+              "topicLabel": "Insight",
+              "sampleQuestion": "شنو الاستنتاج؟"
+            },
+            {
+              "stepKey": "stakeholder",
+              "competencyKey": "stakeholder",
+              "clusterKey": "stakeholder",
+              "topicLabel": "Stakeholder",
+              "sampleQuestion": "شلون شرحت لغير تقني؟"
+            },
+            {
+              "stepKey": "action",
+              "competencyKey": "business_impact",
+              "clusterKey": "action",
+              "topicLabel": "Action",
+              "sampleQuestion": "شنو القرار أو التأثير؟"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "qa_engineer": {
+      "packKey": "qa_engineer",
+      "packVersion": "1.4.0",
+      "roleKey": "qa_engineer",
+      "position": "qa engineer",
+      "specialization": "Software QA / Test Engineering",
+      "terminology": [
+        "test plan",
+        "test case",
+        "regression",
+        "automation",
+        "Selenium",
+        "Cypress",
+        "API testing",
+        "Postman",
+        "bug report",
+        "repro steps",
+        "severity",
+        "priority",
+        "CI test gate",
+        "exploratory testing",
+        "acceptance criteria"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي مشكلة جودة اكتشفتها قبل الإطلاق — شنو أثرها لو ما انكشفت؟",
+        "شلون تختار شنو تؤتمت وشنو تختبر يدوياً؟",
+        "اذكرلي bug صعب — شلون وثّقته وتابعته للإغلاق؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "نظري",
+            "selenium",
+            "cypress",
+            "test",
+            "bootcamp",
+            "اختبار"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "دورة",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع اختبار بالجامعة أو bootcamp.",
+            "شنو test plan درسته؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة عمل طويلة"
+          ],
+          "rubricAdjustments": "اقبل مشاريع اختبار أكاديمية — لا تخصم غياب إنتاج."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب كـ QA؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "خبرة",
+            "مشروع",
+            "فريق",
+            "regression",
+            "automation",
+            "selenium",
+            "cypress",
+            "release",
+            "bug",
+            "جودة"
+          ],
+          "acceptableEvidence": [
+            "مثال حقيقي",
+            "نتيجة",
+            "أرقام"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي release أو regression suite مسؤول عنه.",
+            "شلون automation منع عطلاً حرجاً؟"
+          ],
+          "followUpHints": [
+            "اطلب تفاصيل ونتيجة"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قرار",
+            "قيادة",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي استراتيجية جودة قدتها — شنو التأثير؟"
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لضمان الجودة البرمجية؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "qa_release",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee",
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "release",
+              "clusterKey": "release",
+              "topicLabel": "Release",
+              "sampleQuestion": "شنو الإصدار أو المنتج؟"
+            },
+            {
+              "stepKey": "strategy",
+              "competencyKey": "test_strategy",
+              "clusterKey": "strategy",
+              "topicLabel": "Strategy",
+              "sampleQuestion": "شنو خطتك؟"
+            },
+            {
+              "stepKey": "automation",
+              "competencyKey": "automation",
+              "clusterKey": "automation",
+              "topicLabel": "Automation",
+              "sampleQuestion": "شنو أتمتت وشنو يدوي؟"
+            },
+            {
+              "stepKey": "bug",
+              "competencyKey": "bug_reporting",
+              "clusterKey": "bug",
+              "topicLabel": "Bug",
+              "sampleQuestion": "اذكرلي عطل مهم."
+            },
+            {
+              "stepKey": "regression",
+              "competencyKey": "regression",
+              "clusterKey": "regression",
+              "topicLabel": "Regression",
+              "sampleQuestion": "شلون regression قبل الإطلاق؟"
+            },
+            {
+              "stepKey": "explore",
+              "competencyKey": "exploratory",
+              "clusterKey": "explore",
+              "topicLabel": "Exploratory",
+              "sampleQuestion": "شنو edge case اكتشفته؟"
+            },
+            {
+              "stepKey": "outcome",
+              "clusterKey": "outcome",
+              "topicLabel": "Outcome",
+              "sampleQuestion": "شنو النتيجة؟"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "customer_support": {
+      "packKey": "customer_support",
+      "packVersion": "1.4.0",
+      "roleKey": "customer_support_specialist",
+      "position": "customer support",
+      "specialization": "Customer Support",
+      "terminology": [
+        "ticket",
+        "SLA",
+        "CSAT",
+        "NPS",
+        "escalation",
+        "knowledge base",
+        "first contact resolution",
+        "CRM",
+        "Zendesk",
+        "empathy",
+        "de-escalation",
+        "root cause",
+        "follow-up",
+        "queue"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي شكوى عميل صعبة — شنو سويت وشنو النتيجة؟",
+        "شلون توازن بين سياسة الشركة ورغبة العميل؟",
+        "اذكرلي موقف اضطررت تصعّد فيه التذكرة — شنو الخطوات؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "نظري",
+            "customer service",
+            "crm",
+            "خدمة عملاء",
+            "شكوى"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "دورة",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي تدريب أو مشروع خدمة عملاء.",
+            "شنو تعلمت عن التعامل مع العملاء؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة عمل طويلة"
+          ],
+          "rubricAdjustments": "اقبل سيناريوهات تدريب — لا تخصم غياب queue حقيقي."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب بدعم العملاء؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "خبرة",
+            "مشروع",
+            "فريق",
+            "ticket",
+            "zendesk",
+            "csat",
+            "sla",
+            "escalation",
+            "عميل",
+            "دعم"
+          ],
+          "acceptableEvidence": [
+            "مثال حقيقي",
+            "نتيجة",
+            "أرقام"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي عميل غاضب هديته وحققت حل.",
+            "شلون وازنت بين السياسة وحاجة العميل؟"
+          ],
+          "followUpHints": [
+            "اطلب تفاصيل ونتيجة"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قرار",
+            "قيادة",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي تحسين CSAT أو عملية تصعيد قدته."
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لدعم العملاء؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "support_case",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee",
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "case",
+              "topicLabel": "Case",
+              "sampleQuestion": "شنو المشكلة؟",
+              "clusterKey": "case"
+            },
+            {
+              "stepKey": "empathy",
+              "competencyKey": "empathy",
+              "topicLabel": "Empathy",
+              "sampleQuestion": "شلون تعاملت مع غضب أو إحباط العميل؟",
+              "clusterKey": "empathy"
+            },
+            {
+              "stepKey": "policy",
+              "competencyKey": "policy_balance",
+              "topicLabel": "Policy",
+              "sampleQuestion": "شلون وازنت بين السياسة وحاجة العميل؟",
+              "clusterKey": "policy_balance"
+            },
+            {
+              "stepKey": "handle",
+              "competencyKey": "ticket_handling",
+              "topicLabel": "Handle",
+              "sampleQuestion": "شنو خطوات التذكرة والتوثيق؟",
+              "clusterKey": "ticket_handling"
+            },
+            {
+              "stepKey": "escalate",
+              "competencyKey": "escalation",
+              "topicLabel": "Escalation",
+              "sampleQuestion": "متى صعدت وشنو أرسلت؟",
+              "clusterKey": "escalation"
+            },
+            {
+              "stepKey": "product",
+              "competencyKey": "product_knowledge",
+              "topicLabel": "Product",
+              "sampleQuestion": "شلون استخدمت معرفة المنتج بالحل؟",
+              "clusterKey": "product_knowledge"
+            },
+            {
+              "stepKey": "metric",
+              "competencyKey": "metrics",
+              "topicLabel": "Metric",
+              "sampleQuestion": "شنو أثر على رضا العميل أو SLA؟",
+              "clusterKey": "metrics"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "operations_coordinator": {
+      "packKey": "operations_coordinator",
+      "packVersion": "1.4.0",
+      "roleKey": "operations_manager",
+      "position": "operations coordinator",
+      "specialization": "Operations Coordination",
+      "terminology": [
+        "SOP",
+        "KPI",
+        "vendor management",
+        "scheduling",
+        "inventory",
+        "workflow",
+        "bottleneck",
+        "SLA",
+        "cross-functional",
+        "reporting",
+        "continuous improvement",
+        "resource planning",
+        "escalation",
+        "standardization"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي عملية أو تدفق عمل حسّنته — شنو كان الخلل وشنو النتيجة؟",
+        "شلون تنسّق بين فرق أو موردين لما يصير ضغط على الجدول؟",
+        "اذكرلي مؤشر عمليات تتابعه دايماً — ليش اخترته؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "نظري",
+            "operations",
+            "coordination",
+            "sop",
+            "تنسيق",
+            "عمليات"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "دورة",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع تنسيق أو عمليات بالجامعة.",
+            "شنو عملية درستها؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة عمل طويلة"
+          ],
+          "rubricAdjustments": "اقبل مشاريع تنسيق أكاديمية — لا تخصم غياب vendor حقيقي."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب كمنسق عمليات؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "خبرة",
+            "مشروع",
+            "فريق",
+            "vendor",
+            "sop",
+            "kpi",
+            "scheduling",
+            "workflow",
+            "bottleneck",
+            "عمليات"
+          ],
+          "acceptableEvidence": [
+            "مثال حقيقي",
+            "نتيجة",
+            "أرقام"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي تحسين عملية بقياس قبل/بعد.",
+            "شلون نسّقت موردين تحت ضغط جدول؟"
+          ],
+          "followUpHints": [
+            "اطلب تفاصيل ونتيجة"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قرار",
+            "قيادة",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي تحسين SOP أو KPI على مستوى الفريق."
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لتنسيق العمليات؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "ops_improvement",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "process",
+              "topicLabel": "Process",
+              "sampleQuestion": "شنو العملية؟",
+              "clusterKey": "process"
+            },
+            {
+              "stepKey": "issue",
+              "competencyKey": "problem_solving",
+              "topicLabel": "Issue",
+              "sampleQuestion": "شنو المشكلة أو الاختناق؟",
+              "clusterKey": "problem_solving"
+            },
+            {
+              "stepKey": "vendor",
+              "competencyKey": "vendor_mgmt",
+              "topicLabel": "Vendor",
+              "sampleQuestion": "هل المورد أو SLA كان جزء من المشكلة؟",
+              "clusterKey": "vendor_mgmt"
+            },
+            {
+              "stepKey": "schedule",
+              "competencyKey": "scheduling",
+              "topicLabel": "Schedule",
+              "sampleQuestion": "شلون أعدت الأولويات والجدول؟",
+              "clusterKey": "scheduling"
+            },
+            {
+              "stepKey": "action",
+              "competencyKey": "process_coordination",
+              "topicLabel": "Action",
+              "sampleQuestion": "شنو سويت لتنسيق الفرق؟",
+              "clusterKey": "process_coordination"
+            },
+            {
+              "stepKey": "kpi",
+              "competencyKey": "reporting",
+              "topicLabel": "KPI",
+              "sampleQuestion": "شنو المؤشر قبل/بعد؟",
+              "clusterKey": "reporting"
+            },
+            {
+              "stepKey": "stakeholder",
+              "competencyKey": "stakeholder",
+              "topicLabel": "Stakeholder",
+              "sampleQuestion": "شلون أبلغت أصحاب المصلحة؟",
+              "clusterKey": "stakeholder"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "accounts_payable": {
+      "packKey": "accounts_payable",
+      "packVersion": "1.4.0",
+      "roleKey": "accounts_payable",
+      "position": "accounts payable",
+      "specialization": "Accounts Payable",
+      "terminology": [
+        "three-way match",
+        "invoice processing",
+        "purchase order",
+        "GRN",
+        "payment run",
+        "vendor statement",
+        "reconciliation",
+        "accruals",
+        "duplicate payment",
+        "approval workflow",
+        "ERP",
+        "aging",
+        "cut-off",
+        "SOX control"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي فاتورة أو دفعة اكتشفت فيها خطأ — شنو سويت؟",
+        "شلون تسوي three-way match عملياً قبل ما توافق على الدفع؟",
+        "اذكرلي نهاية شهر ضاغطة — شلون ضليت الدقة والموعد؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "نظري",
+            "accounting",
+            "invoice",
+            "ap",
+            "ذمم",
+            "فواتير"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "دورة",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي تدريب محاسبة أو AP.",
+            "شنو تعلمت عن مطابقة الفواتير؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة عمل طويلة"
+          ],
+          "rubricAdjustments": "اقبل تمارين AP أكاديمية — لا تخصم غياب payment run فعلي."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب في AP؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "خبرة",
+            "مشروع",
+            "فريق",
+            "three-way match",
+            "invoice",
+            "payment run",
+            "vendor",
+            "erp",
+            "ذمم دائنة"
+          ],
+          "acceptableEvidence": [
+            "مثال حقيقي",
+            "نتيجة",
+            "أرقام"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي دورة دفع أو مطابقة مورد.",
+            "شلون three-way match منع خطأ دفع؟"
+          ],
+          "followUpHints": [
+            "اطلب تفاصيل ونتيجة"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قرار",
+            "قيادة",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي تحسين ضابط أو عملية دفع قدته."
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لـ Accounts Payable؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "ap_control",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee",
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "invoice",
+              "clusterKey": "invoice",
+              "topicLabel": "Invoice",
+              "sampleQuestion": "شنو الحالة؟"
+            },
+            {
+              "stepKey": "check",
+              "competencyKey": "invoice_processing",
+              "clusterKey": "match",
+              "topicLabel": "Check",
+              "sampleQuestion": "شنو فحصت؟"
+            },
+            {
+              "stepKey": "three_way",
+              "competencyKey": "invoice_processing",
+              "clusterKey": "three_way",
+              "topicLabel": "3-way match",
+              "sampleQuestion": "شلون three-way match؟"
+            },
+            {
+              "stepKey": "control",
+              "competencyKey": "controls",
+              "clusterKey": "control",
+              "topicLabel": "Control",
+              "sampleQuestion": "شنو الضابط؟"
+            },
+            {
+              "stepKey": "reconcile",
+              "competencyKey": "reconciliation",
+              "clusterKey": "reconcile",
+              "topicLabel": "Reconcile",
+              "sampleQuestion": "شلون مطابقة المورد؟"
+            },
+            {
+              "stepKey": "payment",
+              "competencyKey": "payment_runs",
+              "clusterKey": "payment",
+              "topicLabel": "Payment",
+              "sampleQuestion": "شلون دورة الدفع؟"
+            },
+            {
+              "stepKey": "outcome",
+              "clusterKey": "outcome",
+              "topicLabel": "Outcome",
+              "sampleQuestion": "شنو النتيجة؟"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "financial_analyst": {
+      "packKey": "financial_analyst",
+      "packVersion": "1.4.0",
+      "roleKey": "financial_analyst",
+      "position": "financial analyst",
+      "specialization": "Financial Analysis",
+      "terminology": [
+        "FP&A",
+        "budget",
+        "forecast",
+        "variance analysis",
+        "P&L",
+        "cash flow",
+        "sensitivity",
+        "scenario planning",
+        "Excel model",
+        "drivers",
+        "KPI",
+        "month-end",
+        "management report",
+        "working capital"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي تحليل variance أثر على قرار — شنو السبب والرقم؟",
+        "شلون تبني أو تحدّث توقعات مالية لربع أو سنة؟",
+        "اذكرلي نموذج مالي — شنو أهم افتراضاته؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "نظري",
+            "fp&a",
+            "excel model",
+            "variance",
+            "budget",
+            "تحليل مالي"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "دورة",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع مالي أكاديمي.",
+            "شنو نموذج Excel أو variance درسته؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة عمل طويلة"
+          ],
+          "rubricAdjustments": "اقبل نماذج أكاديمية — لا تخصم غياب FP&A فعلي."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب كمحلل مالي؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "خبرة",
+            "مشروع",
+            "فريق",
+            "forecast",
+            "variance",
+            "fp&a",
+            "budget",
+            "model",
+            "محلل مالي"
+          ],
+          "acceptableEvidence": [
+            "مثال حقيقي",
+            "نتيجة",
+            "أرقام"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي تقرير variance أو forecast أثر على قرار.",
+            "شنو أهم افتراضات نموذجك المالي؟"
+          ],
+          "followUpHints": [
+            "اطلب تفاصيل ونتيجة"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قرار",
+            "قيادة",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي توصية مالية قدتها للإدارة."
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت للتحليل المالي؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "fpna_cycle",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee",
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "period",
+              "clusterKey": "period",
+              "topicLabel": "Period",
+              "sampleQuestion": "شنو الفترة أو القسم؟"
+            },
+            {
+              "stepKey": "data",
+              "competencyKey": "data_integrity",
+              "clusterKey": "data",
+              "topicLabel": "Data",
+              "sampleQuestion": "شنو مصدر البيانات وكيف تحققت؟"
+            },
+            {
+              "stepKey": "variance",
+              "competencyKey": "variance",
+              "clusterKey": "variance",
+              "topicLabel": "Variance",
+              "sampleQuestion": "شنو الانحراف؟"
+            },
+            {
+              "stepKey": "driver",
+              "competencyKey": "modeling",
+              "clusterKey": "driver",
+              "topicLabel": "Driver",
+              "sampleQuestion": "شنو السبب أو الافتراض؟"
+            },
+            {
+              "stepKey": "forecast",
+              "competencyKey": "forecasting",
+              "clusterKey": "forecast",
+              "topicLabel": "Forecast",
+              "sampleQuestion": "شلون تأثرت التوقعات؟"
+            },
+            {
+              "stepKey": "report",
+              "competencyKey": "reporting",
+              "clusterKey": "report",
+              "topicLabel": "Report",
+              "sampleQuestion": "شلون قدمت للإدارة؟"
+            },
+            {
+              "stepKey": "recommend",
+              "competencyKey": "business_partner",
+              "clusterKey": "recommend",
+              "topicLabel": "Recommend",
+              "sampleQuestion": "شنو التوصية؟"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "internal_auditor": {
+      "packKey": "internal_auditor",
+      "packVersion": "1.4.0",
+      "roleKey": "internal_auditor",
+      "position": "internal auditor",
+      "specialization": "Internal Audit",
+      "terminology": [
+        "risk assessment",
+        "control testing",
+        "sampling",
+        "finding",
+        "recommendation",
+        "follow-up",
+        "SOX",
+        "compliance",
+        "workpaper",
+        "evidence",
+        "materiality",
+        "process walkthrough",
+        "remediation",
+        "IA charter"
+      ],
+      "suggestedAnchorQuestions": [
+        "اذكرلي تدقيق أو مراجعة ضوابط — شنو اكتشفت وشنو التوصية؟",
+        "شلون تختار عينة أو نطاق مراجعة بناءً على المخاطر؟",
+        "اذكرلي ملاحظة متابعةتها لحد الإغلاق — شنو كان التحدي؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "نظري",
+            "audit",
+            "controls",
+            "compliance",
+            "تدقيق",
+            "رقابة"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "دورة",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع تدقيق أكاديمي.",
+            "شنو ضابط أو عينة درستها؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة عمل طويلة"
+          ],
+          "rubricAdjustments": "اقبل case studies تدقيق — لا تخصم غياب engagement فعلي."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب في التدقيق؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "خبرة",
+            "مشروع",
+            "فريق",
+            "internal audit",
+            "sox",
+            "control testing",
+            "finding",
+            "sampling",
+            "تدقيق داخلي"
+          ],
+          "acceptableEvidence": [
+            "مثال حقيقي",
+            "نتيجة",
+            "أرقام"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي finding مهم وتابعته للإغلاق.",
+            "شلون اخترت العينة بناءً على المخاطر؟"
+          ],
+          "followUpHints": [
+            "اطلب تفاصيل ونتيجة"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "manager",
+            "قاد",
+            "استراتيجية"
+          ],
+          "acceptableEvidence": [
+            "قرار",
+            "قيادة",
+            "تأثير"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي مراجعة مخاطر أو ضوابط قدتها."
+          ],
+          "followUpHints": [
+            "trade-offs"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت للتدقيق الداخلي؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "audit_engagement",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee",
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "scope",
+              "competencyKey": "risk_assessment",
+              "clusterKey": "scope",
+              "topicLabel": "Scope",
+              "sampleQuestion": "شنو نطاق المراجعة؟"
+            },
+            {
+              "stepKey": "risk",
+              "competencyKey": "risk_assessment",
+              "clusterKey": "risk",
+              "topicLabel": "Risk",
+              "sampleQuestion": "شلون قيّمت المخاطر؟"
+            },
+            {
+              "stepKey": "walkthrough",
+              "competencyKey": "control_testing",
+              "clusterKey": "walkthrough",
+              "topicLabel": "Walkthrough",
+              "sampleQuestion": "شلون walkthrough للعملية؟"
+            },
+            {
+              "stepKey": "test",
+              "competencyKey": "control_testing",
+              "clusterKey": "test",
+              "topicLabel": "Test",
+              "sampleQuestion": "شلون اختبرت الضابط؟"
+            },
+            {
+              "stepKey": "evidence",
+              "competencyKey": "evidence",
+              "clusterKey": "evidence",
+              "topicLabel": "Evidence",
+              "sampleQuestion": "شنو الأدلة اللي جمعتها؟"
+            },
+            {
+              "stepKey": "finding",
+              "competencyKey": "findings",
+              "clusterKey": "finding",
+              "topicLabel": "Finding",
+              "sampleQuestion": "شنو الملاحظة؟"
+            },
+            {
+              "stepKey": "follow",
+              "competencyKey": "follow_up",
+              "clusterKey": "follow",
+              "topicLabel": "Follow-up",
+              "sampleQuestion": "شنو المعالجة؟"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 6
+    },
+    "backend_developer": {
+      "packKey": "backend_developer",
+      "packVersion": "1.4.0",
+      "roleKey": "backend_developer",
+      "position": "backend developer",
+      "specialization": "Backend Development",
+      "terminology": [
+        "idempotency",
+        "rate limiting",
+        "database indexing",
+        "transactions",
+        "ACID",
+        "authentication",
+        "authorization",
+        "JWT",
+        "pagination",
+        "caching",
+        "logging",
+        "observability",
+        "queue processing",
+        "message broker",
+        "API versioning",
+        "connection pooling",
+        "horizontal scaling",
+        "N+1 query"
+      ],
+      "suggestedAnchorQuestions": [
+        "حدثني عن خدمة أو API صممته فعلياً — لماذا اخترت هذا الشكل، وما المقايضة التي قبلتها، وكيف تعاملت مع المصادقة والأخطاء؟",
+        "صف مشكلة أداء أو استعلام بطيء واجهته في الإنتاج — كيف شخّصتها، ما الذي غيّرته، وكيف قست التحسّن؟",
+        "احكِ عن حادث إنتاج حقيقي تعاملت معه — كيف اكتشفته، ما السبب الجذري، وكيف منعت تكراره؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "course project",
+            "university",
+            "REST API project",
+            "graduation"
+          ],
+          "acceptableEvidence": [
+            "مشروع API",
+            "قاعدة بيانات أكاديمية",
+            "تعلم نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع backend أو API درسته — شنو صممت وشنو تعلمت؟",
+            "شنو أصعب قرار تصميم واجهة برمجية طبّقته نظرياً؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة إنتاج طويلة"
+          ],
+          "rubricAdjustments": "اقبل مشاريع جامعية ومحاكاة — لا تخصم غياب حوادث إنتاج."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "co-op"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "endpoint بإشراف",
+            "code review"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب كمطور backend؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف والاختبارات"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "junior backend",
+            "fresh graduate"
+          ],
+          "acceptableEvidence": [
+            "أول endpoint",
+            "أول bug fix",
+            "تعلم سريع"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة backend بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "production",
+            "microservices",
+            "api",
+            "postgres",
+            "node",
+            "express",
+            "django",
+            "spring",
+            "إنتاج",
+            "خدمة",
+            "endpoint"
+          ],
+          "acceptableEvidence": [
+            "API حقيقي",
+            "استعلام حسّنه",
+            "حادث",
+            "نتيجة"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي خدمة أو API شغّلتها بالإنتاج — شنو التحدي وشنو النتيجة؟",
+            "شلون شخّصت مشكلة أداء أو حادث backend؟"
+          ],
+          "followUpHints": [
+            "اطلب trade-offs وقياسات"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "staff",
+            "architect",
+            "قاد",
+            "tech lead"
+          ],
+          "acceptableEvidence": [
+            "قرار معماري",
+            "مراجعة",
+            "تحسين موثوقية",
+            "فريق"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي قرار معماري backend مهم — شنو المقايضة والتأثير؟"
+          ],
+          "followUpHints": [
+            "اسأل عن observability وSLA"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت لـ backend وشنو نقلته من مجالك السابق؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم سريع"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "backend_production",
+          "preferredTracks": [
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "service",
+              "topicLabel": "Service",
+              "sampleQuestion": "شنو الخدمة أو النظام — وشنو دورك؟",
+              "clusterKey": "service"
+            },
+            {
+              "stepKey": "api",
+              "competencyKey": "api_design",
+              "topicLabel": "API",
+              "sampleQuestion": "شلون صممت الـ API — versioning، validation، errors؟",
+              "clusterKey": "api_design"
+            },
+            {
+              "stepKey": "data",
+              "competencyKey": "databases_data_modeling",
+              "topicLabel": "Data",
+              "sampleQuestion": "شنو قرارات النمذجة أو الفهرسة اللي أثرت على الأداء؟",
+              "clusterKey": "databases_data_modeling"
+            },
+            {
+              "stepKey": "auth",
+              "competencyKey": "auth_security",
+              "topicLabel": "Auth",
+              "sampleQuestion": "شلون طبّقت authentication وauthorization؟",
+              "clusterKey": "auth_security"
+            },
+            {
+              "stepKey": "incident",
+              "competencyKey": "reliability_observability",
+              "topicLabel": "Incident",
+              "sampleQuestion": "اذكرلي حادث أو bottleneck — شلون اكتشفته؟",
+              "clusterKey": "reliability_observability"
+            },
+            {
+              "stepKey": "fix",
+              "competencyKey": "reliability_observability",
+              "topicLabel": "Fix",
+              "sampleQuestion": "شنو السبب الجذري والحل والوقاية؟",
+              "clusterKey": "reliability_observability"
+            },
+            {
+              "stepKey": "result",
+              "topicLabel": "Result",
+              "sampleQuestion": "شنو النتيجة أو التحسين القابل للقياس؟",
+              "clusterKey": "result"
+            }
+          ]
+        },
+        {
+          "pathKey": "backend_academic",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee"
+          ],
+          "steps": [
+            {
+              "stepKey": "project",
+              "competencyKey": "api_design",
+              "topicLabel": "Project",
+              "sampleQuestion": "اذكرلي مشروع backend — شنو الهدف؟",
+              "clusterKey": "api_design"
+            },
+            {
+              "stepKey": "design",
+              "competencyKey": "api_design",
+              "topicLabel": "Design",
+              "sampleQuestion": "شلون صممت endpoints أو نموذج البيانات؟",
+              "clusterKey": "api_design"
+            },
+            {
+              "stepKey": "data",
+              "competencyKey": "databases_data_modeling",
+              "topicLabel": "Data",
+              "sampleQuestion": "شنو اخترت SQL أو NoSQL ولماذا؟",
+              "clusterKey": "databases_data_modeling"
+            },
+            {
+              "stepKey": "security",
+              "competencyKey": "auth_security",
+              "topicLabel": "Security",
+              "sampleQuestion": "شلون فكرت بالمصادقة أو التحقق؟",
+              "clusterKey": "auth_security"
+            },
+            {
+              "stepKey": "learning",
+              "topicLabel": "Learning",
+              "sampleQuestion": "شنو أهم تعلم من المشروع؟",
+              "clusterKey": "learning"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 4
+    },
+    "general_accountant": {
+      "packKey": "general_accountant",
+      "packVersion": "1.4.0",
+      "roleKey": "general_accountant",
+      "position": "general accountant",
+      "specialization": "General Accounting",
+      "terminology": [
+        "journal entries",
+        "general ledger",
+        "trial balance",
+        "reconciliation",
+        "accruals",
+        "prepayments",
+        "accounts payable",
+        "accounts receivable",
+        "financial statements",
+        "month-end closing",
+        "depreciation",
+        "fixed assets",
+        "chart of accounts",
+        "IFRS",
+        "VAT"
+      ],
+      "suggestedAnchorQuestions": [
+        "صف دورة محاسبية كاملة عملت عليها — من تسجيل القيود حتى ميزان المراجعة، وكيف تضمن دقة الأرقام؟",
+        "حدثني عن فرق في تسوية حساب اكتشفته — كيف تتبّعت سببه وماذا فعلت لتصحيحه ومنع تكراره؟",
+        "احكِ عن دورك في الإقفال الشهري الأخير — ما الخطوات التي توليتها، وكيف التزمت بالموعد مع الحفاظ على الدقة؟"
+      ],
+      "supportedExperienceTracks": [
+        {
+          "trackKey": "academic_only",
+          "detectSignals": [
+            "جامعة",
+            "تخرج",
+            "مشروع تخرج",
+            "thesis",
+            "اكاديمي",
+            "محاسبة جامعية"
+          ],
+          "acceptableEvidence": [
+            "مشروع تخرج",
+            "case study",
+            "تطبيق نظري"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي مشروع أو case study محاسبي درسته — شنو تعلمت؟"
+          ],
+          "followUpHints": [
+            "لا تفترض خبرة إقفال فعلية"
+          ],
+          "rubricAdjustments": "اقبل أدلة أكاديمية — لا تخصم غياب month-end فعلي."
+        },
+        {
+          "trackKey": "trainee",
+          "detectSignals": [
+            "تدريب",
+            "متدرب",
+            "internship",
+            "trainee"
+          ],
+          "acceptableEvidence": [
+            "مهام محددة",
+            "إشراف"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "شنو تعلمت بفترة التدريب المحاسبي؟"
+          ],
+          "followUpHints": [
+            "اسأل عن الإشراف"
+          ]
+        },
+        {
+          "trackKey": "entry_level",
+          "detectSignals": [
+            "خريج",
+            "حديث تخرج",
+            "أول وظيفة",
+            "staff accountant"
+          ],
+          "acceptableEvidence": [
+            "أول مهمة",
+            "قيود",
+            "تسويات بسيطة"
+          ],
+          "questionDifficulty": 1,
+          "openingAnchors": [
+            "اذكرلي أول مهمة محاسبية بعد التخرج — شنو سويت؟"
+          ],
+          "followUpHints": [
+            "خطوات محددة"
+          ]
+        },
+        {
+          "trackKey": "experienced",
+          "detectSignals": [
+            "اشتغلت",
+            "سنوات",
+            "month-end",
+            "reconciliation",
+            "general ledger",
+            "إقفال"
+          ],
+          "acceptableEvidence": [
+            "تسوية",
+            "إقفال",
+            "نتيجة",
+            "دقة"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي إقفال شهري أو تسوية معقدة — شنو الخطوات وشنو النتيجة؟",
+            "شلون اكتشفت وصححت فرقاً بالميزان؟"
+          ],
+          "followUpHints": [
+            "اطلب أرقام وخطوات"
+          ]
+        },
+        {
+          "trackKey": "senior",
+          "detectSignals": [
+            "senior",
+            "lead",
+            "supervisor",
+            "قاد",
+            "review"
+          ],
+          "acceptableEvidence": [
+            "مراجعة",
+            "تحسين عملية",
+            "فريق"
+          ],
+          "questionDifficulty": 3,
+          "openingAnchors": [
+            "اذكرلي تحسين عملية محاسبية قدته — شنو التأثير؟"
+          ],
+          "followUpHints": [
+            "ضوابط داخلية"
+          ]
+        },
+        {
+          "trackKey": "career_switcher",
+          "detectSignals": [
+            "غيرت مجال",
+            "انتقلت",
+            "career change",
+            "من مجال"
+          ],
+          "acceptableEvidence": [
+            "تعلم سريع",
+            "مهارات منقولة"
+          ],
+          "questionDifficulty": 2,
+          "openingAnchors": [
+            "ليش انتقلت للمحاسبة وشنو نقلته؟"
+          ],
+          "followUpHints": [
+            "مثال تعلم"
+          ]
+        }
+      ],
+      "interviewPaths": [
+        {
+          "pathKey": "accounting_core",
+          "preferredTracks": [
+            "academic_only",
+            "entry_level",
+            "trainee",
+            "experienced",
+            "senior",
+            "career_switcher"
+          ],
+          "steps": [
+            {
+              "stepKey": "cycle",
+              "competencyKey": "accounting_cycle",
+              "topicLabel": "Cycle",
+              "sampleQuestion": "اذكرلي مثال قيد أو دورة محاسبية — شنو الخطوات؟",
+              "clusterKey": "accounting_cycle"
+            },
+            {
+              "stepKey": "reconcile",
+              "competencyKey": "reconciliation",
+              "topicLabel": "Reconcile",
+              "sampleQuestion": "شلون سويت تسوية واكتشفت فرق؟",
+              "clusterKey": "reconciliation"
+            },
+            {
+              "stepKey": "close",
+              "competencyKey": "month_end_close",
+              "topicLabel": "Close",
+              "sampleQuestion": "شنو دورك بالإقفال الشهري؟",
+              "clusterKey": "month_end_close"
+            },
+            {
+              "stepKey": "statements",
+              "competencyKey": "financial_reporting_controls",
+              "topicLabel": "Statements",
+              "sampleQuestion": "شلون تقرأ أو تراجع قائمة مالية؟",
+              "clusterKey": "financial_reporting_controls"
+            },
+            {
+              "stepKey": "controls",
+              "competencyKey": "financial_reporting_controls",
+              "topicLabel": "Controls",
+              "sampleQuestion": "شنو ضابط داخلي طبّقته أو حسّنته؟",
+              "clusterKey": "financial_reporting_controls"
+            },
+            {
+              "stepKey": "accuracy",
+              "competencyKey": "reconciliation",
+              "topicLabel": "Accuracy",
+              "sampleQuestion": "شلون تضمن الدقة قبل التسليم؟",
+              "clusterKey": "reconciliation"
+            },
+            {
+              "stepKey": "result",
+              "topicLabel": "Result",
+              "sampleQuestion": "شنو النتيجة أو التحسين اللي حققته؟",
+              "clusterKey": "result"
+            }
+          ]
+        }
+      ],
+      "competencyCount": 4
+    }
+  }
+}

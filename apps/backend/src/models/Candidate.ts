@@ -1,7 +1,13 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { DEFAULT_ORG_ID, SYSTEM_ACTOR_ID } from '../config/multiTenant.js';
+import type { CandidateEvaluationContext } from '../shared/formTemplates/index.js';
 
 // Interface للمرشح
+// ملاحظة: organizationId/createdByClerkUserId مطلوبين على مستوى الـ schema (بـ defaults)
+// لكن نُعلنهما optional في الـ interface لتسهيل التوافق مع الكود القديم.
 export interface ICandidate extends Document {
+    organizationId?: string;
+    createdByClerkUserId?: string;
     full_name: string;
     email: string;
     phone: string;
@@ -11,6 +17,8 @@ export interface ICandidate extends Document {
     company_applied_to?: string;
     years_of_experience: string;
     current_company?: string;
+    /** المسمى الوظيفي الحالي على مستوى الملف الشخصي (منفصل عن position_applied_for للتقديم). */
+    current_title?: string;
     highest_education_level?: string;
     linkedin?: string;
     skills: string[];
@@ -25,7 +33,9 @@ export interface ICandidate extends Document {
     coverLetter?: string;
     hearAboutUs?: string;
     agreeToTerms: boolean;
-    status?: 'pending' | 'accepted' | 'rejected';
+    status?: 'pending' | 'pending_evaluation' | 'accepted' | 'rejected';
+    /** Snapshot refs for fair evaluation audit. */
+    evaluationContext?: CandidateEvaluationContext;
     interviewDate?: Date;
     aiEvaluation?: {
         score: number;
@@ -35,6 +45,11 @@ export interface ICandidate extends Document {
         confidence: number;
         feedback: string;
     };
+    /**
+     * Dual-write / legacy (M2M): التقييمات وقفل الروابط والتسجيل والـ campaignId ما زالت هنا
+     * للتوافق أثناء الانتقال؛ مصدر الحقيقة لكل تقديم هو CandidateApplication.
+     * لا تُحذف حتى تثبت كل المسارات (Stage/n8n/compare) على Application فقط.
+     */
     writtenInterviewEvaluation?: {
         overall_score: number; // 0-100
         fit_for_role: string;
@@ -44,6 +59,13 @@ export interface ICandidate extends Document {
         final_hr_evaluation?: string;
         recommendation: 'Hire' | 'Consider' | 'Reject';
         summary: string; // professional 3-5 sentence evaluation
+        /** Per-rubric AI results — stored for audit; UI Phase 2 */
+        rubricResults?: Array<{
+            rubricItemId: string;
+            result: 'meets' | 'partially_meets' | 'does_not_meet' | 'insufficient_evidence';
+            evidence: string[];
+            confidence: 'low' | 'medium' | 'high';
+        }>;
     };
     voiceInterviewEvaluation?: {
         /** رقم 0–10 أو نص من n8n */
@@ -75,7 +97,36 @@ export interface ICandidate extends Document {
         overall_score: number; // 0-100 percentage
         recommendation: 'Hire' | 'Consider' | 'Reject';
         summary?: string;
+        /**
+         * درجات الكفاءات من Interview Blueprint (المقابلة المتخصصة) — تكميلية للحقول أعلاه.
+         * كل كفاءة: مفتاحها، درجتها 1..5، أدلة من الإجابة، وأي red flags. تُستخدم للمقارنة العادلة.
+         */
+        competencyScores?: Array<{
+            competencyKey: string;
+            title?: string;
+            score: number; // 1-5
+            evidence?: string[];
+            redFlags?: string[];
+        }>;
     };
+    /**
+     * تسجيل صوتي للمقابلة الصوتية الكاملة (المرشح + الوكيل) مرفوع إلى Cloudflare R2.
+     * نخزّن `key` فقط (لا روابط دائمة)؛ يُولَّد رابط موقّت عند الطلب.
+     */
+    voiceRecording?: {
+        key: string;
+        mime?: string;
+        durationSec?: number;
+        sizeBytes?: number;
+        sessionId?: string;
+        createdAt?: Date;
+    };
+    /** يُقفل رابط المقابلة الصوتية بعد جلسة فعلية (رد مرشح واحد على الأقل). */
+    voiceInterviewLinkConsumedAt?: Date | null;
+    voiceInterviewLinkConsumedSessionId?: string;
+    /** يُقفل رابط مقابلة الفيديو بعد جلسة فعلية. */
+    videoInterviewLinkConsumedAt?: Date | null;
+    videoInterviewLinkConsumedSessionId?: string;
     files?: Array<{
         kind?: 'cv' | 'photo';
         filename: string;
@@ -88,12 +139,64 @@ export interface ICandidate extends Document {
     notes?: string;
     /** نفس `campaignId` من RecruitmentCampaign — لربط المرشح بالحملة ومقارنة المرشحين ضمنها */
     campaignId?: string;
+    /** MongoDB ObjectId لوثيقة الوظيفة/الإعلان — مفتاح بنك أسئلة LiveKit (24 hex) */
+    jobPostingId?: string;
+    /**
+     * نقطة دخول المرشح إلى المنظومة:
+     *  - `screening` (افتراضي): مسار العملية الكامل، يبدأ من Stage 1 (Written).
+     *  - `audio`: تم إنشاؤه من زر Call مباشرة → يظهر فقط في Stage 2 + Candidates.
+     *  - `video`: تم إنشاؤه من زر Video مباشرة → يظهر فقط في Stage 3 + Candidates.
+     * المرشحون القدامى بدون هذا الحقل يُعاملون كأنهم `screening` للحفاظ على التوافق الخلفي.
+     */
+    entryStage?: 'screening' | 'audio' | 'video';
+    /**
+     * مصدر المرشح (من أين أتى)، منفصل عن `entryStage` (مرحلته في خط الأنابيب).
+     * أمثلة حالية/مستقبلية: `public_screening`, `linkedin`, `career_page`, `referral`, `manual`.
+     * يُترك كنص حر (بدون enum) ليبقى قابلاً للتوسّع دون تعديل المخطط.
+     */
+    sourceType?: string;
+    /**
+     * معرّف لقطة سياق المصدر (HeadHunterSourcingContext) عند قدوم المرشح من الهيد هانتر.
+     * يُستخدم لإثراء سجل المرشح وحقن role_context غني للوكيل عبر /prepare و/start.
+     */
+    headHunterContextId?: string;
+    /**
+     * مراحل أُخفيت منها بطاقة حملة هذا المرشح من قائمة الحملات (بدون حذف البيانات).
+     * القيم: 'screening' | 'voice' | 'video'. الإخفاء لكل مرحلة على حدة.
+     */
+    hiddenFromStages?: Array<'screening' | 'voice' | 'video'>;
+    /**
+     * واجهات أُخفيت منها بطاقة/صف هذا المرشح (بدون حذف البيانات).
+     * القيم: 'candidates' = صفحة Database/Candidates.
+     */
+    hiddenFromViews?: Array<'candidates'>;
+    /**
+     * عدادات منسوخة للأداء فقط (cache) — المصدر الحقيقي هو عدّ CandidateApplication.
+     * أعد الحساب عبر refreshPersonApplicationCounters عند الشك.
+     */
+    applicationsCount?: number;
+    lastAppliedAt?: Date | null;
+    lastCampaignId?: string;
     createdAt: Date;
     updatedAt: Date;
 }
 
 // Schema للمرشح
 const CandidateSchema = new Schema<ICandidate>({
+    organizationId: {
+        type: String,
+        required: true,
+        default: DEFAULT_ORG_ID,
+        index: true,
+        trim: true
+    },
+    createdByClerkUserId: {
+        type: String,
+        required: true,
+        default: SYSTEM_ACTOR_ID,
+        index: true,
+        trim: true
+    },
     full_name: {
         type: String,
         required: true,
@@ -103,8 +206,7 @@ const CandidateSchema = new Schema<ICandidate>({
         type: String,
         required: true,
         trim: true,
-        lowercase: true,
-        unique: true
+        lowercase: true
     },
     phone: {
         type: String,
@@ -134,6 +236,10 @@ const CandidateSchema = new Schema<ICandidate>({
         required: true
     },
     current_company: {
+        type: String,
+        trim: true
+    },
+    current_title: {
         type: String,
         trim: true
     },
@@ -191,6 +297,41 @@ const CandidateSchema = new Schema<ICandidate>({
         index: true,
         default: undefined
     },
+    jobPostingId: {
+        type: String,
+        trim: true,
+        index: true,
+        default: undefined
+    },
+    entryStage: {
+        type: String,
+        enum: ['screening', 'audio', 'video'],
+        default: 'screening',
+        index: true
+    },
+    sourceType: {
+        type: String,
+        trim: true,
+        lowercase: true,
+        index: true,
+        default: undefined
+    },
+    headHunterContextId: {
+        type: String,
+        trim: true,
+        index: true,
+        default: undefined
+    },
+    hiddenFromStages: {
+        type: [String],
+        enum: ['screening', 'voice', 'video'],
+        default: undefined
+    },
+    hiddenFromViews: {
+        type: [String],
+        enum: ['candidates'],
+        default: undefined
+    },
     agreeToTerms: {
         type: Boolean,
         required: true,
@@ -198,8 +339,21 @@ const CandidateSchema = new Schema<ICandidate>({
     },
     status: {
         type: String,
-        enum: ['pending', 'accepted', 'rejected'],
+        enum: ['pending', 'pending_evaluation', 'accepted', 'rejected'],
         default: 'pending'
+    },
+    evaluationContext: {
+        type: new Schema(
+            {
+                formSchemaVersion: { type: Number, required: true },
+                formSchemaHash: { type: String, required: true },
+                rubricVersion: { type: Number, required: true },
+                rubricSnapshotHash: { type: String, required: true },
+                evaluationLanguage: { type: String, enum: ['ar', 'en'], required: false },
+            },
+            { _id: false }
+        ),
+        required: false,
     },
     interviewDate: {
         type: Date
@@ -227,7 +381,23 @@ const CandidateSchema = new Schema<ICandidate>({
             type: String,
             enum: ['Hire', 'Consider', 'Reject']
         },
-        summary: String
+        summary: String,
+        rubricResults: [
+            {
+                rubricItemId: { type: String, required: true, trim: true },
+                result: {
+                    type: String,
+                    enum: ['meets', 'partially_meets', 'does_not_meet', 'insufficient_evidence'],
+                    required: true,
+                },
+                evidence: [String],
+                confidence: {
+                    type: String,
+                    enum: ['low', 'medium', 'high'],
+                    default: 'medium',
+                },
+            },
+        ],
     },
     voiceInterviewEvaluation: {
         communication: Schema.Types.Mixed,
@@ -311,8 +481,35 @@ const CandidateSchema = new Schema<ICandidate>({
             type: String,
             enum: ['Hire', 'Consider', 'Reject']
         },
-        summary: String
+        summary: String,
+        competencyScores: {
+            type: [
+                new Schema(
+                    {
+                        competencyKey: { type: String, required: true },
+                        title: { type: String },
+                        score: { type: Number, min: 1, max: 5 },
+                        evidence: { type: [String], default: undefined },
+                        redFlags: { type: [String], default: undefined },
+                    },
+                    { _id: false }
+                ),
+            ],
+            default: undefined,
+        }
     },
+    voiceRecording: {
+        key: String,
+        mime: String,
+        durationSec: Number,
+        sizeBytes: Number,
+        sessionId: String,
+        createdAt: Date
+    },
+    voiceInterviewLinkConsumedAt: { type: Date, default: null },
+    voiceInterviewLinkConsumedSessionId: { type: String, trim: true },
+    videoInterviewLinkConsumedAt: { type: Date, default: null },
+    videoInterviewLinkConsumedSessionId: { type: String, trim: true },
     files: [{
         kind: {
             type: String,
@@ -331,10 +528,27 @@ const CandidateSchema = new Schema<ICandidate>({
     notes: {
         type: String,
         trim: true
+    },
+    applicationsCount: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    lastAppliedAt: {
+        type: Date,
+        default: null
+    },
+    lastCampaignId: {
+        type: String,
+        trim: true,
+        default: undefined
     }
 }, {
     timestamps: true // يضيف createdAt و updatedAt تلقائياً
 });
+
+CandidateSchema.index({ organizationId: 1, email: 1 }, { unique: true });
+CandidateSchema.index({ organizationId: 1, createdAt: -1 });
 
 // Export Model
 export default mongoose.model<ICandidate>('Candidate', CandidateSchema, 'candidates');

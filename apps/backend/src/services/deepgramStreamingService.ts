@@ -5,7 +5,7 @@
 
 import WebSocket from 'ws';
 import { IncomingMessage } from 'http';
-import { getVoiceVadSettings } from '../voice/voiceTimingEnv.js';
+import { getVoiceVadSettings } from '../evaalo-only-voice/voiceTimingEnv.js';
 // لا حاجة لـ FFmpeg - PCM16 يُرسل مباشرة من AudioWorklet
 
 const DEEPGRAM_WS_URL = 'wss://api.deepgram.com/v1/listen';

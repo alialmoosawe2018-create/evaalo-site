@@ -1,85 +1,114 @@
 // ============================================
 // ملف: services/livekitService.ts
 // الوظيفة: LiveKit Service لإدارة Rooms و Tokens
+// يدعم scope interview (افتراضي) و reception (مفاتيح LIVEKIT_RECEPTION_* مع fallback)
 // ============================================
 
 import { RoomServiceClient, AccessToken, AgentDispatchClient } from 'livekit-server-sdk';
 import dotenv from 'dotenv';
-import { ensureAgentRunning } from './agentService.js';
+import { ensureAgentRunning, ensureReceptionAgentRunning } from './agentService.js';
 import { getLivekitTwirpClientOptions, withLiveKitNetworkRetries } from '../livekitHttpConfig.js';
 
 dotenv.config();
 
-const LIVEKIT_URL = process.env.LIVEKIT_URL || '';
-const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || '';
-const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || '';
+export type LiveKitScope = 'interview' | 'reception';
 
 const twirpOpts = getLivekitTwirpClientOptions();
 
 // RoomServiceClient يحتاج URL بدون wss:// أو ws://
-// تحويل wss://domain.com إلى https://domain.com
 const getHttpUrl = (url: string): string => {
     if (!url) return '';
     return url.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
 };
 
-const roomService = new RoomServiceClient(
-    getHttpUrl(LIVEKIT_URL),
-    LIVEKIT_API_KEY,
-    LIVEKIT_API_SECRET,
-    twirpOpts
-);
-const agentDispatchClient = new AgentDispatchClient(
-    getHttpUrl(LIVEKIT_URL),
-    LIVEKIT_API_KEY,
-    LIVEKIT_API_SECRET,
-    twirpOpts
-);
+/** Credentials للغرفة والتوكن والـ dispatch — reception يمكن أن يستخدم مشروع LiveKit منفصل */
+export function getLiveKitCredentials(scope: LiveKitScope = 'interview'): {
+    url: string;
+    apiKey: string;
+    apiSecret: string;
+} {
+    if (scope === 'reception') {
+        return {
+            url: process.env.LIVEKIT_RECEPTION_URL || process.env.LIVEKIT_URL || '',
+            apiKey: process.env.LIVEKIT_RECEPTION_API_KEY || process.env.LIVEKIT_API_KEY || '',
+            apiSecret:
+                process.env.LIVEKIT_RECEPTION_API_SECRET || process.env.LIVEKIT_API_SECRET || '',
+        };
+    }
+    return {
+        url: process.env.LIVEKIT_URL || '',
+        apiKey: process.env.LIVEKIT_API_KEY || '',
+        apiSecret: process.env.LIVEKIT_API_SECRET || '',
+    };
+}
+
+const clientsByScope = new Map<
+    LiveKitScope,
+    { roomService: RoomServiceClient; agentDispatchClient: AgentDispatchClient }
+>();
+
+function getClients(scope: LiveKitScope = 'interview') {
+    let pair = clientsByScope.get(scope);
+    if (!pair) {
+        const { url, apiKey, apiSecret } = getLiveKitCredentials(scope);
+        const httpUrl = getHttpUrl(url);
+        pair = {
+            roomService: new RoomServiceClient(httpUrl, apiKey, apiSecret, twirpOpts),
+            agentDispatchClient: new AgentDispatchClient(httpUrl, apiKey, apiSecret, twirpOpts),
+        };
+        clientsByScope.set(scope, pair);
+    }
+    return pair;
+}
 
 /**
  * إنشاء Room جديد في LiveKit
+ * @param sessionId للـ interview: يصبح room-{sessionId}. للـ reception: يُستخدم كجزء من evaalo-reception-{sanitized}
  */
-export async function createLiveKitRoom(sessionId: string): Promise<string> {
-    const roomName = `room-${sessionId}`;
-    
-    // التحقق من وجود التوكنات
-    if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
-        throw new Error('Missing LiveKit credentials. Please check LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET in .env file');
+export async function createLiveKitRoom(
+    sessionId: string,
+    scope: LiveKitScope = 'interview'
+): Promise<string> {
+    const { url, apiKey, apiSecret } = getLiveKitCredentials(scope);
+    if (!url || !apiKey || !apiSecret) {
+        throw new Error(
+            `Missing LiveKit credentials (${scope}). Check LIVEKIT_* or LIVEKIT_RECEPTION_* in .env`
+        );
     }
-    
+
+    const roomName =
+        scope === 'reception'
+            ? `evaalo-reception-${sanitizeRoomSegment(sessionId)}`
+            : `room-${sessionId}`;
+
+    const { roomService } = getClients(scope);
+
     try {
         await withLiveKitNetworkRetries('createLiveKitRoom', () =>
             roomService.createRoom({
                 name: roomName,
-                // Room stays open longer during slow agent joins / reconnects; agent + user + avatar workers
                 emptyTimeout: 15 * 60,
                 maxParticipants: 8,
             })
         );
 
-        console.log(`✅ LiveKit Room created: ${roomName}`);
+        console.log(`✅ LiveKit Room created (${scope}): ${roomName}`);
         return roomName;
     } catch (error: any) {
-        // إذا كان Room موجوداً بالفعل، نعيد الاسم
         if (error.message?.includes('already exists')) {
-            console.log(`ℹ️ LiveKit Room already exists: ${roomName}`);
+            console.log(`ℹ️ LiveKit Room already exists (${scope}): ${roomName}`);
             return roomName;
         }
 
-        const httpBase = getHttpUrl(LIVEKIT_URL);
+        const httpBase = getHttpUrl(url);
         const connectTimedOut =
             error?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
             error?.cause?.code === 'UND_ERR_CONNECT_TIMEOUT';
 
-        // معالجة أخطاء الاتصال
         if (connectTimedOut || error.message?.includes('fetch failed')) {
             console.error('❌ Cannot reach LiveKit Cloud (TCP/TLS or HTTP to Twirp). Check:');
-            console.error(`   1. LIVEKIT_URL matches your project: ${LIVEKIT_URL}`);
-            console.error(`   2. From this machine: curl -I "${httpBase}/"  (expect HTTP response, not hang)`);
-            console.error('   3. VPN / corporate firewall / proxy — allow HTTPS to *.livekit.cloud');
-            console.error(
-                '   4. Optional: LIVEKIT_FETCH_CONNECT_TIMEOUT_MS=45000 LIVEKIT_HTTP_RETRIES=5 (already defaults to 30s connect when LIVEKIT_URL is set)'
-            );
+            console.error(`   1. LIVEKIT_URL matches your project (${scope}): ${url}`);
+            console.error(`   2. From this machine: curl -I "${httpBase}/"`);
         }
 
         console.error('❌ Error creating LiveKit room:', error);
@@ -87,69 +116,57 @@ export async function createLiveKitRoom(sessionId: string): Promise<string> {
     }
 }
 
-/**
- * إنشاء Access Token للمستخدم
- * ✅ EXPLICIT DISPATCH: Agent يتم إرساله عبر API (dispatchAgentToRoom)
- * لا حاجة لإضافة RoomAgentDispatch في Token - نستخدم API dispatch بدلاً من ذلك
- * ملاحظة: toJwt() يرجع Promise في بعض الإصدارات
- * @param roomName اسم الـ Room
- * @param userId معرف المستخدم
- * @param metadata بيانات إضافية للـ Agent (اختياري) - يتم إرسالها عبر API dispatch
- */
+function sanitizeRoomSegment(raw: string): string {
+    const s = String(raw || '')
+        .trim()
+        .replace(/[^a-zA-Z0-9_-]/g, '')
+        .slice(0, 96);
+    return s || 'guest';
+}
+
 export async function createUserToken(
-    roomName: string, 
-    userId: string, 
-    metadata?: Record<string, any>
+    roomName: string,
+    userId: string,
+    metadata?: Record<string, any>,
+    scope: LiveKitScope = 'interview'
 ): Promise<string> {
     try {
-        const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
+        const { apiKey, apiSecret } = getLiveKitCredentials(scope);
+        const token = new AccessToken(apiKey, apiSecret, {
             identity: userId,
         });
-        
+
         token.addGrant({
             room: roomName,
             roomJoin: true,
             canPublish: true,
             canSubscribe: true,
         });
-        
-        // ✅ EXPLICIT DISPATCH: Agent يتم إرساله عبر API (dispatchAgentToRoom)
-        // لا حاجة لإضافة RoomAgentDispatch في Token - نستخدم API dispatch بدلاً من ذلك
-        // هذا يعطي تحكم أفضل ويمكن إرسال metadata بشكل مباشر
-        console.log('✅ Token created (Agent will be dispatched via API)');
-        
-        // toJwt() قد يرجع Promise - نستخدم await دائماً
+
         let jwtResult = token.toJwt();
-        
-        // التعامل مع Promise من toJwt() بشكل صحيح
         let jwtString: string;
 
-        // التحقق إذا كان Promise
-        if (jwtResult && typeof (jwtResult as any).then === "function") {
-            // jwtResult هو Promise - نستخدم await
+        if (jwtResult && typeof (jwtResult as any).then === 'function') {
             jwtString = await jwtResult;
         } else {
-            // jwtResult هو string مباشرة (أو قيمة متزامنة)
             jwtString = await Promise.resolve(jwtResult as string | Promise<string>);
         }
 
-        // التحقق من أن JWT تم إنشاؤه بشكل صحيح
         if (!jwtString || typeof jwtString !== 'string' || jwtString.length < 50) {
             console.error('❌ Invalid JWT token created:', {
+                scope,
                 originalType: typeof jwtResult,
                 resolvedType: typeof jwtString,
                 length: jwtString?.length || 0,
-                value: jwtString?.substring(0, 100) || 'null/undefined'
             });
             throw new Error('Failed to create valid JWT token');
         }
-        
-        console.log('✅ JWT token created successfully:', {
+
+        console.log(`✅ JWT token created (${scope}):`, {
             length: jwtString.length,
             preview: jwtString.substring(0, 50) + '...',
-            note: 'Agent will be dispatched via API (explicit dispatch)'
         });
-        
+
         return jwtString;
     } catch (error: any) {
         console.error('❌ Error creating user token:', error);
@@ -158,63 +175,73 @@ export async function createUserToken(
 }
 
 /**
- * حذف Room
+ * حذف Room — idempotent عند 404
  */
-export async function deleteLiveKitRoom(roomName: string): Promise<void> {
+export async function deleteLiveKitRoom(
+    roomName: string,
+    scope: LiveKitScope = 'interview'
+): Promise<void> {
     try {
+        const { roomService } = getClients(scope);
         await roomService.deleteRoom(roomName);
-        console.log(`✅ LiveKit Room deleted: ${roomName}`);
-    } catch (error) {
+        console.log(`✅ LiveKit Room deleted (${scope}): ${roomName}`);
+    } catch (error: any) {
+        const msg = String(error?.message || error || '');
+        if (/not\s*found|404|does not exist/i.test(msg)) {
+            console.log(`ℹ️ LiveKit Room already gone (${scope}): ${roomName}`);
+            return;
+        }
         console.error('❌ Error deleting LiveKit room:', error);
         throw error;
     }
 }
 
 /**
- * إرسال Agent إلى Room باستخدام Explicit Dispatch
- * ✅ EXPLICIT DISPATCH: Agent uses explicit dispatch (requires agent_name)
- * Agent must be registered with agent_name="video-interview-agent" in agent.py
- * @param roomName اسم الـ Room
- * @param metadata بيانات إضافية (JSON object) - يتم تحويلها إلى JSON string
- * @param agentName اسم الـ Agent (افتراضي: "video-interview-agent")
+ * Explicit Dispatch — agentName يجب أن يطابق تسجيل الـ worker في LiveKit
  */
 export async function dispatchAgentToRoom(
     roomName: string,
     metadata?: Record<string, any>,
-    agentName: string = 'video-interview-agent'
+    agentName: string = 'video-interview-agent',
+    scope: LiveKitScope = 'interview'
 ): Promise<void> {
     try {
-        // التحقق من وجود التوكنات
-        if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
-            throw new Error('Missing LiveKit credentials. Please check LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET in .env file');
+        const { url, apiKey, apiSecret } = getLiveKitCredentials(scope);
+        if (!url || !apiKey || !apiSecret) {
+            throw new Error(`Missing LiveKit credentials (${scope})`);
         }
 
-        // Ensure worker is alive before creating dispatch to avoid "dispatched but no worker" confusion.
-        const agentRunning = await ensureAgentRunning();
-        if (!agentRunning) {
-            throw new Error('Agent Service failed to start. Check agent logs for Python/runtime errors.');
+        if (agentName === 'evaalo-reception-agent') {
+            const ok = await ensureReceptionAgentRunning();
+            if (!ok) {
+                throw new Error(
+                    'Reception Agent Service failed to start. Run avatar-evaalo-reception worker or set AGENT_EXTERNAL_MODE=true.'
+                );
+            }
+        } else {
+            const agentRunning = await ensureAgentRunning();
+            if (!agentRunning) {
+                throw new Error('Agent Service failed to start. Check agent logs for Python/runtime errors.');
+            }
         }
-        console.log(`✅ Agent Service is running - ready for explicit dispatch`);
-        console.log(`🚀 Creating explicit dispatch for agent "${agentName}" to room: ${roomName}`);
-        
-        // تحويل metadata إلى JSON string (LiveKit يتوقع JSON string)
+
+        console.log(`🚀 Creating explicit dispatch (${scope}) for agent "${agentName}" → ${roomName}`);
+
         const metadataString = metadata ? JSON.stringify(metadata) : undefined;
-        
-        // إنشاء explicit dispatch باستخدام AgentDispatchClient
+        const { agentDispatchClient } = getClients(scope);
+
         const dispatch = await withLiveKitNetworkRetries('dispatchAgentToRoom', () =>
             agentDispatchClient.createDispatch(roomName, agentName, {
                 metadata: metadataString,
             })
         );
-        
-        console.log(`✅ Agent dispatched successfully with explicit dispatch:`, {
+
+        console.log(`✅ Agent dispatched (${scope}):`, {
             dispatchId: dispatch.id,
-            roomName: roomName,
-            agentName: agentName,
-            hasMetadata: !!metadataString
+            roomName,
+            agentName,
+            hasMetadata: !!metadataString,
         });
-        
-        console.log(`✅ Agent dispatched via API (Explicit Dispatch) successfully`);
     } catch (error: any) {
         console.error('❌ Error creating explicit dispatch:', error);
         throw error;
@@ -226,4 +253,5 @@ export default {
     createUserToken,
     deleteLiveKitRoom,
     dispatchAgentToRoom,
+    getLiveKitCredentials,
 };

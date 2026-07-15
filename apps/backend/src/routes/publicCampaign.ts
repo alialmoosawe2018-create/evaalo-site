@@ -1,0 +1,281 @@
+import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import mongoose from 'mongoose';
+import Candidate from '../models/Candidate.js';
+import CandidateApplication from '../models/CandidateApplication.js';
+import { upsertCandidateApplication } from '../services/candidateApplicationService.js';
+import {
+    PublicCampaignClosedError,
+    PublicCampaignNotFoundError,
+    findCampaignByPublicToken,
+    getPublicFormConfigByToken,
+    markFirstCandidateIfNeeded,
+    resolveCampaignFormBinding,
+    assertCampaignAcceptsApplications,
+} from '../services/publicCampaignService.js';
+import {
+    buildSubmissionInputFromRequest,
+    mergeValidatedIntoCandidateData,
+    validateApplicationSubmission,
+} from '../services/applicationSubmitValidation.js';
+import {
+    enqueueStage1EvaluationOutbox,
+    dispatchStage1EvaluationOutbox,
+    normalizeStage1RubricSnapshotHash,
+} from '../services/stage1EvaluationOutboxService.js';
+import { normalizeStage1EvaluationLanguage } from '../services/stage1EvaluationLanguage.js';
+import { assertStageOutboundSecurityForTrigger, StageCallbackConfigurationError } from '../services/stageCallbackAuth.js';
+import { extractHoneypotFields, isHoneypotTriggered } from '../constants/n8nStage1.js';
+import type { CampaignFormContext } from '../types/campaignFormContext.js';
+
+const router = Router();
+
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const upload = multer({
+    dest: uploadsDir,
+    limits: { fileSize: 6 * 1024 * 1024 },
+});
+
+/** GET /api/public/campaigns/:pubToken/form-config */
+router.get('/campaigns/:pubToken/form-config', async (req: Request, res: Response) => {
+    try {
+        const config = await getPublicFormConfigByToken(req.params.pubToken);
+        res.json({ success: true, ...config });
+    } catch (e) {
+        if (e instanceof PublicCampaignNotFoundError) {
+            return res.status(404).json({ success: false, error: 'Not found' });
+        }
+        if (e instanceof PublicCampaignClosedError) {
+            return res.status(410).json({ success: false, error: e.message, code: 'CAMPAIGN_CLOSED' });
+        }
+        console.error('form-config error:', e);
+        res.status(500).json({ success: false, error: 'Failed to load form configuration' });
+    }
+});
+
+/** POST /api/public/campaigns/:pubToken/apply */
+router.post(
+    '/campaigns/:pubToken/apply',
+    upload.fields([
+        { name: 'cv', maxCount: 1 },
+        { name: 'photo', maxCount: 1 },
+    ]),
+    async (req: Request, res: Response) => {
+        try {
+            if (mongoose.connection.readyState !== 1) {
+                return res.status(503).json({ success: false, error: 'Database not connected' });
+            }
+
+            const campaign = await findCampaignByPublicToken(req.params.pubToken);
+            if (!campaign) {
+                return res.status(404).json({ success: false, error: 'Not found' });
+            }
+            const campaignCtx = campaign as CampaignFormContext;
+            try {
+                assertCampaignAcceptsApplications(campaignCtx);
+            } catch (e) {
+                if (e instanceof PublicCampaignClosedError) {
+                    return res.status(410).json({ success: false, error: e.message, code: 'CAMPAIGN_CLOSED' });
+                }
+                throw e;
+            }
+
+            const body = { ...(req.body || {}) } as Record<string, unknown>;
+            const honeypot = extractHoneypotFields(body);
+            if (isHoneypotTriggered(honeypot)) {
+                return res.status(201).json({ success: true, message: 'Application submitted successfully' });
+            }
+
+            const binding = resolveCampaignFormBinding(campaignCtx);
+            const snapshot = binding.snapshot;
+            const uploads = req.files as Record<string, Express.Multer.File[]> | undefined;
+            const submissionInput = buildSubmissionInputFromRequest(body, {
+                cv: uploads?.cv?.[0],
+                photo: uploads?.photo?.[0],
+            });
+
+            const validation = validateApplicationSubmission(snapshot, submissionInput);
+            if (!validation.ok) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Validation failed',
+                    code: 'APPLICATION_VALIDATION_FAILED',
+                    details: validation.errors,
+                });
+            }
+
+            const candidateData = mergeValidatedIntoCandidateData(validation.normalized, snapshot);
+            candidateData.campaignId = campaign.campaignId;
+
+            if (uploads?.cv?.[0]) {
+                const f = uploads.cv[0];
+                candidateData.files = [
+                    {
+                        kind: 'cv',
+                        filename: f.filename,
+                        originalName: f.originalname,
+                        path: f.path,
+                        mimeType: f.mimetype,
+                        size: f.size,
+                        uploadedAt: new Date(),
+                    },
+                ];
+            }
+            if (uploads?.photo?.[0]) {
+                const f = uploads.photo[0];
+                const files = Array.isArray(candidateData.files) ? candidateData.files : [];
+                files.push({
+                    kind: 'photo',
+                    filename: f.filename,
+                    originalName: f.originalname,
+                    path: f.path,
+                    mimeType: f.mimetype,
+                    size: f.size,
+                    uploadedAt: new Date(),
+                });
+                candidateData.files = files;
+            }
+
+            delete candidateData.agreeToTerms;
+
+            const emailNorm = String(candidateData.email || '').trim().toLowerCase();
+            const existing = emailNorm
+                ? await Candidate.findOne({
+                      organizationId: campaign.organizationId,
+                      email: emailNorm,
+                  })
+                : null;
+            if (existing) {
+                const existingApp = await CandidateApplication.findOne({
+                    candidateId: existing._id,
+                    campaignId: campaign.campaignId,
+                    deletedAt: null,
+                }).lean();
+                if (existingApp) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Already applied to this campaign',
+                        code: 'APPLICATION_EXISTS',
+                        message: 'This email is already registered for this campaign',
+                        applicationId: existingApp.applicationId,
+                    });
+                }
+            }
+
+            const n8nConfigured = Boolean(process.env.N8N_WEBHOOK_URL?.trim());
+            if (n8nConfigured) {
+                try {
+                    assertStageOutboundSecurityForTrigger();
+                } catch (e) {
+                    if (e instanceof StageCallbackConfigurationError) {
+                        return res.status(503).json({
+                            success: false,
+                            error: 'Stage callback security is not configured',
+                        });
+                    }
+                    throw e;
+                }
+            }
+
+            const evaluationLanguage = normalizeStage1EvaluationLanguage(
+                body.evaluationLanguage ?? body.language
+            );
+
+            const evaluationContext = {
+                formSchemaVersion: binding.schemaVersion,
+                formSchemaHash: binding.schemaHash,
+                rubricVersion: campaign.rubricVersion ?? 1,
+                rubricSnapshotHash: normalizeStage1RubricSnapshotHash(
+                    campaign.rubricSnapshotHash ?? ''
+                ),
+                evaluationLanguage,
+            };
+
+            let candidate;
+            if (existing) {
+                await Candidate.findByIdAndUpdate(existing._id, {
+                    $set: {
+                        campaignId: campaign.campaignId,
+                        ...(candidateData.full_name ? { full_name: candidateData.full_name } : {}),
+                        ...(candidateData.phone ? { phone: candidateData.phone } : {}),
+                        ...(candidateData.location ? { location: candidateData.location } : {}),
+                    },
+                });
+                candidate = await Candidate.findById(existing._id);
+                if (!candidate) {
+                    return res.status(500).json({ success: false, error: 'Failed to load candidate' });
+                }
+            } else {
+                candidate = new Candidate({
+                    ...candidateData,
+                    organizationId: campaign.organizationId,
+                    createdByClerkUserId: campaign.createdByClerkUserId,
+                    status: n8nConfigured ? 'pending_evaluation' : 'pending',
+                    evaluationContext,
+                });
+                await candidate.save();
+            }
+
+            const application = await upsertCandidateApplication({
+                organizationId: String(campaign.organizationId),
+                candidate,
+                campaignId: campaign.campaignId,
+                entryStage: candidate.entryStage,
+                sourceType: candidate.sourceType,
+                status: n8nConfigured ? 'pending_evaluation' : 'pending',
+                evaluationContext,
+                reuseExisting: true,
+                eventType: 'applied',
+            });
+
+            await markFirstCandidateIfNeeded(campaign.campaignId);
+
+            if (n8nConfigured && !existing) {
+                try {
+                    const candidateObj = candidate.toObject();
+                    const { outboxId, shouldDispatch } = await enqueueStage1EvaluationOutbox({
+                        candidateId: String(candidateObj._id?.toString?.() || candidateObj._id),
+                        campaignId: campaign.campaignId,
+                        organizationId:
+                            typeof campaign.organizationId === 'string'
+                                ? campaign.organizationId
+                                : undefined,
+                        rubricSnapshotHash: normalizeStage1RubricSnapshotHash(
+                            campaign.rubricSnapshotHash ?? ''
+                        ),
+                        formSchemaHash: binding.schemaHash,
+                    });
+                    if (shouldDispatch) {
+                        dispatchStage1EvaluationOutbox(outboxId);
+                    }
+                } catch (err) {
+                    console.error('Failed to enqueue Stage 1 evaluation outbox (non-blocking):', err);
+                }
+            }
+
+            res.status(201).json({
+                success: true,
+                message: existing
+                    ? 'Application created for existing candidate'
+                    : 'Application submitted successfully',
+                data: {
+                    id: candidate._id,
+                    candidateId: candidate._id,
+                    applicationId: application.applicationId,
+                    campaignId: campaign.campaignId,
+                },
+            });
+        } catch (e) {
+            console.error('public apply error:', e);
+            res.status(500).json({ success: false, error: 'Failed to submit application' });
+        }
+    }
+);
+
+export default router;

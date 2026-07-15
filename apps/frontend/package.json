@@ -4,13 +4,26 @@
   "description": "Career Portal - AI-powered hiring platform",
   "private": true,
   "dependencies": {
-    "@vapi-ai/web": "^2.5.2",
+    "@clerk/clerk-react": "^5.61.6",
+    "@fontsource/noto-naskh-arabic": "^5.2.11",
+    "@livekit/components-react": "^2.9.17",
+    "@livekit/components-styles": "^1.2.0",
+    "@stripe/react-stripe-js": "^6.6.0",
+    "@stripe/stripe-js": "^9.7.0",
+    "@types/ws": "^8.18.1",
+    "arabic-persian-reshaper": "^1.0.1",
     "gsap": "^3.12.5",
+    "html-to-image": "^1.11.13",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "livekit-client": "^2.16.1",
+    "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.0",
     "sortablejs": "^1.15.0",
-    "swiper": "^11.0.5"
+    "swiper": "^11.0.5",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
@@ -21,7 +34,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "vite build && npx gh-pages -d dist -t --nojekyll -r https://github.com/alialmoosawe2018-create/evaalo-site.git -m \"Deploy frontend dist\""
   },
   "browserslist": {
     "production": [

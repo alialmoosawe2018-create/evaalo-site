@@ -4,14 +4,30 @@
 // ============================================
 
 import OpenAI from 'openai';
-import { buildIraqiDialectPromptSection } from './iraqiDialectReference.js';
+import {
+    buildIraqiDialectPromptSection,
+    normalizeCandidateGender,
+    buildGenderAgreementSection,
+    IRAQI_ACKNOWLEDGMENT_PHRASES,
+    applyIraqiGenderPhrasing,
+    type CandidateGender,
+} from './iraqiDialectReference.js';
 import {
   MANDATORY_QUESTIONS,
   POOL_QUESTIONS,
   POOL_METADATA,
   PHASE3_QUESTIONS,
   IRAQI_DIALECT_EXAMPLES,
-} from '../config/interviewConfig.js';
+} from '../evaalo-only-voice/interviewConfig.js';
+import {
+    isWantsEnglishBeforePhase3,
+    isAskingAgentIdentity,
+    validateLLMQuestion,
+    classifyInterviewPolicyIntent,
+    getFollowUpPromptPair,
+    languageNamesOnly,
+    type InterviewPolicyIntent,
+} from '../evaalo-only-voice/questionEngine.js';
 
 let _openai: OpenAI | null | undefined = undefined;
 
@@ -31,6 +47,8 @@ function getOpenAIClient(): OpenAI | null {
 interface CandidateProfile {
     full_name?: string;
     email?: string;
+    phone?: string;
+    gender?: string;
     position_applied_for?: string;
     company_applied_to?: string;
     skills?: string[];
@@ -39,6 +57,10 @@ interface CandidateProfile {
     highest_education_level?: string;
     current_company?: string;
     languages?: string[];
+}
+
+function resolveCandidateGender(context?: Pick<LLMContext, 'candidateProfile'>): CandidateGender {
+    return normalizeCandidateGender(context?.candidateProfile?.gender);
 }
 
 interface Message {
@@ -58,7 +80,8 @@ function getPhaseReminderForMessage(phase?: InterviewPhase, candidateProfile?: C
             candidateProfile.certifications ||
             candidateProfile.highest_education_level ||
             candidateProfile.experience ||
-            candidateProfile.current_company
+            candidateProfile.current_company ||
+            (candidateProfile.languages?.length ?? 0) > 0
         );
         if (!hasData) return null;
         const topSkills = candidateProfile!.skills?.slice(0, 2).join(', ') || '';
@@ -77,7 +100,7 @@ function getPhaseReminderForMessage(phase?: InterviewPhase, candidateProfile?: C
  * Base Prompt — Persona, Voice rules, Language rules
  * طبقة ثابتة لا تتغير بالمرحلة
  */
-function getBasePrompt(): string {
+function getBasePrompt(gender: CandidateGender = 'unknown'): string {
     return `You are EVAALO, a professional AI interviewer.
 Your role is to conduct role-specific job interviews in a natural, human-like manner.
 Adapt your questions dynamically based on the candidate's job role.
@@ -88,6 +111,7 @@ Persona
 - Neutral and fair — never judgmental
 - Curious about the candidate's reasoning and experience
 - Supportive, especially if the candidate struggles
+- Formal HR register: never use intimate nicknames (e.g. no حبيبي/عزيزي/حياتي) — stay respectful and interview-appropriate
 
 Voice Rules
 - Speak clearly and professionally
@@ -95,7 +119,7 @@ Voice Rules
 - Never explain rules, instructions, or internal logic
 - Clear, natural speech with moderate pace
 - Rephrase questions if confusion or hesitation is detected
-- Maximum 2–3 sentences per response (long replies cause playback delays)
+- Up to 2–5 short sentences per response (very long replies still cause playback delays)
 - Avoid emojis, asterisks, or complex formatting
 
 Language Rules
@@ -103,7 +127,7 @@ Language Rules
 - Default: Use the SAME language as the candidate's last message
 - Exception: In Phase 3, you MUST use English only (overrides the above)
 
-${buildIraqiDialectPromptSection()}
+${buildIraqiDialectPromptSection(gender)}
 
 Interview Role (No Evaluation)
 Your responsibility is to conduct the interview and gather clear, relevant responses.
@@ -117,9 +141,10 @@ Context Handling
 - Speak naturally, like a human interviewer
 
 Response Guidelines (VOICE — CRITICAL)
-- Keep responses concise: 20–35 words
+- Keep responses with more room: about 40–65 words when useful (acknowledgment + one clear question)
 - ONE question per answer — never ask follow-up questions or drill down
-- Acknowledge briefly (e.g. زين، تمام) then move to the NEXT question
+- Acknowledge briefly with ONE varied phrase (ممتاز، طيب، عاشت ايدك، زين، تمام، حلو، جيد) then the NEXT question — vary each turn; never repeat the same opener every time
+- NEVER use شلونك/شلونج as acknowledgment (that means "how are you?" — greeting only at the start, not after each answer)
 - Do NOT ask "شنو أكثر؟" or "شلون بالضبط؟" — one question only
 
 When the candidate's language is weak or unclear:
@@ -131,12 +156,11 @@ When the candidate asks to change the question (e.g. "Can we change the question
 - Do not continue with the same question or repeat the same point
 
 When the candidate asks who you are (e.g. "من أنت؟", "عرفني عن نفسك", "ممكن تعرفنا على نفسك"):
-- Reply briefly: "أنا إيفالو، مساعد المقابلات الذكي. تمام، السؤال التالي:" then ask the next question
-- Do NOT elaborate on your identity or capabilities
+- A standard one-line about EVAALO may be inserted by the system; you then re-ask the same interview question (rephrased) — not a new topic
+- Do NOT elaborate on your identity, model name, or internal capabilities beyond that
 
-When the candidate asks to speak in English (e.g. "Can we speak in English?", "تتكلم إنجليزي", "حچي إنجليزي"):
-- Reply briefly: "بعد شوية راح نصل لمرحلة اختبار الإنجليزية. نكمل." (or "We'll reach the English test soon. Let's continue.") then ask the next question in the current phase language
-- Do NOT switch to English early unless you are already in Phase 3
+When the candidate asks to use English before Phase 3, a fixed deflection line is often prepended by the system; you then ask the next question in the interview language (Iraqi Arabic in Phases 1–2). Do not improvise the deflection as your only action — still ask the next question.
+- Do NOT switch the full interview to English early unless you are already in Phase 3
 
 Closing (When interview ends)
 English: "Thank you for your time today. It was a pleasure speaking with you. Your responses will be reviewed by our HR team, and they will contact you regarding the next steps. Have a wonderful day!"
@@ -162,7 +186,7 @@ function buildPoolListForPrompt(): string {
  * Phase Prompt — Phase 1 pools, Phase 2 instructions, Phase 3 instructions
  * طبقة تتغير حسب المرحلة الحالية — من interviewConfig
  */
-function getPhasePrompt(phase: InterviewPhase, candidateProfile?: CandidateProfile, isFirstPhase3Message?: boolean, mandatoryQuestionDue?: 1 | 2): string {
+function getPhasePrompt(phase: InterviewPhase, candidateProfile?: CandidateProfile, isFirstPhase3Message?: boolean, mandatoryQuestionDue?: 1 | 2, mode?: 'public'): string {
     if (phase === 1) {
         const mandatoryNote = mandatoryQuestionDue === 1
             ? `\n\n⚠️ CRITICAL — You MUST ask the FIRST Mandatory Question (Tell me about yourself) NOW. This is the opening question.\n`
@@ -188,6 +212,19 @@ ${buildPoolListForPrompt()}
 When candidate speaks Arabic, use Iraqi equivalents: ${IRAQI_DIALECT_EXAMPLES}`;
     }
     if (phase === 2) {
+        // المسار العام (رابط مشارَك بدون حقن بيانات المرحلة الأولى):
+        // لا نطرح أسئلة مبنية على بيانات تقديم؛ نستخدم أسئلة عامة عن الخلفية والدافع.
+        // ملاحظة: النص أدنى مبدئي وقابل للتخصيص لاحقاً حسب طلب صاحب المنتج.
+        if (mode === 'public') {
+            return `
+═══════════════════════════════════════════════════════════════
+⚠️ MANDATORY — PHASE 2 (PUBLIC LINK): أسئلة موجّهة للدور (No Application Data)
+═══════════════════════════════════════════════════════════════
+This is a public screening interview opened via a shared link. There is NO trusted application data about the candidate.
+Do NOT assume or invent that the candidate has any skill, certification, education, or employment history.
+Use the ROLE CONTEXT block (the job's required skills, experience, and qualifications) to steer your questions toward what THIS role needs — ask the candidate about their relevant background, motivation, strengths, and concrete experience for those requirements.
+Ask open questions and verify, do not confirm. Ask one question at a time. Do NOT switch to English yet.`;
+        }
         const hasData = candidateProfile && (
             (candidateProfile.skills?.length ?? 0) > 0 ||
             candidateProfile.certifications ||
@@ -208,13 +245,14 @@ Do NOT switch to English yet.`;
         const edu = candidateProfile!.highest_education_level || '';
         const exp = candidateProfile!.experience || '';
         const company = candidateProfile!.current_company || '';
+        const langs = languageNamesOnly(candidateProfile!.languages).join(', ') || '';
         return `
 ═══════════════════════════════════════════════════════════════
 ⚠️ MANDATORY — PHASE 2: أسئلة من بيانات التقديم (Application-Based)
 ═══════════════════════════════════════════════════════════════
 You MUST ask questions based ONLY on the candidate's application data below. Do NOT use generic Pool questions.
-Candidate data to use (top 2 skills only): Skills: ${topSkills || '—'} | Certifications: ${certs || '—'} | Education: ${edu || '—'} | Experience: ${exp || '—'} | Current company: ${company || '—'}
-Examples: Ask how they use [specific skill], about their [certification], their studies at [education], or challenges at [company].
+Candidate data to use (top 2 skills only): Skills: ${topSkills || '—'} | Certifications: ${certs || '—'} | Education: ${edu || '—'} | Experience: ${exp || '—'} | Current company: ${company || '—'} | Languages (names only, no proficiency levels): ${langs || '—'}
+Examples: Ask how they use [specific skill], about their [certification], their studies at [education], challenges at [company], or which languages they speak and their level in each — for languages, mention names from the application if helpful but NEVER state levels from the form; ask the candidate to describe their level.
 Do NOT repeat Phase 1 questions. Do NOT switch to English yet. Ask one question at a time.`;
     }
     // Phase 3
@@ -231,7 +269,7 @@ ${phase3Transition}
 You MUST respond in ENGLISH ONLY (except the first message which is the Arabic announcement "هسة راح أختبر لغتك الإنكليزية. جاهز؟" — no English question in that message).
 After the candidate responds to "جاهز؟", ask 3–5 questions in English to assess fluency, vocabulary, grammar.
 Examples: ${PHASE3_QUESTIONS.map((q) => `"${q}"`).join(' | ')}
-Keep responses concise (20–35 words). Speak ONLY in English after the announcement.`;
+Keep responses with more room (about 35–55 words per turn). Speak ONLY in English after the announcement.`;
 }
 
 /** سؤال مُختار من Question Engine — LLM يعيد صياغته أو يبني السؤال من topic */
@@ -239,21 +277,25 @@ export interface SelectedQuestion {
     text?: string;
     pool?: number;
     level?: number;
+    /** أبعاد التقييم المتوقعة لهذا السؤال (جاهزة للـ scoring/analytics) */
+    evaluates?: string[];
     preferArabic?: boolean;
     /** رسالة ثابتة — لا نستخدم LLM، نذهب مباشرة لـ TTS */
     isFixed?: boolean;
+    /** الرسالة الختامية — المقابلة انتهت؛ الخادم يغلق الاتصال بعد انتهاء التشغيل */
+    isInterviewEnd?: boolean;
     /** topic فقط — Engine يوجّه، LLM يبني السؤال من topic + إجابة المرشح */
     topic?: string;
     /** قائمة مواضيع — LLM يختار الأنسب حسب إجابة المرشح (بدل round-robin) */
     availableTopics?: string[];
 }
 
-interface LLMContext {
+export interface LLMContext {
     candidateProfile?: CandidateProfile;
     conversationHistory?: Message[];
     sessionId?: string;
     position?: string;
-    /** مدة المقابلة بالدقائق (مثلاً 14.5 = 14 دقيقة و 30 ثانية) */
+    /** مدة المقابلة بالدقائق (مثلاً 10 = 10 دقائق) */
     interviewDurationMinutes?: number;
     /** المرحلة الحالية: 1=Pools، 2=أسئلة من التقديم، 3=اختبار الإنجليزية */
     currentPhase?: InterviewPhase;
@@ -273,8 +315,65 @@ interface LLMContext {
     extractedTopics?: string[];
     /** إجابة المرشح الأخيرة — سياق إضافي للـ LLM */
     candidateLastAnswer?: string;
-    /** المتابعة: 1 أو 2 — حد أقصى متابعتين لكل سؤال رئيسي */
-    followUpNext?: 1 | 2;
+    /** المتابعة: واحدة فقط لكل سؤال رئيسي */
+    followUpNext?: 1;
+    /** طلب إنجليزي مبكر — النظام يضخ جملة إلحاح ثابتة والموديل يخرج السؤال فقط */
+    nextQuestionOnly?: boolean;
+    /** إن true: رد «من أنت؟» يكون سطر التعريف فقط (لا متابعة) — مثلاً بعد انتهاء وقت المقابلة */
+    timeEndedForInterview?: boolean;
+    /**
+     * وضع الجلسة. `'public'` = مقابلة عامة عبر رابط مشارَك بدون حقن بيانات المرحلة الأولى:
+     * Phase 2 يستخدم أسئلة عامة بدل أسئلة بيانات التقديم.
+     */
+    mode?: 'public';
+    /** دورة تأكيد — عدد ردود المساعد السابقة (لتنويع ممتاز/طيب/زين…) */
+    acknowledgmentTurn?: number;
+    /**
+     * معايير الوظيفة من الحملة (المسار العام فقط) — تُحقن في البرومت لتوجيه أسئلة الايجنت
+     * نحو متطلبات الدور (مهارات/خبرة/مؤهلات مطلوبة) دون اختلاق بيانات تقديم المرشح.
+     */
+    jobCriteria?: Record<string, any>;
+    /** الإعلان الوظيفي من الحملة (المسار العام فقط) — سياق إضافي للايجنت */
+    jobAdvertisement?: string;
+}
+
+/**
+ * بناء كتلة "Role Context" من معايير الحملة + الإعلان (المسار العام فقط).
+ * تصف متطلبات الوظيفة (مهارات/خبرة/مؤهلات مطلوبة) لتوجيه أسئلة الايجنت،
+ * وليست بيانات قدّمها المرشح. تتجاهل المفاتيح الفارغة/التحكمية.
+ */
+function buildRoleContextBlock(jobCriteria?: Record<string, any>, jobAdvertisement?: string): string {
+    const lines: string[] = [];
+    const SKIP_KEYS = new Set([
+        'position', 'interviewtype', 'templatetype', 'templatename', 'step', 'timestamp',
+        'aicomparetop', 'aicomparetopemails',
+    ]);
+    if (jobCriteria && typeof jobCriteria === 'object') {
+        for (const [rawKey, rawVal] of Object.entries(jobCriteria)) {
+            if (rawVal == null) continue;
+            const key = String(rawKey).trim();
+            if (!key || SKIP_KEYS.has(key.toLowerCase())) continue;
+            let val = '';
+            if (Array.isArray(rawVal)) val = rawVal.map((v) => String(v).trim()).filter(Boolean).join(', ');
+            else val = String(rawVal).trim();
+            if (!val) continue;
+            const label = key.replace(/([A-Z])/g, ' $1').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+            lines.push(`- ${label.charAt(0).toUpperCase()}${label.slice(1)}: ${val}`);
+        }
+    }
+    const ad = (jobAdvertisement || '').trim();
+    if (!lines.length && !ad) return '';
+
+    let block = `═══════════════════════════════════════════════════════════════
+ROLE CONTEXT (Job requirements for THIS public interview)
+═══════════════════════════════════════════════════════════════
+These are the JOB's requirements (not data the candidate provided). Use them to steer your questions toward the role's required skills, experience, and qualifications. Do NOT assume the candidate possesses any of them — probe to find out.`;
+    if (lines.length) block += `\n\nRequirements:\n${lines.join('\n')}`;
+    if (ad) {
+        const trimmedAd = ad.length > 1200 ? `${ad.slice(0, 1200)}…` : ad;
+        block += `\n\nJob advertisement (reference):\n${trimmedAd}`;
+    }
+    return block;
 }
 
 /**
@@ -286,17 +385,17 @@ function createSystemPrompt(context: LLMContext): string {
     const { candidateProfile, position, interviewDurationMinutes, currentPhase = 1, isFirstPhase3Message, selectedQuestion } = context;
     const candidateName = candidateProfile ? (candidateProfile.full_name || '').trim() : '';
 
-    // وضع المتابعة: متابعة أولى إلزامية عند ذكر تحدي — ثم السؤال التالي (لا متابعة ثانية)
+    // وضع المتابعة: متابعة واحدة — صيغتها حسب نوع السؤال (evaluates) عند الوجود
     if (context.followUpNext === 1) {
+        const pair = getFollowUpPromptPair(context.selectedQuestion);
         const langRule = context.selectedQuestion?.preferArabic
             ? 'Respond in Iraqi Arabic. Use natural dialect.'
             : 'Respond in English.';
-        const ex = context.selectedQuestion?.preferArabic ? 'شنو صار بالضبط؟ وصفلي الموقف.' : 'What exactly happened? Describe the situation.';
-        return `You are EVAALO. The candidate mentioned a challenge/situation. Ask one deeper probe: what exactly happened? Describe the situation.
-
+        const ex = context.selectedQuestion?.preferArabic ? pair.ar : pair.en;
+        return `You are EVAALO. The candidate mentioned a challenge/situation. Ask ONE short deeper probe in the same spirit as the example (same intent: solution path, other party reaction, alternatives, team role, reflection, or how they applied learning).
 ${langRule}
 Example: "${ex}"
-Keep it natural, 15–25 words. One question only. Do NOT announce "follow-up" — just ask.`;
+Keep it natural, about 24–40 words. One question only. Do NOT announce "follow-up" — just ask.`;
     }
 
     // وضع التوضيح: المرشح طلب توضيح — وضّح السؤال وأعد طرحه
@@ -304,12 +403,17 @@ Keep it natural, 15–25 words. One question only. Do NOT announce "follow-up" �
         const langRule = /[\u0600-\u06FF]/.test(context.lastAssistantMessage)
             ? 'Clarify in Iraqi Arabic. Use simpler words.'
             : 'Clarify in English. Use simpler words.';
-        return `You are EVAALO, a professional interviewer. The candidate asked for clarification — they did not understand your last question.
+        return `You are EVAALO, a professional interviewer. The candidate did not understand your last question and asked for clarification.
 
-Your task: Clarify the question in simpler words, then ask it again. Do NOT switch to a new question. Do NOT repeat the same exact words. Rephrase it more clearly.
+CLARIFICATION OUTPUT (MANDATORY):
+- Your ENTIRE response must be ONLY the same interview question in simpler, clearer wording — one short question (or at most two very short linked sentences) ending with "?" or "؟".
+- FORBIDDEN: any apology, regret, or meta talk about "confusion" or "misunderstanding" — e.g. do NOT use phrases like: "آسف على اللبس", "عذراً على الالتباس", "معذرة", "معليش", "I'm sorry for the confusion", "sorry for the mix-up", or similar.
+- FORBIDDEN: lead-ins like "أقصد،" / "I mean" / "قصدي" before restating the question (go straight to the rephrased question).
+- Do NOT switch to a new topic. Do NOT repeat the previous wording verbatim; rephrase more clearly.
+- Do NOT output separators (dashes, long lines) or duplicate the same apology twice.
 
 ${langRule}
-Keep it concise (25–40 words). Your last question was: "${context.lastAssistantMessage}"`;
+Your last question was: "${context.lastAssistantMessage}"`;
     }
 
     // وضع Topic-choice: LLM يختار الموضوع الأنسب من القائمة حسب إجابة المرشح
@@ -325,7 +429,7 @@ Keep it concise (25–40 words). Your last question was: "${context.lastAssistan
 Available topics: ${topicsList}
 ${lastAnswer}${extracted}
 
-CRITICAL: Do NOT say "the topic is X" or "الموضوع الأنسب هو..." — the topic choice is INTERNAL. Just ask the question directly. You may add a brief acknowledgment (زين، تمام) then ask. Keep it 25–45 words.
+CRITICAL: Do NOT say "the topic is X" or "الموضوع الأنسب هو..." — the topic choice is INTERNAL. Just ask the question directly. You may add ONE brief varied acknowledgment (${IRAQI_ACKNOWLEDGMENT_PHRASES.slice(0, 4).join('، ')}, etc.) then ask — NEVER "شلونك؟" as acknowledgment. Keep it about 45–70 words.
 
 ${langRule}`;
     }
@@ -342,7 +446,7 @@ ${langRule}`;
         return `You are EVAALO, a professional interviewer. Based on the candidate's answer, ask a question about this topic: ${selectedQuestion.topic}.
 ${lastAnswer}${extracted}
 
-You decide the best question. Make it natural and relevant. You may add a brief acknowledgment if it flows well. Keep it 25–45 words.
+You decide the best question. Make it natural and relevant. You may add a brief acknowledgment if it flows well. Keep it about 45–70 words.
 
 ${langRule}`;
     }
@@ -355,17 +459,19 @@ ${langRule}`;
             ? 'Keep the question in ENGLISH. Do not translate to Arabic.'
             : 'Use the same language as the selected question.';
         const changeNote = context.changeRequested
-            ? 'The candidate asked to change the question. Acknowledge briefly ("تمام" or "Sure") then ask the new question. Keep under 40 words.'
+            ? 'The candidate asked to change the question. Acknowledge briefly ("تمام" or "Sure") then ask the new question. Keep under 65 words.'
             : '';
         return `You are EVAALO, a professional interviewer. Rephrase this question naturally and ask it. You may add a brief transition if it feels natural. One main question.
+Do NOT narrow a broad question into a single sub-topic unless the original question is already specific.
 ${changeNote ? changeNote + '\n' : ''}
 ${langRule}
 Question to rephrase: "${selectedQuestion.text}"
-Keep it 20–40 words.`;
+Keep it about 35–60 words.`;
     }
 
-    const basePrompt = getBasePrompt();
-    const phasePrompt = getPhasePrompt(currentPhase, candidateProfile, isFirstPhase3Message, context.mandatoryQuestionDue);
+    const candidateGender = resolveCandidateGender(context);
+    const basePrompt = getBasePrompt(candidateGender);
+    const phasePrompt = getPhasePrompt(currentPhase, candidateProfile, isFirstPhase3Message, context.mandatoryQuestionDue, context.mode);
 
     const languageOverride = currentPhase === 3 && !isFirstPhase3Message
         ? `\n⚠️ PHASE 3 OVERRIDE: Respond in ENGLISH ONLY. Ignore "same language" rule.\n`
@@ -393,6 +499,12 @@ ${languageOverride}`;
         prompt += `\n\nPosition/Role for this interview: ${position}`;
     }
 
+    // المسار العام: حقن متطلبات الوظيفة (criteria + الإعلان) كسياق للدور — لا تُعامَل كبيانات تقديم المرشح.
+    if (context.mode === 'public') {
+        const roleContext = buildRoleContextBlock(context.jobCriteria, context.jobAdvertisement);
+        if (roleContext) prompt += `\n\n${roleContext}`;
+    }
+
     if (candidateProfile) {
         prompt += `\n\nCandidate Information (use naturally when asked, never read aloud unprompted):`;
         if (candidateName) prompt += `\n- Name: ${candidateName}`;
@@ -404,10 +516,704 @@ ${languageOverride}`;
         if (candidateProfile.certifications) prompt += `\n- Certifications: ${candidateProfile.certifications}`;
         if (candidateProfile.highest_education_level) prompt += `\n- Highest Education: ${candidateProfile.highest_education_level}`;
         if (candidateProfile.current_company) prompt += `\n- Current Company: ${candidateProfile.current_company}`;
-        if (candidateProfile.languages?.length) prompt += `\n- Languages: ${candidateProfile.languages.join(', ')}`;
+        const langNames = languageNamesOnly(candidateProfile.languages);
+        if (langNames.length) {
+            prompt += `\n- Languages (names only — do NOT mention proficiency levels from the application; ask the candidate about their level): ${langNames.join(', ')}`;
+        }
+        const g = normalizeCandidateGender(candidateProfile.gender);
+        if (g !== 'unknown') prompt += `\n- Gender: ${g} (use mandatory Arabic gender agreement when addressing the candidate)`;
     }
 
     return prompt;
+}
+
+/** جملة إلحاح ثابتة — تُدمج برمجياً مع سؤال المقابلة عند طلب الإنجليزي قبل Phase 3 */
+export const EARLY_ENGLISH_DEFLECTION_AR = 'بعد شوية راح نوصل لمرحلة اختبار الإنجليزية.خلينا نكمل.';
+const FALLBACK_INTERVIEW_QUESTION_AR = 'ممكن تحچي لي  أكثر عن خبرتك بالعمل ؟';
+
+/** سطر ثابت عند سؤال المرشح: من أنت؟ / who are you? */
+const AGENT_IDENTITY_ANSWERS_AR = [
+    'آني إيفالو، مساعد موارد بشرية افتراضي يعمل بالذكاء الاصطناعي. دوري هو إدارة المقابلة معك خطوة بخطوة، من خلال طرح أسئلة منظمة وتحليل إجاباتك بشكل دقيق، حتى تنطي صورة واضحة عن أدائك وفق معايير تقييم معتمدة.',
+    'آني إيفالو، مساعد موارد بشرية افتراضي يعمل بالذكاء الاصطناعي. أشتغل وفق نظام تقييم متعدد المراحل يحاكي أسلوب فريق التوظيف في قسم الموارد البشرية ، حيث أقوم بطرح الأسئلة، متابعة الإجابات، وتحليلها للوصول إلى تقييم شامل يعكس مختلف جوانب أدائك.',
+    'آني إيفالو، مساعد موارد بشرية افتراضي يعمل بالذكاء الاصطناعي. مهمتي هي إجراء المقابلة بطريقة منظمة، وطرح أسئلة تغطي أكثر من جانب، وبعدين تحليل إجاباتك حتى يتم تقييمك بشكل دقيق وعادل.',
+] as const;
+const AGENT_IDENTITY_ANSWER_EN =
+    "I'm EVAALO, a virtual AI interview assistant. I'm here to help you with this interview.";
+
+const IDENTITY_CONTINUE_AR = 'خلينا نكمل المقابلة.';
+const IDENTITY_CONTINUE_EN = "Let's continue the interview.";
+const IDENTITY_REASK_LLM_STRICT_EN = 'FORBIDDEN: asking the candidate who they are (e.g. "who are you", anything like identity check on the candidate). You re-ask the interviewing question only, about their experience/role/answer.';
+
+/**
+ * سؤال للمرشح بصيغة «منو/مين أنت؟» — خطأ شائع من الـ LLM عند «من أنت؟» للايجنت (لا يُستنسخ كإعادة سؤال)
+ */
+function looksLikeAskingWhoIsTheUserArabic(s: string): boolean {
+    const t = s.replace(/\s+/g, ' ').trim();
+    if (!t) return true;
+    if (/(منو|مين|مَن|من|شو)\s+(إنت|انته|انت|أنت|انته|انتا)\s*[؟?؟\s]*$/i.test(t)) return true;
+    if (/(^|[.!؟?\n])\s*(منو|مين|مَن|شو)\s+(إنت|انته|انت|أنت)\s*[؟?؟]/i.test(t)) return true;
+    if (/(^|[.!؟?\n])\s*(مين|منو)\s+(إنت|انته|انت|أنت)\b/i.test(t)) return true;
+    return false;
+}
+
+function looksLikeAskingWhoIsTheUserEnglish(s: string): boolean {
+    const t = s.trim();
+    if (!t) return true;
+    if (/\bwho\s+are\s+you\b/i.test(t) && t.length < 100) return true;
+    if (/\b(what('?s| is)\s*your name|what should i call you)\b/i.test(t)) return true;
+    return false;
+}
+
+/** تنويع مضبوط: نفس الجلسة قد يردّ على شكلٍ آخر لاحقاً عند تغيّر سؤاله */
+function pickPolicyVariantIndex(seed: string, poolLength: number): number {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+    return poolLength > 0 ? Math.abs(h) % poolLength : 0;
+}
+
+const INTERVIEW_POLICY_REPLIES_AR: Record<InterviewPolicyIntent, readonly string[]> = {
+    ask_result: [
+        'بعد ما تخلص المقابلة، راح يتم تحليل إجاباتك وتقييمها بشكل دقيق عبر أكثر من جانب. بالنسبة للنتيجة، ما أگدر أعرضها أو أشاركها ويا المرشحين، وهي تنرسل للجهة المختصة. قسم الموارد البشرية راح يتواصل وياك لاحقًا إذا كان أكو خطوة جاية. أشكرك على وقتك، وأتمنى لك كل التوفيق.',
+        'من تكمل المقابلة، النظام راح يراجع إجاباتك ويقيّم أداءك بشكل شامل. بخصوص النتيجة، ما عندي صلاحية أعرضها أو أشاركها وياك، لأنها تتحول مباشرة للجهة المعنية. فريق الموارد البشرية راح يتواصل وياك لاحقًا بخصوص الخطوات الجاية. شكراً لوقتك، وأتمنى لك حظ موفق.',
+        'أول ما تنتهي المقابلة، راح يتم تقييم إجاباتك وفق عدة معايير حتى تنعطى صورة دقيقة عن أدائك. أما النتيجة، فهي ما تنعرض للمرشحين وتبقى مخصصة للجهة المسؤولة. قسم الموارد البشرية راح يتواصل وياك لاحقًا إذا تم اختيارك للمرحلة التالية. شكراً جزيلاً لوقتك، ونتمنى لك كل التوفيق.',
+    ],
+    ask_evaluation: [
+        'حالياً ما أقدر أقدّم تقييم مباشر، التقييم يتم بشكل كامل بعد انتهاء المقابلة.',
+        'التقييم يتم بعد نهاية المقابلة.',
+        'دوري هنا اطرح أسئلة ومو أعطي درجات مباشرة أثناء الحوار.',
+        'التصنيف يتم بشكل موحّد بعد اكتمال جميع إجاباتك.',
+        'ما أقدر أقيم مباشرة هاللحظة؛ التقييم النهائي بعد السيشن.',
+    ],
+    ask_opinion: [
+        'دوري حالياً هو إدارة المقابلة فقط، أما التقييم النهائي فيتم بعد اكتمال جميع الإجابات.',
+        'التقييم النهائي يكون بعد اكتمال المقابلة.',
+        'رأيي الشخصي مو معيار هنا؛ المهم تكمل إجاباتك وبعدها ينحسب التقييم بشكل رسمي.',
+        'أركّز على تقدم الأسئلة، والقرار/التقييم يصير بعد اكتمال الجلسة.',
+        'مافي رأي فوري بالمرشح أثناء المقابلة؛ نكمّل الأسئلة وبعدين يتم الاستحقاق بشكل منظم.',
+    ],
+};
+
+const INTERVIEW_POLICY_REPLIES_EN: Record<InterviewPolicyIntent, readonly string[]> = {
+    ask_result: [
+        'Your results will be evaluated after the interview is completed.',
+        "I can't share a final outcome right now. You'll be informed after the session.",
+        "Results and decisions are released after the interview, not item-by-item as we go.",
+    ],
+    ask_evaluation: [
+        "I can't provide a live evaluation. It's done after the interview.",
+        "I don't give real-time scores here; assessment happens when the session is done.",
+        "I can't rate or grade you during the call—evaluation follows after completion.",
+    ],
+    ask_opinion: [
+        'My role is to guide the process. Final evaluation comes after completion.',
+        "I focus on running the questions; formal evaluation happens after the interview.",
+        "I don't give a personal hire verdict during the call—that comes after the full session.",
+    ],
+};
+
+const ALL_INTERVIEW_POLICY_PREFIXES: string[] = [
+    ...Object.values(INTERVIEW_POLICY_REPLIES_AR).flat(),
+    ...Object.values(INTERVIEW_POLICY_REPLIES_EN).flat(),
+].sort((a, b) => b.length - a.length);
+
+const ALL_AGENT_IDENTITY_PREFIXES: string[] = [...AGENT_IDENTITY_ANSWERS_AR, AGENT_IDENTITY_ANSWER_EN].sort(
+    (a, b) => b.length - a.length
+);
+
+function pickInterviewPolicyPrefix(intent: InterviewPolicyIntent, context: LLMContext, userLine: string): string {
+    const isEn = (context.currentPhase ?? 1) === 3;
+    const pool = (isEn ? INTERVIEW_POLICY_REPLIES_EN : INTERVIEW_POLICY_REPLIES_AR)[intent];
+    const seed = `${context.sessionId || ''}|${intent}|${userLine}`;
+    return pool[pickPolicyVariantIndex(seed, pool.length)] ?? pool[0];
+}
+
+function pickAgentIdentityPrefix(context: LLMContext, userLine: string): string {
+    const isEn = (context.currentPhase ?? 1) === 3;
+    if (isEn) return AGENT_IDENTITY_ANSWER_EN;
+    const seed = `${context.sessionId || ''}|identity|${userLine}`;
+    const idx = pickPolicyVariantIndex(seed, AGENT_IDENTITY_ANSWERS_AR.length);
+    return AGENT_IDENTITY_ANSWERS_AR[idx] ?? AGENT_IDENTITY_ANSWERS_AR[0];
+}
+
+/** تعليمات سجل المقابلة الرسمي — تُلحق بالـ system حيث يناسب */
+function getProfessionalRegisterBlock(): string {
+    const ackList = IRAQI_ACKNOWLEDGMENT_PHRASES.join('، ');
+    return `PROFESSIONAL HR INTERVIEW REGISTER (MANDATORY for Arabic and English):
+- Formal job interview with HR: polite, neutral, and respectful — not casual chat, not social media tone, not family or friendship terms.
+- NEVER use terms of endearment or intimate/familiar address, including (examples): "حبيبي", "حبيبتي", "عزيزي", "عزيزتي", "حياتي", "يا عيني", "يا بعدي", "يا روحي", "حب" — and never invent similar nicknames.
+- Arabic acknowledgments before the next question: ONE short phrase from (${ackList}) then comma then the question. Vary the phrase; do NOT say "زين" before every question.
+- FORBIDDEN as acknowledgment: شلونك، شلونج، شلون، هلا — especially WRONG: "زين، شلونك؟" before a work question. No flirtatious or overly warm wording.`;
+}
+
+/** يصحّح استخدام شلونك/شلونج خطأً كتأكيد، ويُنوّع العبارة الافتتاحية */
+function fixAcknowledgmentOpener(text: string, turnIndex = 0): string {
+    const acks = IRAQI_ACKNOWLEDGMENT_PHRASES.map((p) => `${p}،`);
+    const pick = acks[turnIndex % acks.length] ?? 'ممتاز،';
+    let s = text.trim();
+
+    // "زين، شلونك؟ شنو…" — شلونك ليست تأكيداً
+    s = s.replace(
+        /^(?:زين|تمام|طيب|حلو|ممتاز|جيد)[،,\s]+شلون[كج]\??[،,\s]*/u,
+        `${pick} `
+    );
+    // يبدأ مباشرة بـ شلونك؟ قبل السؤال
+    if (/^شلون[كج]\??[،,\s]+/u.test(s)) {
+        s = s.replace(/^شلون[كج]\??[،,\s]+/u, `${pick} `);
+    }
+    // تنويع: لا نكرّر "زين،" في كل دورة — نستبدلها بالتناوب
+    if (turnIndex > 0 && /^زين[،,\s]+/u.test(s)) {
+        s = s.replace(/^زين[،,\s]+/u, `${pick} `);
+    }
+    return s;
+}
+
+function resolveAcknowledgmentTurn(ack: number | LLMContext = 0): number {
+    if (typeof ack === 'number') return ack;
+    return (
+        ack.acknowledgmentTurn ??
+        ack.conversationHistory?.filter((m) => m.role === 'assistant').length ??
+        0
+    );
+}
+
+function resolveGenderFromSanitizeArg(ack: number | LLMContext): CandidateGender {
+    if (typeof ack === 'number') return 'unknown';
+    return normalizeCandidateGender(ack.candidateProfile?.gender);
+}
+
+/** تقليل لقطع شرطات/فواصل طويلة، وإزالة مفردات مخالفة للسجل الرسمي إن وُجدت */
+function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string {
+    const acknowledgmentTurn = resolveAcknowledgmentTurn(ack);
+    const gender = resolveGenderFromSanitizeArg(ack);
+    let s = text
+        .replace(/[-_=~]{3,}/g, ' ')
+        .replace(/[|]{2,}/g, ' ')
+        .replace(
+            /(?:^|\s)(حبيبي|حبيبتي|عزيزي|عزيزتي|حياتي|يا\s+عيني|يا\s+بعدي|يا\s+روحي)(?=\s|[،,.!?؟]|$)/gi,
+            ' '
+        );
+    // عراقي: "شنو تحچيلي" بلا "تحب" — الصيغة: "شنو تحب تحچيلي" (أو "ممكن تحچيلي شويه")
+    s = s.replace(/(شنو|شو|أش|اش)\s+تح([چج])يلي/gi, (_full, w: string, g: string) => {
+        const wUse = w === 'أش' || w === 'اش' ? 'شنو' : w;
+        return `${wUse} تحب تح${g}يلي`;
+    });
+    // توحيد صياغة سؤال التعارف الافتتاحي إلى النسخة المعتمدة
+    s = s.replace(
+        /ممكن\s+تح([چج])يلي\s+عن\s+نفسك\s+شوي[هة]?\s*[؟?]?\s*شنو\s+الأشياء\s+المهمة\s+اللي\s+تحب\s+أتعرفها\s+عنك\s*[؟?]?/gi,
+        'ممكن تحجيلنا عن نفسك شويه شنو الاشياء التي تحب نعرفها عنك؟'
+    );
+    // تصحيح صياغة "ويها" إلى "وياها" في سياق "تتعامل ..."
+    s = s.replace(/\bتتعامل\s+ويها\b/gi, 'تتعامل وياها');
+    s = fixAcknowledgmentOpener(s, acknowledgmentTurn);
+    s = applyIraqiGenderPhrasing(s, gender);
+    return s.replace(/\s{2,}/g, ' ').trim();
+}
+
+/** تصحيح نص عربي للمقابلة الصوتية (نص ثابت من المحرك أو خارج getLLMResponse). */
+export function polishVoiceArabicReply(
+    text: string,
+    opts?: { gender?: string | null; acknowledgmentTurn?: number }
+): string {
+    const ctx: LLMContext = {
+        candidateProfile: opts?.gender ? { gender: opts.gender } : undefined,
+        acknowledgmentTurn: opts?.acknowledgmentTurn,
+    };
+    return sanitizeVoiceReply(text, ctx);
+}
+
+/** وضع التوضيح: إسقاط اعتذار عن اللبس/«أقصد» إن تسرّب من الموديل */
+function stripClarificationFiller(text: string, ack: number | LLMContext = 0): string {
+    let s = sanitizeVoiceReply(text, ack);
+    s = s.replace(
+        /(آسف|اسف|عذراً|عذر|معذرة)\s+على\s+ال?لبس\s*[.!؟]?\s*/gi,
+        ''
+    );
+    s = s.replace(
+        /(عذراً|معذرة)\s+على\s+الالتباس\s*[.!؟]?\s*/gi,
+        ''
+    );
+    s = s.replace(
+        /\b(sorry|apologize|I\s+mean|I\s+am\s+sorry)\b[^.!?؟]*[.!؟]?\s*/gi,
+        ''
+    );
+    s = s.replace(
+        /(آسف|اسف|عذراً|عذر|معذرة|معليش)\s+على\s+(ال)?(لبس|الالتباس|اللغط)\s*[.!؟]?\s*/gi,
+        ''
+    );
+    s = s.replace(/^(عذراً|معذرة|معليش)\s*[!.,;؟؟\s]*/gim, '');
+    s = s.replace(/^(أقصد|قصدي)\s*[,،:؛\-—\s]+/gim, '');
+    const parts = s
+        .split(/\n+|\s*[-_=]{4,}\s*/)
+        .map((l) => l.trim())
+        .filter(
+            (l) =>
+                l.length > 0 &&
+                !/^(آسف|اسف|عذر|معذرة|معليش)(\s+على)?/i.test(l) &&
+                !/^I\s*'?m\s+sorry/i.test(l)
+        );
+    s = parts.join(' ').replace(/\s{2,}/g, ' ').trim();
+    s = s.replace(/\s*(أقصد|قصدي)\s*[,،:]\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    return s;
+}
+
+function getLastAssistantMessage(context: LLMContext): string | null {
+    const h = context.conversationHistory;
+    if (!h?.length) return null;
+    for (let i = h.length - 1; i >= 0; i--) {
+        if (h[i].role === 'assistant' && h[i].content?.trim()) {
+            return h[i].content.trim();
+        }
+    }
+    return null;
+}
+
+/** نص السؤال الحالي فقط (بدون جملة الإلحاح أو نص «من أنت؟» الثابت إن وُجدت) */
+function getQuestionExcerptForEarlyEnglishRepeat(lastAssistantFull: string): string {
+    let t = lastAssistantFull.trim();
+    if (t.includes(EARLY_ENGLISH_DEFLECTION_AR)) {
+        const after = t.split(EARLY_ENGLISH_DEFLECTION_AR).pop() ?? '';
+        t = after.replace(/^\s*\n+/, '').trim() || t;
+    }
+    for (const p of ALL_AGENT_IDENTITY_PREFIXES) {
+        if (t.includes(p)) {
+            const after = t.split(p).pop() ?? '';
+            t = after.replace(/^\s*\n+/, '').trim() || t;
+            break;
+        }
+    }
+    for (const p of ALL_INTERVIEW_POLICY_PREFIXES) {
+        if (p.length >= 12 && t.startsWith(p)) {
+            t = t.slice(p.length).replace(/^\s*\n+/, '').trim() || t;
+            break;
+        }
+    }
+    return t;
+}
+
+function getHumanityBlock(): string {
+    return `HUMANITY AND RAPPORT (not for clarification-only mode)
+If the candidate's message is not a direct answer to the current interview question (small talk, unrelated topic, aside):
+- Acknowledge briefly (max 1 sentence) in a **professional** tone only.
+- Immediately continue the interview with ONE clear question.
+- Do not give life advice, philosophy, or long explanations.
+- The response must still contain a valid interview question (ending with ? or ؟).
+
+${getProfessionalRegisterBlock()}`;
+}
+
+function getNextQuestionOnlyBlock(): string {
+    return `CRITICAL — NEXT QUESTION ONLY (deflection line is prepended by the system outside the model)
+You must output ONLY the next interview question in Iraqi Arabic (natural dialect: شنو، شلون، چان).
+- No English. Do not write the "English test later" sentence — that is added separately.
+- Optional ONE varied acknowledgment (${IRAQI_ACKNOWLEDGMENT_PHRASES.join('، ')}) before the question only; never شلونك/شلونج; one question, about 40–70 words, ending with ؟
+- The candidate may have asked to switch to English; your output is still the interview question in Iraqi Arabic only.
+
+${getProfessionalRegisterBlock()}`;
+}
+
+/** يلفّ createSystemPrompt مع بلوك إنساني أو قيود سؤال-فقط — نقطة دخول واحدة */
+function buildSystemPrompt(context: LLMContext): string {
+    const gender = resolveCandidateGender(context);
+    let core = createSystemPrompt(context);
+    const genderBlock = buildGenderAgreementSection(gender);
+    if (genderBlock) core += `\n\n${genderBlock.trim()}`;
+    if (context.nextQuestionOnly) {
+        return `${core}\n\n${getNextQuestionOnlyBlock()}`;
+    }
+    if (context.clarificationRequested) {
+        return `${core}\n\n${getProfessionalRegisterBlock()}`;
+    }
+    return `${core}\n\n${getHumanityBlock()}`;
+}
+
+function getPhaseReminderOrNull(context: LLMContext): string | null {
+    return context.selectedQuestion &&
+        !context.selectedQuestion.topic &&
+        !context.selectedQuestion?.availableTopics &&
+        !context.followUpNext
+        ? null
+        : getPhaseReminderForMessage(
+              context.currentPhase,
+              context.candidateProfile,
+              context.isFirstPhase3Message
+          );
+}
+
+function buildUserContent(transcript: string, context: LLMContext, phaseReminder: string | null): string {
+    if (context.clarificationRequested) {
+        return `Candidate said: ${transcript}\n\nThey asked for clarification. Rephrase the same question in simpler words only. No apology. No "sorry for confusion" or Arabic equivalents. No "أقصد" preface. Output only the clearer question.`;
+    }
+    if (context.followUpNext) {
+        const pair = getFollowUpPromptPair(context.selectedQuestion);
+        const hint = /[\u0600-\u06FF]/.test(transcript) ? pair.ar : pair.en;
+        return `Candidate said: ${transcript}\n\nAsk the single allowed follow-up (same intent as this probe): ${hint}`;
+    }
+    if (context.selectedQuestion?.availableTopics?.length) {
+        return phaseReminder
+            ? `${phaseReminder}\n\nCandidate said: ${transcript}\n\nChoose the most relevant topic and ask a natural question. Do NOT say "the topic is X" — just ask directly.`
+            : `Candidate said: ${transcript}\n\nChoose the most relevant topic and ask a natural question. Do NOT say "the topic is X" — just ask directly.`;
+    }
+    if (context.selectedQuestion?.topic) {
+        return phaseReminder
+            ? `${phaseReminder}\n\nCandidate said: ${transcript}\n\nAsk a question about: ${context.selectedQuestion.topic}.`
+            : `Candidate said: ${transcript}\n\nAsk a question about: ${context.selectedQuestion.topic}.`;
+    }
+    if (context.selectedQuestion?.text) {
+        return `Candidate answered. Rephrase and ask: ${context.selectedQuestion.text}`;
+    }
+    return phaseReminder
+        ? `${phaseReminder}\n\nCandidate said: ${transcript}`
+        : `Candidate said: ${transcript}`;
+}
+
+function buildEarlyEnglishUserAppend(): string {
+    return `
+
+CRITICAL — EARLY ENGLISH REQUEST (output format):
+The candidate asked to use English before the official English test. Your output must be ONLY the next interview question in Iraqi Arabic (natural dialect: شنو، شلون، چان).
+Do NOT include any sentence about the English test phase (the system prepends that separately). Do NOT use English in your output. One question only, ending with ؟.`;
+}
+
+function buildEarlyEnglishRepeatSystemPrompt(gender: CandidateGender = 'unknown'): string {
+    return `You are EVAALO, a professional voice interviewer.
+The candidate asked to use English before the official English test. A fixed Arabic deflection will be prepended by the system. Your output must be ONLY a natural rephrasing in Iraqi Arabic of the SAME interview question the candidate was already answering — same topic and intent, NOT a new topic and NOT a different "next" question from the pools.
+
+${buildIraqiDialectPromptSection(gender)}
+
+${getProfessionalRegisterBlock()}
+
+Rules:
+- Iraqi Arabic only. No English in your line.
+- One clear question ending with ؟. Optional ONE varied acknowledgment (${IRAQI_ACKNOWLEDGMENT_PHRASES.join('، ')}); never شلونك/شلونج before the question (professional only; no intimate or slang pet names).
+- Do not change the subject: re-ask what was already asked, in clearer or more neutral professional wording if needed.`;
+}
+
+function buildEarlyEnglishRepeatUserContent(transcript: string, questionExcerpt: string): string {
+    return `Candidate said: ${transcript}
+
+Product policy: defer full English to the English test phase; re-ask the SAME question below in Iraqi Arabic (rephrased). Do NOT ask about a new theme or a different pool topic.
+
+The question the candidate was answering (re-ask this, rephrased only):
+"""
+${questionExcerpt}
+"""`;
+}
+
+async function getEarlyEnglishMergedReply(
+    transcript: string,
+    context: LLMContext,
+    openai: OpenAI
+): Promise<string> {
+    const run = async (messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], temp: number) => {
+        const res = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages,
+            temperature: temp,
+            max_tokens: 280,
+        });
+        return res.choices[0]?.message?.content?.trim() || '';
+    };
+
+    const lastFull = getLastAssistantMessage(context);
+    const questionExcerpt = lastFull ? getQuestionExcerptForEarlyEnglishRepeat(lastFull) : null;
+
+    /** إعادة نفس السؤال (بصياغة) — لا تبديل لسؤال جديد من المحرك */
+    if (questionExcerpt && questionExcerpt.length >= 8) {
+        const systemPrompt = buildEarlyEnglishRepeatSystemPrompt(resolveCandidateGender(context));
+        const userContent = buildEarlyEnglishRepeatUserContent(transcript, questionExcerpt);
+        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent },
+        ];
+
+        let questionPart = await run(messages, 0.25);
+        questionPart = sanitizeVoiceReply(questionPart);
+        let final = `${EARLY_ENGLISH_DEFLECTION_AR}\n\n${questionPart}`;
+        if (validateLLMQuestion(final)) return sanitizeVoiceReply(final);
+
+        const strictSystem = `${systemPrompt}
+
+CRITICAL: Rephrase ONLY the question in the user message. One question in Iraqi Arabic; end with ؟. Do NOT ask a different question or topic. ${getProfessionalRegisterBlock()}`;
+        const strictMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+            { role: 'system', content: strictSystem },
+            { role: 'user', content: userContent },
+        ];
+        questionPart = sanitizeVoiceReply(await run(strictMessages, 0.15));
+        final = `${EARLY_ENGLISH_DEFLECTION_AR}\n\n${questionPart}`;
+        if (validateLLMQuestion(final)) return sanitizeVoiceReply(final);
+
+        if (validateLLMQuestion(questionExcerpt)) {
+            console.warn('[LLM] early-English repeat: LLM output invalid, using same-question excerpt');
+            return sanitizeVoiceReply(`${EARLY_ENGLISH_DEFLECTION_AR}\n\n${questionExcerpt}`);
+        }
+        console.warn('[LLM] early-English repeat: using generic fallback');
+        return sanitizeVoiceReply(`${EARLY_ENGLISH_DEFLECTION_AR}\n\n${FALLBACK_INTERVIEW_QUESTION_AR}`);
+    }
+
+    const ctx: LLMContext = { ...context, nextQuestionOnly: true };
+    const systemPrompt = buildSystemPrompt(ctx);
+    const phaseReminder = getPhaseReminderOrNull(context);
+    const userContent = buildUserContent(transcript, context, phaseReminder) + buildEarlyEnglishUserAppend();
+
+    const messages2: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [{ role: 'system', content: systemPrompt }];
+    const SLIDING_WINDOW_SIZE = 8;
+    const history = context.conversationHistory || [];
+    const recentHistory = history.length > SLIDING_WINDOW_SIZE ? history.slice(-SLIDING_WINDOW_SIZE) : history;
+    const needsHistory =
+        context.clarificationRequested ||
+        context.followUpNext ||
+        context.selectedQuestion?.topic ||
+        context.selectedQuestion?.availableTopics ||
+        !context.selectedQuestion;
+    if (needsHistory && recentHistory.length > 0) {
+        for (const msg of recentHistory) {
+            messages2.push({ role: msg.role, content: msg.content });
+        }
+    }
+    messages2.push({ role: 'user', content: userContent });
+
+    let questionPart = sanitizeVoiceReply(await run(messages2, 0.25));
+    let final = `${EARLY_ENGLISH_DEFLECTION_AR}\n\n${questionPart}`;
+    if (validateLLMQuestion(final)) return sanitizeVoiceReply(final);
+
+    const strict = `${systemPrompt}\n\nCRITICAL: Output exactly ONE interview question in Iraqi Arabic. It MUST end with ؟ or ?. No other sentences. No English.\n\n${getProfessionalRegisterBlock()}`;
+    questionPart = sanitizeVoiceReply(await run([{ role: 'system', content: strict }, ...messages2.slice(1)], 0.15));
+    final = `${EARLY_ENGLISH_DEFLECTION_AR}\n\n${questionPart}`;
+    if (validateLLMQuestion(final)) return sanitizeVoiceReply(final);
+
+    console.warn('[LLM] early-English path: invalid question after retry, using fallback');
+    return sanitizeVoiceReply(`${EARLY_ENGLISH_DEFLECTION_AR}\n\n${FALLBACK_INTERVIEW_QUESTION_AR}`);
+}
+
+function buildAgentIdentityRephraseSystemAr(gender: CandidateGender = 'unknown'): string {
+    return `You are EVAALO. The candidate asked about your identity. A fixed Arabic one-line about you is prepended by the system.
+You output ONLY a natural rephrasing in Iraqi Arabic of the SAME interview question the candidate was answering — same meaning, not a new topic, not a different pool question.
+
+${buildIraqiDialectPromptSection(gender)}
+
+${getProfessionalRegisterBlock()}
+
+Rules: one or two short sentences ending with ؟. No English. Do not restate the identity. No apologies, no "أقصد", no "آسف على اللبس".`;
+}
+
+function buildAgentIdentityRephraseUserContentAr(questionExcerpt: string): string {
+    return `The candidate asked who you are (the fixed line is already added by the system). Rephrase and re-ask ONLY the same question below, in Iraqi Arabic.
+
+Previous question:
+"""
+${questionExcerpt}
+"""`;
+}
+
+function buildAgentIdentityRephraseSystemEn(): string {
+    return `You are EVAALO, a professional interviewer. The candidate asked who you are. A fixed one-line self-introduction in English is prepended by the system, plus a fixed "Let's continue the interview" line. Output ONLY the rephrased interview question from the user message. One question ending with ?. Do not ask who the candidate is, no "who are you" to the candidate. No apologies or meta. Do not restate the identity.`;
+}
+
+/**
+ * «من أنت؟» للايجنت:
+ * — إذا انتهى وقت المقابلة: سطر التعريف فقط
+ * — وإلا: التعريف + «خلينا نكمل المقابلة» (أو en) + إعادة **سؤال المقابلة** من النص المُجرّد (بدون LLM إن وُجد صالح) لتجنب «منو إنت؟» من الموديل
+ */
+async function getAgentIdentityMergedReply(
+    _transcript: string,
+    context: LLMContext,
+    openai: OpenAI
+): Promise<string> {
+    const run = async (messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], temp: number) => {
+        const res = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages,
+            temperature: temp,
+            max_tokens: 280,
+        });
+        return res.choices[0]?.message?.content?.trim() || '';
+    };
+
+    const phase = context.currentPhase ?? 1;
+    const isEnPhase = phase === 3;
+    const idPrefix = pickAgentIdentityPrefix(context, _transcript);
+
+    if (context.timeEndedForInterview === true) {
+        return sanitizeVoiceReply(idPrefix);
+    }
+
+    const lastFull = getLastAssistantMessage(context);
+    const questionExcerpt = lastFull ? getQuestionExcerptForEarlyEnglishRepeat(lastFull) : null;
+    const continueLine = isEnPhase ? IDENTITY_CONTINUE_EN : IDENTITY_CONTINUE_AR;
+
+    if (!questionExcerpt || questionExcerpt.length < 8) {
+        return sanitizeVoiceReply(`${idPrefix}\n\n${continueLine}`);
+    }
+
+    const blockBase = `${idPrefix}\n\n${continueLine}\n\n`;
+
+    if (isEnPhase) {
+        if (looksLikeAskingWhoIsTheUserEnglish(questionExcerpt)) {
+            return sanitizeVoiceReply(
+                `${idPrefix}\n\n${continueLine}\n\nCould you continue with your answer to the last interview question, please?`
+            );
+        }
+        if (validateLLMQuestion(questionExcerpt) && !looksLikeAskingWhoIsTheUserEnglish(questionExcerpt)) {
+            return sanitizeVoiceReply(blockBase + questionExcerpt);
+        }
+        const systemEn = `${buildAgentIdentityRephraseSystemEn()}\n\n${IDENTITY_REASK_LLM_STRICT_EN}`;
+        const userEn = `Rephrase the interview content below. One English interview question; must not ask the candidate for their identity or name as a "who are you" question.\n\n"""\n${questionExcerpt}\n"""`;
+        let part = sanitizeVoiceReply(await run([{ role: 'system', content: systemEn }, { role: 'user', content: userEn }], 0.2));
+        if (!validateLLMQuestion(part) || looksLikeAskingWhoIsTheUserEnglish(part)) {
+            part = 'Could you continue with your answer to the last interview question, please?';
+        }
+        return sanitizeVoiceReply(blockBase + part);
+    }
+
+    if (looksLikeAskingWhoIsTheUserArabic(questionExcerpt)) {
+        return sanitizeVoiceReply(blockBase + FALLBACK_INTERVIEW_QUESTION_AR);
+    }
+    if (validateLLMQuestion(questionExcerpt) && !looksLikeAskingWhoIsTheUserArabic(questionExcerpt)) {
+        return stripClarificationFiller(sanitizeVoiceReply(blockBase + questionExcerpt));
+    }
+
+    const systemAr = `${buildAgentIdentityRephraseSystemAr(resolveCandidateGender(context))}
+
+FORBIDDEN: سؤال للمرشح بصيغة (منو أنت / مين أنت / مين تكون / شنو طبيعتك / من أنت) أو أي سؤال عن **هوية** المرشح. أَعد صياغة **سؤال المقابلة** فقط.
+${getProfessionalRegisterBlock()}`;
+    const userAr = buildAgentIdentityRephraseUserContentAr(questionExcerpt);
+    let part = sanitizeVoiceReply(await run([{ role: 'system', content: systemAr }, { role: 'user', content: userAr }], 0.2));
+    if (!validateLLMQuestion(part) || looksLikeAskingWhoIsTheUserArabic(part)) {
+        return stripClarificationFiller(sanitizeVoiceReply(blockBase + FALLBACK_INTERVIEW_QUESTION_AR));
+    }
+    return stripClarificationFiller(sanitizeVoiceReply(blockBase + part));
+}
+
+const POLICY_INTENT_REPHRASE_TOPICS: Record<InterviewPolicyIntent, { ar: string; en: string }> = {
+    ask_result: {
+        ar: 'المرشح سأل عن نتيجة المقابلة، أو موعد إعلان النتيجة، أو القبول.',
+        en: 'They asked about their interview outcome, score, or when they will be informed.',
+    },
+    ask_evaluation: {
+        ar: 'المرشح طلب تقييماً مباشراً أو درجة/نقاط في تلك اللحظة.',
+        en: 'They asked to be scored, graded, or evaluated live in the moment.',
+    },
+    ask_opinion: {
+        ar: 'المرشح سأل عن رأي شخصي بشأن أدائه أو ملاءمته أثناء المقابلة.',
+        en: 'They asked for a personal opinion on them as a candidate, during the call.',
+    },
+};
+
+function buildInterviewPolicyRephraseSystemAr(intent: InterviewPolicyIntent, gender: CandidateGender = 'unknown'): string {
+    const { ar: topic } = POLICY_INTENT_REPHRASE_TOPICS[intent];
+    return `You are EVAALO. ${topic} A fixed one-line company policy in Iraqi Arabic is prepended by the system.
+You output ONLY a natural rephrasing in Iraqi Arabic of the SAME interview question the candidate was answering — same meaning, not a new topic, not a different pool question.
+
+${buildIraqiDialectPromptSection(gender)}
+
+${getProfessionalRegisterBlock()}
+
+Rules: one or two short sentences ending with ؟. No English. Do not restate the policy line. No apologies, no "أقصد", no "آسف على اللبس".`;
+}
+
+function buildInterviewPolicyRephraseUserContentAr(intent: InterviewPolicyIntent, questionExcerpt: string): string {
+    return `Rephrase and re-ask ONLY the same question below, in Iraqi Arabic.
+
+${POLICY_INTENT_REPHRASE_TOPICS[intent].ar}
+
+Previous question:
+"""
+${questionExcerpt}
+"""`;
+}
+
+function buildInterviewPolicyRephraseSystemEn(intent: InterviewPolicyIntent): string {
+    return `You are EVAALO, a professional interviewer. ${POLICY_INTENT_REPHRASE_TOPICS[intent].en} A fixed policy one-liner in English is prepended by the system. Output ONLY the same interview question, rephrased in clear English. One question ending with ?. Do not add apologies or meta. Do not restate the policy.`;
+}
+
+/** سؤال عن النتيجة / التقييم المباشر / رأي المساعد — سياسة ثابتة + إعادة نفس سؤال المقابلة */
+async function getInterviewPolicyMergedReply(
+    intent: InterviewPolicyIntent,
+    transcript: string,
+    context: LLMContext,
+    openai: OpenAI
+): Promise<string> {
+    const run = async (messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], temp: number) => {
+        const res = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages,
+            temperature: temp,
+            max_tokens: 280,
+        });
+        return res.choices[0]?.message?.content?.trim() || '';
+    };
+
+    const phase = context.currentPhase ?? 1;
+    const isEnPhase = phase === 3;
+    const policyPrefix = pickInterviewPolicyPrefix(intent, context, transcript);
+    const lastFull = getLastAssistantMessage(context);
+    const questionExcerpt = lastFull ? getQuestionExcerptForEarlyEnglishRepeat(lastFull) : null;
+
+    if (!questionExcerpt || questionExcerpt.length < 8) {
+        const fb = isEnPhase
+            ? 'Could you continue with your answer to the last interview question, please?'
+            : FALLBACK_INTERVIEW_QUESTION_AR;
+        return sanitizeVoiceReply(`${policyPrefix}\n\n${fb}`);
+    }
+
+    if (isEnPhase) {
+        const systemEn = buildInterviewPolicyRephraseSystemEn(intent);
+        const userEn = `Rephrase the same interview question only, clearly in English.\n\n"""\n${questionExcerpt}\n"""`;
+        let part = sanitizeVoiceReply(
+            await run(
+                [
+                    { role: 'system', content: systemEn },
+                    { role: 'user', content: userEn },
+                ],
+                0.25
+            )
+        );
+        let final = `${policyPrefix}\n\n${part}`;
+        if (validateLLMQuestion(final)) return sanitizeVoiceReply(final);
+        const strict = `${systemEn}\n\nCRITICAL: One English interview question only. End with ?. No policy restatement.`;
+        part = sanitizeVoiceReply(
+            await run(
+                [
+                    { role: 'system', content: strict },
+                    { role: 'user', content: userEn },
+                ],
+                0.2
+            )
+        );
+        final = `${policyPrefix}\n\n${part}`;
+        if (validateLLMQuestion(final)) return sanitizeVoiceReply(final);
+        return sanitizeVoiceReply(`${policyPrefix}\n\n${questionExcerpt}`);
+    }
+
+    const systemAr = buildInterviewPolicyRephraseSystemAr(intent, resolveCandidateGender(context));
+    const userAr = buildInterviewPolicyRephraseUserContentAr(intent, questionExcerpt);
+    let part = sanitizeVoiceReply(
+        await run(
+            [
+                { role: 'system', content: systemAr },
+                { role: 'user', content: userAr },
+            ],
+            0.25
+        )
+    );
+    let final = `${policyPrefix}\n\n${part}`;
+    if (validateLLMQuestion(final)) return stripClarificationFiller(sanitizeVoiceReply(final));
+    const strictAr = `${systemAr}\n\n${getProfessionalRegisterBlock()}\n\nCRITICAL: One question in Iraqi Arabic; end with ؟. Same content as the question in the user message.`;
+    part = sanitizeVoiceReply(
+        await run(
+            [
+                { role: 'system', content: strictAr },
+                { role: 'user', content: userAr },
+            ],
+            0.15
+        )
+    );
+    final = `${policyPrefix}\n\n${part}`;
+    if (validateLLMQuestion(final)) return stripClarificationFiller(sanitizeVoiceReply(final));
+    if (validateLLMQuestion(questionExcerpt)) {
+        return sanitizeVoiceReply(`${policyPrefix}\n\n${questionExcerpt}`);
+    }
+    return sanitizeVoiceReply(`${policyPrefix}\n\n${FALLBACK_INTERVIEW_QUESTION_AR}`);
 }
 
 /** رسالة fallback عند فشل LLM — بدل أن ينكسر النظام */
@@ -432,9 +1238,28 @@ export async function getLLMResponse(
         return context.currentPhase === 3 ? LLM_FALLBACK_EN : LLM_FALLBACK_AR;
     }
 
+    const phase = context.currentPhase ?? 1;
+    context.acknowledgmentTurn =
+        context.acknowledgmentTurn ??
+        (context.conversationHistory?.filter((m) => m.role === 'assistant').length ?? 0);
+    const askIdentity = !context.clarificationRequested && isAskingAgentIdentity(transcript);
+    const policyIntent = !context.clarificationRequested ? classifyInterviewPolicyIntent(transcript) : null;
+    const englishEarlyPath =
+        (phase === 1 || phase === 2) && !context.clarificationRequested && isWantsEnglishBeforePhase3(transcript);
+
     try {
-        const systemPrompt = createSystemPrompt(context);
-        
+        if (askIdentity) {
+            return await getAgentIdentityMergedReply(transcript, context, openai);
+        }
+        if (policyIntent) {
+            return await getInterviewPolicyMergedReply(policyIntent, transcript, context, openai);
+        }
+        if (englishEarlyPath) {
+            return await getEarlyEnglishMergedReply(transcript, context, openai);
+        }
+
+        const systemPrompt = buildSystemPrompt(context);
+
         // بناء conversation history
         const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
             {
@@ -461,33 +1286,22 @@ export async function getLLMResponse(
         }
 
         // إضافة transcript الحالي
-        const phaseReminder = (context.selectedQuestion && !context.selectedQuestion.topic && !context.selectedQuestion?.availableTopics && !context.followUpNext) ? null : getPhaseReminderForMessage(context.currentPhase, context.candidateProfile, context.isFirstPhase3Message);
-        let userContent: string;
-        if (context.clarificationRequested) {
-            userContent = `Candidate said: ${transcript}\n\nThey asked for clarification. Clarify your last question in simpler words and ask it again.`;
-        } else if (context.followUpNext) {
-            userContent = `Candidate said: ${transcript}\n\nAsk follow-up ${context.followUpNext} of 2 (deeper probe).`;
-        } else if (context.selectedQuestion?.availableTopics?.length) {
-            userContent = phaseReminder ? `${phaseReminder}\n\nCandidate said: ${transcript}\n\nChoose the most relevant topic and ask a natural question. Do NOT say "the topic is X" — just ask directly.` : `Candidate said: ${transcript}\n\nChoose the most relevant topic and ask a natural question. Do NOT say "the topic is X" — just ask directly.`;
-        } else if (context.selectedQuestion?.topic) {
-            userContent = phaseReminder ? `${phaseReminder}\n\nCandidate said: ${transcript}\n\nAsk a question about: ${context.selectedQuestion.topic}.` : `Candidate said: ${transcript}\n\nAsk a question about: ${context.selectedQuestion.topic}.`;
-        } else if (context.selectedQuestion?.text) {
-            userContent = `Candidate answered. Rephrase and ask: ${context.selectedQuestion.text}`;
-        } else {
-            userContent = phaseReminder ? `${phaseReminder}\n\nCandidate said: ${transcript}` : `Candidate said: ${transcript}`;
-        }
+        const phaseReminder = getPhaseReminderOrNull(context);
+        const userContent = buildUserContent(transcript, context, phaseReminder);
         messages.push({
             role: 'user',
             content: userContent
         });
 
-        let response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: messages,
-            temperature: 0.6,
-            max_tokens: 150, // قصير للسرعة
-        });
+        const createCompletion = (sys: string, temp: number) =>
+            openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [{ role: 'system', content: sys }, ...messages.slice(1)],
+                temperature: temp,
+                max_tokens: 280, // حد أعلى أوسع (مقابلة صوتية)
+            });
 
+        let response = await createCompletion(systemPrompt, 0.6);
         let reply = response.choices[0]?.message?.content?.trim() || '';
         const hasArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(reply);
 
@@ -502,10 +1316,25 @@ export async function getLLMResponse(
                     ...messages.slice(1),
                 ],
                 temperature: 0.2,
-                max_tokens: 150,
+                max_tokens: 280,
             });
             const retryReply = retryResponse.choices[0]?.message?.content?.trim() || '';
             if (!/[\u0600-\u06FF]/.test(retryReply)) reply = retryReply;
+        } else if (
+            !context.clarificationRequested &&
+            reply.length > 0 &&
+            !validateLLMQuestion(reply) &&
+            context.currentPhase !== 3
+        ) {
+            console.warn('[LLM] Reply did not look like a valid question, retrying with strict question prompt');
+            const strictSystem = `${systemPrompt}
+
+CRITICAL: Your last response was not a clear interview question. Output ONE short interview question only (Iraqi Arabic for Phases 1–2), ending with ؟. Max 2 sentences including a brief ack if needed.
+
+${getProfessionalRegisterBlock()}`;
+            const retryResponse = await createCompletion(strictSystem, 0.25);
+            const retryReply = retryResponse.choices[0]?.message?.content?.trim() || '';
+            if (validateLLMQuestion(retryReply)) reply = sanitizeVoiceReply(retryReply, context);
         }
         
         if (!reply) {
@@ -513,7 +1342,10 @@ export async function getLLMResponse(
             return context.currentPhase === 3 ? LLM_FALLBACK_EN : LLM_FALLBACK_AR;
         }
         
-        return reply;
+        if (context.clarificationRequested) {
+            return stripClarificationFiller(reply, context);
+        }
+        return sanitizeVoiceReply(reply, context);
     } catch (error: any) {
         console.error('❌ Error getting LLM response:', error?.message || error);
         return context.currentPhase === 3 ? LLM_FALLBACK_EN : LLM_FALLBACK_AR;
@@ -545,6 +1377,31 @@ export interface JobAdvertisementCriteria {
 }
 
 /** تحويل كود/اسم اللغة إلى الاسم الرسمي الذي يفهمه النموذج */
+/** إزالة قسم «كيفية التقديم» — التقديم يتم عبر منصة evaalo وليس بالبريد */
+function stripHowToApplySection(text: string): string {
+    let t = String(text || '');
+    if (!t.trim()) return t;
+
+    const labelRe =
+        /^\s*(?:\*\*)?\s*(?:How to Apply|Application Instructions|How to apply|كيفية التقديم|طريقة التقديم|شێوازی پێشکەشکردن|چۆنیەتی پێشکەشکردن)\s*(?:\*\*)?\s*:?\s*$/iu;
+
+    const lines = t.split('\n');
+    const kept: string[] = [];
+    let dropRest = false;
+    for (const line of lines) {
+        const trimmed = line.trim();
+        if (
+            labelRe.test(trimmed) ||
+            /^\*\*(?:How to Apply|كيفية التقديم|طريقة التقديم)/iu.test(trimmed)
+        ) {
+            dropRest = true;
+            continue;
+        }
+        if (!dropRest) kept.push(line);
+    }
+    return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 /** إزالة سياج ``` وأطقم الماركداون الزائدة من مخرجات النموذج */
 function sanitizeJobAdvertisementOutput(raw: string): string {
     let t = String(raw || '').trim();
@@ -555,7 +1412,7 @@ function sanitizeJobAdvertisementOutput(raw: string): string {
     }
     t = t.replace(/\n?```\s*$/u, '').trim();
     t = t.replace(/^\s*```[a-zA-Z]*\s*$/gm, '').trim();
-    return t;
+    return stripHowToApplySection(t);
 }
 
 function resolveLanguageName(language?: string): string {
@@ -607,7 +1464,8 @@ export async function generateJobAdvertisement(
 - Be suitable for global/international standards
 - Use clear, professional language
 - Include all provided criteria naturally
-- Have a structure: Title, Company/About, Key Responsibilities, Requirements/Qualifications, Benefits/Compensation (if salary provided), How to Apply
+- Have a structure: Title, Company/About, Key Responsibilities, Requirements/Qualifications, Benefits/Compensation (if salary provided)
+- Do NOT include a "How to Apply" section, application instructions, email addresses for CV submission, or any call-to-action to apply outside the platform — candidates apply through evaalo only
 - Be 200-400 words
 - Format section labels as plain text lines ending with a colon (e.g. Job Title: or Arabic/Kurdish equivalents). Put the label and value on one line OR label on its own line — but NEVER use asterisks, markdown, bold markers, or code fences.
 - Do NOT wrap the output in triple backticks or any markdown code block.
@@ -698,9 +1556,52 @@ function normalizePositionTitle(position: string | undefined): string {
     return p;
 }
 
+function containsLatinLetters(s: string): boolean {
+    return /[A-Za-z]/.test(s);
+}
+
 /**
- * رسالة ترحيب أولية عند بدء المقابلة — نص ثابت (بدون استدعاء LLM)
- * أهلاً وسهلاً + اسم المرشح بالعربي + الوظيفة والشركة
+ * جملة ترحيب عربية بأحرف عربية بالكامل لتحسين نطق TTS عند أسماء/مسميات باللاتينية
+ */
+async function buildArabicGreetingForVoiceTts(params: {
+    name: string;
+    position: string;
+    company: string;
+}): Promise<string | null> {
+    const openai = getOpenAIClient();
+    if (!openai) return null;
+    const { name, position, company } = params;
+    try {
+        const res = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+                {
+                    role: 'system',
+                    content: `You output exactly ONE short sentence: a formal HR interview greeting in Iraqi Arabic, Arabic script only (no Latin letters in the output).
+- Pattern like: أهلاً وسهلاً [الاسم]، عندك مقابلة لوظيفة [المسمى الوظيفي] [في الشركة إن وُجدت]. نتمنى لك التوفيق!
+- Transliterate personal names from Latin to common Arabic script for TTS (e.g. John → جون, Sarah → سارة). If the name is already in Arabic, keep it natural.
+- Translate job title and company from English (or other languages) into clear professional Arabic. If company is empty or "none", omit the "في ..." phrase.
+- One line, no quotation marks, no extra commentary.`,
+                },
+                {
+                    role: 'user',
+                    content: `Full name: ${name}\nPosition: ${position}\nCompany: ${company || '(none)'}\n\nWrite the Arabic greeting sentence only.`,
+                },
+            ],
+            temperature: 0.25,
+            max_tokens: 120,
+        });
+        const line = res.choices[0]?.message?.content?.trim() || '';
+        return /[\u0600-\u06FF]/.test(line) ? line : null;
+    } catch (e) {
+        console.warn('⚠️ buildArabicGreetingForVoiceTts failed:', (e as Error)?.message);
+        return null;
+    }
+}
+
+/**
+ * رسالة ترحيب أولية عند بدء المقابلة
+ * — عربي: قالب ثابت؛ وإن وُجدت لاتينية في الاسم/الوظيفة/الشركة نُحوّل بأحرف عربية عبر نموذج لتحسين نطق TTS
  */
 export async function getInitialGreetingMessage(params: {
     full_name?: string;
@@ -709,13 +1610,29 @@ export async function getInitialGreetingMessage(params: {
     language?: string;
 }): Promise<string> {
     const name = (params.full_name || '').trim() || 'هناك';
-    const position = normalizePositionTitle(params.position) || 'الوظيفة';
-    const company = params.company || '';
+    const hasPosition = Boolean((params.position || '').trim());
+    const position = hasPosition
+        ? normalizePositionTitle(params.position)
+        : (params.language === 'ar' || params.language === 'arabic' ? 'الوظيفة' : 'open');
+    const company = (params.company || '').trim();
     const preferArabic = params.language === 'ar' || params.language === 'arabic';
 
-    const companyPart = company ? ` لدى ${company}` : '';
+    const companyPart = company ? ` في ${company}` : '';
     if (preferArabic) {
-        return `أهلاً وسهلاً ${name}، عندك مقابلة لوظيفة ${position}${companyPart}. نتمنى لك التوفيق!`;
+        const fallbackAr = `أهلاً وسهلاً ${name}، عندك مقابلة لوظيفة ${position}${companyPart}. نتمنى لك التوفيق!`;
+        const needsFullArabicScript =
+            containsLatinLetters(name) ||
+            containsLatinLetters(position) ||
+            (company.length > 0 && containsLatinLetters(company));
+        if (needsFullArabicScript) {
+            const fromLlm = await buildArabicGreetingForVoiceTts({
+                name,
+                position,
+                company,
+            });
+            if (fromLlm) return fromLlm;
+        }
+        return fallbackAr;
     }
     return `Hello ${name}, you have an interview for the ${position} position${company ? ` at ${company}` : ''}. Let's begin.`;
 }
@@ -737,12 +1654,12 @@ export async function getTimeEndedClosingMessage(conversationHistory?: Message[]
             messages: [
                 {
                     role: 'system',
-                    content: `You are EVAALO, a professional interviewer. The interview time has ended. Say a brief closing message (1-2 sentences) thanking the candidate and ending the interview. ${langHint} Maximum 25 words.`
+                    content: `You are EVAALO, a professional interviewer. The interview time has ended. Say a brief closing message (1-2 sentences) thanking the candidate and ending the interview. ${langHint} Maximum 32 words.`
                 },
                 { role: 'user', content: 'The interview time has ended. Please close the interview.' }
             ],
             temperature: 0.5,
-            max_tokens: 80
+            max_tokens: 100
         });
         const reply = response.choices[0]?.message?.content?.trim() || '';
         return reply || (useArabic ? 'انتهى وقت المقابلة. شكراً لكم.' : 'Interview time has ended. Thank you for your time.');
@@ -768,12 +1685,12 @@ export async function getTimeEndedApologyMessage(userTranscript?: string): Promi
             messages: [
                 {
                     role: 'system',
-                    content: `You are EVAALO. The interview time has already ended. The candidate tried to speak again. Politely apologize, say the interview time has ended, and thank them. Be brief (1-2 sentences). ${langHint} Maximum 25 words.`
+                    content: `You are EVAALO. The interview time has already ended. The candidate tried to speak again. Politely apologize, say the interview time has ended, and thank them. Be brief (1-2 sentences). ${langHint} Maximum 32 words.`
                 },
                 { role: 'user', content: 'The candidate spoke after the interview ended. Apologize and thank them.' }
             ],
             temperature: 0.5,
-            max_tokens: 80
+            max_tokens: 100
         });
         const reply = response.choices[0]?.message?.content?.trim() || '';
         return reply || (useArabic ? 'عذراً، انتهى وقت المقابلة. شكراً لكم على وقتكم.' : 'Sorry, the interview time has ended. Thank you for your time.');

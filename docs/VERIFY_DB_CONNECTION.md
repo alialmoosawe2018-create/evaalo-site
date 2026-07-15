@@ -52,7 +52,7 @@ npm run dev
 ### المشكلة 2: خطأ في المصادقة
 **الحل:**
 1. اذهب إلى MongoDB Atlas → **Database Access**
-2. تحقق من كلمة المرور للمستخدم `alialmoosawe2018`
+2. تحقق من كلمة مرور المستخدم المطابقة لـ `MONGODB_URI` في `.env`
 3. تأكد من الصلاحيات: **Read and write to any database**
 
 ### المشكلة 3: Network Access
@@ -63,11 +63,8 @@ npm run dev
 
 ## 📝 معلومات الاتصال:
 
-- **Connection String**: `mongodb+srv://alialmoosawe2018:A07820782M@cluster0.35tnfqd.mongodb.net/sample_mflix?retryWrites=true&w=majority&appName=Cluster0`
-- **Database**: `sample_mflix`
-- **Collection**: `candidates`
-- **Username**: `alialmoosawe2018`
-- **Password**: `A07820782M`
+- **MONGODB_URI** في `apps/backend/.env` فقط (رابط كامل من Atlas، مع كلمة مرور **غير** منشورة في Git/وثائق)
+- **Database** / **Collection**: حسب إعدادك
 
 
 

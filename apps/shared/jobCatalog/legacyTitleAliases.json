@@ -1,0 +1,51 @@
+{
+  "Accountant": {
+    "roleKey": "general_accountant",
+    "careerLevel": "mid",
+    "managementTrack": "ic",
+    "labelKey": "general_accountant.mid",
+    "displayTitle": "General Accountant"
+  },
+  "Procurement Office": {
+    "roleKey": "procurement_officer",
+    "careerLevel": "mid",
+    "managementTrack": "ic",
+    "labelKey": "procurement_officer.mid",
+    "displayTitle": "Procurement Officer"
+  },
+  "Fire Fighting Engineer": {
+    "roleKey": "fire_protection_engineer",
+    "careerLevel": "mid",
+    "managementTrack": "ic",
+    "labelKey": "fire_protection_engineer.mid",
+    "displayTitle": "Fire Protection Engineer"
+  },
+  "Intern": {
+    "roleKey": "intern",
+    "careerLevel": "intern",
+    "managementTrack": "ic",
+    "labelKey": "intern.intern",
+    "displayTitle": "Intern"
+  },
+  "Trainee": {
+    "roleKey": "graduate_trainee",
+    "careerLevel": "graduate",
+    "managementTrack": "ic",
+    "labelKey": "graduate_trainee.graduate",
+    "displayTitle": "Graduate Trainee"
+  },
+  "Graduate Trainee": {
+    "roleKey": "graduate_trainee",
+    "careerLevel": "graduate",
+    "managementTrack": "ic",
+    "labelKey": "graduate_trainee.graduate",
+    "displayTitle": "Graduate Trainee"
+  },
+  "Production Engineer (Oil & Gas)": {
+    "roleKey": "production_engineer_oil_gas",
+    "careerLevel": "mid",
+    "managementTrack": "ic",
+    "labelKey": "production_engineer_oil_gas.mid",
+    "displayTitle": "Production Engineer – Oil and Gas"
+  }
+}

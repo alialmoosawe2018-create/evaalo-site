@@ -1,0 +1,590 @@
+[
+  {
+    "updatedAt": "2026-07-02T06:20:41.583Z",
+    "createdAt": "2026-06-17T13:52:49.605Z",
+    "id": "hmPyS1Hyd1GsDiT5",
+    "name": "CV Comparison",
+    "description": "Compare multiple CV PDFs with AI. Non-CV or unreadable PDFs are filtered out before ranking and omitted from results.",
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "5a2e23d9-ccdf-46c3-b2a6-309afcdd819e",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          0,
+          0
+        ],
+        "id": "e8a50ade-ffe5-44c0-bcd5-c995e6ba0c46",
+        "name": "Webhook",
+        "webhookId": "5a2e23d9-ccdf-46c3-b2a6-309afcdd819e"
+      },
+      {
+        "parameters": {
+          "operation": "pdf",
+          "binaryPropertyName": "=data",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.extractFromFile",
+        "typeVersion": 1.1,
+        "position": [
+          640,
+          0
+        ],
+        "id": "d478c91a-d173-494f-b6fb-70984b172037",
+        "name": "Extract from File"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ (() => {\n  const body = $('Webhook').first().json.body || {};\n  let criteria = {};\n  try {\n    criteria = typeof body.criteria === 'string' ? JSON.parse(body.criteria) : (body.criteria || {});\n  } catch (e) {}\n  const job = [\n    'Position: ' + (body.position || criteria.position || 'Not specified'),\n    'Location: ' + (body.location || criteria.location || 'Not specified'),\n    criteria.yearsOfExperience ? 'Years of experience: ' + criteria.yearsOfExperience : '',\n    criteria.ageRange ? 'Age range: ' + criteria.ageRange : '',\n    criteria.query ? 'Notes: ' + criteria.query : '',\n    criteria.optionsSummaryEn || criteria.optionsSummaryAr || '',\n  ].filter(Boolean).join('\\n');\n\n  const filterRows = $('Filter CV Documents').all().filter((i) => i.json.isCv);\n  const cvPayload = filterRows.map((i) => ({\n    fileName: i.json.fileName,\n    text: i.json.text,\n  }));\n\n  return 'Job requirements:\\n' + job + '\\n\\nValid CVs to compare (non-CV uploads were already removed):\\n' + JSON.stringify(cvPayload, null, 2);\n})() }}",
+          "options": {
+            "systemMessage": "You are an expert HR recruiter and CV analyst. Compare only valid CV/resume documents against the job requirements.\n\nReturn ONLY valid JSON (no markdown fences):\n{\n  \"candidates\": [\n    {\n      \"name\": \"string\",\n      \"overallScore\": 0,\n      \"skills\": [\"string\"],\n      \"experienceYears\": 0,\n      \"education\": \"string\",\n      \"strengths\": [\"string\"],\n      \"weaknesses\": [\"string\"],\n      \"summary\": \"string (1-2 sentences for ranking table)\",\n      \"finalHrReport\": \"string (full HR report: candidate identity, personal background, experience, education, role fit)\"\n    }\n  ],\n  \"ranking\": [\"name1\", \"name2\"],\n  \"recommendation\": \"string\",\n  \"comparisonSummary\": \"string\"\n}\n\nRules:\n- Only include real CVs/resumes in \"candidates\". Omit any document that is not a CV (forms, invoices, blank pages, random PDFs).\n- Never invent a candidate for a non-CV file.\n- \"summary\" = brief match overview for the results table (max ~2 sentences).\n- \"finalHrReport\" = complete Final HR Report paragraph per candidate: name, personal/profile context, years of experience, education, and evidence-based hiring assessment. Write in clear professional English unless the CV is Arabic-only (then Arabic is OK).\n- Score 0-100 based on fit for the role and location.\n- Be evidence-based; support Arabic and English CVs.\n- Do not invent facts not in the CV text.\n- Use the provided fileName for each candidate \"name\" when available.",
+            "maxIterations": 3
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "position": [
+          1500,
+          -80
+        ],
+        "id": "d6be1ee6-8e02-464a-afba-5cd16dc98a7b",
+        "name": "Compare CVs Agent"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-5-mini"
+          },
+          "builtInTools": {},
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          960,
+          176
+        ],
+        "id": "95f4a47e-859b-4fb5-b6b4-fcbe066b5227",
+        "name": "OpenAI Chat Model",
+        "credentials": {
+          "openAiApi": {
+            "id": "xr8zb16RIutIemnJ",
+            "name": "OpenAI account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "fieldsToAggregate": {
+            "fieldToAggregate": [
+              {
+                "fieldToAggregate": "text"
+              }
+            ]
+          },
+          "options": {
+            "mergeLists": false
+          }
+        },
+        "id": "358ad5bb-426f-4f06-afe8-e99efd338a22",
+        "name": "Aggregate CVs",
+        "type": "n8n-nodes-base.aggregate",
+        "typeVersion": 1,
+        "position": [
+          1280,
+          -80
+        ]
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { ok: true, comparisonId: $('Webhook').first().json.body.comparisonId } }}",
+          "options": {}
+        },
+        "id": "41b4ebd7-d6c1-47d3-9cda-9b78cb02cb65",
+        "name": "Respond to Webhook",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          1440,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const item = $input.first();\nconst binaries = item.binary || {};\nconst body = item.json.body || {};\n\nconst keys = Object.keys(binaries)\n  .filter((k) => /^cvs\\d*$/i.test(k) || k === 'cvs')\n  .sort((a, b) => {\n    const na = parseInt(a.replace(/\\D/g, ''), 10);\n    const nb = parseInt(b.replace(/\\D/g, ''), 10);\n    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;\n    return a.localeCompare(b);\n  });\n\nif (!keys.length) {\n  throw new Error('No CV PDF binaries found (expected cvs0, cvs1, …)');\n}\n\nreturn keys.map((key) => ({\n  json: {\n    fileName: binaries[key].fileName || key,\n    comparisonId: body.comparisonId,\n    position: body.position,\n    location: body.location,\n    criteria: body.criteria,\n    callbackUrl: body.callbackUrl,\n  },\n  binary: {\n    data: binaries[key],\n  },\n}));"
+        },
+        "id": "efb3312c-c3e5-4b19-aa53-b1fbda5cbe46",
+        "name": "Prepare CV Binaries",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          480,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const agentOut = $input.first().json;\nlet raw = agentOut.output ?? agentOut.text ?? agentOut.response ?? agentOut;\nlet parsed = {};\n\nif (typeof raw === 'string') {\n  const start = raw.indexOf('{');\n  const end = raw.lastIndexOf('}');\n  if (start >= 0 && end > start) {\n    try { parsed = JSON.parse(raw.slice(start, end + 1)); } catch (e) { parsed = {}; }\n  }\n} else if (raw && typeof raw === 'object') {\n  if (raw.candidates) parsed = raw;\n  else if (raw.parsed && typeof raw.parsed === 'object') parsed = raw.parsed;\n  else if (typeof raw.output === 'string') {\n    const start = raw.output.indexOf('{');\n    const end = raw.output.lastIndexOf('}');\n    if (start >= 0 && end > start) {\n      try { parsed = JSON.parse(raw.output.slice(start, end + 1)); } catch (e) { parsed = {}; }\n    }\n  }\n}\n\nconst webhook = $('Webhook').first().json.body || {};\nconst filterItems = $('Filter CV Documents').all();\nconst skippedFromFilter = filterItems.find((i) => Array.isArray(i.json.skippedFiles))?.json.skippedFiles || [];\nconst validCvFiles = filterItems.filter((i) => i.json.isCv).map((i) => i.json.fileName);\n\nconst candidates = Array.isArray(parsed.candidates) ? parsed.candidates : [];\n\nfunction looksLikeNonCvCandidate(c) {\n  const name = String(c?.name || '').toLowerCase();\n  const summary = String(c?.summary || '').toLowerCase();\n  if (name.includes('no text') || name.includes('(no text)')) return true;\n  if (summary.includes('no extractable text') || summary.includes('not a cv') || summary.includes('not a resume')) return true;\n  if (summary.includes('little or no') && summary.includes('text')) return true;\n  return false;\n}\n\nconst filteredCandidates = candidates.filter((c) => !looksLikeNonCvCandidate(c));\n\nconst comparisons = filteredCandidates.map((c, idx) => ({\n  fileName: c.name || validCvFiles[idx] || `CV ${idx + 1}`,\n  name: c.name || validCvFiles[idx] || `CV ${idx + 1}`,\n  rank: idx + 1,\n  score: c.overallScore ?? c.score ?? null,\n  matchScore: c.overallScore ?? c.score ?? null,\n  summary: c.summary || '',\n  finalHrReport:\n    c.finalHrReport ||\n    c.finalHrEvaluation ||\n    c.final_hr_report ||\n    c.hrReport ||\n    '',\n  skills: Array.isArray(c.skills) ? c.skills : [],\n  experienceYears: c.experienceYears ?? null,\n  education: c.education || '',\n  strengths: Array.isArray(c.strengths) ? c.strengths : [],\n  weaknesses: Array.isArray(c.weaknesses) ? c.weaknesses : [],\n  isCv: true,\n}));\n\nreturn [{\n  json: {\n    comparisonId: webhook.comparisonId,\n    callbackUrl: webhook.callbackUrl,\n    comparisons,\n    candidates: filteredCandidates,\n    ranking: (parsed.ranking || []).filter((name) =>\n      comparisons.some((c) => c.name === name || c.fileName === name)\n    ),\n    recommendation: parsed.recommendation || '',\n    comparisonSummary: parsed.comparisonSummary || '',\n    skippedFiles: skippedFromFilter,\n  },\n}];"
+        },
+        "id": "09824971-bd73-469d-a60e-97076f42e6ae",
+        "name": "Format Comparison Results",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1720,
+          -80
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('Webhook').first().json.body.callbackUrl }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ comparisons: $json.comparisons, candidates: $json.candidates, ranking: $json.ranking, recommendation: $json.recommendation, comparisonSummary: $json.comparisonSummary, comparisonId: $json.comparisonId, skippedFiles: $json.skippedFiles || [] }) }}",
+          "options": {
+            "timeout": 60000
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Cv-Comparison-Secret",
+                "value": "={{ $('Webhook').first().json.body.inboundSecret }}"
+              },
+              {
+                "name": "X-Idempotency-Key",
+                "value": "={{ $execution.id + '-results' }}"
+              }
+            ]
+          }
+        },
+        "id": "8da759a2-156c-4e2c-a218-ed740b017ce6",
+        "name": "Send Results to Evaalo",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1280,
+          0
+        ]
+      },
+      {
+        "id": "0cff3243-8792-41e1-89ad-a7b61b6b86c6",
+        "name": "Validate Comparison Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          120,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first();\nconst body = item.json.body ?? {};\n\nconst reject = (reason) => [{\n  json: { passed: false, rejectReason: reason, body },\n  binary: item.binary,\n}];\n\nif (!String(body.comparisonId || '').trim()) {\n  return reject('Missing comparisonId');\n}\nif (!String(body.callbackUrl || '').trim()) {\n  return reject('Missing callbackUrl');\n}\nif (!String(body.position || '').trim()) {\n  return reject('Missing position');\n}\nif (!String(body.location || '').trim()) {\n  return reject('Missing location');\n}\nif (!String(body.inboundSecret || '').trim()) {\n  return reject('Missing inboundSecret');\n}\n\nreturn [{\n  json: { passed: true, rejectReason: '', body },\n  binary: item.binary,\n}];"
+        }
+      },
+      {
+        "id": "5a32ea94-627c-4c4b-b06a-80842c3eddfe",
+        "name": "Validate Callback URL",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const item = $input.first();\nconst prev = item.json;\nif (!prev.passed) {\n  return [{ json: prev, binary: item.binary }];\n}\n\nconst body = prev.body || {};\nconst urlStr = String(body.callbackUrl || '').trim();\n\nconst reject = (reason) => [{\n  json: { passed: false, rejectReason: reason, body },\n  binary: item.binary,\n}];\n\nif (!urlStr) {\n  return reject('Missing callbackUrl');\n}\n\nif (urlStr.includes('@') || /\\/redirect\\//i.test(urlStr)) {\n  return reject('Redirect or credential URLs are not allowed');\n}\n\nconst m = urlStr.match(/^(https?):\\/\\/([^\\/?#:]+)(?::(\\d+))?(\\/[^?#]*)?(?:\\?([^#]*))?/i);\nif (!m) {\n  return reject('Invalid callbackUrl');\n}\n\nconst scheme = String(m[1] || '').toLowerCase();\nconst host = String(m[2] || '');\nlet port = m[3] ? String(m[3]) : '';\nconst pathname = m[4] || '/';\nconst query = m[5] || '';\n\nif (host.includes('*')) {\n  return reject('Wildcard hostnames are not allowed');\n}\n\nif (!port) {\n  port = scheme === 'https' ? '443' : '80';\n}\n\nlet origin;\nif (scheme === 'https' && port === '443') {\n  origin = 'https://' + host;\n} else if (scheme === 'http' && port === '80') {\n  origin = 'http://' + host;\n} else {\n  origin = scheme + '://' + host + ':' + port;\n}\n\nconst allowed = [\n  'https://api.evaalo.com',\n  'http://100.73.82.78:5000',\n];\n\nlet ok = false;\nfor (let i = 0; i < allowed.length; i++) {\n  if (allowed[i] === origin) {\n    ok = true;\n    break;\n  }\n}\n\nif (!ok) {\n  return reject('callbackUrl origin not allowlisted: ' + origin);\n}\n\nif (pathname !== '/webhook/n8n/cv-comparison') {\n  return reject('callbackUrl path must be /webhook/n8n/cv-comparison');\n}\n\nlet hasComparisonId = false;\nlet hasToken = false;\nif (query) {\n  const parts = query.split('&');\n  for (let i = 0; i < parts.length; i++) {\n    const part = parts[i];\n    const eq = part.indexOf('=');\n    const k = eq >= 0 ? decodeURIComponent(part.slice(0, eq)) : part;\n    const v = eq >= 0 ? decodeURIComponent(part.slice(eq + 1)) : '';\n    if (k === 'comparisonId' && String(v).trim()) hasComparisonId = true;\n    if (k === 'token' && String(v).trim()) hasToken = true;\n  }\n}\n\nif (!hasComparisonId) {\n  return reject('callbackUrl must include comparisonId query parameter');\n}\nif (!hasToken) {\n  return reject('callbackUrl must include token query parameter');\n}\n\nreturn [{\n  json: { passed: true, rejectReason: '', body },\n  binary: item.binary,\n}];"
+        }
+      },
+      {
+        "id": "72198ebe-6232-43fc-b850-2912ea20e02c",
+        "name": "Input Valid",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          360,
+          0
+        ],
+        "parameters": {
+          "conditions": {
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "cvcomp-input-valid-pass",
+                "leftValue": "={{ $json.passed }}",
+                "operator": {
+                  "operation": "true",
+                  "singleValue": true,
+                  "type": "boolean"
+                },
+                "rightValue": ""
+              }
+            ],
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            }
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "b6fc3c8f-9ca8-4a96-8d94-6f953bc9b54c",
+        "name": "Reject Invalid Comparison Input",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          360,
+          200
+        ],
+        "parameters": {
+          "options": {
+            "responseCode": 400
+          },
+          "respondWith": "json",
+          "responseBody": "={{ { ok: false, error: 'Invalid CV Comparison callback configuration' } }}"
+        }
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForAllItems",
+          "jsCode": "const items = $input.all();\n\nfunction isLikelyCv(text, fileName) {\n  const t = String(text || '').replace(/\\s+/g, ' ').trim();\n  if (t.length < 80) return { ok: false, reason: 'insufficient_text' };\n\n  const lower = t.toLowerCase();\n  const cvSignals = [\n    'experience', 'education', 'skills', 'employment', 'university', 'bachelor', 'master',\n    'resume', 'curriculum vitae', 'objective', 'certification', 'qualified', 'position',\n    'career', 'profile', 'languages', 'internship', 'degree',\n    'خبرة', 'تعليم', 'مهارات', 'السيرة', 'جامعة', 'مؤهل', 'وظيفة', 'عمل', 'تخصص', 'شهادة'\n  ];\n  const hits = cvSignals.filter((s) => lower.includes(s)).length;\n  const hasEmail = /@[\\w.-]+\\.\\w{2,}/.test(t);\n  const hasPhone = /(\\+?\\d[\\d\\s\\-().]{7,}\\d)/.test(t);\n\n  if (hits >= 2) return { ok: true };\n  if (hasEmail && (hasPhone || hits >= 1)) return { ok: true };\n  if (t.length >= 400 && hits >= 1) return { ok: true };\n\n  const nameHint = String(fileName || '').toLowerCase();\n  if (\n    (nameHint.includes('cv') || nameHint.includes('resume') || nameHint.includes('سيرة') || nameHint.includes('curriculum')) &&\n    t.length >= 120 &&\n    hits >= 1\n  ) {\n    return { ok: true };\n  }\n\n  return { ok: false, reason: 'not_cv_like' };\n}\n\nconst valid = [];\nconst skipped = [];\n\nfor (const item of items) {\n  const text = item.json.text ?? item.json.data ?? '';\n  const fileName =\n    item.json.fileName ||\n    item.binary?.data?.fileName ||\n    item.binary?.data?.fileName ||\n    'unknown.pdf';\n  const verdict = isLikelyCv(text, fileName);\n  if (verdict.ok) {\n    valid.push({\n      json: {\n        ...item.json,\n        fileName,\n        text: String(text).trim(),\n        isCv: true,\n      },\n      binary: item.binary,\n    });\n  } else {\n    skipped.push({ fileName, reason: verdict.reason });\n  }\n}\n\nconst webhook = $('Webhook').first().json.body || {};\n\nif (!valid.length) {\n  return [{\n    json: {\n      noValidCvs: true,\n      comparisonId: webhook.comparisonId,\n      callbackUrl: webhook.callbackUrl,\n      skippedFiles: skipped,\n      comparisons: [],\n      candidates: [],\n      ranking: [],\n      recommendation: '',\n      comparisonSummary:\n        skipped.length\n          ? 'No valid CV documents were found. Non-CV or unreadable files were ignored.'\n          : 'No CV files were provided.',\n    },\n  }];\n}\n\nreturn valid.map((row, idx) => ({\n  json: {\n    ...row.json,\n    skippedFiles: idx === 0 ? skipped : [],\n  },\n  binary: row.binary,\n}));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          860,
+          0
+        ],
+        "id": "afbGT0caNDWApdJ8",
+        "name": "Filter CV Documents"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "cvcomp-has-valid-cv",
+                "leftValue": "={{ $json.noValidCvs }}",
+                "operator": {
+                  "operation": "false",
+                  "singleValue": true,
+                  "type": "boolean"
+                },
+                "rightValue": ""
+              }
+            ],
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            }
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1060,
+          0
+        ],
+        "id": "iRp5r4DuycfN63ye",
+        "name": "Has Valid CVs"
+      }
+    ],
+    "connections": {
+      "OpenAI Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "Compare CVs Agent",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract from File": {
+        "main": [
+          [
+            {
+              "node": "Filter CV Documents",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Aggregate CVs": {
+        "main": [
+          [
+            {
+              "node": "Compare CVs Agent",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare CV Binaries": {
+        "main": [
+          [
+            {
+              "node": "Extract from File",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Compare CVs Agent": {
+        "main": [
+          [
+            {
+              "node": "Format Comparison Results",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Comparison Results": {
+        "main": [
+          [
+            {
+              "node": "Send Results to Evaalo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Send Results to Evaalo": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Validate Comparison Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Comparison Input": {
+        "main": [
+          [
+            {
+              "node": "Validate Callback URL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Validate Callback URL": {
+        "main": [
+          [
+            {
+              "node": "Input Valid",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Input Valid": {
+        "main": [
+          [
+            {
+              "node": "Prepare CV Binaries",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Reject Invalid Comparison Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Filter CV Documents": {
+        "main": [
+          [
+            {
+              "node": "Has Valid CVs",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Has Valid CVs": {
+        "main": [
+          [
+            {
+              "node": "Aggregate CVs",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Send Results to Evaalo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "availableInMCP": true
+    },
+    "staticData": null,
+    "meta": {
+      "templateCredsSetupCompleted": true,
+      "aiBuilderAssisted": true,
+      "builderVariant": "mcp"
+    },
+    "nodeGroups": [],
+    "pinData": {
+      "Webhook": [
+        {
+          "json": {
+            "headers": {
+              "host": "n8n.evaalo.com",
+              "user-agent": "node",
+              "content-length": "4393719",
+              "accept": "*/*",
+              "accept-encoding": "gzip, br",
+              "accept-language": "*",
+              "cdn-loop": "cloudflare; loops=1",
+              "cf-connecting-ip": "169.224.83.60",
+              "cf-ipcountry": "IQ",
+              "cf-ray": "a13650dd2e05d0f7-SOF",
+              "cf-visitor": "{\"scheme\":\"https\"}",
+              "cf-warp-tag-id": "8b093263-ae40-4085-b5e7-2be5aa8c4aba",
+              "connection": "keep-alive",
+              "content-type": "multipart/form-data; boundary=----formdata-undici-058652663839",
+              "sec-fetch-mode": "cors",
+              "x-forwarded-for": "169.224.83.60",
+              "x-forwarded-proto": "https"
+            },
+            "params": {},
+            "query": {},
+            "body": {
+              "comparisonId": "cvcomp_7775136d-14e9-4785-a594-73437d1c69e6",
+              "organizationId": "org_default",
+              "userId": "system",
+              "callbackUrl": "http://100.73.82.78:5000/webhook/n8n/cv-comparison?comparisonId=cvcomp_7775136d-14e9-4785-a594-73437d1c69e6",
+              "criteria": "{\"position\":\"Survey Engineer\",\"location\":\"Baghdad, Iraq\",\"aiCompareTop\":false,\"availableEmployeesOnly\":false,\"employeesWithoutPositionsOnly\":false,\"arabicTranslation\":false,\"optionsPhrases\":[],\"optionsSummaryEn\":\"\",\"optionsSummaryAr\":\"\",\"source\":\"ai-cv-comparison\",\"submittedAt\":\"2026-06-29T16:30:26.295Z\"}",
+              "position": "Survey Engineer",
+              "location": "Baghdad, Iraq",
+              "aiCompareTop": "false",
+              "availableEmployeesOnly": "false",
+              "arabicTranslation": "false",
+              "source": "ai-cv-comparison",
+              "submittedAt": "2026-06-29T16:30:26.295Z"
+            },
+            "webhookUrl": "https://n8n.evaalo.com/webhook/5a2e23d9-ccdf-46c3-b2a6-309afcdd819e",
+            "executionMode": "production"
+          },
+          "binary": {
+            "cvs0": {
+              "mimeType": "application/pdf",
+              "fileType": "pdf",
+              "fileExtension": "pdf",
+              "data": "filesystem-v2",
+              "fileName": "cv belal fath talib (26.03.2025).pdf",
+              "id": "filesystem-v2:workflows/hmPyS1Hyd1GsDiT5/executions/708/binary_data/baaaa877-46b5-41c5-8baf-7313ebfda408",
+              "fileSize": "655 kB",
+              "bytes": 654646
+            },
+            "cvs1": {
+              "mimeType": "application/pdf",
+              "fileType": "pdf",
+              "fileExtension": "pdf",
+              "data": "filesystem-v2",
+              "fileName": "Mohammed Talib-Senior Survey Engineer-2025.pdf",
+              "id": "filesystem-v2:workflows/hmPyS1Hyd1GsDiT5/executions/708/binary_data/0dddac59-1703-4868-85bc-2c717e3be12a",
+              "fileSize": "277 kB",
+              "bytes": 276988
+            },
+            "cvs2": {
+              "mimeType": "application/pdf",
+              "fileType": "pdf",
+              "fileExtension": "pdf",
+              "data": "filesystem-v2",
+              "fileName": "ayad yahya cv 03-02-2025.pdf",
+              "id": "filesystem-v2:workflows/hmPyS1Hyd1GsDiT5/executions/708/binary_data/5e5504a0-ff8d-462e-ae81-0d719edf2982",
+              "fileSize": "3.46 MB",
+              "bytes": 3459890
+            }
+          },
+          "pairedItem": {
+            "item": 0
+          }
+        }
+      ]
+    },
+    "versionId": "a023e226-51ff-422e-8287-3c3a3484615c",
+    "activeVersionId": "a023e226-51ff-422e-8287-3c3a3484615c",
+    "versionCounter": 44,
+    "triggerCount": 1,
+    "sourceWorkflowId": null,
+    "tags": [],
+    "shared": [
+      {
+        "updatedAt": "2026-06-17T13:52:49.617Z",
+        "createdAt": "2026-06-17T13:52:49.617Z",
+        "role": "workflow:owner",
+        "workflowId": "hmPyS1Hyd1GsDiT5",
+        "projectId": "uHKlsan7GIvwducP",
+        "project": {
+          "updatedAt": "2026-04-04T21:54:11.786Z",
+          "createdAt": "2026-04-04T21:44:18.482Z",
+          "id": "uHKlsan7GIvwducP",
+          "name": "Mustafa najm <mostfamn2006@gmail.com>",
+          "type": "personal",
+          "icon": null,
+          "description": null,
+          "customTelemetryTags": [],
+          "creatorId": "7b0c9d13-3bf8-4994-9812-379e9d304c17"
+        }
+      }
+    ],
+    "versionMetadata": {
+      "name": null,
+      "description": null
+    }
+  }
+]

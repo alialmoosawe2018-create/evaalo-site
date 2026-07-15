@@ -99,9 +99,9 @@ export async function handleVoiceConversation(
     await streamTextToSpeech(llmReply, ws, 'en'); // يمكن اكتشاف اللغة لاحقاً
 
     // 6) بعد انتهاء TTS: state = LISTENING + أعد تشغيل STT
-    if (ws.readyState === 1) {
+    if (ws.readyState === ws.OPEN) {
       await new Promise((r) => setTimeout(r, 1500)); // cooldown
-      if (ws.readyState === 1) {
+      if (ws.readyState === ws.OPEN) {
         onStateChange('LISTENING');
         onStartSTT();
       }
@@ -109,7 +109,7 @@ export async function handleVoiceConversation(
   } catch (err: any) {
     console.error('Voice orchestrator error:', err?.message || err);
     // في حالة الخطأ: العودة إلى LISTENING
-    if (ws.readyState === 1) {
+    if (ws.readyState === ws.OPEN) {
       onStateChange('LISTENING');
       onStartSTT();
     }

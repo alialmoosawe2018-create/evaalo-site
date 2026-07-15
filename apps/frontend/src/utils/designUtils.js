@@ -468,23 +468,34 @@ export const applyTextColor = (hex, name) => {
         return;
     }
     
-    // Check if title exists
-    const questionsTitle = document.querySelector('.questions-title');
-    if (!questionsTitle) return;
-    
-    // Apply text color to questions title and subtitle
+    // Inject rules even if .questions-title is not mounted yet (selector applies when it appears).
+    // Base CSS uses -webkit-text-fill-color and :hover/:focus color !important; match those or the title stays white in WebKit.
     const style = document.getElementById('dynamic-text-color-style') || document.createElement('style');
     style.id = 'dynamic-text-color-style';
+    const subtitle = `${hex}CC`;
     style.textContent = `
-        .questions-title {
+        .questions-title,
+        .questions-title:hover,
+        .questions-title:focus {
             color: ${hex} !important;
+            -webkit-text-fill-color: ${hex} !important;
         }
         .questions-subtitle {
-            color: ${hex}CC !important;
+            color: ${subtitle} !important;
+            -webkit-text-fill-color: ${subtitle} !important;
+        }
+        /* Same specificity as dynamic-question-color-style (#questionsContainer #questionsList …) */
+        #questionsContainer #questionsList .question-item .question-item-title {
+            color: ${hex} !important;
+            -webkit-text-fill-color: ${hex} !important;
+        }
+        #questionsContainer #questionsList .question-item .question-item-type,
+        #questionsContainer #questionsList .question-item .question-meta-item {
+            color: ${subtitle} !important;
+            -webkit-text-fill-color: ${subtitle} !important;
         }
     `;
-    if (!document.getElementById('dynamic-text-color-style')) {
-        document.head.appendChild(style);
-    }
+    /* Always append (or re-append) so this sheet stays last and wins over dynamic-question-color-style */
+    document.head.appendChild(style);
 };
 

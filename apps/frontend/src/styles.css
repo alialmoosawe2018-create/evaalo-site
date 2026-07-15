@@ -32,7 +32,7 @@ body {
     padding: 20px;
     color: var(--text-primary);
     line-height: 1.6;
-    zoom: 1.25;
+    zoom: 1;
 }
 
 /* Apply Cairo font only for Arabic */
@@ -49,17 +49,72 @@ html[lang="ku"] body,
     font-family: 'Noto Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-.container {
-    max-width: 900px;
+/* Form page - purple gradient background (like image) */
+html:has(.form-page),
+body:has(.form-page) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-top: 0 !important;
+    height: auto;
+    min-height: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
+.form-page {
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: auto;
+    overflow: visible;
+    background: linear-gradient(180deg, #c4b5fd 0%, #a78bfa 25%, #7c3aed 55%, #5b21b6 85%, #4c1d95 100%);
+    padding: 24px 32px 32px;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.form-page::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+html:has(.form-page),
+body:has(.form-page) {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+html:has(.form-page)::-webkit-scrollbar,
+body:has(.form-page)::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+/* Hide scrollbar on container and form-wrapper if they scroll */
+.form-page .container::-webkit-scrollbar,
+.form-page .form-wrapper::-webkit-scrollbar {
+    display: none !important;
+}
+
+.form-page .container,
+.form-page .form-wrapper {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+.form-page .container {
+    max-width: 840px;
     width: 100%;
-    margin: 40px auto;
-    padding: 0 20px;
+    margin: 0 auto;
+    padding: 0 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    min-height: calc(100vh - 80px);
+    min-height: calc(100vh - 96px);
 }
+
+/* Do not add a global .container here — it leaked min-height onto the site footer. Form uses .form-page .container above. */
 
 /* Language Selector */
 .language-selector-wrapper {
@@ -333,15 +388,16 @@ html[lang="ku"] body,
 .language-dropdown-menu::after {
     content: '';
     position: absolute;
-    top: -6px;
-    right: 25px;
-    width: 10px;
-    height: 10px;
+    top: -8px;
+    right: 22px;
+    width: 14px;
+    height: 14px;
     background: #ffffff;
-    border-left: 1.5px solid rgba(34, 211, 238, 0.3);
-    border-top: 1.5px solid rgba(34, 211, 238, 0.3);
+    border-left: 2.5px solid rgba(34, 211, 238, 0.42);
+    border-top: 2.5px solid rgba(34, 211, 238, 0.42);
+    border-radius: 2px;
     transform: rotate(45deg);
-    box-shadow: -2px -2px 4px rgba(34, 211, 238, 0.12);
+    box-shadow: -3px -3px 10px rgba(34, 211, 238, 0.16);
 }
 
 .language-dropdown-menu.active {
@@ -532,14 +588,22 @@ html[lang="ku"] body,
 
 .form-wrapper {
     background: #ffffff;
-    border-radius: 12px;
-    box-shadow: none;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
     border: none;
     padding: 40px;
     margin: 0;
     animation: fadeIn 0.5s ease-in;
     width: 100%;
     max-width: 900px;
+}
+
+/* Form page container - white card with soft contrast, slightly smaller */
+.form-page .form-wrapper {
+    max-width: 840px;
+    padding: 32px;
+    border-radius: 20px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(139, 92, 246, 0.1);
 }
 
 @keyframes fadeIn {
@@ -564,8 +628,15 @@ html[lang="ku"] body,
 .form-header h1 {
     font-size: 2.5rem;
     font-weight: 700;
-    color: var(--text-primary);
     margin-bottom: 10px;
+    letter-spacing: 0.8px;
+    line-height: 1.2;
+    /* نفس تدرج عناوين بطاقات Features (#features .icon-label) */
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
 }
 
 .subtitle {
@@ -592,6 +663,10 @@ html[lang="ku"] body,
     border-radius: 10px;
 }
 
+.form-page .progress-fill {
+    background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%);
+}
+
 .progress-text {
     font-size: 0.9rem;
     color: var(--text-secondary);
@@ -615,24 +690,38 @@ html[lang="ku"] body,
     }
 }
 
-.form-section h2,
-.section-title {
+/* عناوين أقسام الاستمارة — تدرج نص فقط؛ إلغاء إطار/شريط سماوي من design-styles أو غيره */
+.form-page .form-section h2,
+.form-page .form-section h2.section-title,
+.form-page .section-title {
     font-size: 1.75rem;
     font-weight: 600;
-    color: #5B42F6 !important;
     margin-bottom: 30px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid var(--border-color);
+    margin-top: 0;
+    padding: 0 !important;
+    border: none !important;
+    border-left: none !important;
+    border-bottom: none !important;
+    border-radius: 0 !important;
+    outline: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+    letter-spacing: 0.8px;
+    line-height: 1.2;
+    display: block;
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
 }
 
-/* Override index.css gradient for form section titles */
-.form-section .section-title,
-.form-wrapper .section-title {
-    color: #5B42F6 !important;
-    background: none !important;
-    -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: #5B42F6 !important;
-    background-clip: unset !important;
+.form-page .form-section h2.section-title::before,
+.form-page .form-section h2.section-title::after,
+.form-page .section-title::before,
+.form-page .section-title::after {
+    content: none !important;
+    display: none !important;
 }
 
 /* Form Grid */
@@ -676,6 +765,25 @@ html[lang="ku"] body,
     font-family: inherit;
     transition: var(--transition);
     background-color: var(--card-bg);
+}
+
+/* Form page - light green accent borders on inputs */
+.form-page .form-group input[type="text"],
+.form-page .form-group input[type="email"],
+.form-page .form-group input[type="tel"],
+.form-page .form-group input[type="url"],
+.form-page .form-group input[type="number"],
+.form-page .form-group select,
+.form-page .form-group textarea {
+    border-color: rgba(134, 239, 172, 0.6);
+    background-color: #ffffff;
+}
+
+.form-page .form-group input:focus,
+.form-page .form-group select:focus,
+.form-page .form-group textarea:focus {
+    border-color: rgba(34, 197, 94, 0.8);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
 }
 
 .form-group input:focus,
@@ -871,10 +979,10 @@ html[lang="ku"] body,
     color: white;
 }
 
-/* Salary Range */
+/* Salary Range — stretch children so currency control matches amount field height */
 .salary-range {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 10px;
 }
 
@@ -882,14 +990,81 @@ html[lang="ku"] body,
     flex: 1;
 }
 
+/* Form salary row — number + currency controls share identical row height */
+.form-page .salary-range input[type="number"] {
+    align-self: stretch;
+    box-sizing: border-box;
+    min-height: 50px;
+}
+
 .range-separator {
     color: var(--text-secondary);
     font-weight: 500;
 }
 
-.salary-range select {
+/* Salary currency — custom dropdown aligned with LanguageStyleSingleSelect chrome */
+.form-page .salary-range .salary-currency-select.position-suggest-combobox-wrapper {
+    flex: 0 0 auto;
     width: auto;
-    min-width: 80px;
+    min-width: 7rem;
+    max-width: 10rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-self: stretch;
+}
+
+.form-page .salary-range .salary-currency-select .language-style-single-select-trigger {
+    flex: 1 1 auto;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 50px;
+    height: 100%;
+    justify-content: center;
+    padding-left: 14px;
+    padding-right: 38px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+}
+
+.form-page .salary-range .salary-currency-select .language-style-single-select-value {
+    flex: none;
+}
+
+.form-page .salary-range .salary-currency-select .language-style-single-select-menu.position-suggest-dropdown {
+    left: 0;
+    max-height: none;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(134, 239, 172, 0.5);
+    box-shadow:
+        0 12px 40px rgba(15, 23, 42, 0.14),
+        0 4px 12px rgba(34, 197, 94, 0.12);
+}
+
+.form-page .salary-range .salary-currency-select .language-option {
+    justify-content: center;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    min-height: 44px;
+}
+
+html[dir="rtl"] .form-page .salary-range .salary-currency-select .language-style-single-select-chevron {
+    right: auto;
+    left: 14px;
+}
+
+html[dir="rtl"] .form-page .salary-range .salary-currency-select .language-style-single-select-trigger {
+    padding-right: 14px;
+    padding-left: 38px;
+    text-align: right;
+}
+
+html[dir="rtl"] .form-page .salary-range .salary-currency-select .language-style-single-select-menu.position-suggest-dropdown {
+    left: auto;
+    right: 0;
 }
 
 /* Checkbox */
@@ -943,14 +1118,16 @@ html[lang="ku"] body,
 /* Form Navigation Buttons - Higher specificity */
 .form-navigation .btn-primary,
 .form-wrapper .btn-primary {
-    background-color: #5B42F6 !important;
+    background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%) !important;
+    background-color: transparent !important;
     color: #FFFFFF !important;
     border: none !important;
 }
 
 .form-navigation .btn-primary:hover,
 .form-wrapper .btn-primary:hover {
-    background-color: #4C35E5 !important;
+    background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%) !important;
+    background-color: transparent !important;
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
@@ -969,12 +1146,12 @@ html[lang="ku"] body,
 }
 
 .btn-primary {
-    background-color: #5B42F6;
+    background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%);
     color: #FFFFFF;
 }
 
 .btn-primary:hover {
-    background-color: #4C35E5;
+    background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
@@ -992,17 +1169,19 @@ html[lang="ku"] body,
 
 .form-navigation .btn-submit,
 .form-wrapper .btn-submit {
-    background-color: #5B42F6 !important;
+    background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%) !important;
+    background-color: transparent !important;
     color: #FFFFFF !important;
     border: none !important;
 }
 
 .btn-submit {
-    background-color: #5B42F6;
+    background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%);
     color: #FFFFFF;
 }
 
 .btn-submit:hover {
+    background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg);
 }
@@ -1110,26 +1289,153 @@ html[dir="rtl"] .language-option {
         padding: 10px;
     }
 
+    html:has(.form-page),
+    body:has(.form-page) {
+        padding: 0 !important;
+        overflow-x: hidden;
+        overflow-y: auto;
+        touch-action: pan-y;
+        overscroll-behavior-y: auto;
+    }
+
+    .form-page {
+        min-height: 100dvh;
+        height: auto;
+        overflow: visible;
+        padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(28px + env(safe-area-inset-bottom, 0px));
+        margin: 0;
+    }
+
+    .form-page .container {
+        max-width: 100%;
+        width: 100%;
+        padding: 0;
+        min-height: auto;
+    }
+
     .language-selector-wrapper {
         justify-content: center;
     }
 
     .form-wrapper {
-        padding: 25px 20px;
-        margin-top: 10px;
+        padding: 24px 18px 28px;
+        margin-top: 0;
+        border-radius: 16px;
+        max-width: 100%;
+    }
+
+    .form-page .form-wrapper {
+        padding: 24px 18px 28px;
+        border-radius: 16px;
+        box-shadow: 0 10px 36px rgba(0, 0, 0, 0.14), 0 4px 14px rgba(139, 92, 246, 0.1);
+    }
+
+    .form-header {
+        margin-bottom: 22px;
+        padding-bottom: 18px;
     }
 
     .form-header h1 {
-        font-size: 2rem;
+        font-size: 1.65rem;
+        letter-spacing: 0.35px;
     }
 
-    .form-section h2 {
-        font-size: 1.5rem;
+    .subtitle {
+        font-size: 1rem;
+        margin-bottom: 18px;
+    }
+
+    .form-page .form-section h2 {
+        font-size: 1.35rem;
+        margin-bottom: 20px;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 0;
+        margin-bottom: 18px;
+    }
+
+    .form-group {
+        margin-bottom: 18px;
+    }
+
+    .form-group label {
+        font-size: 0.9375rem;
+        margin-bottom: 7px;
+    }
+
+    .form-page .form-group input[type="text"],
+    .form-page .form-group input[type="email"],
+    .form-page .form-group input[type="tel"],
+    .form-page .form-group input[type="url"],
+    .form-page .form-group input[type="number"],
+    .form-page .form-group select,
+    .form-page .form-group textarea {
+        padding: 14px 14px;
+        font-size: 16px;
+        min-height: 48px;
+        border-radius: 10px;
+    }
+
+    .form-page .form-group textarea {
+        min-height: 112px;
+    }
+
+    .form-page .language-style-single-select .language-style-single-select-trigger {
+        min-height: 48px;
+        font-size: 16px;
+        padding: 12px 40px 12px 14px;
+        border-radius: 10px;
+    }
+
+    .form-page .salary-range input[type="number"] {
+        min-height: 48px;
+        font-size: 16px;
+    }
+
+    .form-page .salary-range .salary-currency-select .language-style-single-select-trigger {
+        min-height: 48px;
+        font-size: 16px;
     }
 
     .form-navigation {
         flex-direction: column;
-        gap: 15px;
+        gap: 10px;
+        margin-top: 24px;
+        padding-top: 16px;
+    }
+
+    .form-page .form-navigation:has(.btn-secondary) {
+        flex-direction: row;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .form-page .form-navigation .btn,
+    .form-page .form-navigation .btn-primary,
+    .form-page .form-navigation .btn-secondary,
+    .form-page .form-navigation .btn-submit,
+    .form-wrapper .form-navigation .btn-primary,
+    .form-wrapper .form-navigation .btn-secondary,
+    .form-wrapper .form-navigation .btn-submit {
+        width: 100%;
+        min-height: 44px;
+        padding: 11px 16px !important;
+        font-size: 0.9375rem !important;
+        font-weight: 600 !important;
+        line-height: 1.2;
+        border-radius: 10px !important;
+        justify-content: center;
+    }
+
+    .form-page .form-navigation:has(.btn-secondary) .btn,
+    .form-page .form-navigation:has(.btn-secondary) .btn-primary,
+    .form-page .form-navigation:has(.btn-secondary) .btn-secondary,
+    .form-page .form-navigation:has(.btn-secondary) .btn-submit {
+        flex: 1 1 0;
+        width: auto;
+        min-width: 0;
     }
 
     .btn {
@@ -1138,11 +1444,15 @@ html[dir="rtl"] .language-option {
 
     .salary-range {
         flex-wrap: wrap;
+        gap: 12px;
     }
 
-    .salary-range select {
+    .salary-range .salary-currency-select.position-suggest-combobox-wrapper {
         width: 100%;
-        margin-top: 10px;
+        max-width: none;
+        min-width: 0;
+        flex: 1 1 100%;
+        margin-top: 0;
     }
 
     .skills-input-container,
@@ -1150,22 +1460,131 @@ html[dir="rtl"] .language-option {
         flex-direction: column;
     }
 
+    .input-with-button {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .input-with-button > div {
+        width: 100%;
+        margin-right: 0 !important;
+        margin-inline-end: 0 !important;
+    }
+
+    .input-with-button .btn,
+    .input-with-button .btn-secondary {
+        width: 100%;
+        min-height: 48px;
+    }
+
     .btn-add {
         width: 100%;
+        min-height: 48px;
     }
 }
 
 @media (max-width: 480px) {
+    .form-page {
+        padding: calc(10px + env(safe-area-inset-top, 0px)) 10px calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+
     .form-header h1 {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
     }
 
-    .form-section h2 {
-        font-size: 1.25rem;
+    .form-page .form-section h2 {
+        font-size: 1.2rem;
+        margin-bottom: 16px;
     }
 
-    .form-wrapper {
-        padding: 20px 15px;
+    .form-wrapper,
+    .form-page .form-wrapper {
+        padding: 18px 14px 22px;
+        border-radius: 14px;
+    }
+
+    .form-header {
+        margin-bottom: 18px;
+        padding-bottom: 14px;
+    }
+
+    .form-page .form-navigation {
+        margin-top: 20px;
+        padding-top: 14px;
+        gap: 8px;
+    }
+
+    .form-page .form-navigation .btn,
+    .form-page .form-navigation .btn-primary,
+    .form-page .form-navigation .btn-secondary,
+    .form-page .form-navigation .btn-submit {
+        min-height: 42px;
+        padding: 10px 14px !important;
+        font-size: 0.875rem !important;
+    }
+
+    .progress-text {
+        font-size: 0.875rem;
+    }
+}
+
+/* File upload dropzones (Form.jsx) */
+.form-upload-dropzone {
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.form-upload-dropzone .form-upload-empty-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 8px;
+}
+
+.form-upload-dropzone .form-upload-empty-hint {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.form-upload-dropzone .form-upload-empty-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+    line-height: 1;
+}
+
+.form-upload-dropzone .form-upload-preview {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.form-upload-dropzone .form-upload-preview-title {
+    font-size: 14px;
+    color: #1e293b;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+@media (max-width: 768px) {
+    .form-upload-dropzone {
+        padding: 18px 14px !important;
+        border-radius: 12px !important;
+    }
+
+    .form-upload-dropzone .form-upload-empty-icon {
+        font-size: 36px;
+    }
+
+    .form-upload-dropzone .form-upload-empty-title {
+        font-size: 15px;
+    }
+
+    .form-upload-dropzone .form-upload-preview {
+        flex-direction: column;
+        text-align: center;
     }
 }
 
@@ -1209,18 +1628,18 @@ html[dir="rtl"] .language-option {
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%);
-    border: 1px solid rgba(139, 92, 246, 0.3);
+    background: linear-gradient(135deg, rgba(219, 234, 254, 0.95) 0%, rgba(224, 242, 254, 0.9) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.35);
     border-radius: 20px;
     font-size: 0.875rem;
-    color: #6b21a8;
+    color: #1d4ed8;
     font-weight: 500;
 }
 
 .tag-remove {
     background: none;
     border: none;
-    color: #6b21a8;
+    color: #2563eb;
     cursor: pointer;
     font-size: 1.2rem;
     line-height: 1;
@@ -1235,8 +1654,8 @@ html[dir="rtl"] .language-option {
 }
 
 .tag-remove:hover {
-    background: rgba(139, 92, 246, 0.2);
-    color: #4c1d95;
+    background: rgba(59, 130, 246, 0.18);
+    color: #1e40af;
 }
 
 /* Input with Button */
@@ -1249,6 +1668,66 @@ html[dir="rtl"] .language-option {
 .input-with-button input,
 .input-with-button select {
     flex: 1;
+}
+
+.input-with-button .language-style-single-select {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Custom level picker — same dropdown chrome as nav language menu */
+.form-page .language-style-single-select .language-style-single-select-trigger {
+    position: relative;
+    width: 100%;
+    padding: 12px 40px 12px 16px;
+    border: 2px solid rgba(134, 239, 172, 0.6);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #ffffff;
+    color: var(--text-primary, #1e293b);
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+    min-height: 50px;
+}
+
+.form-page .language-style-single-select .language-style-single-select-trigger:hover,
+.form-page .language-style-single-select .language-style-single-select-trigger:focus {
+    outline: none;
+    border-color: rgba(34, 197, 94, 0.8);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+.form-page .language-style-single-select .language-style-single-select-placeholder {
+    color: #94a3b8;
+}
+
+.form-page .language-style-single-select .language-style-single-select-value {
+    color: var(--text-primary, #1e293b);
+}
+
+.form-page .language-style-single-select .language-style-single-select-chevron {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--primary-color, #6366f1);
+    opacity: 0.85;
+    display: flex;
+    align-items: center;
+}
+
+.form-page .language-style-single-select .language-style-single-select-menu.position-suggest-dropdown {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    max-height: min(280px, 50vh);
 }
 
 .input-with-button .btn {
@@ -1287,9 +1766,8 @@ textarea.error {
 .container .form-wrapper .form-navigation .btn-submit,
 .form-wrapper .form-navigation .btn-primary,
 .form-wrapper .form-navigation .btn-submit {
-    background: #5B42F6 !important;
-    background-color: #5B42F6 !important;
-    background-image: none !important;
+    background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 100%) !important;
+    background-color: transparent !important;
     color: #FFFFFF !important;
     border: none !important;
     border-color: transparent !important;
@@ -1313,9 +1791,8 @@ textarea.error {
 .container .form-wrapper .form-navigation .btn-submit:hover,
 .form-wrapper .form-navigation .btn-primary:hover,
 .form-wrapper .form-navigation .btn-submit:hover {
-    background: #4C35E5 !important;
-    background-color: #4C35E5 !important;
-    background-image: none !important;
+    background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%) !important;
+    background-color: transparent !important;
 }
 
 .container .form-wrapper .form-navigation .btn-secondary,
@@ -1342,5 +1819,325 @@ textarea.error {
     background-color: #F9FAFB !important;
     background-image: none !important;
     border-color: #D1D5DB !important;
+}
+
+/* Public screening intake (/screening-call) — مطابق لتصميم الصور */
+.form-page.public-screening-intake .form-wrapper.psc-card {
+    max-width: 640px;
+    padding: 32px 36px 28px;
+    text-align: start;
+}
+
+.form-page.public-screening-intake .psc-card .form-header {
+    display: none;
+}
+
+/* لغة المقابلة */
+.form-page.public-screening-intake .psc-lang-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
+}
+
+.form-page.public-screening-intake .psc-lang-row__label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #334155;
+}
+
+.form-page.public-screening-intake .psc-lang-toggle {
+    display: inline-flex;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+}
+
+.form-page.public-screening-intake .psc-lang-toggle__btn {
+    padding: 8px 18px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: #64748b;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.form-page.public-screening-intake .psc-lang-toggle__btn + .psc-lang-toggle__btn {
+    border-inline-start: 1px solid #e2e8f0;
+}
+
+.form-page.public-screening-intake .psc-lang-toggle__btn:hover:not(.psc-lang-toggle__btn--active) {
+    background: #f8fafc;
+}
+
+.form-page.public-screening-intake .psc-lang-toggle__btn--active {
+    color: #fff;
+    background: #3b82f6;
+}
+
+/* بطل العنوان — النص في الوسط */
+.form-page.public-screening-intake .psc-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.form-page.public-screening-intake .psc-hero__icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    color: #2563eb;
+    background: #dbeafe;
+}
+
+.form-page.public-screening-intake .psc-hero__text {
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+}
+
+.form-page.public-screening-intake .psc-hero__title {
+    margin: 0 0 6px;
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-align: center;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+.form-page.public-screening-intake .psc-hero__subtitle {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: #64748b;
+    text-align: center;
+}
+
+.form-page.public-screening-intake .psc-hero__subtitle--muted {
+    margin-top: 4px;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    text-align: center;
+}
+
+/* شارة الوظيفة */
+.form-page.public-screening-intake .psc-role-badge {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.form-page.public-screening-intake .psc-role-badge__text {
+    display: inline-block;
+    padding: 8px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #5b21b6;
+    background: linear-gradient(135deg, rgba(237, 233, 254, 0.95) 0%, rgba(221, 214, 254, 0.85) 100%);
+    border: 1px solid rgba(167, 139, 250, 0.45);
+    border-radius: 8px;
+}
+
+/* مؤشر الخطوات */
+.form-page.public-screening-intake .psc-stepper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 26px;
+}
+
+.form-page.public-screening-intake .psc-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+
+.form-page.public-screening-intake .psc-step--active {
+    background: #eff6ff;
+    border-color: #93c5fd;
+}
+
+.form-page.public-screening-intake .psc-step--inactive {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.form-page.public-screening-intake .psc-step__circle {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 50%;
+}
+
+.form-page.public-screening-intake .psc-step--active .psc-step__circle {
+    color: #fff;
+    background: #3b82f6;
+}
+
+.form-page.public-screening-intake .psc-step--inactive .psc-step__circle {
+    color: #64748b;
+    background: #e2e8f0;
+}
+
+.form-page.public-screening-intake .psc-step__label {
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.form-page.public-screening-intake .psc-step--active .psc-step__label {
+    color: #1d4ed8;
+}
+
+.form-page.public-screening-intake .psc-step--inactive .psc-step__label {
+    color: #94a3b8;
+}
+
+/* النموذج */
+.form-page.public-screening-intake .psc-form__heading {
+    margin: 0 0 18px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #2563eb;
+    text-align: start;
+    background: none;
+    -webkit-text-fill-color: #2563eb;
+    border: none;
+    padding: 0;
+}
+
+.form-page.public-screening-intake .psc-fields {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-bottom: 8px;
+}
+
+@media (min-width: 560px) {
+    .form-page.public-screening-intake .psc-fields {
+        grid-template-columns: 1fr 1fr;
+        column-gap: 16px;
+    }
+    .form-page.public-screening-intake .psc-field--full {
+        grid-column: 1 / -1;
+    }
+}
+
+.form-page.public-screening-intake .psc-field {
+    margin-bottom: 18px;
+}
+
+.form-page.public-screening-intake .psc-field label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.form-page.public-screening-intake .psc-field input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    font-size: 1rem;
+    font-family: inherit;
+    color: #0f172a;
+    background: #fff;
+    border: 2px solid rgba(134, 239, 172, 0.65);
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-page.public-screening-intake .psc-field input:focus {
+    border-color: rgba(34, 197, 94, 0.85);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12);
+}
+
+.form-page.public-screening-intake .psc-field input[dir='ltr'] {
+    text-align: left;
+}
+
+.form-page.public-screening-intake .psc-form__error {
+    margin: 0 0 12px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #dc2626;
+    text-align: center;
+}
+
+.form-page.public-screening-intake .psc-submit-wrap {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.form-page.public-screening-intake .psc-submit {
+    display: inline-block;
+    min-width: 140px;
+    padding: 10px 28px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: #fff;
+    background: #3b82f6;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+}
+
+.form-page.public-screening-intake .psc-submit:hover:not(:disabled) {
+    background: #2563eb;
+    transform: translateY(-1px);
+}
+
+.form-page.public-screening-intake .psc-submit:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+    .form-page.public-screening-intake .form-wrapper.psc-card {
+        padding: 22px 18px 20px;
+    }
+    .form-page.public-screening-intake .psc-lang-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .form-page.public-screening-intake .psc-lang-toggle {
+        width: 100%;
+    }
+    .form-page.public-screening-intake .psc-lang-toggle__btn {
+        flex: 1;
+    }
+    .form-page.public-screening-intake .psc-stepper {
+        grid-template-columns: 1fr;
+    }
 }
 

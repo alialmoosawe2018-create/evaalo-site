@@ -1,51 +1,40 @@
-# Vapi Voice Agent - مشروع الوكيل الصوتي بالذكاء الاصطناعي
+# Evaalo Career Portal — الواجهة الأمامية
 
-## 📋 نظرة عامة
-مشروع متكامل لبناء وكيل صوتي ذكي باستخدام Vapi AI، يتكون من:
-- **Frontend**: واجهة مستخدم React
-- **Backend**: سيرفر Node.js مع Vapi SDK
+## نظرة عامة
 
-## 📁 بنية المشروع
+تطبيق **React + Vite** لبوابة التوظيف والمقابلات (كتبة، صوت، فيديو).
+
+- **Frontend**: واجهة المستخدم الحالية (`apps/frontend`)
+- **Backend**: واجهة API في `apps/backend`
+
+## بنية المشروع (مختصر)
 
 ```
 cursor-react/
-├── frontend/          # Frontend (React + Vite)
-│   ├── src/
-│   ├── public/
-│   └── package.json
-│
-├── backend/           # Backend (Node.js + Express + Vapi)
-│   ├── src/
-│   └── package.json
-│
-└── README.md          # هذا الملف
+├── apps/frontend/     # هذا المشروع
+├── apps/backend/      # API
+└── README.md
 ```
 
-## 🚀 البدء السريع
+## البدء السريع
 
-### 1. Backend
+### Backend
+
 ```bash
-cd backend
+cd ../backend
 npm install
-copy .env.example .env
-# أضف VAPI_API_KEY في ملف .env
+# انسخ .env.example إلى .env واضبط المتغيرات
 npm run dev
 ```
 
-### 2. Frontend
+### Frontend
+
 ```bash
-cd frontend
 npm install
 npm run dev
 ```
 
-## 📝 ملاحظات
+## ملاحظات
 
-- Backend يعمل على: `http://localhost:5000`
-- Frontend يعمل على: `http://localhost:3000`
-- يجب إضافة `VAPI_API_KEY` في ملف `backend/.env`
-
-## 🔗 روابط مفيدة
-
-- [Vapi Documentation](https://docs.vapi.ai)
-- [Vapi TypeScript SDK](https://github.com/VapiAI/server-sdk-typescript)
+- Backend افتراضياً: `http://localhost:5000`
+- Frontend افتراضياً: `http://localhost:3000` (انظر `vite.config.js`)

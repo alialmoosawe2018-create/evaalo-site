@@ -1,0 +1,10 @@
+Add these lines to your .env.local file:
+
+BEYOND_PRESENCE_API_KEY=sk-dr6RvEuDTHLaGikjTtia5Xz9tmGGByqtMFnGvTimJrE
+BEYOND_PRESENCE_AVATAR_ID=694c83e2-8895-4a98-bd16-56332ca3f449
+
+Steps:
+1. Open .env.local in apps/avatar-evaalov2
+2. Add the two lines above
+3. Save the file
+4. Restart Agent (Ctrl+C then .\START_AGENT.ps1)

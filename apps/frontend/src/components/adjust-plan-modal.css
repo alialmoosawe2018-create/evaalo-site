@@ -1,0 +1,527 @@
+/* Adjust plan modal — fullscreen billing picker (dark default + light theme) */
+
+@keyframes adjustPlanBtnSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Beat shared .new-interview-modal rules (sidebar inject + light theme) */
+.adjust-plan-modal.new-interview-modal {
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+}
+
+@media (max-width: 768px) {
+    .adjust-plan-modal.new-interview-modal {
+        width: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+    }
+}
+
+.adjust-plan-modal {
+    --apm-shell-bg: linear-gradient(180deg, rgba(30, 41, 59, 0.92) 0%, rgba(15, 23, 42, 0.96) 100%);
+    --apm-text: #ffffff;
+    --apm-text-secondary: #e2e8f0;
+    --apm-muted: #94a3b8;
+    --apm-border: rgba(255, 255, 255, 0.1);
+    --apm-accent: #60a5fa;
+    --apm-accent-strong: #3b82f6;
+    --apm-success: #34d399;
+    --apm-error: #f87171;
+    --apm-card-bg: rgba(255, 255, 255, 0.05);
+    --apm-card-border: rgba(255, 255, 255, 0.1);
+    --apm-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    --apm-card-popular-bg: rgba(96, 165, 250, 0.08);
+    --apm-card-popular-border: rgba(96, 165, 250, 0.45);
+    --apm-card-popular-shadow: 0 6px 26px rgba(59, 130, 246, 0.18);
+    --apm-credits-bg: rgba(15, 23, 42, 0.55);
+    --apm-feature-text: #cbd5e1;
+    --apm-group-label: #64748b;
+    --apm-btn-current-bg: rgba(15, 23, 42, 0.6);
+    --apm-btn-secondary-bg: rgba(15, 23, 42, 0.55);
+    --apm-btn-secondary-text: #ffffff;
+    --apm-btn-primary-bg: #ffffff;
+    --apm-btn-primary-text: #0d0d0d;
+
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    z-index: 10002;
+    display: flex;
+    flex-direction: column;
+    padding: 28px clamp(20px, 3vw, 48px);
+    overflow: hidden;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--apm-text);
+    background: var(--apm-shell-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    animation: modalFadeIn 0.25s ease;
+}
+
+.adjust-plan-modal__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 22px;
+}
+
+.adjust-plan-modal__header-spacer {
+    flex: 1;
+}
+
+.adjust-plan-modal__header-center {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+}
+
+.adjust-plan-modal__header-actions {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.adjust-plan-modal__title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--apm-text);
+}
+
+.adjust-plan-modal__subtitle {
+    margin: 8px 0 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--apm-muted);
+}
+
+.adjust-plan-modal__subtitle-plan {
+    color: var(--apm-text-secondary);
+}
+
+.adjust-plan-modal__grid {
+    display: grid;
+    gap: 14px;
+    align-items: stretch;
+    overflow-y: auto;
+    padding-bottom: 8px;
+    flex: 1;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+
+.adjust-plan-modal__grid::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+}
+
+.adjust-plan-modal__grid::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.45);
+    border-radius: 999px;
+}
+
+.adjust-plan-modal__card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 100%;
+    padding: 18px 16px 20px;
+    border-radius: 12px;
+    position: relative;
+    background: var(--apm-card-bg);
+    border: 1px solid var(--apm-card-border);
+    box-shadow: var(--apm-card-shadow);
+}
+
+.adjust-plan-modal__card-body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.adjust-plan-modal__card--popular {
+    background: var(--apm-card-popular-bg);
+    border-color: var(--apm-card-popular-border);
+    box-shadow: var(--apm-card-popular-shadow);
+}
+
+.adjust-plan-modal__badge-popular {
+    position: absolute;
+    top: 10px;
+    inset-inline-end: 12px;
+    inset-inline-start: auto;
+    z-index: 2;
+    font-size: 0.56rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+    white-space: nowrap;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.38), rgba(99, 102, 241, 0.42));
+    border: 1px solid rgba(125, 211, 252, 0.4);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.16);
+    color: #e0f2fe;
+}
+
+.adjust-plan-modal__plan-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.adjust-plan-modal__plan-name {
+    font-size: 17px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.adjust-plan-modal__badge-current {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--apm-muted);
+    border: 1px solid var(--apm-border);
+}
+
+.adjust-plan-modal__price-wrap {
+    margin-bottom: 10px;
+}
+
+.adjust-plan-modal__price {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.adjust-plan-modal__price-value {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--apm-text);
+}
+
+.adjust-plan-modal__price-suffix {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--apm-muted);
+}
+
+.adjust-plan-modal__desc {
+    margin: 0 0 14px;
+    flex: 0 0 auto;
+    min-height: 2.85em;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--apm-muted);
+}
+
+/* Shared plan body — mirrors Pricing page card contents */
+.adjust-plan-modal .pricing-card__credits {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    margin-top: 2px;
+    padding-top: 14px;
+    border-top: 1px solid var(--apm-border);
+}
+
+.adjust-plan-modal .pricing-card__credits-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.adjust-plan-modal .pricing-card__credits-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--apm-success);
+    white-space: nowrap;
+}
+
+.adjust-plan-modal .pricing-card__credits-word {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--apm-text-secondary);
+    white-space: nowrap;
+}
+
+.adjust-plan-modal .pricing-card__includes-note {
+    margin: 0 0 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--apm-muted);
+    line-height: 1.4;
+}
+
+.adjust-plan-modal .pricing-card__features {
+    flex: 1 1 auto;
+    list-style: none;
+    margin: 2px 0 4px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.adjust-plan-modal .pricing-card__feature {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    color: var(--apm-feature-text);
+    margin: 0;
+}
+
+.adjust-plan-modal .pricing-card__feature-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--apm-text-secondary);
+}
+
+.adjust-plan-modal__actions {
+    margin-top: auto;
+    flex-shrink: 0;
+    padding-top: 16px;
+}
+
+.adjust-plan-modal__btn {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.adjust-plan-modal__btn--current {
+    border: 1px solid var(--apm-border);
+    background: var(--apm-btn-current-bg);
+    color: var(--apm-muted);
+    cursor: default;
+}
+
+.adjust-plan-modal__btn--secondary {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--apm-btn-secondary-bg);
+    color: var(--apm-btn-secondary-text);
+    cursor: pointer;
+}
+
+.adjust-plan-modal__btn--primary {
+    border: none;
+    background: var(--apm-btn-primary-bg);
+    color: var(--apm-btn-primary-text);
+    cursor: pointer;
+}
+
+.adjust-plan-modal__btn--primary:disabled {
+    cursor: wait;
+}
+
+.adjust-plan-modal__btn--primary:not(:disabled):hover {
+    filter: brightness(0.96);
+}
+
+.adjust-plan-modal__btn-inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.adjust-plan-modal__btn-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    flex-shrink: 0;
+    opacity: 0.85;
+    animation: adjustPlanBtnSpin 0.7s linear infinite;
+}
+
+.adjust-plan-modal__error-wrap {
+    margin: 14px 0 0;
+    text-align: center;
+}
+
+.adjust-plan-modal__error {
+    margin: 0;
+    font-size: 13px;
+    color: var(--apm-error);
+    line-height: 1.5;
+}
+
+.adjust-plan-modal__error-action {
+    margin-top: 12px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 8px;
+    font-family: inherit;
+}
+
+.adjust-plan-modal__notice {
+    margin: 14px 0 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--apm-success);
+    line-height: 1.5;
+}
+
+@media (max-width: 1024px) {
+    .adjust-plan-modal__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 560px) {
+    .adjust-plan-modal__grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* —— Light mode —— */
+html[data-app-theme='light'] .adjust-plan-modal.new-interview-modal {
+    background: var(--apm-shell-bg) !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+}
+
+html[data-app-theme='light'] .adjust-plan-modal {
+    --apm-shell-bg: linear-gradient(
+        168deg,
+        #fdf8f0 0%,
+        #faf3e8 42%,
+        rgba(238, 242, 255, 0.96) 100%
+    );
+    --apm-text: var(--app-text, #0f172a);
+    --apm-text-secondary: var(--app-text-secondary, #475569);
+    --apm-muted: var(--app-text-muted, #64748b);
+    --apm-border: rgba(99, 102, 241, 0.22);
+    --apm-accent: #4338ca;
+    --apm-accent-strong: #3730a3;
+    --apm-success: #059669;
+    --apm-error: #dc2626;
+    --apm-card-bg: linear-gradient(165deg, #ffffff 0%, rgba(248, 250, 252, 0.98) 100%);
+    --apm-card-border: rgba(99, 102, 241, 0.22);
+    --apm-card-shadow: 0 8px 28px rgba(99, 102, 241, 0.08);
+    --apm-card-popular-bg: linear-gradient(
+        165deg,
+        rgba(238, 242, 255, 0.98) 0%,
+        rgba(224, 242, 254, 0.95) 55%,
+        rgba(240, 249, 255, 0.98) 100%
+    );
+    --apm-card-popular-border: rgba(56, 189, 248, 0.45);
+    --apm-card-popular-shadow:
+        0 12px 36px rgba(56, 189, 248, 0.12),
+        0 0 24px rgba(99, 102, 241, 0.08);
+    --apm-credits-bg: rgba(238, 242, 255, 0.75);
+    --apm-feature-text: var(--app-text-secondary, #475569);
+    --apm-group-label: #94a3b8;
+    --apm-btn-current-bg: rgba(241, 245, 249, 0.95);
+    --apm-btn-secondary-bg: #ffffff;
+    --apm-btn-secondary-text: #3730a3;
+    --apm-btn-primary-bg: linear-gradient(135deg, #4338ca 0%, #6366f1 55%, #0284c7 100%);
+    --apm-btn-primary-text: #ffffff;
+}
+
+html[data-app-theme='light'] .adjust-plan-modal__badge-current {
+    background: rgba(99, 102, 241, 0.08);
+    color: #4338ca;
+    border-color: rgba(99, 102, 241, 0.28);
+}
+
+html[data-app-theme='light'] .adjust-plan-modal__plan-name {
+    background: linear-gradient(135deg, #4338ca, #0284c7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+html[data-app-theme='light'] .adjust-plan-modal__btn--secondary {
+    border: 1px solid rgba(99, 102, 241, 0.32);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+}
+
+html[data-app-theme='light'] .adjust-plan-modal__btn--secondary:hover {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-color: rgba(99, 102, 241, 0.45);
+}
+
+html[data-app-theme='light'] .adjust-plan-modal__btn--primary {
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    box-shadow:
+        0 8px 24px rgba(99, 102, 241, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+html[data-app-theme='light'] .adjust-plan-modal__btn--primary:hover:not(:disabled) {
+    filter: none;
+    box-shadow:
+        0 12px 32px rgba(56, 189, 248, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.adjust-plan-modal__cycle-toggle {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 0 24px 16px;
+}
+
+.adjust-plan-modal__cycle-btn {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--apm-border);
+    background: transparent;
+    color: var(--apm-text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.adjust-plan-modal__cycle-btn--active {
+    background: var(--apm-accent-strong);
+    border-color: var(--apm-accent-strong);
+    color: #fff;
+}
+
+.adjust-plan-modal__cycle-note {
+    font-size: 12px;
+    color: var(--apm-muted);
+}

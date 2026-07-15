@@ -1,0 +1,1347 @@
+/**
+ * Billing Runtime Service — operational layer (Phase 2a + 2b).
+ *
+ * Owns all Mongo IO for org_plan_state, credit_balance, and credit_ledger.
+ * Catalog decisions delegate to billingEngine.ts (read-only).
+ *
+ * Phase 2a scope:
+ *   - seedOrgBilling / refreshBalanceFromPlan (manual provider)
+ *   - checkCredits (read-only gate)
+ *   - consumeCredits (atomic deduct + ledger, idempotent)
+ *   - adjustCredits (manual_adjustment escape hatch)
+ *
+ * Phase 2b additions (Stripe authority):
+ *   - isBillingActive(status) — single source for "can user consume?" policy
+ *   - findOrgByStripeCustomerId — webhook handler helper
+ *   - apply* functions — every Stripe state transition lives here, not in handlers
+ *   - Every ledger entry carries metadata.planSnapshot (audit trail safety)
+ *
+ * Architecture contracts (locked):
+ *   - Handlers in stripeWebhookHandlers.ts MUST NOT touch Mongo directly.
+ *     All mutations route through the apply* functions here. This keeps logic
+ *     replayable from admin actions and migrations later.
+ *   - No code outside this file may check `subscriptionStatus === '...'`.
+ *     Use isBillingActive(state.subscriptionStatus) instead.
+ */
+
+import OrgPlanState, { type IOrgPlanState } from '../models/OrgPlanState.js';
+import CreditBalance, { type ICreditBalance } from '../models/CreditBalance.js';
+import CreditLedger from '../models/CreditLedger.js';
+import type {
+    AdjustCreditsInput,
+    BillingCycle,
+    BillingPlanId,
+    ConsumeCreditsInput,
+    ConsumeCreditsResult,
+    SubscriptionStatus,
+    SubscriptionLifecycleState,
+    UsageType,
+} from '../types/billing.js';
+import { MICRO_PER_CREDIT } from '../types/billing.js';
+import {
+    creditCostMicro,
+    featureForUsageType,
+    getIncludedVideoSeconds,
+    getMonthlyCredits,
+    getPlanById,
+    getSeatLimit,
+    getVideoPackMinutes,
+    getVideoPackPriceUsd,
+    planAllowsVideo,
+    planHasFeature,
+} from './billingEngine.js';
+import { resolveSubscriptionLifecycleState } from './billingLifecycle.js';
+
+/**
+ * Status policy helper — the SINGLE source of truth for "is billing active?".
+ *
+ * Any `consumeCredits`-eligible status returns true. Add new Stripe statuses
+ * (`paused`, `unpaid`, …) here only — never inline as `status === 'active'`.
+ *
+ * Contract: this is the only function in the codebase that may inspect
+ * `subscriptionStatus` directly.
+ */
+export function isBillingActive(status: SubscriptionStatus | null | undefined): boolean {
+    if (!status) return false;
+    return status === 'active' || status === 'trialing';
+}
+
+/** Fallback billing window when Stripe period bounds are unavailable (same day next month). */
+function defaultPeriod(): { start: Date; end: Date } {
+    const start = new Date();
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+    return { start, end };
+}
+
+function periodDatesMatch(a: Date | null | undefined, b: Date): boolean {
+    if (!a) return false;
+    return a.getTime() === b.getTime();
+}
+
+function seatCountForPlan(planId: BillingPlanId): number {
+    const limit = getSeatLimit(planId);
+    if (!limit) return 1;
+    if (limit.type === 'unlimited') return 1;
+    return limit.value;
+}
+
+/** Record an open Stripe Checkout session until webhook confirms payment. */
+export async function markPendingCheckout(
+    organizationId: string,
+    input: {
+        sessionId: string;
+        planId: BillingPlanId;
+        cycle: BillingCycle;
+    },
+): Promise<void> {
+    await OrgPlanState.findOneAndUpdate(
+        { organizationId },
+        {
+            $set: {
+                pendingCheckoutSessionId: input.sessionId,
+                pendingCheckoutAt: new Date(),
+                pendingCheckoutPlanId: input.planId,
+                pendingCheckoutCycle: input.cycle,
+            },
+        },
+    ).exec();
+}
+
+/** Plan monthly allowance expressed in microCredits (balance reset target). */
+function balanceMicroFromPlan(planId: BillingPlanId): number {
+    return getMonthlyCredits(planId) * MICRO_PER_CREDIT;
+}
+
+function isDuplicateKeyError(err: unknown): boolean {
+    return (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code: number }).code === 11000
+    );
+}
+
+/**
+ * Ledger Snapshot helper (Architecture Contract 4 — hardened).
+ *
+ * Every CreditLedger entry must carry an IMMUTABLE snapshot of the catalog +
+ * plan state at the write time, including the included credit caps. Catalog
+ * can drift (price/credits/features changes); the audit trail must answer
+ * "what plan and what allowance was active when this happened?" forever —
+ * even if Professional later moves from 300 → 500 voice minutes.
+ */
+function buildPlanSnapshot(state: IOrgPlanState | null): {
+    planId: BillingPlanId | null;
+    cycle: BillingCycle | null;
+    subscriptionStatus: SubscriptionStatus | null;
+    monthlyCredits: number | null;
+} {
+    if (!state) {
+        return { planId: null, cycle: null, subscriptionStatus: null, monthlyCredits: null };
+    }
+    return {
+        planId: state.planId,
+        cycle: state.billingCycle,
+        subscriptionStatus: state.subscriptionStatus,
+        monthlyCredits: getMonthlyCredits(state.planId),
+    };
+}
+
+function mergeLedgerMetadata(
+    base: Record<string, unknown> | undefined,
+    state: IOrgPlanState | null,
+): Record<string, unknown> {
+    return {
+        ...(base ?? {}),
+        planSnapshot: buildPlanSnapshot(state),
+    };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// State / balance accessors
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function getOrgPlanState(
+    organizationId: string,
+): Promise<IOrgPlanState | null> {
+    return OrgPlanState.findOne({ organizationId }).exec();
+}
+
+export async function getCreditBalance(
+    organizationId: string,
+): Promise<ICreditBalance | null> {
+    return CreditBalance.findOne({ organizationId }).exec();
+}
+
+/**
+ * Phase 2b helper: reverse-lookup org by Stripe customer ID for webhook handlers.
+ * Returns null when the customer has not been linked yet — handler decides policy.
+ */
+export async function findOrgByStripeCustomerId(
+    stripeCustomerId: string,
+): Promise<IOrgPlanState | null> {
+    if (!stripeCustomerId) return null;
+    return OrgPlanState.findOne({ stripeCustomerId }).exec();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Manual seed (Phase 2a — kept for admin / dev tooling)
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function seedOrgBilling(
+    organizationId: string,
+    planId: BillingPlanId,
+): Promise<{ orgPlanState: IOrgPlanState; creditBalance: ICreditBalance }> {
+    const plan = getPlanById(planId);
+    if (!plan) {
+        throw new Error(`Unknown planId: ${planId}`);
+    }
+
+    const { start, end } = defaultPeriod();
+    const now = new Date();
+    const balanceMicro = balanceMicroFromPlan(planId);
+    const monthlyCredits = getMonthlyCredits(planId);
+    const includedVideoSeconds = getIncludedVideoSeconds(planId);
+
+    const orgPlanState = await OrgPlanState.findOneAndUpdate(
+        { organizationId },
+        {
+            $set: {
+                planId,
+                billingProvider: 'manual',
+                subscriptionStatus: 'active',
+                billingCycle: 'monthly',
+                currentPeriodStart: start,
+                currentPeriodEnd: end,
+                cancelAtPeriodEnd: false,
+                seats: seatCountForPlan(planId),
+            },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).exec();
+
+    const creditBalance = await CreditBalance.findOneAndUpdate(
+        { organizationId },
+        {
+            $set: {
+                balanceMicro,
+                monthlyCredits,
+                includedVideoSeconds,
+                // New billing period (seed/new org): reset consumed included minutes.
+                usedIncludedVideoSeconds: 0,
+                periodStart: start,
+                periodEnd: end,
+                refreshedFromPlanAt: now,
+            },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).exec();
+
+    const idempotencyKey = `seed:${organizationId}:${now.toISOString()}`;
+    try {
+        await CreditLedger.create({
+            organizationId,
+            amountMicro: balanceMicro,
+            balanceBeforeMicro: 0,
+            balanceAfterMicro: balanceMicro,
+            source: 'monthly_refresh',
+            idempotencyKey,
+            metadata: mergeLedgerMetadata({ seeded: true }, orgPlanState),
+        });
+    } catch (err) {
+        if (!isDuplicateKeyError(err)) throw err;
+    }
+
+    return { orgPlanState, creditBalance };
+}
+
+export async function refreshBalanceFromPlan(
+    organizationId: string,
+): Promise<ICreditBalance | null> {
+    const state = await getOrgPlanState(organizationId);
+    if (!state) return null;
+
+    const balanceMicro = balanceMicroFromPlan(state.planId);
+    const monthlyCredits = getMonthlyCredits(state.planId);
+    const includedVideoSeconds = getIncludedVideoSeconds(state.planId);
+    const { start, end } = defaultPeriod();
+    const now = new Date();
+
+    const before = await getCreditBalance(organizationId);
+    const balanceBeforeMicro = before?.balanceMicro ?? 0;
+
+    const creditBalance = await CreditBalance.findOneAndUpdate(
+        { organizationId },
+        {
+            $set: {
+                balanceMicro,
+                monthlyCredits,
+                // Snapshot the plan's included video allowance WITHOUT resetting
+                // usedIncludedVideoSeconds — this is a plan/manual refresh, not a
+                // new billing period. Only seed/Stripe-period events reset usage.
+                includedVideoSeconds,
+                periodStart: start,
+                periodEnd: end,
+                refreshedFromPlanAt: now,
+            },
+        },
+        { upsert: true, new: true },
+    ).exec();
+
+    const idempotencyKey = `refresh:${organizationId}:${now.getTime()}`;
+    try {
+        await CreditLedger.create({
+            organizationId,
+            amountMicro: balanceMicro - balanceBeforeMicro,
+            balanceBeforeMicro,
+            balanceAfterMicro: balanceMicro,
+            source: 'monthly_refresh',
+            idempotencyKey,
+            metadata: mergeLedgerMetadata({}, state),
+        });
+    } catch (err) {
+        if (!isDuplicateKeyError(err)) throw err;
+    }
+
+    return creditBalance;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Read-only gate (Phase 2a)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Pre-unified-credits Mongo rows stored per-bucket balances and never wrote balanceMicro.
+ * Detect those so ensurePeriodCreditsSeeded can backfill the unified pool once.
+ */
+async function creditBalanceNeedsUnifiedMigration(
+    organizationId: string,
+    balance: ICreditBalance | null,
+): Promise<boolean> {
+    if ((balance?.balanceMicro ?? 0) > 0) return false;
+
+    const raw = (await CreditBalance.collection.findOne(
+        { organizationId },
+        { projection: { balanceMicro: 1, balances: 1, monthlyCredits: 1 } },
+    )) as { balanceMicro?: number; balances?: Record<string, unknown>; monthlyCredits?: number } | null;
+
+    if (!raw) return false;
+    if (raw.balances != null && typeof raw.balances === 'object') return true;
+    return raw.balanceMicro == null && (raw.monthlyCredits ?? 0) > 0;
+}
+
+/**
+ * Seed monthly credits when Stripe subscription is active but this billing period
+ * was never credited (e.g. webhook missed after checkout or plan reconcile only).
+ * Also migrates legacy bucket-based balance docs to unified balanceMicro.
+ * Does NOT re-seed when the period was already credited and balance was consumed.
+ */
+export async function ensurePeriodCreditsSeeded(organizationId: string): Promise<boolean> {
+    const state = await getOrgPlanState(organizationId);
+    if (!state?.stripeSubscriptionId || state.billingProvider !== 'stripe') {
+        return false;
+    }
+    if (!isBillingActive(state.subscriptionStatus)) {
+        return false;
+    }
+
+    const balance = await getCreditBalance(organizationId);
+    if ((balance?.balanceMicro ?? 0) > 0) {
+        return false;
+    }
+
+    const periodStart = state.currentPeriodStart ?? new Date();
+    const periodEnd = state.currentPeriodEnd ?? new Date(Date.now() + 30 * 24 * 3600);
+    const subId = state.stripeSubscriptionId;
+    const periodMs = periodStart.getTime();
+
+    if (await creditBalanceNeedsUnifiedMigration(organizationId, balance)) {
+        await seedBalanceForStripe(
+            organizationId,
+            state.planId,
+            periodStart,
+            periodEnd,
+            { source: 'migrate', stripeSubscriptionId: subId, planId: state.planId },
+            state,
+        );
+        console.log(
+            `[billing] migrated legacy balance → unified org=${organizationId} plan=${state.planId} credits=${getMonthlyCredits(state.planId)}`,
+        );
+        return true;
+    }
+
+    const seedKeys = [
+        `stripe:reconcile-seed:${subId}:${periodMs}`,
+        `stripe:checkout:${subId}:${periodMs}`,
+        `stripe:plan-change:${subId}:${state.planId}:${periodMs}`,
+    ];
+
+    const existingSeed = await CreditLedger.findOne({
+        organizationId,
+        source: 'monthly_refresh',
+        idempotencyKey: { $in: seedKeys },
+    })
+        .lean()
+        .exec();
+
+    if (existingSeed) {
+        return false;
+    }
+
+    const invoiceSeed = await CreditLedger.findOne({
+        organizationId,
+        source: 'monthly_refresh',
+        idempotencyKey: { $regex: /^stripe:invoice:/ },
+        createdAt: { $gte: periodStart },
+    })
+        .lean()
+        .exec();
+
+    if (invoiceSeed) {
+        return false;
+    }
+
+    await seedBalanceForStripe(
+        organizationId,
+        state.planId,
+        periodStart,
+        periodEnd,
+        { source: 'reconcile', stripeSubscriptionId: subId },
+        state,
+    );
+
+    console.log(
+        `[billing] ensurePeriodCreditsSeeded org=${organizationId} plan=${state.planId} credits=${getMonthlyCredits(state.planId)}`,
+    );
+    return true;
+}
+
+export async function checkCredits(
+    organizationId: string,
+    usageType: UsageType,
+    units: number,
+): Promise<ConsumeCreditsResult> {
+    const state = await getOrgPlanState(organizationId);
+    if (!state) {
+        return {
+            ok: false,
+            code: 'ORG_NOT_FOUND',
+            message: 'Billing not configured for this organization',
+        };
+    }
+
+    if (!isBillingActive(state.subscriptionStatus)) {
+        return {
+            ok: false,
+            code: 'INACTIVE_SUBSCRIPTION',
+            message: 'Subscription is not active',
+        };
+    }
+
+    const feature = featureForUsageType(usageType);
+    if (!planHasFeature(state.planId, feature)) {
+        return {
+            ok: false,
+            code: 'FEATURE_DENIED',
+            message: `Feature not included in plan: ${feature}`,
+        };
+    }
+
+    const costMicro = creditCostMicro(usageType, units);
+
+    let balance = await getCreditBalance(organizationId);
+    let remainingMicro = balance?.balanceMicro ?? 0;
+
+    if (remainingMicro < costMicro && isBillingActive(state.subscriptionStatus)) {
+        await ensurePeriodCreditsSeeded(organizationId);
+        balance = await getCreditBalance(organizationId);
+        remainingMicro = balance?.balanceMicro ?? 0;
+    }
+
+    if (remainingMicro < costMicro) {
+        return {
+            ok: false,
+            code: 'INSUFFICIENT_CREDITS',
+            message: 'Insufficient credits',
+        };
+    }
+
+    return {
+        ok: true,
+        balanceAfterMicro: remainingMicro - costMicro,
+        ledgerEntryId: 'precheck',
+    };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Atomic consume (Phase 2a — unchanged metering semantics in 2b)
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function consumeCredits(
+    input: ConsumeCreditsInput,
+): Promise<ConsumeCreditsResult> {
+    const {
+        organizationId,
+        usageType,
+        units,
+        idempotencyKey,
+        source,
+        sourceId,
+        metadata,
+    } = input;
+
+    const existingLedger = await CreditLedger.findOne({
+        organizationId,
+        idempotencyKey,
+    }).exec();
+
+    if (existingLedger) {
+        return {
+            ok: true,
+            balanceAfterMicro: existingLedger.balanceAfterMicro,
+            ledgerEntryId: String(existingLedger._id),
+            duplicate: true,
+        };
+    }
+
+    const state = await getOrgPlanState(organizationId);
+    if (!state) {
+        return {
+            ok: false,
+            code: 'ORG_NOT_FOUND',
+            message: 'Billing not configured for this organization',
+        };
+    }
+
+    if (!isBillingActive(state.subscriptionStatus)) {
+        return {
+            ok: false,
+            code: 'INACTIVE_SUBSCRIPTION',
+            message: 'Subscription is not active',
+        };
+    }
+
+    const feature = featureForUsageType(usageType);
+    if (!planHasFeature(state.planId, feature)) {
+        return {
+            ok: false,
+            code: 'FEATURE_DENIED',
+            message: `Feature not included in plan: ${feature}`,
+        };
+    }
+
+    const costMicro = creditCostMicro(usageType, units);
+
+    // Zero-cost (e.g. a 0-second session) — record nothing, succeed.
+    if (costMicro <= 0) {
+        const balance = await getCreditBalance(organizationId);
+        return {
+            ok: true,
+            balanceAfterMicro: balance?.balanceMicro ?? 0,
+            ledgerEntryId: 'noop',
+        };
+    }
+
+    if (isBillingActive(state.subscriptionStatus)) {
+        const preBalance = await getCreditBalance(organizationId);
+        if ((preBalance?.balanceMicro ?? 0) < costMicro) {
+            await ensurePeriodCreditsSeeded(organizationId);
+        }
+    }
+
+    const currentBalance = await getCreditBalance(organizationId);
+    if (!currentBalance) {
+        return {
+            ok: false,
+            code: 'ORG_NOT_FOUND',
+            message: 'Credit balance not initialized for this organization',
+        };
+    }
+
+    const balanceBeforeMicro = currentBalance.balanceMicro;
+
+    if (balanceBeforeMicro < costMicro) {
+        return {
+            ok: false,
+            code: 'INSUFFICIENT_CREDITS',
+            message: 'Insufficient credits',
+        };
+    }
+
+    const updated = await CreditBalance.findOneAndUpdate(
+        {
+            organizationId,
+            balanceMicro: { $gte: costMicro },
+        },
+        {
+            $inc: { balanceMicro: -costMicro },
+        },
+        { new: true },
+    ).exec();
+
+    if (!updated) {
+        return {
+            ok: false,
+            code: 'INSUFFICIENT_CREDITS',
+            message: 'Insufficient credits',
+        };
+    }
+
+    const balanceAfterMicro = updated.balanceMicro;
+
+    try {
+        const ledger = await CreditLedger.create({
+            organizationId,
+            usageType,
+            amountMicro: -costMicro,
+            balanceBeforeMicro,
+            balanceAfterMicro,
+            units,
+            source,
+            sourceId,
+            idempotencyKey,
+            metadata: mergeLedgerMetadata(metadata, state),
+        });
+
+        return {
+            ok: true,
+            balanceAfterMicro,
+            ledgerEntryId: String(ledger._id),
+        };
+    } catch (err) {
+        await CreditBalance.updateOne(
+            { organizationId },
+            { $inc: { balanceMicro: costMicro } },
+        ).exec();
+
+        if (isDuplicateKeyError(err)) {
+            const dup = await CreditLedger.findOne({ organizationId, idempotencyKey }).exec();
+            if (dup) {
+                return {
+                    ok: true,
+                    balanceAfterMicro: dup.balanceAfterMicro,
+                    ledgerEntryId: String(dup._id),
+                    duplicate: true,
+                };
+            }
+        }
+
+        throw err;
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Manual adjustment (admin escape hatch)
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function adjustCredits(input: AdjustCreditsInput): Promise<{
+    balanceAfterMicro: number;
+    ledgerEntryId: string;
+    duplicate?: boolean;
+}> {
+    const { organizationId, amountMicro, idempotencyKey, metadata } = input;
+
+    const existingLedger = await CreditLedger.findOne({
+        organizationId,
+        idempotencyKey,
+    }).exec();
+
+    if (existingLedger) {
+        return {
+            balanceAfterMicro: existingLedger.balanceAfterMicro,
+            ledgerEntryId: String(existingLedger._id),
+            duplicate: true,
+        };
+    }
+
+    const balance = await getCreditBalance(organizationId);
+    if (!balance) {
+        throw new Error(`Credit balance not found for org: ${organizationId}`);
+    }
+
+    const state = await getOrgPlanState(organizationId);
+
+    const balanceBeforeMicro = balance.balanceMicro;
+
+    if (amountMicro < 0 && balanceBeforeMicro + amountMicro < 0) {
+        throw new Error('Adjustment would make credit balance negative');
+    }
+
+    const updated = await CreditBalance.findOneAndUpdate(
+        { organizationId },
+        { $inc: { balanceMicro: amountMicro } },
+        { new: true },
+    ).exec();
+
+    if (!updated) {
+        throw new Error(`Failed to adjust balance for org: ${organizationId}`);
+    }
+
+    const balanceAfterMicro = updated.balanceMicro;
+
+    try {
+        const ledger = await CreditLedger.create({
+            organizationId,
+            amountMicro,
+            balanceBeforeMicro,
+            balanceAfterMicro,
+            source: 'manual_adjustment',
+            idempotencyKey,
+            metadata: mergeLedgerMetadata(metadata, state),
+        });
+
+        return {
+            balanceAfterMicro,
+            ledgerEntryId: String(ledger._id),
+        };
+    } catch (err) {
+        await CreditBalance.updateOne(
+            { organizationId },
+            { $inc: { balanceMicro: -amountMicro } },
+        ).exec();
+
+        if (isDuplicateKeyError(err)) {
+            const dup = await CreditLedger.findOne({ organizationId, idempotencyKey }).exec();
+            if (dup) {
+                return {
+                    balanceAfterMicro: dup.balanceAfterMicro,
+                    ledgerEntryId: String(dup._id),
+                    duplicate: true,
+                };
+            }
+        }
+
+        throw err;
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Status payload for /api/billing/status
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function getBillingStatus(organizationId: string): Promise<{
+    organizationId: string;
+    planId: BillingPlanId | null;
+    subscriptionStatus: SubscriptionStatus | null;
+    billingCycle: string | null;
+    periodEnd: Date | null;
+    cancelAtPeriodEnd: boolean;
+    balanceMicro: number | null;
+    creditsRemaining: number | null;
+    monthlyCredits: number | null;
+    includedVideoSeconds: number | null;
+    usedIncludedVideoSeconds: number | null;
+    remainingIncludedVideoSeconds: number | null;
+    purchasedVideoSeconds: number | null;
+    usedPurchasedVideoSeconds: number | null;
+    remainingPurchasedVideoSeconds: number | null;
+    canBuyVideoPack: boolean;
+    videoPackMinutes: number;
+    videoPackPriceUsd: number | null;
+    configured: boolean;
+    lifecycleState: SubscriptionLifecycleState | null;
+    pendingCheckoutPlanId: BillingPlanId | null;
+}> {
+    try {
+        await reconcileOrgPlanWithStripe(organizationId);
+    } catch (err) {
+        console.warn('[billing/status] stripe reconcile skipped:', (err as Error).message);
+    }
+    try {
+        await ensurePeriodCreditsSeeded(organizationId);
+    } catch (err) {
+        console.warn('[billing/status] credit seed skipped:', (err as Error).message);
+    }
+
+    const [state, balance] = await Promise.all([
+        getOrgPlanState(organizationId),
+        getCreditBalance(organizationId),
+    ]);
+
+    if (!state) {
+        return {
+            organizationId,
+            planId: null,
+            subscriptionStatus: null,
+            billingCycle: null,
+            periodEnd: null,
+            cancelAtPeriodEnd: false,
+            balanceMicro: null,
+            creditsRemaining: null,
+            monthlyCredits: null,
+            includedVideoSeconds: null,
+            usedIncludedVideoSeconds: null,
+            remainingIncludedVideoSeconds: null,
+            purchasedVideoSeconds: null,
+            usedPurchasedVideoSeconds: null,
+            remainingPurchasedVideoSeconds: null,
+            canBuyVideoPack: false,
+            videoPackMinutes: getVideoPackMinutes(),
+            videoPackPriceUsd: null,
+            configured: false,
+            lifecycleState: null,
+            pendingCheckoutPlanId: null,
+        };
+    }
+
+    const balanceMicro = balance?.balanceMicro ?? 0;
+    const includedVideoSeconds =
+        balance?.includedVideoSeconds ?? getIncludedVideoSeconds(state.planId);
+    const usedIncludedVideoSeconds = balance?.usedIncludedVideoSeconds ?? 0;
+    const purchasedVideoSeconds = balance?.purchasedVideoSeconds ?? 0;
+    const usedPurchasedVideoSeconds = balance?.usedPurchasedVideoSeconds ?? 0;
+    const canBuyVideoPack = planAllowsVideo(state.planId);
+
+    return {
+        organizationId,
+        planId: state.planId,
+        subscriptionStatus: state.subscriptionStatus,
+        billingCycle: state.billingCycle,
+        periodEnd: balance?.periodEnd ?? state.currentPeriodEnd,
+        cancelAtPeriodEnd: Boolean(state.cancelAtPeriodEnd),
+        balanceMicro,
+        // Floor to whole credits for display (don't show partial credits as "available").
+        creditsRemaining: Math.floor(balanceMicro / MICRO_PER_CREDIT),
+        monthlyCredits: balance?.monthlyCredits ?? getMonthlyCredits(state.planId),
+        includedVideoSeconds,
+        usedIncludedVideoSeconds,
+        remainingIncludedVideoSeconds: Math.max(
+            0,
+            includedVideoSeconds - usedIncludedVideoSeconds,
+        ),
+        purchasedVideoSeconds,
+        usedPurchasedVideoSeconds,
+        remainingPurchasedVideoSeconds: Math.max(
+            0,
+            purchasedVideoSeconds - usedPurchasedVideoSeconds,
+        ),
+        canBuyVideoPack,
+        videoPackMinutes: getVideoPackMinutes(),
+        videoPackPriceUsd: canBuyVideoPack ? getVideoPackPriceUsd(state.planId) : null,
+        configured: true,
+        lifecycleState: resolveSubscriptionLifecycleState(state),
+        pendingCheckoutPlanId: state.pendingCheckoutPlanId ?? null,
+    };
+}
+
+/**
+ * Credit a one-time video-pack purchase: add purchased video seconds that PERSIST
+ * across billing periods. Idempotent via the unique (organizationId, idempotencyKey)
+ * ledger index — replaying the same Stripe event is a no-op.
+ *
+ * Video packs never touch the credit balance (amountMicro = 0); they only grow
+ * purchasedVideoSeconds. Returns whether the grant was newly applied.
+ */
+export async function applyVideoPackPurchase(
+    organizationId: string,
+    minutes: number,
+    idempotencyKey: string,
+    meta?: Record<string, unknown>,
+): Promise<{ applied: boolean; addedSeconds: number }> {
+    const addedSeconds = Math.max(0, Math.round(minutes)) * 60;
+    if (addedSeconds <= 0) return { applied: false, addedSeconds: 0 };
+
+    const balance = await getCreditBalance(organizationId);
+    const balanceMicro = balance?.balanceMicro ?? 0;
+
+    // Ledger-first: the unique index is the idempotency gate. If the row already
+    // exists (replayed webhook), skip the increment entirely.
+    try {
+        await CreditLedger.create({
+            organizationId,
+            amountMicro: 0,
+            balanceBeforeMicro: balanceMicro,
+            balanceAfterMicro: balanceMicro,
+            units: addedSeconds,
+            source: 'video_pack',
+            idempotencyKey,
+            metadata: { videoPackMinutes: minutes, addedSeconds, ...(meta ?? {}) },
+        });
+    } catch (err) {
+        if (isDuplicateKeyError(err)) {
+            return { applied: false, addedSeconds: 0 };
+        }
+        throw err;
+    }
+
+    await CreditBalance.updateOne(
+        { organizationId },
+        { $inc: { purchasedVideoSeconds: addedSeconds } },
+        { upsert: false },
+    ).exec();
+
+    return { applied: true, addedSeconds };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Phase 2b — Stripe state transitions (apply* functions)
+//
+// Architecture Contract 2: webhook handlers are translators.
+// Every Stripe-driven mutation lives in this section. Handlers parse + dispatch.
+// ────────────────────────────────────────────────────────────────────────────
+
+export interface ApplyCheckoutSessionInput {
+    organizationId: string;
+    planId: BillingPlanId;
+    cycle: BillingCycle;
+    stripeCustomerId: string;
+    stripeSubscriptionId: string;
+    currentPeriodStart?: Date;
+    currentPeriodEnd?: Date;
+    /** true when payment_status === 'paid' on the checkout session. */
+    activate: boolean;
+}
+
+/**
+ * Apply a completed Stripe checkout session to org_plan_state.
+ *
+ * Behavior:
+ *   - Always upserts plan identity (planId, cycle, stripe IDs).
+ *   - When `activate` is true (payment confirmed) → status='active' + seed balance.
+ *   - When `activate` is false → status='incomplete' (waits for invoice.paid).
+ */
+export async function applyCheckoutSession(
+    input: ApplyCheckoutSessionInput,
+): Promise<IOrgPlanState> {
+    const {
+        organizationId,
+        planId,
+        cycle,
+        stripeCustomerId,
+        stripeSubscriptionId,
+        currentPeriodStart,
+        currentPeriodEnd,
+        activate,
+    } = input;
+
+    const fallback = defaultPeriod();
+    const periodStart = currentPeriodStart ?? fallback.start;
+    const periodEnd = currentPeriodEnd ?? fallback.end;
+
+    const updated = await OrgPlanState.findOneAndUpdate(
+        { organizationId },
+        {
+            $set: {
+                planId,
+                billingProvider: 'stripe',
+                subscriptionStatus: activate ? 'active' : 'incomplete',
+                billingCycle: cycle,
+                currentPeriodStart: periodStart,
+                currentPeriodEnd: periodEnd,
+                cancelAtPeriodEnd: false,
+                seats: seatCountForPlan(planId),
+                stripeCustomerId,
+                stripeSubscriptionId,
+            },
+            $unset: {
+                pendingCheckoutSessionId: 1,
+                pendingCheckoutAt: 1,
+                pendingCheckoutPlanId: 1,
+                pendingCheckoutCycle: 1,
+            },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).exec();
+
+    if (activate) {
+        await seedBalanceForStripe(organizationId, planId, periodStart, periodEnd, {
+            source: 'checkout',
+            stripeSubscriptionId,
+        });
+    }
+
+    return updated;
+}
+
+/**
+ * Setup-mode Checkout completed — set default payment method on Stripe customer
+ * (and active subscription when present). No Mongo mirror; portal reads live from Stripe.
+ */
+export async function applySetupCheckoutCompleted(
+    session: import('stripe').Stripe.Checkout.Session,
+): Promise<void> {
+    const { finalizeSetupCheckoutSession } = await import('./stripeService.js');
+    await finalizeSetupCheckoutSession(session);
+}
+
+
+export interface ApplySubscriptionUpdateInput {
+    stripeSubscriptionId: string;
+    planId: BillingPlanId;
+    cycle: BillingCycle;
+    currentPeriodStart: Date;
+    currentPeriodEnd: Date;
+    cancelAtPeriodEnd: boolean;
+    subscriptionStatus: SubscriptionStatus;
+}
+
+/**
+ * Sync Mongo org_plan_state with the latest Stripe subscription snapshot.
+ * Triggered by `customer.subscription.updated` (plan switch, cancel-at-period-end toggle, status change).
+ *
+ * Provider ownership guard: only updates orgs whose billingProvider is already
+ * 'stripe'. Prevents accidental cross-provider mutation if Paddle / manual
+ * enterprise contracts are introduced later.
+ */
+export async function applySubscriptionUpdate(
+    input: ApplySubscriptionUpdateInput,
+): Promise<IOrgPlanState | null> {
+    const { stripeSubscriptionId, ...changes } = input;
+    const previous = await OrgPlanState.findOne({ stripeSubscriptionId, billingProvider: 'stripe' })
+        .lean()
+        .exec();
+
+    const updated = await OrgPlanState.findOneAndUpdate(
+        { stripeSubscriptionId, billingProvider: 'stripe' },
+        {
+            $set: {
+                planId: changes.planId,
+                billingCycle: changes.cycle,
+                currentPeriodStart: changes.currentPeriodStart,
+                currentPeriodEnd: changes.currentPeriodEnd,
+                cancelAtPeriodEnd: changes.cancelAtPeriodEnd,
+                subscriptionStatus: changes.subscriptionStatus,
+                seats: seatCountForPlan(changes.planId),
+            },
+        },
+        { new: true },
+    ).exec();
+
+    if (!updated) return null;
+
+    const planChanged = previous?.planId != null && previous.planId !== changes.planId;
+
+    if (planChanged && isBillingActive(changes.subscriptionStatus)) {
+        await seedBalanceForStripe(
+            updated.organizationId,
+            changes.planId,
+            changes.currentPeriodStart,
+            changes.currentPeriodEnd,
+            { source: 'plan_change', stripeSubscriptionId, planId: changes.planId },
+            updated,
+        );
+    } else {
+        await CreditBalance.updateOne(
+            { organizationId: updated.organizationId },
+            {
+                $set: {
+                    monthlyCredits: getMonthlyCredits(changes.planId),
+                    includedVideoSeconds: getIncludedVideoSeconds(changes.planId),
+                    periodStart: changes.currentPeriodStart,
+                    periodEnd: changes.currentPeriodEnd,
+                },
+            },
+        ).exec();
+    }
+
+    return updated;
+}
+
+function mapStripeSubscriptionStatus(status: string): SubscriptionStatus {
+    switch (status) {
+        case 'active':
+            return 'active';
+        case 'trialing':
+            return 'trialing';
+        case 'past_due':
+            return 'past_due';
+        case 'canceled':
+        case 'unpaid':
+            return 'canceled';
+        default:
+            return 'incomplete';
+    }
+}
+
+export type ReconcileOrgPlanResult = {
+    changed: boolean;
+    planId: BillingPlanId;
+    cycle: BillingCycle;
+};
+
+/**
+ * Mirror Stripe subscription identity onto org_plan_state when they drift.
+ * Stripe is authoritative for planId/cycle on stripe-owned orgs.
+ */
+export async function reconcileOrgPlanWithStripe(
+    organizationId: string,
+): Promise<ReconcileOrgPlanResult | null> {
+    const state = await getOrgPlanState(organizationId);
+    if (!state?.stripeSubscriptionId || state.billingProvider !== 'stripe') {
+        return null;
+    }
+
+    const { retrieveSubscription } = await import('./stripeService.js');
+    const { resolvePlanForStripePrice } = await import('../config/stripePrices.js');
+
+    const sub = await retrieveSubscription(state.stripeSubscriptionId);
+    if (!sub) return null;
+
+    const item = sub.items?.data?.[0];
+    const priceId =
+        typeof item?.price === 'string' ? item.price : item?.price?.id;
+    if (!priceId) return null;
+
+    const mapping = resolvePlanForStripePrice(priceId);
+    if (!mapping) return null;
+
+    const itemRaw = item as unknown as {
+        current_period_start?: number;
+        current_period_end?: number;
+    };
+    const subRaw = sub as unknown as {
+        current_period_start?: number;
+        current_period_end?: number;
+    };
+    const startSec =
+        itemRaw.current_period_start ?? subRaw.current_period_start ?? Math.floor(Date.now() / 1000);
+    const endSec =
+        itemRaw.current_period_end ??
+        subRaw.current_period_end ??
+        startSec + 30 * 24 * 3600;
+
+    const subscriptionStatus = mapStripeSubscriptionStatus(sub.status);
+    const periodStart = new Date(startSec * 1000);
+    const periodEnd = new Date(endSec * 1000);
+    const cancelAtPeriodEnd = Boolean(sub.cancel_at_period_end);
+
+    const identityUnchanged =
+        state.planId === mapping.planId &&
+        state.billingCycle === mapping.cycle &&
+        state.subscriptionStatus === subscriptionStatus &&
+        state.cancelAtPeriodEnd === cancelAtPeriodEnd;
+    const periodUnchanged =
+        periodDatesMatch(state.currentPeriodStart, periodStart) &&
+        periodDatesMatch(state.currentPeriodEnd, periodEnd);
+
+    if (identityUnchanged && periodUnchanged) {
+        return { changed: false, planId: mapping.planId, cycle: mapping.cycle };
+    }
+
+    await applySubscriptionUpdate({
+        stripeSubscriptionId: state.stripeSubscriptionId,
+        planId: mapping.planId,
+        cycle: mapping.cycle,
+        currentPeriodStart: periodStart,
+        currentPeriodEnd: periodEnd,
+        cancelAtPeriodEnd,
+        subscriptionStatus,
+    });
+
+    console.log(
+        `[billing] reconciled org=${organizationId} mongo=${state.planId}/${state.billingCycle} → stripe=${mapping.planId}/${mapping.cycle}`,
+    );
+
+    return { changed: true, planId: mapping.planId, cycle: mapping.cycle };
+}
+
+export interface ApplySubscriptionCanceledInput {
+    stripeSubscriptionId: string;
+}
+
+/**
+ * Hard cancel — Stripe `customer.subscription.deleted`.
+ * Sets status='canceled' and clears cancelAtPeriodEnd (already canceled).
+ * `consumeCredits` immediately rejects via isBillingActive().
+ *
+ * Provider ownership guard: only mutates rows already owned by stripe.
+ */
+export async function applySubscriptionCanceled(
+    input: ApplySubscriptionCanceledInput,
+): Promise<IOrgPlanState | null> {
+    return OrgPlanState.findOneAndUpdate(
+        { stripeSubscriptionId: input.stripeSubscriptionId, billingProvider: 'stripe' },
+        { $set: { subscriptionStatus: 'canceled', cancelAtPeriodEnd: false } },
+        { new: true },
+    ).exec();
+}
+
+export interface ApplyInvoicePaidInput {
+    stripeCustomerId: string;
+    currentPeriodStart?: Date;
+    currentPeriodEnd?: Date;
+    stripeInvoiceId?: string;
+}
+
+/**
+ * Recurring billing success — `invoice.paid`.
+ *
+ * Effects:
+ *   1. Set status='active' (covers past_due → active recovery).
+ *   2. Roll period dates forward.
+ *   3. Refresh balance to plan-included amounts + write ledger entry with planSnapshot.
+ *
+ * Race safety guard (out-of-order delivery):
+ *   Stripe retries can deliver invoice.paid events out of order — period N+1
+ *   may arrive before a delayed period N. If the incoming periodEnd is not
+ *   strictly after the stored periodEnd, treat as stale and no-op. This keeps
+ *   balance + ledger monotonic relative to subscription periods.
+ *
+ * Provider ownership guard: only mutates stripe-owned rows.
+ *
+ * Idempotency: ledger key = `stripe:invoice:<invoiceId>` when provided, otherwise
+ * derived from period start. Same invoice arriving twice (different event.id)
+ * collides on the unique compound index and is silently ignored.
+ */
+export async function applyInvoicePaid(
+    input: ApplyInvoicePaidInput,
+): Promise<IOrgPlanState | null> {
+    const state = await findOrgByStripeCustomerId(input.stripeCustomerId);
+    if (!state) return null;
+
+    const fallback = defaultPeriod();
+    const periodStart = input.currentPeriodStart ?? fallback.start;
+    const periodEnd = input.currentPeriodEnd ?? fallback.end;
+
+    if (
+        state.currentPeriodEnd &&
+        periodEnd.getTime() <= state.currentPeriodEnd.getTime()
+    ) {
+        console.log(
+            `[billing] invoice.paid skipped (out-of-order) — org=${state.organizationId} incomingPeriodEnd=${periodEnd.toISOString()} <= currentPeriodEnd=${state.currentPeriodEnd.toISOString()}`,
+        );
+        return state;
+    }
+
+    const next = await OrgPlanState.findOneAndUpdate(
+        { organizationId: state.organizationId, billingProvider: 'stripe' },
+        {
+            $set: {
+                subscriptionStatus: 'active',
+                currentPeriodStart: periodStart,
+                currentPeriodEnd: periodEnd,
+            },
+        },
+        { new: true },
+    ).exec();
+
+    if (!next) {
+        console.warn(
+            `[billing] invoice.paid skipped — org=${state.organizationId} is not stripe-owned (provider=${state.billingProvider}).`,
+        );
+        return state;
+    }
+
+    await seedBalanceForStripe(
+        state.organizationId,
+        next.planId,
+        periodStart,
+        periodEnd,
+        {
+            source: 'invoice_paid',
+            stripeInvoiceId: input.stripeInvoiceId,
+        },
+        next,
+    );
+
+    return next;
+}
+
+export interface ApplyPaymentFailedInput {
+    stripeCustomerId: string;
+    stripeInvoiceId?: string;
+}
+
+/**
+ * Payment failure — `invoice.payment_failed`. Status flips to past_due.
+ * `consumeCredits` then blocks via isBillingActive().
+ * Provider ownership guard: only flips stripe-owned rows.
+ */
+export async function applyPaymentFailed(
+    input: ApplyPaymentFailedInput,
+): Promise<IOrgPlanState | null> {
+    const updated = await OrgPlanState.findOneAndUpdate(
+        { stripeCustomerId: input.stripeCustomerId, billingProvider: 'stripe' },
+        { $set: { subscriptionStatus: 'past_due' } },
+        { new: true },
+    ).exec();
+    if (updated && input.stripeInvoiceId) {
+        console.warn(
+            `[billing] payment_failed org=${updated.organizationId} invoice=${input.stripeInvoiceId} → past_due`,
+        );
+    }
+    return updated;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Internal — seed/refresh balance + ledger for Stripe events
+// ────────────────────────────────────────────────────────────────────────────
+
+interface SeedBalanceContext {
+    source: 'checkout' | 'invoice_paid' | 'reconcile' | 'migrate' | 'plan_change';
+    stripeSubscriptionId?: string;
+    stripeInvoiceId?: string;
+    planId?: BillingPlanId;
+}
+
+async function seedBalanceForStripe(
+    organizationId: string,
+    planId: BillingPlanId,
+    periodStart: Date,
+    periodEnd: Date,
+    context: SeedBalanceContext,
+    stateOverride?: IOrgPlanState,
+): Promise<void> {
+    const balanceMicro = balanceMicroFromPlan(planId);
+    const monthlyCredits = getMonthlyCredits(planId);
+    const includedVideoSeconds = getIncludedVideoSeconds(planId);
+    const now = new Date();
+
+    const previous = await getCreditBalance(organizationId);
+    const balanceBeforeMicro = previous?.balanceMicro ?? 0;
+
+    await CreditBalance.findOneAndUpdate(
+        { organizationId },
+        {
+            $set: {
+                balanceMicro,
+                monthlyCredits,
+                includedVideoSeconds,
+                // checkout / invoice.paid mark a NEW billing period → reset usage.
+                usedIncludedVideoSeconds: 0,
+                periodStart,
+                periodEnd,
+                refreshedFromPlanAt: now,
+            },
+            $unset: { balances: 1 },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).exec();
+
+    const state = stateOverride ?? (await getOrgPlanState(organizationId));
+    const idempotencyKey =
+        context.source === 'migrate' && context.stripeSubscriptionId && context.planId
+            ? `stripe:migrate-unified:${context.stripeSubscriptionId}:${context.planId}`
+            : context.source === 'plan_change' && context.stripeSubscriptionId && context.planId
+              ? `stripe:plan-change:${context.stripeSubscriptionId}:${context.planId}:${periodStart.getTime()}`
+              : context.source === 'reconcile' && context.stripeSubscriptionId
+                ? `stripe:reconcile-seed:${context.stripeSubscriptionId}:${periodStart.getTime()}`
+                : context.stripeInvoiceId
+                  ? `stripe:invoice:${context.stripeInvoiceId}`
+                  : context.stripeSubscriptionId
+                    ? `stripe:checkout:${context.stripeSubscriptionId}:${periodStart.getTime()}`
+                    : `stripe:refresh:${organizationId}:${periodStart.getTime()}`;
+
+    try {
+        await CreditLedger.create({
+            organizationId,
+            amountMicro: balanceMicro - balanceBeforeMicro,
+            balanceBeforeMicro,
+            balanceAfterMicro: balanceMicro,
+            source: 'monthly_refresh',
+            sourceId: context.stripeInvoiceId || context.stripeSubscriptionId,
+            idempotencyKey,
+            metadata: mergeLedgerMetadata(
+                {
+                    stripeSource: context.source,
+                    stripeInvoiceId: context.stripeInvoiceId,
+                    stripeSubscriptionId: context.stripeSubscriptionId,
+                },
+                state,
+            ),
+        });
+    } catch (err) {
+        if (!isDuplicateKeyError(err)) throw err;
+    }
+}

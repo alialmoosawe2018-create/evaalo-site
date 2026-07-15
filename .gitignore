@@ -3,11 +3,26 @@ node_modules/
 .pnp
 .pnp.js
 
+# Runtime data — candidate uploads (PII) must never enter git
+uploads/
+
+# Python tooling caches (avatar agents)
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+# Embedded review clone (separate git repo, not part of this tree)
+evaalo-backend-prod-review/
+
+# Root-level scratch artifacts from n8n/migration sessions
+.tmp-*
+
 # Testing
 coverage/
 *.log
 
-# Production builds
+# Production
 dist/
 build/
 *.local
@@ -18,8 +33,6 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
-*.env
-sendgrid.env
 
 # IDE
 .vscode/
@@ -36,7 +49,6 @@ desktop.ini
 # Logs
 logs/
 *.log
-server.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -48,12 +60,11 @@ tmp/
 temp/
 *.tmp
 
-# Uploads (keep folder structure but ignore content)
-apps/backend/uploads/*
-!apps/backend/uploads/.gitkeep
-
-# Package manager locks
+# Package manager locks (optional - uncomment if needed)
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
 
+
+# Deploy scratch (embedded clone)
+.deploy-tmp/

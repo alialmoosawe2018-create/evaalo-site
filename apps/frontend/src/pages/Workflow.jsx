@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useDesign } from '../contexts/DesignContext';
 import '../design-styles.css';
 
 const Workflow = () => {
-    const navigate = useNavigate();
-    const { questions, deleteQuestion } = useDesign();
+    const { questions } = useDesign();
     const [saved, setSaved] = useState(false);
     const [nodes, setNodes] = useState([]);
     const [draggedNode, setDraggedNode] = useState(null);
@@ -21,10 +20,6 @@ const Workflow = () => {
     const [isSelectMode, setIsSelectMode] = useState(true);
     const [history, setHistory] = useState([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
-    const [editingNodeId, setEditingNodeId] = useState(null);
-    const [showBranchModal, setShowBranchModal] = useState(false);
-    const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
-    const [sourceNodeForAdd, setSourceNodeForAdd] = useState(null);
     const canvasRef = useRef(null);
     const canvasContentRef = useRef(null);
     const animationFrameRef = useRef(null);
@@ -81,8 +76,7 @@ const Workflow = () => {
                     type: question.type || 'short-text',
                     x: 100 + (questions.indexOf(question) % 3) * 300,
                     y: 100 + Math.floor(questions.indexOf(question) / 3) * 200,
-                    connections: [],
-                    branches: [] // Array of { answer: string, nextQuestionId: number }
+                    connections: []
                 }));
 
                 const updatedNodes = [...filteredNodes, ...newNodes];
@@ -229,61 +223,11 @@ const Workflow = () => {
         setPanOffset({ x: 0, y: 0 });
     };
 
-    // Fit to view - adjust zoom and pan to show all nodes
-    const fitToView = () => {
-        if (nodes.length === 0 || !canvasRef.current) {
-            return;
-        }
-
-        const canvasRect = canvasRef.current.getBoundingClientRect();
-        const padding = 100; // Padding around nodes
-        
-        // Calculate bounding box of all nodes
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        
-        nodes.forEach(node => {
-            const nodeWidth = 200; // Node width
-            const nodeHeight = 120; // Node height
-            minX = Math.min(minX, node.x);
-            minY = Math.min(minY, node.y);
-            maxX = Math.max(maxX, node.x + nodeWidth);
-            maxY = Math.max(maxY, node.y + nodeHeight);
-        });
-
-        // Add padding
-        minX -= padding;
-        minY -= padding;
-        maxX += padding;
-        maxY += padding;
-
-        const contentWidth = maxX - minX;
-        const contentHeight = maxY - minY;
-
-        // Calculate zoom to fit content
-        const zoomX = (canvasRect.width - 40) / contentWidth;
-        const zoomY = (canvasRect.height - 40) / contentHeight;
-        const newZoom = Math.max(0.3, Math.min(zoomX, zoomY, 2)); // Min zoom 0.3, Max zoom 2
-
-        // Calculate pan offset to center content
-        const scaledWidth = contentWidth * newZoom;
-        const scaledHeight = contentHeight * newZoom;
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        
-        const newPanX = canvasRect.width / 2 - centerX * newZoom;
-        const newPanY = canvasRect.height / 2 - centerY * newZoom;
-
-        setZoom(newZoom);
-        setPanOffset({ x: newPanX, y: newPanY });
-    };
-
     // Select mode toggle
     const handleSelectModeToggle = () => {
         setIsSelectMode(true);
         setSelectedNodes(new Set());
         setIsPanning(false);
-        // Fit to view when clicking select tool
-        fitToView();
     };
 
     // Pan mode toggle
@@ -295,11 +239,6 @@ const Workflow = () => {
 
     // Toggle node selection
     const handleNodeClick = (nodeId, e) => {
-        // Don't select if we just finished dragging
-        if (isDraggingNode.current) {
-            return;
-        }
-        
         if (isSelectMode && !draggedNode) {
             e.stopPropagation();
             setSelectedNodes(prev => {
@@ -316,41 +255,6 @@ const Workflow = () => {
                 return newSet;
             });
         }
-    };
-
-    // Handle double click to open branch editor
-    const handleNodeDoubleClick = (nodeId, e) => {
-        e.stopPropagation();
-        setEditingNodeId(nodeId);
-        setShowBranchModal(true);
-    };
-
-    // Save branches for a node
-    const handleSaveBranches = (nodeId, branches) => {
-        setNodes(prevNodes => {
-            const updated = prevNodes.map(node => {
-                if (node.id === nodeId) {
-                    // Update branches
-                    const updatedBranches = branches || [];
-                    
-                    // Update connections based on branches
-                    const newConnections = updatedBranches
-                        .map(branch => branch.nextQuestionId)
-                        .filter(id => id !== null && id !== undefined);
-                    
-                    return {
-                        ...node,
-                        branches: updatedBranches,
-                        connections: newConnections
-                    };
-                }
-                return node;
-            });
-            setTimeout(() => saveToHistory(updated), 100);
-            return updated;
-        });
-        setShowBranchModal(false);
-        setEditingNodeId(null);
     };
 
     // Horizontal Align - align selected nodes horizontally
@@ -408,10 +312,6 @@ const Workflow = () => {
         console.log(`Aligned ${nodesToAlign.length} nodes vertically at X: ${centerX}`);
     };
 
-    const handleBackToDesigner = () => {
-        navigate('/design');
-    };
-
     const handleResetLayout = () => {
         if (window.confirm('Are you sure you want to reset the layout? This will clear all workflow connections.')) {
             setNodes([]);
@@ -426,64 +326,57 @@ const Workflow = () => {
     };
 
     const nodeDragOffset = useRef({ x: 0, y: 0 });
-    const isDraggingNode = useRef(false);
+    const lastUpdateTime = useRef(0);
 
-    // Mouse-based drag handlers (instead of HTML5 drag and drop to avoid ghost image)
-    const handleNodeMouseDown = (nodeId, e) => {
-        // Only start dragging on left mouse button
-        if (e.button !== 0) return;
-        
-        // Don't drag if clicking on buttons or interactive elements
-        if (e.target.closest('button') || e.target.closest('input') || e.target.closest('textarea')) {
-            return;
-        }
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
+    const handleNodeDragStart = (nodeId, e) => {
         setDraggedNode(nodeId);
-        isDraggingNode.current = true;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', '');
         
-        // Store initial mouse position relative to node (accounting for pan and zoom)
+        // Store initial mouse position relative to node
         if (canvasRef.current) {
-            const canvasRect = canvasRef.current.getBoundingClientRect();
+            const rect = canvasRef.current.getBoundingClientRect();
             const node = nodes.find(n => n.id === nodeId);
             if (node) {
-                // Calculate the actual position on screen considering pan and zoom
-                const nodeScreenX = (node.x * zoom) + panOffset.x;
-                const nodeScreenY = (node.y * zoom) + panOffset.y;
-                
-                // Calculate offset from mouse to node top-left corner
+                const scrollLeft = canvasRef.current.scrollLeft || 0;
+                const scrollTop = canvasRef.current.scrollTop || 0;
                 nodeDragOffset.current = {
-                    x: (e.clientX - canvasRect.left - nodeScreenX) / zoom,
-                    y: (e.clientY - canvasRect.top - nodeScreenY) / zoom
+                    x: e.clientX - rect.left + scrollLeft - node.x,
+                    y: e.clientY - rect.top + scrollTop - node.y
                 };
             }
         }
+        
+        // Cancel any pending animation frame
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+        }
     };
 
-    // Global mouse move handler for node dragging
-    useEffect(() => {
-        if (draggedNode && isDraggingNode.current) {
-            const handleGlobalMouseMove = (e) => {
-                if (!canvasRef.current) return;
-                
+    const handleNodeDrag = (e, nodeId) => {
+        if (draggedNode === nodeId && canvasRef.current && e.clientX && e.clientY) {
+            const now = performance.now();
+            
+            // Throttle updates to ~60fps
+            if (now - lastUpdateTime.current < 16) {
+                return;
+            }
+            lastUpdateTime.current = now;
+            
+            // Cancel previous animation frame
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+            
+            // Use requestAnimationFrame for smooth updates
+            animationFrameRef.current = requestAnimationFrame(() => {
                 const rect = canvasRef.current.getBoundingClientRect();
-                // Calculate position accounting for pan and zoom
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
-                
-                // Convert screen coordinates to canvas coordinates
-                const canvasX = (mouseX - panOffset.x) / zoom;
-                const canvasY = (mouseY - panOffset.y) / zoom;
-                
-                // Apply the drag offset
-                const x = canvasX - nodeDragOffset.current.x;
-                const y = canvasY - nodeDragOffset.current.y;
+                const x = (e.clientX - rect.left - panOffset.x) / zoom - nodeDragOffset.current.x;
+                const y = (e.clientY - rect.top - panOffset.y) / zoom - nodeDragOffset.current.y;
                 
                 setNodes(prevNodes => 
                     prevNodes.map(node => 
-                        node.id === draggedNode 
+                        node.id === nodeId 
                             ? { 
                                 ...node, 
                                 x: Math.max(20, x), 
@@ -492,23 +385,21 @@ const Workflow = () => {
                             : node
                     )
                 );
-            };
-
-            const handleGlobalMouseUp = () => {
-                setDraggedNode(null);
-                isDraggingNode.current = false;
-                nodeDragOffset.current = { x: 0, y: 0 };
-            };
-
-            window.addEventListener('mousemove', handleGlobalMouseMove);
-            window.addEventListener('mouseup', handleGlobalMouseUp);
-            
-            return () => {
-                window.removeEventListener('mousemove', handleGlobalMouseMove);
-                window.removeEventListener('mouseup', handleGlobalMouseUp);
-            };
+            });
         }
-    }, [draggedNode, panOffset, zoom, nodes]);
+    };
+
+    const handleNodeDragEnd = () => {
+        // Cancel any pending animation frame
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+        }
+        
+        setDraggedNode(null);
+        nodeDragOffset.current = { x: 0, y: 0 };
+        lastUpdateTime.current = 0;
+    };
 
     const handleAddNodeToCanvas = (question, x, y) => {
         const newNode = {
@@ -518,88 +409,13 @@ const Workflow = () => {
             type: question.type || 'short-text',
             x: x || 200 + Math.random() * 200,
             y: y || 200 + Math.random() * 200,
-            connections: [],
-            branches: [] // Array of { answer: string, nextQuestionId: number }
+            connections: []
         };
         setNodes(prev => {
             const updated = [...prev, newNode];
             setTimeout(() => saveToHistory(updated), 100);
             return updated;
         });
-    };
-
-    // Handle adding question to canvas via button click
-    const handleAddQuestionToCanvas = (question, e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const questionId = question.id || questions.indexOf(question);
-        const exists = nodes.some(n => n.questionId === questionId);
-        
-        if (!exists) {
-            // Add to center of visible canvas area
-            const centerX = 300 + Math.random() * 200;
-            const centerY = 200 + Math.random() * 200;
-            handleAddNodeToCanvas(question, centerX, centerY);
-        }
-    };
-
-    // Handle deleting question from sidebar
-    const handleDeleteQuestion = (question, e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const questionIndex = questions.findIndex((q, idx) => {
-            const qId = q.id || idx;
-            const questionId = question.id || questions.indexOf(question);
-            return qId === questionId;
-        });
-        
-        if (questionIndex >= 0) {
-            // Also remove node from canvas if it exists
-            const questionId = question.id || questionIndex;
-            setNodes(prevNodes => prevNodes.filter(n => n.questionId !== questionId));
-            deleteQuestion(questionIndex);
-        }
-    };
-
-    // Handle deleting node from canvas
-    const handleDeleteNode = (nodeId, e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (window.confirm('هل أنت متأكد من حذف هذا السؤال من الخريطة؟')) {
-            setNodes(prevNodes => prevNodes.filter(n => n.id !== nodeId));
-        }
-    };
-
-    // Handle adding new question from node
-    const handleAddQuestionFromNode = (sourceNodeId, e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setSourceNodeForAdd(sourceNodeId);
-        setShowAddQuestionModal(true);
-    };
-
-    // Handle selecting question to add from modal
-    const handleSelectQuestionToAdd = (question) => {
-        if (!sourceNodeForAdd) return;
-        
-        const sourceNode = nodes.find(n => n.id === sourceNodeForAdd);
-        if (sourceNode) {
-            const questionId = question.id || questions.indexOf(question);
-            const exists = nodes.some(n => n.questionId === questionId);
-            
-            if (!exists) {
-                const newX = sourceNode.x;
-                const newY = sourceNode.y + 200; // Below the source node
-                
-                handleAddNodeToCanvas(question, newX, newY);
-            }
-        }
-        
-        setShowAddQuestionModal(false);
-        setSourceNodeForAdd(null);
     };
 
     const handleQuestionDragStart = (question, e) => {
@@ -777,46 +593,44 @@ const Workflow = () => {
     };
 
     return (
-        <div className="workflow-builder">
-            {/* Header is handled by Navigation component */}
-            
-            {/* Main Content */}
-            <div className="workflow-content">
-                {/* Main Container */}
-                <div className="workflow-main-container">
-                    {/* Title Section */}
-                    <div className="workflow-header-container">
-                    <div className="workflow-header-section">
-                        <div className="workflow-title-wrapper">
-                            <h1 className="workflow-title">Workflow Builder</h1>
-                            <p className="workflow-subtitle">Design question flow based on answers (Typeform-style)</p>
-                        </div>
-                        
-                        {/* Action Buttons */}
-                        <div className="workflow-actions">
-                            <button 
-                                className="workflow-btn workflow-btn-secondary"
-                                onClick={handleBackToDesigner}
-                            >
-                                Back to Designer
-                            </button>
-                            <button 
-                                className="workflow-btn workflow-btn-secondary"
-                                onClick={handleResetLayout}
-                            >
-                                Reset Layout
-                            </button>
-                            <button 
-                                className="workflow-btn workflow-btn-primary"
-                                onClick={handleSave}
-                            >
-                                {saved ? 'Saved!' : 'Save'}
-                            </button>
-                            </div>
-                        </div>
-                    </div>
+        <div className="design-page workflow-page">
+            <div className="design-background" aria-hidden="true">
+                <div className="gradient-orb design-orb-1"></div>
+                <div className="gradient-orb design-orb-2"></div>
+                <div className="gradient-orb design-orb-3"></div>
+            </div>
 
-                    {/* Main Builder Area */}
+            <div className="design-container">
+                <div className="design-header">
+                    <div className="header-content">
+                        <h1 className="design-title">Workflow Builder</h1>
+                        <p className="design-subtitle">Design question flow based on answers (Typeform-style)</p>
+                    </div>
+                    <div className="header-actions">
+                        <button type="button" className="btn btn-secondary" onClick={handleResetLayout}>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                <path
+                                    d="M4.16667 9.16667C4.16667 6.40525 6.40525 4.16667 9.16667 4.16667C11.9281 4.16667 14.1667 6.40525 14.1667 9.16667C14.1667 11.9281 11.9281 14.1667 9.16667 14.1667C7.23858 14.1667 5.59538 12.9281 4.92805 11.25"
+                                    stroke="currentColor"
+                                    strokeWidth="1.75"
+                                    strokeLinecap="round"
+                                />
+                                <path d="M4.16667 4.16667V9.16667H9.16667" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <span className="btn-text">Reset Layout</span>
+                        </button>
+                        <button type="button" className="btn btn-primary" onClick={handleSave}>
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                <path d="M15.8333 17.5H4.16667C3.25 17.5 2.5 16.75 2.5 15.8333V4.16667C2.5 3.25 3.25 2.5 4.16667 2.5H13.3333L17.5 6.66667V15.8333C17.5 16.75 16.75 17.5 15.8333 17.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M13.3333 17.5V11.6667H6.66667V17.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M6.66667 2.5V6.66667H12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <span className="btn-text">{saved ? 'Saved!' : 'Save'}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="workflow-main-container">
                     <div className="workflow-builder-container">
                     {/* Left Sidebar */}
                     <div className="workflow-sidebar">
@@ -869,12 +683,18 @@ const Workflow = () => {
                         <div className="workflow-canvas-toolbar">
                             <button 
                                 className={`workflow-toolbar-btn ${isSelectMode ? 'active' : ''}`} 
-                                title="Select Tool - Fit to View (Click to see all questions)"
+                                title="Select Tool (Click nodes to select)"
                                 onClick={handleSelectModeToggle}
                             >
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M10 2L12.5 7L17.5 8.75L14.5 12.5L15.5 17.5L10 15L4.5 17.5L5.5 12.5L2.5 8.75L7.5 7L10 2Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
                                     <circle cx="10" cy="10" r="1.5" fill="currentColor"/>
+                                </svg>
+                            </button>
+                            <button className="workflow-toolbar-btn" title="Lock Nodes (Coming Soon)">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <rect x="4" y="8" width="12" height="8" rx="1" stroke="currentColor" strokeWidth="1.5" opacity="0.5"/>
+                                    <path d="M6 8V5C6 3.34315 7.34315 2 9 2H11C12.6569 2 14 3.34315 14 5V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
                                 </svg>
                             </button>
                             <button 
@@ -985,114 +805,58 @@ const Workflow = () => {
                             ) : (
                                 <div>
                                 {/* SVG for connections */}
-                                <svg className="workflow-connections" style={{ position: 'absolute', top: 0, left: 0, width: '2000px', height: '2000px', pointerEvents: 'none', zIndex: 1, overflow: 'visible' }}>
-                                    {/* Draw connections based on node.connections array */}
-                                    {nodes.map((node) => {
-                                        if (node.connections && node.connections.length > 0) {
-                                            return node.connections.map((connectedQuestionId) => {
-                                                const connectedNode = nodes.find(n => n.questionId === connectedQuestionId);
-                                                if (connectedNode) {
-                                                    // Calculate connection points
-                                                    // From: bottom center of source node (where the handle is)
-                                                    const x1 = node.x + 100; // Center of source node (width is 200px)
-                                                    const y1 = node.y + 120; // Bottom of source node (height is 120px)
-                                                    
-                                                    // To: top center of target node
-                                                    const x2 = connectedNode.x + 100; // Center of target node
-                                                    const y2 = connectedNode.y; // Top of target node
-                                                    
-                                                    // Create smooth curved path using bezier curve
-                                                    // Calculate control points for smooth curve
-                                                    const dx = Math.abs(x2 - x1);
-                                                    const dy = Math.abs(y2 - y1);
-                                                    const curveOffset = Math.min(dx, dy) * 0.5;
-                                                    
-                                                    // Control points for smooth bezier curve
-                                                    const cp1x = x1;
-                                                    const cp1y = y1 + curveOffset;
-                                                    const cp2x = x2;
-                                                    const cp2y = y2 - curveOffset;
-                                                    
-                                                    // Create smooth bezier curve path
-                                                    const pathData = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
-                                                    
-                                                    return (
-                                                        <path
-                                                            key={`connection-${node.id}-${connectedNode.id}`}
-                                                            d={pathData}
-                                                            stroke="rgba(56, 189, 248, 0.6)"
-                                                            strokeWidth="3"
-                                                            strokeLinecap="round"
-                                                            fill="none"
-                                                        />
-                                                    );
-                                                }
-                                                return null;
-                                            }).filter(Boolean);
+                                <svg className="workflow-connections" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+                                    {nodes.map((node, index) => {
+                                        if (index < nodes.length - 1) {
+                                            const nextNode = nodes[index + 1];
+                                            return (
+                                                <line
+                                                    key={`connection-${node.id}-${nextNode.id}`}
+                                                    x1={node.x + 100}
+                                                    y1={node.y + 40}
+                                                    x2={nextNode.x + 100}
+                                                    y2={nextNode.y + 40}
+                                                    stroke="rgba(56, 189, 248, 0.4)"
+                                                    strokeWidth="2"
+                                                    strokeDasharray="5,5"
+                                                    markerEnd="url(#arrowhead)"
+                                                />
+                                            );
                                         }
                                         return null;
-                                    }).flat()}
-                                    
-                                    {/* Draw default connections between sequential nodes if no custom connections exist */}
-                                    {nodes.length > 1 && nodes.every(n => !n.connections || n.connections.length === 0) && (
-                                        nodes.map((node, index) => {
-                                            if (index < nodes.length - 1) {
-                                                const nextNode = nodes[index + 1];
-                                                const x1 = node.x + 100;
-                                                const y1 = node.y + 120;
-                                                const x2 = nextNode.x + 100;
-                                                const y2 = nextNode.y;
-                                                
-                                                // Create smooth curved path using bezier curve
-                                                const dx = Math.abs(x2 - x1);
-                                                const dy = Math.abs(y2 - y1);
-                                                const curveOffset = Math.min(dx, dy) * 0.5;
-                                                
-                                                const cp1x = x1;
-                                                const cp1y = y1 + curveOffset;
-                                                const cp2x = x2;
-                                                const cp2y = y2 - curveOffset;
-                                                
-                                                const pathData = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
-                                                
-                                                return (
-                                                    <path
-                                                        key={`default-connection-${node.id}-${nextNode.id}`}
-                                                        d={pathData}
-                                                        stroke="rgba(56, 189, 248, 0.4)"
-                                                        strokeWidth="2"
-                                                        strokeDasharray="5,5"
-                                                        strokeLinecap="round"
-                                                        fill="none"
-                                                    />
-                                                );
-                                            }
-                                            return null;
-                                        })
-                                    )}
+                                    })}
+                                    <defs>
+                                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                            <polygon points="0 0, 10 3, 0 6" fill="rgba(56, 189, 248, 0.6)" />
+                                        </marker>
+                                    </defs>
                                 </svg>
                                 
                                 {/* Workflow Nodes */}
                                 {nodes.map((node) => (
                                     <div
                                         key={node.id}
-                                        className={`workflow-node ${dragOverNode?.id === node.id ? 'drag-over' : ''} ${selectedNodes.has(node.id) ? 'selected' : ''} ${draggedNode === node.id ? 'dragging' : ''}`}
+                                        className={`workflow-node ${dragOverNode?.id === node.id ? 'drag-over' : ''} ${selectedNodes.has(node.id) ? 'selected' : ''}`}
                                         style={{
                                             position: 'absolute',
                                             left: `${node.x}px`,
                                             top: `${node.y}px`,
-                                            zIndex: draggedNode === node.id ? 10 : (selectedNodes.has(node.id) ? 3 : 2)
+                                            zIndex: selectedNodes.has(node.id) ? 3 : 2
                                         }}
-                                        onMouseDown={(e) => handleNodeMouseDown(node.id, e)}
-                                        onClick={(e) => {
-                                            // Only handle click if not dragging
-                                            if (!isDraggingNode.current) {
-                                                handleNodeClick(node.id, e);
+                                        draggable
+                                        onClick={(e) => handleNodeClick(node.id, e)}
+                                        onDragStart={(e) => {
+                                            e.stopPropagation();
+                                            handleNodeDragStart(node.id, e);
+                                        }}
+                                        onDrag={(e) => {
+                                            if (e.clientX && e.clientY) {
+                                                handleNodeDrag(e, node.id);
                                             }
                                         }}
-                                        onDoubleClick={(e) => {
+                                        onDragEnd={(e) => {
                                             e.stopPropagation();
-                                            handleNodeDoubleClick(node.id, e);
+                                            handleNodeDragEnd();
                                         }}
                                         onDragOver={(e) => {
                                             if (draggedQuestion && !draggedNode) {
@@ -1108,45 +872,17 @@ const Workflow = () => {
                                         }}
                                         onDrop={(e) => handleNodeDrop(node.id, e)}
                                     >
-                                        {/* Delete button at top */}
-                                        <button
-                                            className="workflow-node-delete-btn"
-                                            onClick={(e) => handleDeleteNode(node.id, e)}
-                                            title="حذف السؤال"
-                                        >
-                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                            </svg>
-                                        </button>
-                                        
                                         <div className="workflow-node-header">
-                                            <span className="workflow-node-type">
-                                                {(() => {
-                                                    // Find the question index based on questionId
-                                                    const questionIndex = questions.findIndex((q, idx) => {
-                                                        const qId = q.id || idx;
-                                                        return qId === node.questionId;
-                                                    });
-                                                    // If found, use it + 1, otherwise use node index + 1
-                                                    return `Q${questionIndex >= 0 ? questionIndex + 1 : nodes.findIndex(n => n.id === node.id) + 1}`;
-                                                })()}
-                                            </span>
+                                            <div className="workflow-node-icon">
+                                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M10 2L12.5 7L17.5 8.75L14.5 12.5L15.5 17.5L10 15L4.5 17.5L5.5 12.5L2.5 8.75L7.5 7L10 2Z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+                                                </svg>
+                                            </div>
+                                            <span className="workflow-node-type">{node.type}</span>
                                         </div>
                                         <div className="workflow-node-content">
                                             <p className="workflow-node-text">{node.text}</p>
                                         </div>
-                                        
-                                        {/* Add question button at bottom */}
-                                        <button
-                                            className="workflow-node-add-btn"
-                                            onClick={(e) => handleAddQuestionFromNode(node.id, e)}
-                                            title="إضافة سؤال جديد"
-                                        >
-                                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M10 3V17M3 10H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                            </svg>
-                                        </button>
-                                        
                                         <div className="workflow-node-handle"></div>
                                     </div>
                                 ))}
@@ -1157,224 +893,9 @@ const Workflow = () => {
                     </div>
                 </div>
             </div>
-
-            {/* Add Question Modal */}
-            {showAddQuestionModal && (
-                <div 
-                    className="workflow-branch-modal-overlay"
-                    onClick={() => {
-                        setShowAddQuestionModal(false);
-                        setSourceNodeForAdd(null);
-                    }}
-                >
-                    <div 
-                        className="workflow-branch-modal"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="workflow-branch-modal-header">
-                            <h2>اختر السؤال للإضافة</h2>
-                            <button
-                                className="workflow-branch-modal-close"
-                                onClick={() => {
-                                    setShowAddQuestionModal(false);
-                                    setSourceNodeForAdd(null);
-                                }}
-                            >
-                                ×
-                            </button>
-                        </div>
-                        
-                        <div className="workflow-add-question-list" style={{ padding: '24px', maxHeight: '400px', overflowY: 'auto' }}>
-                            {questions.length === 0 ? (
-                                <p style={{ color: 'rgba(255, 255, 255, 0.5)', textAlign: 'center' }}>
-                                    لا توجد أسئلة متاحة. اذهب إلى Design لإضافة أسئلة.
-                                </p>
-                            ) : (
-                                questions.map((question, index) => {
-                                    const questionId = question.id || index;
-                                    const isOnCanvas = nodes.some(n => n.questionId === questionId);
-                                    
-                                    return (
-                                        <div
-                                            key={questionId}
-                                            className={`workflow-add-question-item ${isOnCanvas ? 'disabled' : ''}`}
-                                            onClick={() => !isOnCanvas && handleSelectQuestionToAdd(question)}
-                                            style={{
-                                                padding: '12px',
-                                                marginBottom: '8px',
-                                                background: isOnCanvas ? 'rgba(255, 255, 255, 0.05)' : 'rgba(15, 23, 42, 0.6)',
-                                                border: `1px solid ${isOnCanvas ? 'rgba(255, 255, 255, 0.1)' : 'rgba(56, 189, 248, 0.3)'}`,
-                                                borderRadius: '8px',
-                                                cursor: isOnCanvas ? 'not-allowed' : 'pointer',
-                                                opacity: isOnCanvas ? 0.5 : 1,
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                        >
-                                            <span style={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: 600 }}>
-                                                {index + 1}. {question.text || question.question || 'Untitled Question'}
-                                            </span>
-                                            {isOnCanvas && (
-                                                <span style={{ color: 'rgba(16, 185, 129, 0.8)', marginLeft: '8px', fontSize: '12px' }}>
-                                                    (موجود في الخريطة)
-                                                </span>
-                                            )}
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Branch Editor Modal */}
-            {showBranchModal && editingNodeId && (() => {
-                const editingNode = nodes.find(n => n.id === editingNodeId);
-                if (!editingNode) return null;
-                
-                return (
-                    <div 
-                        className="workflow-branch-modal-overlay"
-                        onClick={() => {
-                            setShowBranchModal(false);
-                            setEditingNodeId(null);
-                        }}
-                    >
-                        <div 
-                            className="workflow-branch-modal"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="workflow-branch-modal-header">
-                                <h2>إعداد الخيارات المتفرعة - {editingNode.text}</h2>
-                                <button
-                                    className="workflow-branch-modal-close"
-                                    onClick={() => {
-                                        setShowBranchModal(false);
-                                        setEditingNodeId(null);
-                                    }}
-                                >
-                                    ×
-                                </button>
-                            </div>
-                            
-                            <BranchEditor
-                                node={editingNode}
-                                questions={questions}
-                                nodes={nodes}
-                                onSave={(branches) => handleSaveBranches(editingNodeId, branches)}
-                                onCancel={() => {
-                                    setShowBranchModal(false);
-                                    setEditingNodeId(null);
-                                }}
-                            />
-                        </div>
-                    </div>
-                );
-            })()}
-        </div>
-    );
-};
-
-// Branch Editor Component
-const BranchEditor = ({ node, questions, nodes, onSave, onCancel }) => {
-    const [branches, setBranches] = useState(node.branches || []);
-    
-    const addBranch = () => {
-        setBranches([...branches, { answer: '', nextQuestionId: null }]);
-    };
-    
-    const removeBranch = (index) => {
-        setBranches(branches.filter((_, i) => i !== index));
-    };
-    
-    const updateBranch = (index, field, value) => {
-        const updated = [...branches];
-        updated[index] = { ...updated[index], [field]: value };
-        setBranches(updated);
-    };
-    
-    const availableQuestions = questions.filter((q, idx) => {
-        const qId = q.id || idx;
-        return qId !== node.questionId; // Don't allow connecting to itself
-    });
-    
-    return (
-        <div className="workflow-branch-editor">
-            <div className="workflow-branch-list">
-                {branches.length === 0 ? (
-                    <p style={{ color: 'rgba(255, 255, 255, 0.5)', textAlign: 'center', padding: '20px' }}>
-                        لا توجد خيارات متفرعة. اضغط "إضافة خيار" لإضافة خيار جديد.
-                    </p>
-                ) : (
-                    branches.map((branch, index) => (
-                        <div key={index} className="workflow-branch-item">
-                            <div className="workflow-branch-input-group">
-                                <label>إذا كان الجواب:</label>
-                                <input
-                                    type="text"
-                                    value={branch.answer}
-                                    onChange={(e) => updateBranch(index, 'answer', e.target.value)}
-                                    placeholder="مثال: نعم، لا، ممتاز، إلخ..."
-                                    className="workflow-branch-input"
-                                />
-                            </div>
-                            <div className="workflow-branch-input-group">
-                                <label>ينتقل إلى:</label>
-                                <select
-                                    value={branch.nextQuestionId !== null ? branch.nextQuestionId : ''}
-                                    onChange={(e) => updateBranch(index, 'nextQuestionId', e.target.value ? parseInt(e.target.value) : null)}
-                                    className="workflow-branch-select"
-                                >
-                                    <option value="">-- اختر السؤال --</option>
-                                    {availableQuestions.map((q, idx) => {
-                                        const qId = q.id || idx;
-                                        const questionText = q.text || q.question || `Question ${idx + 1}`;
-                                        return (
-                                            <option key={qId} value={qId}>
-                                                {questionText}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                            </div>
-                            <button
-                                className="workflow-branch-remove-btn"
-                                onClick={() => removeBranch(index)}
-                                title="حذف الخيار"
-                            >
-                                ×
-                            </button>
-                        </div>
-                    ))
-                )}
-            </div>
-            
-            <div className="workflow-branch-actions">
-                <button
-                    className="workflow-branch-add-btn"
-                    onClick={addBranch}
-                >
-                    + إضافة خيار
-                </button>
-                <div style={{ display: 'flex', gap: '12px', marginLeft: 'auto' }}>
-                    <button
-                        className="workflow-branch-cancel-btn"
-                        onClick={onCancel}
-                    >
-                        إلغاء
-                    </button>
-                    <button
-                        className="workflow-branch-save-btn"
-                        onClick={() => onSave(branches)}
-                    >
-                        حفظ
-                    </button>
-                </div>
-            </div>
         </div>
     );
 };
 
 export default Workflow;
-
 

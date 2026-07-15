@@ -131,12 +131,11 @@ export const checkDatabaseConnection = (): {
 
 export const testDatabaseConnection = async (): Promise<boolean> => {
     try {
-        if (mongoose.connection.readyState === 1) {
-            await mongoose.connection.db?.admin().ping();
-            return true;
+        if (mongoose.connection.readyState !== mongoose.ConnectionStates.connected) {
+            await connectDatabase();
         }
-        await connectDatabase();
-        return Number(mongoose.connection.readyState) === 1;
+        await mongoose.connection.db?.admin().ping();
+        return true;
     } catch (error) {
         console.error('❌ Database connection test failed:', error);
         return false;

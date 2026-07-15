@@ -9,7 +9,7 @@ const Hero = () => {
     const canvasRef = useRef(null);
 
     const navigateToApplication = () => {
-        navigate('/form');
+        navigate('/login');
     };
 
     const scrollToFeatures = () => {
@@ -83,8 +83,25 @@ const Hero = () => {
                     </div>
                     
                     <h1 className="hero-title">
-                        <span className="hero-subtitle">Smart Hiring</span> AI evaluations<br />
-                        for voice, video, and written interviews
+                        <span className="hero-title__wrap hero-title__wrap--desktop">
+                            <span className="hero-subtitle">{t('heroTitleMain')}</span>{' '}
+                            <span
+                                className="hero-title__line hero-title__line--desktop"
+                                dangerouslySetInnerHTML={{ __html: t('heroTitleSub') }}
+                            />
+                        </span>
+                        <span className="hero-title__wrap hero-title__wrap--mobile">
+                            <span className="hero-title__mobile-line hero-title__mobile-line--1">
+                                <span className="hero-subtitle">{t('heroTitleMain')}</span>{' '}
+                                <span className="hero-title__mobile-line-rest">{t('heroTitleMobileL1Rest')}</span>
+                            </span>
+                            <span className="hero-title__mobile-line hero-title__mobile-line--2">
+                                {t('heroTitleMobileL2')}
+                            </span>
+                            <span className="hero-title__mobile-line hero-title__mobile-line--3">
+                                {t('heroTitleMobileL3')}
+                            </span>
+                        </span>
                     </h1>
                 
                     <div className="hero-actions">
@@ -97,7 +114,7 @@ const Hero = () => {
                         <a href="#features" className="btn btn-secondary btn-large" onClick={scrollToFeatures}>
                             <span>{t('learnMore')}</span>
                         </a>
-                        
+
                         <div className="hero-features">
                             <div className="hero-feature-item">
                                 <div className="feature-icon">
@@ -109,7 +126,7 @@ const Hero = () => {
                                         <line x1="20" y1="44" x2="40" y2="44" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round"/>
                                     </svg>
                                 </div>
-                                <span>Write</span>
+                                <span>{t('form')}</span>
                             </div>
                             <div className="hero-feature-item">
                                 <div className="feature-icon">
@@ -125,7 +142,7 @@ const Hero = () => {
                                         <line x1="22" y1="50" x2="42" y2="50" stroke="#22d3ee" strokeWidth="3.5" strokeLinecap="round"/>
                                     </svg>
                                 </div>
-                                <span>Voice</span>
+                                <span>{t('voice')}</span>
                             </div>
                             <div className="hero-feature-item">
                                 <div className="feature-icon">

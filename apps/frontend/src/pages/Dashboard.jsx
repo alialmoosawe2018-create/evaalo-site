@@ -1,819 +1,385 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
-import Navigation from '../components/Navigation';
+import '../design-styles.css';
 import NewInterviewSidebar from '../components/NewInterviewSidebar';
+import RecentInterviewsCard from '../components/RecentInterviewsCard';
+import PhoneCallOutlineIcon from '../components/PhoneCallOutlineIcon.jsx';
+import { serviceIconTones } from '../utils/brandColor';
+
+const filledServiceIconSvgProps = {
+    width: 28,
+    height: 28,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    xmlns: 'http://www.w3.org/2000/svg',
+    style: { display: 'block' },
+};
+
+/** New Campaign + Settings + Templates: filled multi-tone؛ الباقي خطّي كالسابق */
+function DashboardServiceIcon({ type, color }) {
+    /** Templates — نفس أيقونة «استمارة / Form» في Hero (مستند بخطوط، outline) */
+    if (type === 'template') {
+        return (
+            <svg
+                width={28}
+                height={28}
+                viewBox="0 0 64 64"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                style={{ display: 'block' }}
+            >
+                <rect x="12" y="8" width="40" height="48" rx="2" stroke={color} strokeWidth="3.5" fill="none" strokeLinejoin="round" />
+                <line x1="20" y1="20" x2="44" y2="20" stroke={color} strokeWidth="3.5" strokeLinecap="round" />
+                <line x1="20" y1="28" x2="44" y2="28" stroke={color} strokeWidth="3.5" strokeLinecap="round" />
+                <line x1="20" y1="36" x2="36" y2="36" stroke={color} strokeWidth="3.5" strokeLinecap="round" />
+                <line x1="20" y1="44" x2="40" y2="44" stroke={color} strokeWidth="3.5" strokeLinecap="round" />
+            </svg>
+        );
+    }
+
+    if (type === 'plus') {
+        const { a, b } = serviceIconTones(color);
+        return (
+            <svg {...filledServiceIconSvgProps}>
+                <rect x="9" y="4" width="6" height="16" rx="2" fill={b} />
+                <rect x="4" y="9" width="16" height="6" rx="2" fill={a} />
+            </svg>
+        );
+    }
+
+    if (type === 'settings') {
+        const { a, b, c, d } = serviceIconTones(color);
+        return (
+            <svg {...filledServiceIconSvgProps}>
+                <rect x="3" y="5" width="18" height="3" rx="1.5" fill={c} />
+                <rect x="3" y="10.5" width="18" height="3" rx="1.5" fill={b} />
+                <rect x="3" y="16" width="18" height="3" rx="1.5" fill={d} />
+                <circle cx="15" cy="6.5" r="2.25" fill={a} />
+                <circle cx="8" cy="12" r="2.25" fill={a} />
+                <circle cx="13" cy="17.5" r="2.25" fill={a} />
+            </svg>
+        );
+    }
+
+    const p = {
+        width: 26,
+        height: 26,
+        viewBox: '0 0 24 24',
+        fill: 'none',
+        xmlns: 'http://www.w3.org/2000/svg',
+    };
+    const s = { stroke: color, strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' };
+
+    switch (type) {
+        /** Chart — مخطط هيكل تنظيمي (org chart) */
+        case 'clipboard':
+            return (
+                <svg {...p}>
+                    <rect x="8" y="2" width="8" height="5" rx="1.5" fill="none" {...s} />
+                    <path d="M12 7v2.5M6 9.5h12M6 9.5V12M18 9.5V12" {...s} />
+                    <rect x="2" y="12" width="8" height="6" rx="1.5" fill="none" {...s} />
+                    <rect x="14" y="12" width="8" height="6" rx="1.5" fill="none" {...s} />
+                </svg>
+            );
+        /** Candidates — مجموعة أشخاص */
+        case 'users':
+            return (
+                <svg {...p}>
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" {...s} />
+                    <circle cx="9" cy="7" r="4" {...s} />
+                    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" {...s} />
+                </svg>
+            );
+        /** Stage 1 — مستند مكتوب (مقابلة كتابية) */
+        case 'pen':
+            return (
+                <svg {...p}>
+                    <path
+                        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
+                        {...s}
+                    />
+                    <path d="M14 2v6h6" {...s} />
+                    <path d="M8 13h8M8 17h6M8 9h4" {...s} />
+                </svg>
+            );
+        /** Stage 2 — مكالمة (سماعة + موجات) */
+        case 'mic':
+            return <PhoneCallOutlineIcon color={color} size={26} strokeWidth={2} />;
+        /** Stage 3 — كاميرا فيديو */
+        case 'video':
+            return (
+                <svg {...p}>
+                    <path
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        {...s}
+                    />
+                </svg>
+            );
+        /** AI CV Comparison — مستندان للسيرة + ميزان مقارنة */
+        case 'cvCompare':
+            return (
+                <svg {...p}>
+                    <rect x="2" y="3" width="8" height="11" rx="1.5" {...s} />
+                    <rect x="14" y="5" width="8" height="9" rx="1.5" {...s} />
+                    <path d="M5 7h4M5 9.5h5M5 12h3.5" {...s} />
+                    <path d="M16.5 7.5h4M16.5 10h3" {...s} />
+                    <path d="M9.5 15.5l2.5 1.7 2.5-1.7" {...s} />
+                    <circle cx="12" cy="19.5" r="1.6" {...s} />
+                </svg>
+            );
+        /** Account — ملف شخصي */
+        case 'user':
+            return (
+                <svg {...p}>
+                    <circle cx="12" cy="8" r="4" {...s} />
+                    <path d="M4 20v-1a6 6 0 016-6h4a6 6 0 016 6v1" {...s} />
+                </svg>
+            );
+        /** AI HeadHunter — عدسة بحث عن مواهب */
+        case 'headhunter':
+            return (
+                <svg {...p}>
+                    <circle cx="11" cy="11" r="7" {...s} />
+                    <path d="M21 21l-4.3-4.3" {...s} />
+                </svg>
+            );
+        default:
+            return (
+                <svg {...p}>
+                    <circle cx="12" cy="12" r="10" {...s} />
+                </svg>
+            );
+    }
+}
+
+const DASHBOARD_SERVICE_DEFS = [
+    { id: 'newCampaign', iconKey: 'plus' },
+    { id: 'headhunter', iconKey: 'headhunter' },
+    { id: 'cvComparison', iconKey: 'cvCompare' },
+    { id: 'stage1', iconKey: 'pen' },
+    { id: 'stage2', iconKey: 'mic' },
+    { id: 'stage3', iconKey: 'video' },
+    { id: 'templates', iconKey: 'template' },
+    { id: 'candidates', iconKey: 'users' },
+    { id: 'chart', iconKey: 'clipboard' },
+    { id: 'settings', iconKey: 'settings' },
+    { id: 'account', iconKey: 'user' },
+];
+
+const DASHBOARD_SERVICE_THEMES = {
+    newCampaign: { c1: '#3b82f6', c2: '#8b5cf6' },
+    headhunter: { c1: '#22d3ee', c2: '#a855f7' },
+    chart: { c1: '#06b6d4', c2: '#3b82f6' },
+    candidates: { c1: '#8b5cf6', c2: '#ec4899' },
+    stage1: { c1: '#22c55e', c2: '#10b981' },
+    stage2: { c1: '#f59e0b', c2: '#f97316' },
+    stage3: { c1: '#ec4899', c2: '#f43f5e' },
+    cvComparison: { c1: '#6366f1', c2: '#a855f7' },
+    settings: { c1: '#14b8a6', c2: '#0ea5e9' },
+    account: { c1: '#0ea5e9', c2: '#6366f1' },
+    templates: { c1: '#a855f7', c2: '#3b82f6' },
+};
 
 const Dashboard = () => {
-    const { t } = useLanguage();
+    const { t, currentLang } = useLanguage();
     const navigate = useNavigate();
-    const chartContainerRef = useRef(null);
-    const [chartWidth, setChartWidth] = useState(1000);
+    const [searchParams, setSearchParams] = useSearchParams();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [recentInterviews, setRecentInterviews] = useState([]);
-    const [loadingInterviews, setLoadingInterviews] = useState(true);
 
     useEffect(() => {
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/c523ff2f-71ad-4967-831d-33b661a300a0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Dashboard.jsx:8',message:'Dashboard page loaded',data:{timestamp:Date.now()},timestamp:Date.now(),sessionId:'debug-session',runId:'dashboard-load',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
-        
-        // Calculate chart width based on container
-        const updateChartWidth = () => {
-            if (chartContainerRef.current) {
-                const containerWidth = chartContainerRef.current.offsetWidth;
-                setChartWidth(Math.max(800, containerWidth - 80));
-            }
-        };
-        
-        updateChartWidth();
-        window.addEventListener('resize', updateChartWidth);
-        
-        return () => {
-            window.removeEventListener('resize', updateChartWidth);
-        };
-    }, []);
+        if (searchParams.get('open') !== 'newCampaign') return;
+        setIsSidebarOpen(true);
+        const next = new URLSearchParams(searchParams);
+        next.delete('open');
+        setSearchParams(next, { replace: true });
+    }, [searchParams, setSearchParams]);
 
-    // جلب بيانات المرشحين من API
     useEffect(() => {
-        const fetchRecentInterviews = async () => {
-            try {
-                setLoadingInterviews(true);
-                // استخدام VITE_API_URL في الإنتاج، أو IP السيرفر في التطوير
-                let apiUrl = import.meta.env.VITE_API_URL;
-                const hostname = window.location.hostname;
-                
-                // إذا كان على الدومين (www.evaalo.com أو evaalo.com)، استخدم رابط الباك إند على الإنترنت دائماً
-                if (hostname === 'www.evaalo.com' || hostname === 'evaalo.com') {
-                    apiUrl = 'https://evaalo-backend.onrender.com';
-                } else if (!apiUrl) {
-                    // في التطوير: استخدام hostname الحالي (يعمل من أي جهاز)
-                    apiUrl = `http://${hostname}:5000`;
-                }
-                const response = await fetch(`${apiUrl}/api/candidates`);
-                const result = await response.json();
-                
-                if (result.success && result.data) {
-                    // تحويل البيانات إلى تنسيق Recent Interviews
-                    const interviews = result.data
-                        .map((candidate) => {
-                            const name = candidate.firstName && candidate.lastName
-                                ? `${candidate.firstName} ${candidate.lastName}`
-                                : candidate.candidate || candidate.email?.split('@')[0] || 'Unknown';
-                            
-                            // تحديد حالة المقابلة بناءً على status
-                            let interviewStatus = 'pending';
-                            if (candidate.status === 'accepted') {
-                                interviewStatus = 'completed';
-                            } else if (candidate.status === 'rejected') {
-                                interviewStatus = 'completed';
-                            } else if (candidate.status === 'pending') {
-                                interviewStatus = 'in-progress';
-                            }
-                            
-                            return {
-                                id: candidate._id || candidate.id,
-                                candidate: name,
-                                position: candidate.positionAppliedFor || 'N/A',
-                                status: interviewStatus,
-                                date: candidate.interviewDate || candidate.createdAt || new Date().toISOString().split('T')[0],
-                                originalStatus: candidate.status,
-                                email: candidate.email
-                            };
-                        })
-                        .sort((a, b) => {
-                            // ترتيب حسب التاريخ (الأحدث أولاً)
-                            return new Date(b.date) - new Date(a.date);
-                        })
-                        .slice(0, 4); // آخر 4 مقابلات
-                    
-                    setRecentInterviews(interviews);
-                } else {
-                    // Fallback data إذا لم تكن هناك بيانات
-                    setRecentInterviews([
-                        { id: 1, candidate: 'Ahmed Al-Mansouri', position: 'Software Engineer', status: 'completed', date: '2025-01-15' },
-                        { id: 2, candidate: 'Sarah Johnson', position: 'Product Manager', status: 'in-progress', date: '2025-01-14' },
-                        { id: 3, candidate: 'Mohammed Hassan', position: 'Data Analyst', status: 'pending', date: '2025-01-13' },
-                        { id: 4, candidate: 'Emily Chen', position: 'UX Designer', status: 'completed', date: '2025-01-12' }
-                    ]);
-                }
-            } catch (error) {
-                console.error('Error fetching recent interviews:', error);
-                // Fallback data في حالة الخطأ
-                setRecentInterviews([
-                    { id: 1, candidate: 'Ahmed Al-Mansouri', position: 'Software Engineer', status: 'completed', date: '2025-01-15' },
-                    { id: 2, candidate: 'Sarah Johnson', position: 'Product Manager', status: 'in-progress', date: '2025-01-14' },
-                    { id: 3, candidate: 'Mohammed Hassan', position: 'Data Analyst', status: 'pending', date: '2025-01-13' },
-                    { id: 4, candidate: 'Emily Chen', position: 'UX Designer', status: 'completed', date: '2025-01-12' }
-                ]);
-            } finally {
-                setLoadingInterviews(false);
-            }
-        };
+        if (searchParams.get('open') !== 'cvComparison') return;
+        const card = document.getElementById('dashboard-service-cvComparison');
+        const next = new URLSearchParams(searchParams);
+        next.delete('open');
+        setSearchParams(next, { replace: true });
+        if (!card) return;
+        requestAnimationFrame(() => {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('ds-service-card--spotlight');
+            card.focus({ preventScroll: true });
+            window.setTimeout(() => card.classList.remove('ds-service-card--spotlight'), 2400);
+        });
+    }, [searchParams, setSearchParams]);
 
-        fetchRecentInterviews();
-    }, []);
-
-    // Dashboard Stats Data
-    const stats = [
-        { 
-            icon: '📊', 
-            value: '1,234', 
-            label: 'Total Interviews',
-            color: 'linear-gradient(135deg, #3B82F6 0%, #0EA5E9 50%, #06B6D4 100%)',
-            bgColor: 'rgba(59, 130, 246, 0.15)'
-        },
-        { 
-            icon: '✅', 
-            value: '856', 
-            label: 'Completed',
-            color: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-            bgColor: 'rgba(16, 185, 129, 0.15)'
-        },
-        { 
-            icon: '⏳', 
-            value: '234', 
-            label: 'In Progress',
-            color: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-            bgColor: 'rgba(245, 158, 11, 0.15)'
-        },
-        { 
-            icon: '📈', 
-            value: '89%', 
-            label: 'Success Rate',
-            color: 'linear-gradient(135deg, #0EA5E9 0%, #06B6D4 100%)',
-            bgColor: 'rgba(14, 165, 233, 0.15)'
-        }
-    ];
-
-    // Services - 9 containers
-    const services = [
-        {
-            icon: '➕',
-            title: 'New Interview',
-            description: '',
-            status: 'Active'
-        },
-        {
-            icon: '📋',
-            title: 'View Reports',
-            description: '',
-            status: 'Active'
-        },
-        {
-            icon: '👥',
-            title: 'Candidates',
-            description: '',
-            status: 'Active'
-        },
-        {
-            icon: '✍️',
-            title: 'Written Interview',
-            description: '',
-            status: 'Active'
-        },
-        {
-            icon: '🎤',
-            title: 'Voice Interview',
-            description: '',
-            status: 'Active'
-        },
-        {
-            icon: '📹',
-            title: 'Video Interview',
-            description: '',
-            status: 'Active'
-        },
-        {
-            icon: '⚙️',
-            title: 'Settings',
-            description: '',
-            status: 'Active'
-        },
-        {
-            icon: '📝',
-            title: 'Interview Templates',
-            description: '',
-            status: 'Active'
-        },
-        {
-            icon: '👤',
-            title: 'Account',
-            description: '',
-            status: 'Active'
-        }
-    ];
-
-    // Recent Interviews - يتم جلبها من API الآن (تم نقلها إلى useEffect)
-
-    // Quick Actions
-    const quickActions = [
-        { icon: '➕', label: 'New Interview', action: () => setIsSidebarOpen(true) },
-        { icon: '📋', label: 'View Reports', action: () => navigate('/reports') },
-        { icon: '✍️', label: 'Written Interview', action: () => navigate('/written-interview') },
-        { icon: '⚙️', label: 'Settings', action: () => console.log('Settings') },
-        { icon: '👥', label: 'Candidates', action: () => navigate('/candidates') }
-    ];
+    const services = useMemo(
+        () =>
+            DASHBOARD_SERVICE_DEFS.map((s) => ({
+                ...s,
+                title: t(`dashboardSvc_${s.id}`),
+                description: t(`dashboardSvcDesc_${s.id}`),
+            })),
+        [t, currentLang]
+    );
 
     // Handle sidebar option selection
     const handleSidebarOption = (optionId) => {
-        console.log('Selected option:', optionId);
-        switch(optionId) {
+        switch (optionId) {
             case 'start-process':
-                // Navigate to start process page or show form
-                console.log('Start Process selected');
                 break;
             case 'video-interview':
-                // Navigate to video interview page
-                console.log('Video Interview selected');
                 break;
             case 'audio-interview':
-                // Navigate to audio interview page
-                console.log('Audio Interview selected');
+                break;
+            case 'application-form':
                 break;
             default:
                 break;
         }
     };
 
-    // Chart Data - Monthly Hiring Performance (Last 6 months)
-    const chartData = [
-        { month: 'Jul', interviews: 142, hired: 28, conversionRate: 19.7 },
-        { month: 'Aug', interviews: 158, hired: 32, conversionRate: 20.3 },
-        { month: 'Sep', interviews: 165, hired: 35, conversionRate: 21.2 },
-        { month: 'Oct', interviews: 178, hired: 38, conversionRate: 21.3 },
-        { month: 'Nov', interviews: 192, hired: 42, conversionRate: 21.9 },
-        { month: 'Dec', interviews: 205, hired: 48, conversionRate: 23.4 }
-    ];
-
-    // Key Performance Indicators
-    const kpiMetrics = {
-        monthlyHiringRate: 23.4, // Current month hiring rate
-        averageTimeToHire: 18, // Days
-        totalHired: 223, // Total hired this year
-        offerAcceptanceRate: 87.5, // Percentage
-        candidateSatisfaction: 4.6, // Out of 5
-        interviewCompletionRate: 94.2 // Percentage
-    };
-
-    // Calculate chart dimensions and scaling
-    const chartHeight = 300;
-    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
-    const graphWidth = chartWidth - padding.left - padding.right;
-    const graphHeight = chartHeight - padding.top - padding.bottom;
-    
-    const maxValue = Math.max(...chartData.flatMap(d => [d.interviews, d.hired]));
-    const yScale = graphHeight / maxValue;
-    const xScale = graphWidth / (chartData.length - 1);
-
-    // Generate path for line chart
-    const generatePath = (dataKey) => {
-        return chartData.map((point, index) => {
-            const x = padding.left + index * xScale;
-            const y = padding.top + graphHeight - (point[dataKey] * yScale);
-            return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-        }).join(' ');
-    };
-
-    // Calculate growth percentage
-    const calculateGrowth = (current, previous) => {
-        if (previous === 0) return 0;
-        return ((current - previous) / previous * 100).toFixed(1);
-    };
-
-    const currentMonthHired = chartData[chartData.length - 1].hired;
-    const previousMonthHired = chartData[chartData.length - 2].hired;
-    const hiringGrowth = calculateGrowth(currentMonthHired, previousMonthHired);
-
-    // Generate area path
-    const generateAreaPath = (dataKey) => {
-        const path = generatePath(dataKey);
-        const lastPoint = chartData[chartData.length - 1];
-        const firstPoint = chartData[0];
-        const lastX = padding.left + (chartData.length - 1) * xScale;
-        const firstX = padding.left;
-        const bottomY = padding.top + graphHeight;
-        return `${path} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
-    };
-
     return (
         <>
-            <Navigation />
-        <div className="dashboard-page" style={{ 
+        <div
+            className="dashboard-page dashboard-page--evaalo-visual dashboard-home-page"
+            style={{
             minHeight: '100vh', 
                 padding: '70px 20px 40px',
-                background: 'linear-gradient(135deg, #0a0e1a 0%, #1a1f3a 50%, #0d1117 100%)',
-                color: '#ffffff',
-                position: 'relative'
-            }}>
-                {/* Background Effects */}
-                <div className="design-background">
+                position: 'relative',
+            }}
+        >
+                {/* Background — نفس عائلة ألوان قسم Features (أوراق دافئة + بنفسجي/سماوي) */}
+                <div className="design-background design-background--evaalo-visual">
                     <div className="design-orb-1"></div>
                     <div className="design-orb-2"></div>
                     <div className="design-orb-3"></div>
                 </div>
+                {/* نسيج بصري مثل #features: نقاط + شبكة خفيفة */}
+                <div className="dashboard-evaalo-visual-texture" aria-hidden="true" />
+                <div className="dashboard-evaalo-visual-gridlines" aria-hidden="true" />
 
-                <div className="container" style={{ 
+                <div className="container dashboard-visual-container" style={{ 
                     maxWidth: '1400px', 
                     margin: '0 auto', 
                     position: 'relative', 
                     zIndex: 1,
                     minHeight: 'calc(100vh - 250px)'
                 }}>
-                    {/* Header */}
-                    <div className="design-header" style={{ marginBottom: '40px' }}>
-                        <div style={{ width: '100%' }}>
-                            <h1 className="design-title" style={{ marginBottom: '8px' }}>
-                    Dashboard
-                </h1>
-                            <p className="design-subtitle">
-                                Welcome back! Manage your interviews and track your progress with AI-powered insights.
-                            </p>
-                            
-                            {/* Stats Cards - داخل كونتنر Dashboard */}
-                            <div className="dashboard-stats" style={{ 
-                                marginTop: '24px',
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(4, 1fr)',
-                                gap: '12px'
-                            }}>
-                                {stats.map((stat, index) => (
-                                    <div key={index} className="stat-card" style={{
-                                        padding: '12px 16px',
-                                        minHeight: 'auto',
-                                        transition: 'all 0.3s ease',
-                                        cursor: 'pointer',
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        borderRadius: '12px'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(-4px)';
-                                        e.currentTarget.style.borderColor = '#06B6D4';
-                                        e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.5)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'translateY(0)';
-                                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                                        e.currentTarget.style.boxShadow = 'none';
-                                    }}>
-                                        <div className="stat-icon" style={{ 
-                                            background: stat.bgColor,
-                                            border: `1px solid ${stat.color.split(' ')[0].replace('linear-gradient(135deg,', '').replace('0%,', '').trim()}`,
-                                            width: '40px',
-                                            height: '40px',
-                                            fontSize: '20px'
-                                        }}>
-                                            <span style={{ fontSize: '20px' }}>{stat.icon}</span>
-                                        </div>
-                                        <div className="stat-content">
-                                            <div className="stat-value" style={{ 
-                                                background: stat.color, 
-                                                WebkitBackgroundClip: 'text', 
-                                                WebkitTextFillColor: 'transparent', 
-                                                backgroundClip: 'text',
-                                                fontSize: '20px',
-                                                fontWeight: 700
-                                            }}>
-                                                {stat.value}
-                                            </div>
-                                            <div className="stat-label" style={{ fontSize: '11px', marginTop: '4px' }}>{stat.label}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-
                     {/* Main Content Grid */}
-                    <div className="dashboard-grid" style={{ marginBottom: '40px' }}>
+                    <div className="dashboard-grid" style={{ 
+                        marginBottom: '40px'
+                    }}>
                         {/* Our Services */}
-                        <div className="dashboard-card platform-features-card">
+                        <div className="dashboard-card dashboard-card--page-active platform-features-card">
                             <div className="dashboard-card-header">
-                                <h2 className="dashboard-card-title">Our Services</h2>
+                                <h2 className="dashboard-card-title">{t('dashboardOurServices')}</h2>
                             </div>
                             <div className="dashboard-card-body">
-                                {/* 9 containers in 3x3 grid */}
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(3, 1fr)',
-                                    gap: '20px'
-                                }}
-                                className="platform-features-grid">
-                                    {services.map((service, index) => {
-                                        const serviceColors = {
-                                            'New Interview': '#3B82F6',
-                                            'View Reports': '#22d3ee',
-                                            'Settings': '#10B981',
-                                            'Written Interview': '#F59E0B',
-                                            'Voice Interview': '#EC4899',
-                                            'Video Interview': '#06B6D4',
-                                            'Account': '#8B5CF6',
-                                            'Candidates': '#F59E0B',
-                                            'Interview Templates': '#06B6D4'
-                                        };
-                                        const serviceColor = serviceColors[service.title] || '#3B82F6';
-                                        
-                                        // تحديد action لكل بطاقة
+                                {/* Platform service cards (grid) */}
+                                <div className="platform-features-grid">
+                                    {services.map((service) => {
+                                        const theme =
+                                            DASHBOARD_SERVICE_THEMES[service.id] || {
+                                                c1: '#3b82f6',
+                                                c2: '#06b6d4',
+                                            };
+
                                         const handleClick = () => {
-                                            switch(service.title) {
-                                                case 'New Interview':
+                                            switch (service.id) {
+                                                case 'newCampaign':
                                                     setIsSidebarOpen(true);
                                                     break;
-                                                case 'View Reports':
-                                                    navigate('/reports');
+                                                case 'headhunter':
+                                                    navigate('/ai-head-hunter');
                                                     break;
-                                                case 'Settings':
-                                                    console.log('Settings');
+                                                case 'chart':
+                                                    navigate('/employees');
                                                     break;
-                                                case 'Written Interview':
-                                                    navigate('/written-interview');
+                                                case 'settings':
+                                                    navigate('/account/settings');
                                                     break;
-                                                case 'Voice Interview':
-                                                    navigate('/voice-interview');
+                                                case 'stage1':
+                                                    navigate('/screening');
                                                     break;
-                                                case 'Video Interview':
-                                                    console.log('Video Interview');
+                                                case 'stage2':
+                                                    navigate('/call-evaluation');
                                                     break;
-                                                case 'Account':
-                                                    console.log('Account');
+                                                case 'stage3':
+                                                    navigate('/video-evaluation');
                                                     break;
-                                                case 'Candidates':
+                                                case 'account':
+                                                    navigate('/account');
+                                                    break;
+                                                case 'candidates':
                                                     navigate('/candidates');
                                                     break;
-                                                case 'Interview Templates':
+                                                case 'cvComparison':
+                                                    navigate('/ai-cv-comparison');
+                                                    break;
+                                                case 'templates':
                                                     navigate('/interview-templates');
                                                     break;
                                                 default:
                                                     break;
                                             }
                                         };
+
+                                        const isAccountCard = service.id === 'account';
+                                        const isSettingsCard = service.id === 'settings';
                                         
                                         return (
-                                            <div key={index} style={{
-                                                padding: '20px',
-                                                background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%)',
-                                                backdropFilter: 'blur(20px)',
-                                                borderRadius: '12px',
-                                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                                transition: 'all 0.3s ease',
-                                                cursor: 'pointer'
-                                            }}
+                                            <button
+                                                key={service.id}
+                                                id={service.id === 'cvComparison' ? 'dashboard-service-cvComparison' : undefined}
+                                                type="button"
                                             onClick={handleClick}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.transform = 'translateY(-4px)';
-                                                e.currentTarget.style.borderColor = '#06B6D4';
-                                                e.currentTarget.style.boxShadow = '0 0 20px rgba(6, 182, 212, 0.5)';
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.transform = 'translateY(0)';
-                                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                                                e.currentTarget.style.boxShadow = 'none';
-                                            }}>
-                                                <div style={{
-                                                    width: '56px', 
-                                                    height: '56px', 
-                                                    borderRadius: '12px',
-                                                    background: `linear-gradient(135deg, ${serviceColor}20, ${serviceColor}10)`,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    marginBottom: '16px',
-                                                    border: `1px solid ${serviceColor}40`,
-                                                    fontSize: '32px'
-                                                }}>
-                                                    {service.icon}
-                                                </div>
-                                                <h3 style={{ 
-                                                    fontSize: '18px', 
-                                                    fontWeight: 700, 
-                                                    color: '#fff', 
-                                                    marginBottom: service.description ? '8px' : '16px'
-                                                }}>
+                                                className={`ds-service-card${
+                                                    isAccountCard ? ' ds-service-card--dashboard-account' : ''
+                                                }${isSettingsCard ? ' ds-service-card--dashboard-settings' : ''}`}
+                                                aria-label={service.title}
+                                                title={service.title}
+                                                    style={{
+                                                    '--ds-c1': theme.c1,
+                                                    '--ds-c2': theme.c2,
+                                                }}
+                                            >
+                                                <span className="ds-service-card__glow" aria-hidden />
+                                                <span className="ds-service-card__shine" aria-hidden />
+                                                <span className="ds-service-card__content">
+                                                    <span className="ds-service-card__icon-wrap">
+                                                        <DashboardServiceIcon type={service.iconKey} color="#ffffff" />
+                                                    </span>
+                                                    <span className="ds-service-card__title">
                                                     {service.title}
-                                                </h3>
+                                                    </span>
                                                 {service.description && (
-                                                    <p style={{ 
-                                                        fontSize: '14px', 
-                                                        color: '#94A3B8', 
-                                                        lineHeight: '1.6',
-                                                        margin: '0 0 12px 0'
-                                                    }}>
+                                                        <span className="ds-service-card__desc">
                                                         {service.description}
-                                                    </p>
-                                                )}
-                                                <span className={`status-badge ${
-                                                    service.status === 'Active' ? 'status-active' : 
-                                                    service.status === 'Coming Soon' ? 'status-pending' : 
-                                                    'status-completed'
-                                                }`} style={{
-                                                    display: 'inline-block',
-                                                    marginTop: service.description ? '8px' : '0'
-                                                }}>
-                                                    {service.status}
+                                                        </span>
+                                                    )}
                                                 </span>
-                                            </div>
+                                                <span className="ds-service-card__arrow" dir="ltr" aria-hidden>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                                                        <path
+                                                            d="M5 12h14M13 5l7 7-7 7"
+                                                            stroke="currentColor"
+                                                            strokeWidth="2"
+                                                            strokeLinecap="round"
+                                                            strokeLinejoin="round"
+                                                        />
+                                                    </svg>
+                                                </span>
+                                            </button>
                                         );
                                     })}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Recent Interviews */}
-                        <div className="dashboard-card">
-                            <div className="dashboard-card-header">
-                                <h2 className="dashboard-card-title">Recent Interviews</h2>
-                                <button 
-                                    className="btn-small"
-                                    onClick={() => navigate('/candidates')}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    View All
-                                </button>
-                            </div>
-                            <div className="dashboard-card-body">
-                                {loadingInterviews ? (
-                                    <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
-                                        Loading interviews...
-                                    </div>
-                                ) : recentInterviews.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
-                                        No recent interviews found
-                                    </div>
-                                ) : (
-                                    <div className="interview-list">
-                                        {recentInterviews.map((interview) => (
-                                        <div key={interview.id} className="interview-item" style={{
-                                            transition: 'all 0.3s ease',
-                                            cursor: 'pointer',
-                                            border: '1px solid rgba(255, 255, 255, 0.1)'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.transform = 'translateX(4px)';
-                                            e.currentTarget.style.borderColor = '#06B6D4';
-                                            e.currentTarget.style.boxShadow = '0 0 15px rgba(6, 182, 212, 0.4)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.transform = 'translateX(0)';
-                                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                                            e.currentTarget.style.boxShadow = 'none';
-                                        }}>
-                                            <div style={{ flex: 1 }}>
-                                                <div className="interview-title">{interview.candidate}</div>
-                                                <div className="interview-meta">
-                                                    {interview.position} • {new Date(interview.date).toLocaleDateString()}
-                                                </div>
-                                            </div>
-                                            <span className={`status-badge ${
-                                                interview.status === 'completed' ? 'status-completed' : 
-                                                interview.status === 'in-progress' ? 'status-active' : 
-                                                'status-pending'
-                                            }`}>
-                                                {interview.status}
-                                            </span>
-                                        </div>
-                                    ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {/* Analytics Chart */}
-                    <div style={{ marginBottom: '40px', width: '100%' }}>
-                        {/* Analytics Chart */}
-                        <div className="dashboard-card" style={{ 
-                            width: '100%',
-                            transition: 'all 0.3s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.borderColor = '#06B6D4';
-                            e.currentTarget.style.boxShadow = '0 0 25px rgba(6, 182, 212, 0.3)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                            e.currentTarget.style.boxShadow = 'none';
-                        }}>
-                            <div className="dashboard-card-header">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '20px' }}>
-                                    <div>
-                                        <h2 className="dashboard-card-title" style={{ marginBottom: '8px' }}>Hiring Performance Analytics</h2>
-                                        <p style={{ fontSize: '14px', color: '#94A3B8', margin: 0 }}>Monthly hiring trends and conversion metrics</p>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: '#3B82F6' }}></div>
-                                            <span style={{ fontSize: '14px', color: '#94A3B8' }}>Interviews</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: '#10B981' }}></div>
-                                            <span style={{ fontSize: '14px', color: '#94A3B8' }}>Hired</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                {/* KPI Metrics Row */}
-                                <div style={{ 
-                                    display: 'grid', 
-                                    gridTemplateColumns: 'repeat(3, 1fr)', 
-                                    gap: '16px',
-                                    marginTop: '20px',
-                                    padding: '16px',
-                                    background: 'rgba(6, 182, 212, 0.05)',
-                                    borderRadius: '12px',
-                                    border: '1px solid rgba(6, 182, 212, 0.2)'
-                                }}>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '4px' }}>Monthly Hiring Rate</div>
-                                        <div style={{ fontSize: '24px', fontWeight: 700, background: 'linear-gradient(135deg, #10B981, #059669)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                                            {kpiMetrics.monthlyHiringRate}%
-                                        </div>
-                                        <div style={{ fontSize: '11px', color: '#10B981', marginTop: '4px' }}>
-                                            ↑ {hiringGrowth}% vs last month
-                                        </div>
-                                    </div>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '4px' }}>Avg. Time to Hire</div>
-                                        <div style={{ fontSize: '24px', fontWeight: 700, background: 'linear-gradient(135deg, #3B82F6, #0EA5E9)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                                            {kpiMetrics.averageTimeToHire} days
-                                        </div>
-                                        <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>
-                                            Industry avg: 24 days
-                                        </div>
-                                    </div>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: '12px', color: '#94A3B8', marginBottom: '4px' }}>Total Hired (YTD)</div>
-                                        <div style={{ fontSize: '24px', fontWeight: 700, background: 'linear-gradient(135deg, #8B5CF6, #7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                                            {kpiMetrics.totalHired}
-                                        </div>
-                                        <div style={{ fontSize: '11px', color: '#10B981', marginTop: '4px' }}>
-                                            ↑ 15% vs last year
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="dashboard-card-body">
-                                <div ref={chartContainerRef} className="chart-container" style={{ 
-                                    height: '350px', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center',
-                                    overflow: 'hidden',
-                                    width: '100%'
-                                }}>
-                                    <svg width={chartWidth} height={chartHeight} style={{ overflow: 'visible' }}>
-                                        {/* Grid lines */}
-                                        {[0, 1, 2, 3, 4].map((i) => {
-                                            const y = padding.top + (graphHeight / 4) * i;
-                                            return (
-                                                <line
-                                                    key={i}
-                                                    x1={padding.left}
-                                                    y1={y}
-                                                    x2={padding.left + graphWidth}
-                                                    y2={y}
-                                                    stroke="rgba(255, 255, 255, 0.05)"
-                                                    strokeWidth="1"
-                                                />
-                                            );
-                                        })}
-
-                                        {/* Y-axis labels */}
-                                        {[0, 1, 2, 3, 4].map((i) => {
-                                            const value = Math.round((maxValue / 4) * (4 - i));
-                                            const y = padding.top + (graphHeight / 4) * i;
-                                            return (
-                                                <text
-                                                    key={i}
-                                                    x={padding.left - 10}
-                                                    y={y + 4}
-                                                    fill="#94A3B8"
-                                                    fontSize="12"
-                                                    textAnchor="end"
-                                                >
-                                                    {value}
-                                                </text>
-                                            );
-                                        })}
-
-                                        {/* Area for Total Interviews */}
-                                        <path
-                                            d={generateAreaPath('interviews')}
-                                            fill="url(#gradientTotal)"
-                                            opacity="0.2"
-                                        />
-
-                                        {/* Area for Hired */}
-                                        <path
-                                            d={generateAreaPath('hired')}
-                                            fill="url(#gradientCompleted)"
-                                            opacity="0.2"
-                                        />
-
-                                        {/* Line for Total Interviews */}
-                                        <path
-                                            d={generatePath('interviews')}
-                                            fill="none"
-                                            stroke="#3B82F6"
-                                            strokeWidth="3"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-
-                                        {/* Line for Hired */}
-                                        <path
-                                            d={generatePath('hired')}
-                                            fill="none"
-                                            stroke="#10B981"
-                                            strokeWidth="3"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-
-                                        {/* Data points for Total */}
-                                        {chartData.map((point, index) => {
-                                            const x = padding.left + index * xScale;
-                                            const y = padding.top + graphHeight - (point.interviews * yScale);
-                                            return (
-                                                <g key={`total-${index}`}>
-                                                    <circle
-                                                        cx={x}
-                                                        cy={y}
-                                                        r="5"
-                                                        fill="#3B82F6"
-                                                        stroke="#0a0e1a"
-                                                        strokeWidth="2"
-                                                    />
-                                                </g>
-                                            );
-                                        })}
-
-                                        {/* Data points for Hired */}
-                                        {chartData.map((point, index) => {
-                                            const x = padding.left + index * xScale;
-                                            const y = padding.top + graphHeight - (point.hired * yScale);
-                                            return (
-                                                <g key={`hired-${index}`}>
-                                                    <circle
-                                                        cx={x}
-                                                        cy={y}
-                                                        r="5"
-                                                        fill="#10B981"
-                                                        stroke="#0a0e1a"
-                                                        strokeWidth="2"
-                                                    />
-                                                </g>
-                                            );
-                                        })}
-
-                                        {/* X-axis labels */}
-                                        {chartData.map((point, index) => {
-                                            const x = padding.left + index * xScale;
-                                            return (
-                                                <g key={index}>
-                                                    <text
-                                                        x={x}
-                                                        y={chartHeight - padding.bottom + 20}
-                                                        fill="#94A3B8"
-                                                        fontSize="12"
-                                                        textAnchor="middle"
-                                                    >
-                                                        {point.month}
-                                                    </text>
-                                                    {/* Conversion rate below month */}
-                                                    <text
-                                                        x={x}
-                                                        y={chartHeight - padding.bottom + 35}
-                                                        fill="#06B6D4"
-                                                        fontSize="10"
-                                                        textAnchor="middle"
-                                                        fontWeight="600"
-                                                    >
-                                                        {point.conversionRate}%
-                                                    </text>
-                                                </g>
-                                            );
-                                        })}
-
-                                        {/* Gradients */}
-                                        <defs>
-                                            <linearGradient id="gradientTotal" x1="0%" y1="0%" x2="0%" y2="100%">
-                                                <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.4" />
-                                                <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
-                                            </linearGradient>
-                                            <linearGradient id="gradientCompleted" x1="0%" y1="0%" x2="0%" y2="100%">
-                                                <stop offset="0%" stopColor="#10B981" stopOpacity="0.4" />
-                                                <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
-                                            </linearGradient>
-                                        </defs>
-                                    </svg>
-                                </div>
-                            </div>
-                        </div>
+                        <RecentInterviewsCard variant="dashboard" />
                     </div>
                 </div>
             </div>
 
-            {/* New Interview Sidebar */}
+            {/* New Campaign Sidebar */}
             <NewInterviewSidebar
                 isOpen={isSidebarOpen}
                 onClose={() => setIsSidebarOpen(false)}

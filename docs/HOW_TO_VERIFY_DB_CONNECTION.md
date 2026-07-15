@@ -18,8 +18,8 @@
 
 #### ب) التحقق من Database User:
 1. اذهب إلى **Database Access**
-2. تأكد من وجود المستخدم: `alialmoosawe2018`
-3. تأكد من أن كلمة المرور صحيحة: `A07820782M`
+2. تأكد من وجود مستخدم قاعدة البيانات الذي تستخدمه في `MONGODB_URI`
+3. تأكد أن كلمة المرور في Atlas تطابق ما في `apps/backend/.env`
 4. تأكد من أن المستخدم لديه صلاحيات **Read and write to any database**
 
 ### 2. اختبار الاتصال:
@@ -57,13 +57,10 @@ npm run dev
 4. اذهب إلى `http://localhost:3000/candidates`
 5. يجب أن ترى البيانات الجديدة
 
-## معلومات الاتصال الحالية:
+## معلومات الاتصال:
 
-- **Connection String**: `mongodb+srv://alialmoosawe2018:A07820782M@cluster0.35tnfqd.mongodb.net/sample_mflix?retryWrites=true&w=majority`
-- **Database**: `sample_mflix`
-- **Collection**: `candidates`
-- **Username**: `alialmoosawe2018`
-- **Password**: `A07820782M`
+- **MONGODB_URI**: يُضبط في `apps/backend/.env` فقط (لا تلصق الأسرار في الوثائق)
+- **Database** / **Collection**: حسب إعدادك (مثلاً `sample_mflix` / `candidates`)
 
 ## إذا استمرت المشكلة:
 

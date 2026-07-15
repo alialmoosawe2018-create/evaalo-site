@@ -5,6 +5,23 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
+import {
+    evaluateVoiceInterview,
+    type VoiceInterviewEvalContext,
+    type VoiceInterviewEvaluation,
+} from './llmService.js';
+import { N8N_HONEYPOT_FIELD_NAMES } from '../constants/n8nStage1.js';
+import Candidate from '../models/Candidate.js';
+import {
+    appendStageOutboundFields,
+    assertStageOutboundSecurityForTrigger,
+    StageCallbackConfigurationError,
+    tryBuildStageOutboundBundle,
+} from './stageCallbackAuth.js';
+import { buildStage1ThreeBucketPayload } from './stage1N8nPayloadBuilder.js';
+import { inferStage1EvaluationLanguage } from './stage1EvaluationLanguage.js';
+import type { CampaignFormContext } from '../types/campaignFormContext.js';
+import { findApplicationForCallback } from './candidateApplicationService.js';
 
 // الحصول على مسار المجلد الحالي
 const __filename = fileURLToPath(import.meta.url);
@@ -157,6 +174,32 @@ function pickCvFileForN8n(files: CandidateData['files']) {
     return files.find((f) => f.mimeType === 'application/pdf') || null;
 }
 
+async function resolveCandidateCampaignId(candidateId?: string): Promise<string> {
+    if (!candidateId?.trim()) return '';
+    try {
+        const doc = await Candidate.findById(candidateId.trim()).select('campaignId').lean();
+        return typeof doc?.campaignId === 'string' ? doc.campaignId : '';
+    } catch {
+        return '';
+    }
+}
+
+async function resolveOutboundApplicationId(
+    candidateId?: string,
+    campaignId?: string
+): Promise<string> {
+    if (!candidateId?.trim()) return '';
+    try {
+        const app = await findApplicationForCallback({
+            candidateId: candidateId.trim(),
+            campaignId: campaignId?.trim() || undefined,
+        });
+        return app?.applicationId || '';
+    } catch {
+        return '';
+    }
+}
+
 /**
  * إرسال بيانات المرشح + المعايير إلى n8n للتحليل (في webhook واحد)
  * عند إرجاع النتيجة من n8n إلى الباكند استخدم POST {API}/webhook/n8n/stage1 (تقييم كتابي فقط).
@@ -173,13 +216,17 @@ export const sendToN8N = async (candidateData: CandidateData, campaignId?: strin
     }
 
     try {
+        assertStageOutboundSecurityForTrigger();
+
         // جلب معايير الحملة وتحويلها إلى قائمة فقط لـ n8n
         let criteriaRaw: Record<string, unknown> | null = null;
+        let campaignDoc: CampaignFormContext | null = null;
         if (campaignId) {
             try {
                 const RecruitmentCampaign = (await import('../models/RecruitmentCampaign.js')).default;
-                const campaign = await RecruitmentCampaign.findOne({ campaignId });
+                const campaign = await RecruitmentCampaign.findOne({ campaignId }).lean();
                 if (campaign) {
+                    campaignDoc = campaign as CampaignFormContext;
                     const c = campaign.criteria;
                     criteriaRaw =
                         c && typeof c === 'object' && !Array.isArray(c)
@@ -222,12 +269,16 @@ export const sendToN8N = async (candidateData: CandidateData, campaignId?: strin
         const languagesList = normalizeLanguagesList(candidateData.languages);
 
         const c = candidateData as CandidateData & Record<string, unknown>;
+        const evalCtx = candidateData.evaluationContext as { evaluationLanguage?: string } | undefined;
+        const evaluationLanguage =
+            evalCtx?.evaluationLanguage ?? inferStage1EvaluationLanguage(c, criteriaRaw);
 
         /** حقول المرشح في جذر الـ body (بدون كائن candidate)؛ skills/languages/criteria كمصفوفات في نفس الجذر */
         const payload: Record<string, unknown> = {
             event: 'candidate_submitted' as const,
             evaluationSource: 'written' as const,
             stage: 1,
+            evaluationLanguage,
             timestamp: new Date().toISOString(),
             campaignId: campaignId || null,
             id: candidateId,
@@ -271,10 +322,41 @@ export const sendToN8N = async (candidateData: CandidateData, campaignId?: strin
             languages: languagesList
         };
 
+        if (campaignDoc) {
+            try {
+                const structured = buildStage1ThreeBucketPayload(campaignDoc, c);
+                Object.assign(payload, structured);
+                console.log(
+                    `📦 n8n stage1 structured payload v${structured.payloadSchemaVersion} | rubricItems=${structured.evaluationRubric.length} submittedFields=${structured.submittedApplication.submittedFieldIds.length}`
+                );
+            } catch (structErr: any) {
+                console.warn('⚠️ Failed to build three-bucket payload (legacy criteria only):', structErr?.message);
+            }
+        }
+
+        for (const key of N8N_HONEYPOT_FIELD_NAMES) {
+            const val = c[key];
+            if (val !== undefined && val !== null) {
+                payload[key] = typeof val === 'string' ? val : String(val);
+            }
+        }
+
+        const applicationId = await resolveOutboundApplicationId(String(candidateId || ''), campaignId || '');
+        if (applicationId) {
+            payload.applicationId = applicationId;
+        }
+        const stageBundle = tryBuildStageOutboundBundle('stage1', {
+            candidateId: String(candidateId || ''),
+            sessionId: '',
+            campaignId: campaignId || '',
+            applicationId,
+        });
+        appendStageOutboundFields(payload, stageBundle);
+
         console.log(
             hasCvBinary
-                ? '📤 n8n: multipart — حقول مسطّحة في الجذر + criteria/skills/languages كمصفوفات + binary cv'
-                : '📤 n8n: JSON — كل حقل مرشح في الجذر + criteria/skills/languages كمصفوفات'
+                ? '📤 n8n stage1: multipart outbound (secure=' + Boolean(stageBundle) + ')'
+                : '📤 n8n stage1: JSON outbound (secure=' + Boolean(stageBundle) + ')'
         );
         console.log('📋 n8n payload:', JSON.stringify(payload, null, 2));
 
@@ -308,6 +390,9 @@ export const sendToN8N = async (candidateData: CandidateData, campaignId?: strin
             return false;
         }
     } catch (error: any) {
+        if (error instanceof StageCallbackConfigurationError) {
+            throw error;
+        }
         // لا نريد أن يفشل حفظ البيانات إذا فشل إرسال n8n
         console.error('❌ Error sending data to n8n:', error.message);
         return false;
@@ -372,6 +457,44 @@ function formatConversationToFullTranscript(conversationHistory: Array<{ role: '
         .join('\n\n');
 }
 
+/**
+ * يطبّع لغة رابط المشاركة/الجلسة (التي اختارها الموظف) إلى لغة إخراج التقييم.
+ * يطابق منطق Stage 1: ku/kurdish → ar، ar/arabic → ar، en/english → en.
+ * @returns 'ar' | 'en' | null (null عند 'auto' أو قيمة غير معروفة → نعتمد كشف النص)
+ */
+function normalizeShareEvaluationLanguage(raw: unknown): 'ar' | 'en' | null {
+    const s = String(raw ?? '').trim().toLowerCase();
+    if (!s) return null;
+    if (s === 'en' || s === 'english' || s.startsWith('en-')) return 'en';
+    if (s === 'ar' || s === 'arabic' || s.startsWith('ar-')) return 'ar';
+    if (s === 'ku' || s === 'kurdish' || s === 'ckb') return 'ar';
+    return null;
+}
+
+/**
+ * يكشف لغة المقابلة الفعلية من نص المحادثة (عربي مقابل لاتيني) اعتماداً على
+ * رسائل المرشح (role=user) لأنها الحقيقة الأساسية لما تحدّث به. يُستخدم كخيار احتياطي
+ * عندما لا تتوفّر لغة صريحة من رابط المشاركة/الجلسة.
+ * @returns 'ar' | 'en' | null (null عند عدم كفاية النص للحسم)
+ */
+function detectTranscriptLanguage(
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>
+): 'ar' | 'en' | null {
+    const userText = conversationHistory
+        .filter((m) => m.role === 'user')
+        .map((m) => String(m.content || ''))
+        .join(' ');
+    const sample = userText.trim()
+        ? userText
+        : conversationHistory.map((m) => String(m.content || '')).join(' ');
+    const arabic = (sample.match(/[\u0600-\u06FF\u0750-\u077F]/g) || []).length;
+    const latin = (sample.match(/[A-Za-z]/g) || []).length;
+    const total = arabic + latin;
+    if (total < 10) return null;
+    // نص عربي غالباً يتضمّن مصطلحات إنجليزية، لذا عتبة 0.25 تكفي لاعتباره عربياً.
+    return arabic / total >= 0.25 ? 'ar' : 'en';
+}
+
 export const sendVoiceTranscriptToN8N = async (payload: {
     sessionId: string;
     candidateId?: string;
@@ -379,14 +502,25 @@ export const sendVoiceTranscriptToN8N = async (payload: {
     language?: string;
     /** التقييم (Communication Skills, English Fluency, Confidence Level) — يُضمّن في نفس الرسالة */
     evaluation?: { communicationSkills: number; englishFluency: number; confidenceLevel: number };
+    /** المسار العام (رابط مشارَك): يُغيّر الرابط الوجهة ويُرفِق معايير الوظيفة */
+    mode?: 'public';
+    /** معايير الوظيفة من الحملة — تُرسل مع الترانسكريبت في المسار العام */
+    jobCriteria?: Record<string, unknown>;
+    /** معرّف الحملة (hex) — يُرفق مع الترانسكريبت العام */
+    campaignId?: string;
+    /** إعلان الوظيفة من الحملة — اختياري */
+    jobAdvertisement?: string;
 }): Promise<boolean> => {
     dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+    const isPublic = payload.mode === 'public';
+    const publicUrl = (process.env.N8N_PUBLIC_SCREENING_WEBHOOK_URL || '').trim();
     const dedicated = (process.env.N8N_VOICE_TRANSCRIPT_WEBHOOK_URL || '').trim();
     const mainUrl = (getN8NWebhookUrl() || '').trim();
-    const voiceWebhookUrl = dedicated || mainUrl;
+    // المسار العام: N8N_PUBLIC_SCREENING_WEBHOOK_URL ثم fallback إلى الرابط الصوتي ثم الرئيسي.
+    const voiceWebhookUrl = (isPublic ? publicUrl : '') || dedicated || mainUrl;
     /** رد التحليل الصوتي من n8n يجب أن يُرسل إلى POST {API}/webhook/n8n/stage2 (صوت فقط). */
     if (!voiceWebhookUrl) {
-        console.log('⚠️ [n8n voice] N8N_WEBHOOK_URL or N8N_VOICE_TRANSCRIPT_WEBHOOK_URL not set, skipping');
+        console.log('⚠️ [n8n voice] no webhook configured (N8N_PUBLIC_SCREENING_WEBHOOK_URL / N8N_VOICE_TRANSCRIPT_WEBHOOK_URL / N8N_WEBHOOK_URL), skipping');
         return false;
     }
     if (!payload.conversationHistory?.length) {
@@ -394,7 +528,16 @@ export const sendVoiceTranscriptToN8N = async (payload: {
         return false;
     }
     try {
+        assertStageOutboundSecurityForTrigger();
         const fullTranscript = formatConversationToFullTranscript(payload.conversationHistory);
+        const candidateId = payload.candidateId?.trim() || '';
+        const campaignId =
+            payload.campaignId?.trim() || (await resolveCandidateCampaignId(candidateId));
+        // مثل Stage 1: لغة رابط المشاركة/الجلسة (اختيار الموظف) لها الأولوية، ثم كشف
+        // لغة النص كخيار احتياطي، وأخيراً 'auto' ليكتشفها n8n من الترانسكريبت.
+        const shareLanguage = normalizeShareEvaluationLanguage(payload.language);
+        const detectedLanguage = detectTranscriptLanguage(payload.conversationHistory);
+        const effectiveLanguage = shareLanguage || detectedLanguage || 'auto';
         const body: Record<string, unknown> = {
             event: 'voice_interview_transcript',
             evaluationSource: 'voice' as const,
@@ -402,13 +545,44 @@ export const sendVoiceTranscriptToN8N = async (payload: {
             timestamp: new Date().toISOString(),
             sessionId: payload.sessionId,
             candidateId: payload.candidateId || null,
-            language: payload.language || 'auto',
+            language: effectiveLanguage,
             fullTranscript,
             messageCount: payload.conversationHistory.length,
         };
-        if (payload.evaluation) {
-            body.evaluation = payload.evaluation;
+        const evaluation = payload.evaluation ?? {
+            communicationSkills: 5,
+            englishFluency: 0,
+            confidenceLevel: 5,
+        };
+        body.evaluation = evaluation;
+        if (campaignId) {
+            body.campaignId = campaignId;
         }
+        if (isPublic) {
+            body.source = 'public_screening';
+        }
+        if (payload.jobCriteria && Object.keys(payload.jobCriteria).length > 0) {
+            body.jobCriteria = payload.jobCriteria;
+            const criteriaList = criteriaObjectToList(payload.jobCriteria);
+            if (criteriaList.length > 0) {
+                body.criteria = criteriaList;
+            }
+        }
+        if (payload.jobAdvertisement?.trim()) {
+            body.jobAdvertisement = payload.jobAdvertisement.trim();
+        }
+        const applicationId = await resolveOutboundApplicationId(candidateId, campaignId);
+        if (applicationId) body.applicationId = applicationId;
+        const stageBundle = tryBuildStageOutboundBundle('stage2', {
+            candidateId,
+            sessionId: payload.sessionId,
+            campaignId,
+            applicationId,
+        });
+        appendStageOutboundFields(body, stageBundle);
+        console.log(
+            `[n8n voice] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} criteria=${payload.jobCriteria ? Object.keys(payload.jobCriteria).length : 0} metrics=${JSON.stringify(evaluation)} transcriptChars=${String(body.fullTranscript || '').length}`
+        );
         const jsonBody = JSON.stringify(body);
         const post = (url: string) =>
             fetch(url, {
@@ -464,8 +638,12 @@ export const sendVoiceTranscriptToN8N = async (payload: {
             console.error('   URL used:', urlHint);
         }
         return false;
-    } catch (error: any) {
-        console.error('❌ Error sending voice transcript to n8n:', error.message);
+    } catch (error: unknown) {
+        if (error instanceof StageCallbackConfigurationError) {
+            throw error;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('❌ Error sending voice transcript to n8n:', message);
         return false;
     }
 };
@@ -477,13 +655,24 @@ export const sendVideoTranscriptToN8N = async (payload: {
     candidateId?: string;
     conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
     language?: string;
+    /** المسار العام (رابط مشارَك): يُغيّر الرابط الوجهة */
+    mode?: 'public';
+    /** معايير الوظيفة (Snapshot من الحملة أو الجلسة) */
+    jobCriteria?: Record<string, unknown>;
+    /** لقطة Interview Blueprint وقت بدء المقابلة — لقياس competencyScores في n8n Stage 3 */
+    blueprintSnapshot?: Record<string, unknown>;
+    /** campaignId — يُضمّن في payload الموحّد */
+    campaignId?: string;
 }): Promise<boolean> => {
     dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+    const isPublic = payload.mode === 'public';
+    const publicUrl = (process.env.N8N_PUBLIC_VIDEO_SCREENING_WEBHOOK_URL || '').trim();
     const dedicated = (process.env.N8N_VIDEO_TRANSCRIPT_WEBHOOK_URL || '').trim();
     const mainUrl = (getN8NWebhookUrl() || '').trim();
-    const videoWebhookUrl = dedicated || mainUrl;
+    // المسار العام: N8N_PUBLIC_VIDEO_SCREENING_WEBHOOK_URL ثم fallback إلى رابط الفيديو ثم الرئيسي.
+    const videoWebhookUrl = (isPublic ? publicUrl : '') || dedicated || mainUrl;
     if (!videoWebhookUrl) {
-        console.log('⚠️ [n8n video] N8N_WEBHOOK_URL or N8N_VIDEO_TRANSCRIPT_WEBHOOK_URL not set, skipping');
+        console.log('⚠️ [n8n video] no webhook configured (N8N_PUBLIC_VIDEO_SCREENING_WEBHOOK_URL / N8N_VIDEO_TRANSCRIPT_WEBHOOK_URL / N8N_WEBHOOK_URL), skipping');
         return false;
     }
     if (!payload.conversationHistory?.length) {
@@ -491,18 +680,54 @@ export const sendVideoTranscriptToN8N = async (payload: {
         return false;
     }
     try {
+        assertStageOutboundSecurityForTrigger();
         const fullTranscript = formatConversationToFullTranscript(payload.conversationHistory);
-        const body = {
+        const candidateId = payload.candidateId?.trim() || '';
+        const campaignId =
+            payload.campaignId?.trim() || (await resolveCandidateCampaignId(candidateId));
+        // مثل Stage 1: لغة رابط المشاركة/الجلسة (اختيار الموظف) لها الأولوية، ثم كشف
+        // لغة النص كخيار احتياطي، وأخيراً 'auto' ليكتشفها n8n من الترانسكريبت.
+        const shareLanguage = normalizeShareEvaluationLanguage(payload.language);
+        const detectedLanguage = detectTranscriptLanguage(payload.conversationHistory);
+        const effectiveLanguage = shareLanguage || detectedLanguage || 'auto';
+        const body: Record<string, unknown> = {
             event: 'video_interview_transcript',
             evaluationSource: 'video' as const,
+            // payload موحّد عبر كل المسارات (متوافق مع الحقول الحالية)
+            interviewType: 'video',
             stage: 3,
             timestamp: new Date().toISOString(),
             sessionId: payload.sessionId,
             candidateId: payload.candidateId || null,
-            language: payload.language || 'auto',
+            campaignId: payload.campaignId || null,
+            language: effectiveLanguage,
             fullTranscript,
             messageCount: payload.conversationHistory.length,
         };
+        if (campaignId) {
+            body.campaignId = campaignId;
+        }
+        if (payload.jobCriteria && Object.keys(payload.jobCriteria).length > 0) {
+            body.jobCriteria = payload.jobCriteria;
+        }
+        if (payload.blueprintSnapshot && Object.keys(payload.blueprintSnapshot).length > 0) {
+            body.blueprintSnapshot = payload.blueprintSnapshot;
+        }
+        if (isPublic) {
+            body.source = 'public_screening';
+        }
+        const applicationId = await resolveOutboundApplicationId(candidateId, campaignId || undefined);
+        if (applicationId) body.applicationId = applicationId;
+        const stageBundle = tryBuildStageOutboundBundle('stage3', {
+            candidateId,
+            sessionId: payload.sessionId,
+            campaignId,
+            applicationId,
+        });
+        appendStageOutboundFields(body, stageBundle);
+        console.log(
+            `[n8n video] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} transcriptChars=${String(body.fullTranscript || '').length}`
+        );
         const response = await fetch(videoWebhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -534,10 +759,55 @@ export const sendVideoTranscriptToN8N = async (payload: {
             console.error('   URL used:', urlHint);
         }
         return false;
-    } catch (error: any) {
-        console.error('❌ Error sending video transcript to n8n:', error.message);
+    } catch (error: unknown) {
+        if (error instanceof StageCallbackConfigurationError) {
+            throw error;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('❌ Error sending video transcript to n8n:', message);
         return false;
     }
+};
+
+const VOICE_EVAL_FALLBACK: VoiceInterviewEvaluation = {
+    communicationSkills: 5,
+    englishFluency: 0,
+    confidenceLevel: 5,
+};
+
+/**
+ * Evaluate voice interview + send Stage 2 transcript to n8n.
+ * Criteria are passed through from the voice session (website/public flow) — not re-loaded from MongoDB here.
+ * When jobCriteria is absent, n8n Stage 2 uses the no-criteria branch; when present, the criteria branch.
+ */
+export const finalizeAndSendVoiceTranscriptToN8N = async (payload: {
+    sessionId: string;
+    candidateId?: string;
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+    language?: string;
+    mode?: 'public';
+    jobCriteria?: Record<string, unknown>;
+    campaignId?: string;
+    jobAdvertisement?: string;
+    evalContext?: VoiceInterviewEvalContext;
+}): Promise<boolean> => {
+    let evaluation = await evaluateVoiceInterview(payload.conversationHistory, payload.evalContext);
+    if (!evaluation) {
+        console.warn('[n8n voice] evaluateVoiceInterview returned null — using fallback metrics');
+        evaluation = { ...VOICE_EVAL_FALLBACK };
+    }
+
+    return sendVoiceTranscriptToN8N({
+        sessionId: payload.sessionId,
+        candidateId: payload.candidateId,
+        conversationHistory: payload.conversationHistory,
+        language: payload.language,
+        mode: payload.mode,
+        evaluation,
+        jobCriteria: payload.jobCriteria,
+        campaignId: payload.campaignId,
+        jobAdvertisement: payload.jobAdvertisement,
+    });
 };
 
 // تم حذف sendRecruitmentCampaignToN8N لأنها لم تعد مستخدمة

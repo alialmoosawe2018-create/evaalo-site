@@ -9,12 +9,11 @@
 
 1. اذهب إلى [MongoDB Atlas](https://cloud.mongodb.com/)
 2. اضغط **Database Access** (في القائمة الجانبية)
-3. ابحث عن المستخدم: `alialmoosawe2018`
+3. ابحث عن مستخدم قاعدة البيانات الخاص بك
 4. اضغط على **Edit** بجانب المستخدم
 5. **تحقق من كلمة المرور:**
-   - إذا نسيت كلمة المرور، اضغط **Edit** → **Edit Password**
-   - أدخل كلمة المرور الجديدة: `A07820782M`
-   - أو استخدم كلمة المرور الصحيحة إذا كانت مختلفة
+   - إذا نسيتها: **Edit** → **Edit Password** → عيّن كلمة مرور جديدة واحفظها
+   - انسخ نفس القيمة في `MONGODB_URI` داخل `apps/backend/.env`
 
 ### 2. التحقق من Network Access:
 
@@ -48,25 +47,21 @@ node test-connection.js
 
 1. اذهب إلى **Database Access**
 2. اضغط **Add New Database User**
-3. Username: `alialmoosawe2018` (أو اسم جديد)
-4. Password: `A07820782M` (أو كلمة مرور جديدة)
+3. Username: (اسم تختاره أنت)
+4. Password: (قوية؛ ثم انسخها إلى `MONGODB_URI` في `.env`)
 5. Database User Privileges: **Read and write to any database**
 6. اضغط **Add User**
 
 #### ب) تحديث Connection String:
 
-بعد إنشاء مستخدم جديد، حدّث Connection String في:
-- `apps/backend/src/config/database.ts`
-- استبدل Username و Password بالجديد
+بعد إنشاء مستخدم جديد، حدّث **`MONGODB_URI`** فقط في **`apps/backend/.env`** (لا تضع أسراراً في `database.ts`).
 
-## 📝 معلومات الاتصال الحالية:
+## 📝 معلومات الاتصال (ضع القيم الفعلية في `.env` فقط):
 
-- **Connection String**: `mongodb+srv://alialmoosawe2018:A07820782M@cluster0.35tnfqd.mongodb.net/sample_mflix?retryWrites=true&w=majority&appName=Cluster0`
-- **Database**: `sample_mflix`
-- **Collection**: `candidates`
-- **Username**: `alialmoosawe2018`
-- **Password**: `A07820782M`
-- **IP Address**: `77.237.234.153`
+- **MONGODB_URI**: `mongodb://…` أو `mongodb+srv://…` من Atlas → **Connect** (بدون لصق الأسرار في الوثائق أو Git)
+- **Database**: عادةً `sample_mflix` أو ما عرّفته أنت
+- **Collection**: مثلاً `candidates`
+- **Network Access**: أضف IP الحالي أو `0.0.0.0/0` للتجربة فقط
 
 ## ⚠️ ملاحظات مهمة:
 
