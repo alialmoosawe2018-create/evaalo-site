@@ -41,7 +41,9 @@ router.post('/pdf', async (req: Request, res: Response) => {
         });
         const page = await browser.newPage();
         await page.setContent(safeHtml, {
-            waitUntil: 'networkidle0',
+            // cast: بعض إصدارات أنواع Puppeteer لا تُدرج networkidle0 في union الـ waitUntil
+            // رغم دعمها له وقت التشغيل — يبني في المونوريبو ويفشل standalone بدونه.
+            waitUntil: 'networkidle0' as 'load',
             timeout: Math.min(Number(process.env.ORG_CHART_PDF_TIMEOUT_MS) || 60000, 120000),
         });
 
