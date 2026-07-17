@@ -4,13 +4,14 @@
 // ============================================
 
 import axios from 'axios';
-import { detectLanguage } from '../utils/languageDetection';
+import { detectLanguage } from '../utils/languageDetection.js';
 
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
 
-// Voice IDs for different languages
-const ARABIC_VOICE_ID = 'pSfhiOqmR5ZWBE5pZErH';
-const ENGLISH_VOICE_ID = 'eR40ATw9ArzDf9h3v7t7';
+// Voice IDs for different languages — env-overridable; defaults are premade
+// voices available on every ElevenLabs account (custom voices are per-account).
+const ARABIC_VOICE_ID = (process.env.ELEVENLABS_VOICE_ID_AR || '').trim() || 'a0K946lDZEyNuRXJc7sI';
+const ENGLISH_VOICE_ID = (process.env.ELEVENLABS_VOICE_ID_EN || '').trim() || 'Xb7hH8MSUJpSbSDYk0k2';
 
 // Model for TTS
 const TTS_MODEL = 'eleven_turbo_v2_5';
@@ -256,9 +257,7 @@ export async function streamTextToSpeech(
         return; // نص فارغ - لا شيء للبث
     }
 
-    // Voice IDs
-    const ARABIC_VOICE_ID = 'pSfhiOqmR5ZWBE5pZErH';
-    const ENGLISH_VOICE_ID = 'eR40ATw9ArzDf9h3v7t7';
+    // Voice IDs (env-overridable — see module-level constants)
     const voiceId = language === 'ar' ? ARABIC_VOICE_ID : ENGLISH_VOICE_ID;
     const TTS_MODEL = 'eleven_turbo_v2_5';
 
