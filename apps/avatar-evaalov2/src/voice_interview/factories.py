@@ -446,16 +446,86 @@ def _elevenlabs_chunk_length_schedule() -> list[int] | None:
     return out if out else None
 
 
-def create_elevenlabs_tts():
-    voice_id = (os.getenv("ELEVENLABS_VOICE_ID") or "").strip() or ARABIC_VOICE_ID
-    if voice_id != ARABIC_VOICE_ID and voice_id in INVALID_ELEVEN_VOICE_IDS:
-        logger.warning("Invalid ELEVENLABS_VOICE_ID, using default: %s", ARABIC_VOICE_ID)
-        voice_id = ARABIC_VOICE_ID
-    eleven_api_key = (
+def _resolve_elevenlabs_api_key() -> str | None:
+    return (
         (os.getenv("ELEVENLABS_API_KEY") or "").strip()
         or (os.getenv("ELEVEN_API_KEY") or "").strip()
         or None
     )
+
+
+def _resolve_elevenlabs_voice_id() -> str:
+    voice_id = (os.getenv("ELEVENLABS_VOICE_ID") or "").strip() or ARABIC_VOICE_ID
+    if voice_id != ARABIC_VOICE_ID and voice_id in INVALID_ELEVEN_VOICE_IDS:
+        logger.warning("Invalid ELEVENLABS_VOICE_ID, using default: %s", ARABIC_VOICE_ID)
+        voice_id = ARABIC_VOICE_ID
+    return voice_id
+
+
+def _elevenlabs_fallback_voice_ids() -> list[str]:
+    """Premade voices exist on every ElevenLabs account — safety net when the
+    configured (custom) voice no longer exists (voice_id_does_not_exist incident).
+    A candidate must never face a mute avatar in a real paid interview."""
+    raw = (os.getenv("ELEVENLABS_FALLBACK_VOICE_IDS") or "").strip()
+    if raw:
+        return [v.strip() for v in raw.split(",") if v.strip()]
+    return ["EXAVITQu4vr4xnSDxMaL", "Xb7hH8MSUJpSbSDYk0k2"]
+
+
+def _elevenlabs_voice_exists(api_key: str, voice_id: str, timeout: float = 2.5) -> bool | None:
+    """GET /v1/voices/{id}. True/False when the API answered; None on network trouble
+    (caller keeps the configured voice — never block startup on a check failure)."""
+    import urllib.error
+    import urllib.request
+
+    req = urllib.request.Request(
+        f"https://api.elevenlabs.io/v1/voices/{voice_id}",
+        headers={"xi-api-key": api_key},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return 200 <= resp.status < 300
+    except urllib.error.HTTPError as e:
+        if e.code in (400, 404):
+            return False
+        return None
+    except Exception:
+        return None
+
+
+def preflight_elevenlabs_voice() -> str:
+    """Resolve the configured voice, swap to a premade fallback when it no longer
+    exists. Sync (urllib) — call via ``asyncio.to_thread``. Disable with
+    ``ELEVENLABS_VOICE_PREFLIGHT=off``."""
+    voice_id = _resolve_elevenlabs_voice_id()
+    if (os.getenv("ELEVENLABS_VOICE_PREFLIGHT") or "on").strip().lower() in ("0", "false", "no", "off"):
+        return voice_id
+    api_key = _resolve_elevenlabs_api_key()
+    if not api_key:
+        return voice_id
+    if _elevenlabs_voice_exists(api_key, voice_id) is not False:
+        return voice_id
+    for fb in _elevenlabs_fallback_voice_ids():
+        if fb == voice_id:
+            continue
+        if _elevenlabs_voice_exists(api_key, fb) is not False:
+            logger.warning(
+                "ElevenLabs voice %s does not exist on this account — falling back to %s "
+                "(set ELEVENLABS_VOICE_ID to a voice from your Voice Library)",
+                voice_id,
+                fb,
+            )
+            return fb
+    logger.error(
+        "ElevenLabs voice %s missing and no fallback validated — keeping configured id",
+        voice_id,
+    )
+    return voice_id
+
+
+def create_elevenlabs_tts(voice_id_override: str | None = None):
+    voice_id = (voice_id_override or "").strip() or _resolve_elevenlabs_voice_id()
+    eleven_api_key = _resolve_elevenlabs_api_key()
     eleven_inactivity = int(os.getenv("ELEVENLABS_INACTIVITY_TIMEOUT", "300"))
     tts_model = os.getenv("ELEVENLABS_MODEL", "eleven_turbo_v2_5").strip() or "eleven_turbo_v2_5"
     tts_streaming_enabled = _env_bool("ELEVENLABS_TTS_STREAMING", True)

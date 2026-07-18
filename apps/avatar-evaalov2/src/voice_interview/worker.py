@@ -49,6 +49,7 @@ from voice_interview.factories import (
     load_turn_detector_model,
     load_vad,
     maybe_warmup_elevenlabs,
+    preflight_elevenlabs_voice,
 )
 from voice_interview.metrics_hooks import attach_metrics_hooks
 from voice_interview.session_summary import attach_session_summary
@@ -681,6 +682,41 @@ def _livekit_room_text_output_options() -> room_io.TextOutputOptions:
     )
 
 
+async def _wait_for_candidate(ctx: JobContext, identity: str | None, tel: Any) -> bool:
+    """Block until the candidate actually joins before greeting (silent-greeting fix).
+
+    The agent used to greet ~5s after session start while the candidate was still
+    on the mic-permission screen; live audio is not replayed so the greeting
+    landed in an empty room. ``ctx.wait_for_participant`` handles the
+    already-joined case and, with ``identity=None``, waits for the first
+    STANDARD/SIP participant (the Beyond avatar joins as AGENT kind, never
+    mistaken for the candidate)."""
+    timeout = float(os.getenv("INTERVIEW_GREETING_WAIT_TIMEOUT", "60"))
+    post_delay = float(os.getenv("INTERVIEW_GREETING_POST_JOIN_DELAY", "1.0"))
+    try:
+        kwargs: dict[str, Any] = {}
+        if identity:
+            kwargs["identity"] = identity
+        participant = await asyncio.wait_for(ctx.wait_for_participant(**kwargs), timeout=timeout)
+        tel.mark("candidate_joined_s")
+        logger.info("candidate joined | identity=%s (greeting unblocked)", getattr(participant, "identity", ""))
+        if post_delay > 0:
+            await asyncio.sleep(post_delay)
+        return True
+    except asyncio.TimeoutError:
+        logger.warning("greeting_skipped_no_candidate | no candidate within %.0fs (identity=%s)", timeout, identity or "any")
+        return False
+    except asyncio.CancelledError:
+        raise
+    except Exception as e:
+        logger.warning("candidate wait failed (%s) — greeting immediately", e)
+        return True
+
+
+def _interview_tts_failure_text() -> str:
+    return "نعتذر — نواجه مشكلة تقنية مؤقتة بالصوت. سيتم إعلامك لإعادة جدولة المقابلة."
+
+
 @server.rtc_session(agent_name="video-interview-agent", on_request=_on_job_request)
 async def my_agent(ctx: JobContext):
     # Connect before anything else — minimizes time-to-_ctx_connect for LiveKit job_entry watchdog.
@@ -728,7 +764,13 @@ async def my_agent(ctx: JobContext):
     _iv = interview_defaults_enabled()
 
     avatar_session = create_avatar_session()
-    tts, voice_id, tts_language, supports_override = create_elevenlabs_tts()
+    # Fail-safe: validate the configured ElevenLabs voice; swap to a premade
+    # fallback if it no longer exists (voice_id_does_not_exist). A candidate in a
+    # real paid interview must never face a mute avatar.
+    _preflight_voice = await asyncio.to_thread(preflight_elevenlabs_voice)
+    tts, voice_id, tts_language, supports_override = create_elevenlabs_tts(
+        voice_id_override=_preflight_voice
+    )
 
     try:
         stt = create_speechmatics_stt()
@@ -965,7 +1007,70 @@ async def my_agent(ctx: JobContext):
         _session_tel.end_reason = "session_start_failed"
         raise
 
-    if os.getenv("SKIP_INITIAL_GREETING", "0") != "1":
+    disconnect_event = asyncio.Event()
+
+    # ── Terminal TTS guard ────────────────────────────────────────────────────
+    # The SDK retries transient TTS failures; this catches the terminal case
+    # (dead voice id / dead key): after N consecutive TTS errors with no audio,
+    # tell the candidate in text and end instead of a silent avatar.
+    _tts_error_limit = max(1, int(os.getenv("INTERVIEW_TTS_ERROR_LIMIT", "3")))
+    _tts_error_count = 0
+    _tts_terminal_fired = False
+
+    async def _tts_terminal_shutdown() -> None:
+        nonlocal _tts_terminal_fired
+        if _tts_terminal_fired:
+            return
+        _tts_terminal_fired = True
+        logger.error("tts_terminal_failure | %d consecutive TTS errors — notifying candidate and ending", _tts_error_count)
+        try:
+            await ctx.room.local_participant.send_text(_interview_tts_failure_text(), topic="lk.transcription")
+        except Exception as ex:
+            logger.debug("tts failure text notify skipped: %s", ex)
+        _session_tel.end_reason = "tts_terminal_failure"
+        try:
+            ctx.shutdown("tts_terminal_failure")
+        except Exception:
+            pass
+        disconnect_event.set()
+
+    def _on_session_error(ev: Any) -> None:
+        nonlocal _tts_error_count
+        try:
+            source = getattr(ev, "source", None)
+            label = f"{type(source).__module__}.{type(source).__name__}".lower() if source is not None else ""
+            if "tts" not in label:
+                return
+            _tts_error_count += 1
+            logger.warning("tts error %d/%d | %s", _tts_error_count, _tts_error_limit, getattr(ev, "error", ev))
+            if _tts_error_count >= _tts_error_limit and not _tts_terminal_fired:
+                asyncio.get_running_loop().create_task(_tts_terminal_shutdown())
+        except Exception as ex:
+            logger.debug("session error hook failed: %s", ex)
+
+    def _on_metrics_reset_tts_errors(ev: Any) -> None:
+        nonlocal _tts_error_count
+        try:
+            from livekit.agents import metrics as _metrics
+
+            m = getattr(ev, "metrics", None)
+            if isinstance(m, _metrics.TTSMetrics) and (getattr(m, "audio_duration", 0) or 0) > 0:
+                _tts_error_count = 0
+        except Exception:
+            pass
+
+    try:
+        session.on("error", _on_session_error)
+        session.on("metrics_collected", _on_metrics_reset_tts_errors)
+    except Exception as e:
+        logger.debug("tts terminal guard hooks skipped: %s", e)
+
+    # ── Wait for the candidate before greeting (silent-greeting fix) ──────────
+    _cand_id = str(meta.get("candidate_id") or "").strip()
+    _cand_identity = f"user-{_cand_id}" if _cand_id else None
+    _candidate_present = await _wait_for_candidate(ctx, _cand_identity, _session_tel)
+
+    if _candidate_present and os.getenv("SKIP_INITIAL_GREETING", "0") != "1":
         try:
             use_llm = os.getenv("INITIAL_GREETING_USE_LLM", "false").lower() in (
                 "1",
@@ -986,12 +1091,37 @@ async def my_agent(ctx: JobContext):
         except Exception as e:
             logger.warning("initial greeting failed: %s", e)
 
+    # ── Session safety cap (abandoned interviews) ────────────────────────────
+    # The interview ends itself naturally via the agent's end-interview tool;
+    # this only reaps abandoned sessions. Generous (30 min) — never cuts a real
+    # interview short.
+    _max_session_s = float(os.getenv("INTERVIEW_MAX_SESSION_SECONDS", "1800"))
+
+    async def _session_time_cap() -> None:
+        try:
+            await asyncio.sleep(_max_session_s)
+            if disconnect_event.is_set():
+                return
+            logger.warning("interview session safety cap reached (%.0fs) — closing abandoned session", _max_session_s)
+            _session_tel.end_reason = "session_time_limit"
+            try:
+                ctx.shutdown("session_time_limit")
+            except Exception:
+                pass
+            disconnect_event.set()
+        except asyncio.CancelledError:
+            pass
+        except Exception as ex:
+            logger.warning("session cap task error: %s", ex)
+
+    _cap_task: asyncio.Task | None = asyncio.create_task(_session_time_cap()) if _max_session_s > 0 else None
+
     try:
-        disconnect_event = asyncio.Event()
         if hasattr(ctx.room, "on"):
             ctx.room.on("disconnected", lambda: disconnect_event.set())
         try:
-            await asyncio.wait_for(disconnect_event.wait(), timeout=3600.0)
+            _safety_timeout = max(_max_session_s + 120.0, 600.0) if _max_session_s > 0 else 3600.0
+            await asyncio.wait_for(disconnect_event.wait(), timeout=_safety_timeout)
         except asyncio.TimeoutError:
             pass
         except asyncio.CancelledError:
@@ -1023,6 +1153,9 @@ async def my_agent(ctx: JobContext):
         else:
             _session_tel.end_reason = "ws_closed"
     finally:
+        disconnect_event.set()  # release the cap task's sleep guard
+        if _cap_task is not None and not _cap_task.done():
+            _cap_task.cancel()
         # Beyond / avatar worker only. Do NOT await AgentSession.aclose() here: session.start() already
         # registered JobContext shutdown hooks, and ipc/job_proc_lazy_main awaits _primary_agent_session.aclose()
         # when the room shuts down. Doing both in this task races the IPC teardown and triggers

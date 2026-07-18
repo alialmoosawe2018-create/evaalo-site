@@ -42,6 +42,7 @@ class SessionTelemetry:
 
     connect_s: float | None = None
     avatar_ready_s: float | None = None
+    candidate_joined_s: float | None = None
     first_tts_s: float | None = None
     first_user_final_s: float | None = None
     turns: int = 0
@@ -133,13 +134,14 @@ def attach_session_summary(
             duration = round(time.monotonic() - tel.started_at, 3)
             logger.info(
                 "session_summary | sid=%s room=%s duration=%.2fs "
-                "connect=%s avatar_ready=%s first_tts=%s first_user_final=%s "
+                "connect=%s avatar_ready=%s candidate_joined=%s first_tts=%s first_user_final=%s "
                 "turns=%d reason=%s bank_resolution=%s bank_category=%s bank_override=%s",
                 tel.sid or "-",
                 tel.room or "-",
                 duration,
                 _fmt(tel.connect_s),
                 _fmt(tel.avatar_ready_s),
+                _fmt(tel.candidate_joined_s),
                 _fmt(tel.first_tts_s),
                 _fmt(tel.first_user_final_s),
                 tel.turns,
