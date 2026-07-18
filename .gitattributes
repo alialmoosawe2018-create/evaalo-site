@@ -1,0 +1,17 @@
+# Normalize line endings: store text as LF in the repo, check out native.
+# Stops the CRLF↔LF churn that inflated diffs during the backend reconciliation.
+* text=auto
+
+# Keep shell scripts LF even on Windows checkouts.
+*.sh text eol=lf
+*.cjs text eol=lf
+
+# Treat known binaries as binary (never normalized).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ico binary
