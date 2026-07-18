@@ -14,10 +14,12 @@
 import { sweepStaleVideoLocks } from './videoBillingService.js';
 import { sweepStaleCompareEmails } from './compareEmailBilling.js';
 import { expireStaleReservations } from './usageReservationService.js';
+import { sweepStalledVideoEvaluations } from './videoEvaluationHealthService.js';
 
 const VIDEO_SWEEP_INTERVAL_MS = 60 * 1000; // 1 min
 const COMPARE_SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 5 min
 const RESERVATION_SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 5 min
+const VIDEO_EVAL_HEALTH_INTERVAL_MS = 5 * 60 * 1000; // 5 min
 
 let started = false;
 
@@ -43,17 +45,20 @@ export function startBillingSchedulers(): void {
     const reservationTick = runGuarded('reservation-sweep', async () => {
         await expireStaleReservations();
     });
+    const videoEvalHealthTick = runGuarded('video-eval-health', sweepStalledVideoEvaluations);
 
     const videoTimer = setInterval(videoTick, VIDEO_SWEEP_INTERVAL_MS);
     const compareTimer = setInterval(compareTick, COMPARE_SWEEP_INTERVAL_MS);
     const reservationTimer = setInterval(reservationTick, RESERVATION_SWEEP_INTERVAL_MS);
+    const videoEvalHealthTimer = setInterval(videoEvalHealthTick, VIDEO_EVAL_HEALTH_INTERVAL_MS);
 
     // Don't keep the process alive solely for these timers.
     videoTimer.unref?.();
     compareTimer.unref?.();
     reservationTimer.unref?.();
+    videoEvalHealthTimer.unref?.();
 
     console.log(
-        `🩺 Billing schedulers started (video sweep ${VIDEO_SWEEP_INTERVAL_MS / 1000}s, compare sweep ${COMPARE_SWEEP_INTERVAL_MS / 1000}s, reservation sweep ${RESERVATION_SWEEP_INTERVAL_MS / 1000}s)`,
+        `🩺 Billing schedulers started (video sweep ${VIDEO_SWEEP_INTERVAL_MS / 1000}s, compare sweep ${COMPARE_SWEEP_INTERVAL_MS / 1000}s, reservation sweep ${RESERVATION_SWEEP_INTERVAL_MS / 1000}s, video-eval health ${VIDEO_EVAL_HEALTH_INTERVAL_MS / 1000}s)`,
     );
 }

@@ -88,6 +88,8 @@ export interface IVideoInterviewSession extends Document {
     purchasedVideoSecondsAtStart?: number;
     /** Billing lifecycle: active → settled, or active → forced_ended → settled. */
     billingStatus?: 'active' | 'forced_ended' | 'settled';
+    /** Set once the evaluation-failure monitor has alerted for this session — prevents repeat alerts. */
+    evaluationAlertSentAt?: Date;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -206,7 +208,8 @@ const VideoInterviewSessionSchema = new Schema<IVideoInterviewSession>(
             type: String,
             enum: ['active', 'forced_ended', 'settled'],
             index: true
-        }
+        },
+        evaluationAlertSentAt: { type: Date }
     },
     {
         timestamps: true, // يضيف createdAt و updatedAt تلقائياً
