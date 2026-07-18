@@ -46,8 +46,12 @@ const limiter = createRateLimiter(rateLimitPerMin);
 
 /** Unified-credit billing for standalone voice WS sessions (charged at close). */
 const VOICE_WS_BILLING_ENFORCE = process.env.BILLING_ENFORCE !== "false";
-const VOICE_WS_MAX_SESSION_MS = (Number(process.env.VOICE_MAX_INTERVIEW_SECONDS) || 3600) * 1000;
+// قرار المالك: سقف المقابلة الصوتية 15 دقيقة (900s). كان 3600 (سخي جداً).
+// فائدة جانبية: الحجز المسبق للرصيد (estimatedUnits) ينكمش من 3600 إلى 900.
+const VOICE_WS_MAX_SESSION_MS = (Number(process.env.VOICE_MAX_INTERVIEW_SECONDS) || 900) * 1000;
 const VOICE_WS_IDLE_TIMEOUT_MS = (Number(process.env.VOICE_IDLE_TIMEOUT_SECONDS) || 120) * 1000;
+// أدنى مدة جلسة يقبلها الحجز المُقلَّم — أقل من ذلك تُرفض الجلسة (رصيد لا يكفي لمقابلة مجدية).
+const VOICE_WS_MIN_SESSION_SECONDS = Number(process.env.VOICE_MIN_SESSION_SECONDS) || 120;
 
 /**
  * Resolve the billing organization for a candidate-initiated voice session.
@@ -246,7 +250,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       try { ws.close(1000, "idle timeout"); } catch { /* noop */ }
     }, VOICE_WS_IDLE_TIMEOUT_MS);
   };
-  const maxTimer = setTimeout(() => {
+  let maxTimer = setTimeout(() => {
     try { ws.close(1000, "max duration"); } catch { /* noop */ }
   }, VOICE_WS_MAX_SESSION_MS);
   resetIdleTimer();
@@ -256,10 +260,17 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     void (async () => {
       try {
         const organizationId = await resolveVoiceSessionOrgId(candidateId, resolvedCampaignId);
+        const maxSessionSeconds = Math.floor(VOICE_WS_MAX_SESSION_MS / 1000);
+        // Clamp the reservation to what the balance affords (low-credit plans
+        // couldn't cover a full max-length session upfront and were hard-denied
+        // right after the greeting). The session timer shrinks to the granted
+        // seconds so actual usage can never exceed the hold.
         const reserve = await reserveUsage({
           organizationId,
           usageType: "VOICE_SECONDS",
-          estimatedUnits: Math.floor(VOICE_WS_MAX_SESSION_MS / 1000),
+          estimatedUnits: maxSessionSeconds,
+          clampToAvailable: true,
+          minUnits: VOICE_WS_MIN_SESSION_SECONDS,
           source: "voice_ws",
           sourceId: sessionId,
           idempotencyKey: `reservation:voice_ws:${sessionId}`,
@@ -269,8 +280,24 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           console.warn(
             `[VOICE BILLING] ${sessionId.substring(0, 8)}... reservation denied: ${reserve.code}`,
           );
+          try {
+            send(ws, { type: "error", code: reserve.code, message: "billing denied" });
+          } catch { /* noop */ }
           try { ws.close(1008, "billing denied"); } catch { /* noop */ }
           return;
+        }
+        if (reserve.grantedUnits < maxSessionSeconds) {
+          const remainingMs = Math.max(
+            0,
+            reserve.grantedUnits * 1000 - (Date.now() - sessionStartedAt),
+          );
+          clearTimeout(maxTimer);
+          maxTimer = setTimeout(() => {
+            try { ws.close(1000, "max duration"); } catch { /* noop */ }
+          }, remainingMs);
+          console.log(
+            `[VOICE BILLING] ${sessionId.substring(0, 8)}... clamped session to ${reserve.grantedUnits}s (credits headroom)`,
+          );
         }
         voiceReservationReady = true;
       } catch (err: any) {

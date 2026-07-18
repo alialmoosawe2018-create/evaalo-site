@@ -35,6 +35,13 @@ function getCompanyName(user: ClerkUserPayload): string | undefined {
     return trimmed || undefined;
 }
 
+function getCompanyDescription(user: ClerkUserPayload): string | undefined {
+    const raw = (user.unsafe_metadata as Record<string, unknown> | undefined)?.companyDescription;
+    if (typeof raw !== 'string') return undefined;
+    const trimmed = raw.trim().slice(0, 2000);
+    return trimmed || undefined;
+}
+
 export function computeProfileComplete(
     fullName?: string,
     companyName?: string,
@@ -77,6 +84,7 @@ export async function upsertUserFromClerk(
 
     const fullName = getFullName(payload);
     const companyName = getCompanyName(payload);
+    const companyDescription = getCompanyDescription(payload);
     const profileComplete =
         payload.public_metadata?.profileComplete === true ||
         computeProfileComplete(fullName, companyName, email);
@@ -91,6 +99,7 @@ export async function upsertUserFromClerk(
                 email,
                 fullName,
                 companyName,
+                companyDescription,
                 profileComplete,
                 imageUrl: payload.image_url,
                 role: sanitizedRole || undefined,

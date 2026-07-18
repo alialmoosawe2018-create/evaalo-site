@@ -17,7 +17,7 @@
  *   per-second interview billing stays exact.
  */
 
-export type BillingPlanId = 'starter' | 'team' | 'professional' | 'business';
+export type BillingPlanId = 'free' | 'starter' | 'team' | 'professional' | 'business';
 
 /**
  * Metered usage types. Phase 1 wires VOICE_SECONDS + VIDEO_SECONDS at the
@@ -84,6 +84,8 @@ export type BillingPlan = {
     flags?: {
         popular?: boolean;
         customCredits?: boolean;
+        /** أخفِ الباقة من الكتالوج العام وقوائم الترقية (مثل free — تُمنح تلقائياً ولا تُشترى). */
+        hidden?: boolean;
     };
 };
 

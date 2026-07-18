@@ -10,6 +10,7 @@ import type { Request, Response } from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import { clerkMiddleware } from '@clerk/express';
+import { resolveOrgFallback } from './middleware/resolveOrg.js';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -197,6 +198,12 @@ if (process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY) {
             );
             next();
         }
+    });
+    // After Clerk auth: if the token carries no active org, resolve the user's
+    // single Clerk org membership so org-scoped routes work even when the
+    // frontend never activated an organization in the session.
+    app.use((req, res, next) => {
+        resolveOrgFallback(req, res, next).catch(() => next());
     });
 } else if (process.env.CLERK_SECRET_KEY || process.env.CLERK_PUBLISHABLE_KEY) {
     console.warn(

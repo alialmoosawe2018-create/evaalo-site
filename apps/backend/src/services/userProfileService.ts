@@ -18,11 +18,14 @@ export interface UserPreferencesDto {
 export interface UserProfileDto {
     fullName: string;
     companyName: string;
+    companyDescription: string;
     email: string;
     profileComplete: boolean;
     imageUrl?: string;
     preferences?: UserPreferencesDto;
 }
+
+const COMPANY_DESCRIPTION_MAX = 2000;
 
 function splitFullName(fullName: string): { firstName: string; lastName?: string } {
     const trimmed = fullName.trim();
@@ -71,6 +74,7 @@ async function fetchClerkUser(clerkUserId: string): Promise<ClerkUserPayload | n
 function docToDto(doc: {
     fullName?: string;
     companyName?: string;
+    companyDescription?: string;
     email: string;
     profileComplete?: boolean;
     imageUrl?: string;
@@ -80,6 +84,7 @@ function docToDto(doc: {
 }): UserProfileDto {
     const fullName = doc.fullName?.trim() || '';
     const companyName = doc.companyName?.trim() || '';
+    const companyDescription = doc.companyDescription?.trim() || '';
     const email = doc.email?.trim() || '';
     const profileComplete =
         doc.profileComplete === true || computeProfileComplete(fullName, companyName, email);
@@ -87,6 +92,7 @@ function docToDto(doc: {
     return {
         fullName,
         companyName,
+        companyDescription,
         email,
         profileComplete,
         imageUrl: doc.imageUrl,
@@ -115,6 +121,7 @@ async function upsertMongoProfile(
         email: string;
         fullName: string;
         companyName: string;
+        companyDescription?: string;
         profileComplete: boolean;
         imageUrl?: string;
     }
@@ -127,6 +134,7 @@ async function upsertMongoProfile(
                 email: fields.email.trim().toLowerCase(),
                 fullName: fields.fullName || undefined,
                 companyName: fields.companyName || undefined,
+                companyDescription: fields.companyDescription || undefined,
                 profileComplete: fields.profileComplete,
                 imageUrl: fields.imageUrl,
                 permissions: [],
@@ -159,16 +167,21 @@ export async function getProfileForClerkUser(clerkUserId: string): Promise<UserP
 
 export async function updateProfileForClerkUser(
     clerkUserId: string,
-    input: { fullName?: string; companyName?: string }
+    input: { fullName?: string; companyName?: string; companyDescription?: string }
 ): Promise<UserProfileDto> {
     const fullName = typeof input.fullName === 'string' ? input.fullName.trim() : '';
     const companyName = typeof input.companyName === 'string' ? input.companyName.trim() : '';
+    const companyDescription =
+        typeof input.companyDescription === 'string' ? input.companyDescription.trim() : undefined;
 
     if (fullName.length > 0 && fullName.length < 2) {
         throw new Error('INVALID_FULL_NAME');
     }
     if (companyName.length > 0 && companyName.length < 2) {
         throw new Error('INVALID_COMPANY');
+    }
+    if (companyDescription !== undefined && companyDescription.length > COMPANY_DESCRIPTION_MAX) {
+        throw new Error('INVALID_COMPANY_DESCRIPTION');
     }
 
     const clerkUser = process.env.CLERK_SECRET_KEY ? await fetchClerkUser(clerkUserId) : null;
@@ -186,6 +199,11 @@ export async function updateProfileForClerkUser(
 
     const mergedFullName = fullName || existing?.fullName?.trim() || getFullNameFromClerk(clerkUser) || '';
     const mergedCompany = companyName || existing?.companyName?.trim() || '';
+    // undefined = لم تُرسل → أبقِ الموجودة؛ '' = إفراغ مقصود
+    const mergedDescription =
+        companyDescription !== undefined
+            ? companyDescription
+            : existing?.companyDescription?.trim() || '';
     const profileComplete = computeProfileComplete(mergedFullName, mergedCompany, email);
 
     if (!process.env.CLERK_SECRET_KEY) {
@@ -194,6 +212,7 @@ export async function updateProfileForClerkUser(
             email,
             fullName: mergedFullName,
             companyName: mergedCompany,
+            companyDescription: mergedDescription,
             profileComplete,
             imageUrl: existing?.imageUrl,
         });
@@ -206,6 +225,7 @@ export async function updateProfileForClerkUser(
         unsafe_metadata: {
             ...(clerkUser?.unsafe_metadata || {}),
             companyName: mergedCompany,
+            companyDescription: mergedDescription,
         },
         public_metadata: {
             ...(clerkUser?.public_metadata || {}),
@@ -225,6 +245,7 @@ export async function updateProfileForClerkUser(
             email,
             fullName: mergedFullName,
             companyName: mergedCompany,
+            companyDescription: mergedDescription,
             profileComplete,
             imageUrl: clerkUser?.image_url || existing?.imageUrl,
         });
@@ -247,17 +268,19 @@ function getFullNameFromClerk(user: ClerkUserPayload | null | undefined): string
 /** Dev/mock: upsert profile when Clerk is unavailable (ENFORCE_AUTH off). */
 export async function upsertDevProfile(
     clerkUserId: string,
-    input: { email: string; fullName?: string; companyName?: string }
+    input: { email: string; fullName?: string; companyName?: string; companyDescription?: string }
 ): Promise<UserProfileDto> {
     const email = input.email.trim().toLowerCase();
     const fullName = input.fullName?.trim() || '';
     const companyName = input.companyName?.trim() || '';
+    const companyDescription = input.companyDescription?.trim().slice(0, COMPANY_DESCRIPTION_MAX) || '';
     const profileComplete = computeProfileComplete(fullName, companyName, email);
 
     return upsertMongoProfile(clerkUserId, {
         email,
         fullName,
         companyName,
+        companyDescription,
         profileComplete,
     });
 }

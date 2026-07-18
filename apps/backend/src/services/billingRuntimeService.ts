@@ -754,10 +754,23 @@ export async function getBillingStatus(organizationId: string): Promise<{
         console.warn('[billing/status] credit seed skipped:', (err as Error).message);
     }
 
-    const [state, balance] = await Promise.all([
+    let [state, balance] = await Promise.all([
         getOrgPlanState(organizationId),
         getCreditBalance(organizationId),
     ]);
+
+    if (!state) {
+        // حساب جديد بلا حالة فوترة → امنح الباقة المجانية تلقائياً (150 كردت
+        // لمرة واحدة). لا تجديد شهري: ensurePeriodCreditsSeeded خاص بـ Stripe فقط.
+        try {
+            const seeded = await seedOrgBilling(organizationId, 'free');
+            state = seeded.orgPlanState;
+            balance = seeded.creditBalance;
+            console.log(`[billing] auto-seeded free plan org=${organizationId} credits=150`);
+        } catch (err) {
+            console.warn('[billing/status] free plan auto-seed failed:', (err as Error).message);
+        }
+    }
 
     if (!state) {
         return {

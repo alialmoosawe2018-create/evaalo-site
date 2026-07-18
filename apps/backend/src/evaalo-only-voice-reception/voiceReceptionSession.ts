@@ -41,11 +41,32 @@ import {
     logReceptionBillingAudit,
     resolveReceptionBillingPolicy,
 } from './receptionBilling.js';
+import { consumeDailyQuota, DailyQuotaExceededError } from '../services/dailyQuota.js';
 
 const maxConnections = Number(process.env.RECEPTION_WS_MAX_CONNECTIONS || '100');
 const maxMessageBytes = Number(process.env.RECEPTION_WS_MESSAGE_MAX_BYTES || '65536');
 const rateLimitPerMin = Number(process.env.RECEPTION_WS_RATE_LIMIT_PER_MIN || '60');
 const limiter = createRateLimiter(rateLimitPerMin);
+
+// ── حماية تكلفة الرسبشن الصوتي (تسويقي، معفى من الفوترة) ──
+// سقف مدة الجلسة الواحدة (قرار المالك: 5 دقائق). عند البلوغ نُغلق الجلسة بلطف.
+const receptionVoiceMaxSessionMs =
+    Number(process.env.RECEPTION_VOICE_MAX_SESSION_SECONDS || '300') * 1000;
+// حصة يومية لكل IP (قرار المالك: 3 جلسات/يوم). 0 = تعطيل.
+function receptionVoiceDailyLimit(): number {
+    const raw = Number.parseInt((process.env.RECEPTION_VOICE_DAILY_LIMIT || '3').trim(), 10);
+    if (!Number.isFinite(raw)) return 3;
+    return Math.max(0, raw);
+}
+
+/** خلف Cloudflare + النفق: العنوان الحقيقي في CF-Connecting-IP (نفس ترتيب receptionDemo.clientIp). */
+function receptionClientIp(req: IncomingMessage): string {
+    const cf = req.headers['cf-connecting-ip'];
+    if (typeof cf === 'string' && cf.trim()) return cf.trim();
+    const xf = req.headers['x-forwarded-for'];
+    if (typeof xf === 'string' && xf.trim()) return xf.split(',')[0].trim();
+    return req.socket.remoteAddress || 'unknown';
+}
 
 const conversationHistory = new Map<string, ReceptionMessage[]>();
 const speechBuffers = new Map<string, { parts: string[]; timeout?: NodeJS.Timeout }>();
@@ -80,12 +101,37 @@ export function handleVoiceReceptionWsConnection(ws: WebSocket, req: IncomingMes
     const language = url.searchParams.get('language') || undefined;
     const sessionId = randomUUID();
     const sessionStartedAt = Date.now();
+    const clientIp = receptionClientIp(req);
 
     console.log(
         `[RECEPTION SESSION START] ${sessionId.substring(0, 8)}... language: ${language || 'auto'}`
     );
 
     const voiceTiming = getVoiceResponseTiming();
+
+    // سقف مدة الجلسة — مؤقت من بداية الجلسة (sessionStartedAt). عند البلوغ:
+    // رسالة وداع نصية بنمط الرسائل الموجود + إغلاق طبيعي (1000) + لوج يلتقطه المونيتور.
+    let sessionCapTimer: NodeJS.Timeout | undefined;
+    if (receptionVoiceMaxSessionMs > 0) {
+        sessionCapTimer = setTimeout(() => {
+            const capMsg =
+                language === 'en'
+                    ? 'This demo session has reached its time limit. Thanks for trying Evaalo — feel free to start again!'
+                    : 'انتهى وقت جلسة التجربة. شكراً لتجربتك إيفالو — تكدر تبدأ من جديد بأي وقت!';
+            console.log(
+                `[RECEPTION CAP] ${sessionId.substring(0, 8)}... session time limit reached (${Math.round(
+                    receptionVoiceMaxSessionMs / 1000
+                )}s)`
+            );
+            send(ws, { type: 'agent_reply', text: capMsg });
+            send(ws, { type: 'error', message: 'session time limit' });
+            try {
+                ws.close(1000, 'session time limit');
+            } catch {
+                /* الإغلاق قد يكون جارياً بالفعل */
+            }
+        }, receptionVoiceMaxSessionMs);
+    }
 
     createSession(sessionId, undefined);
     conversationHistory.set(sessionId, []);
@@ -95,6 +141,7 @@ export function handleVoiceReceptionWsConnection(ws: WebSocket, req: IncomingMes
     const LATE_TRANSCRIPT_IGNORE_MS = 800;
     let sttTokenAtCurrentListen = 0;
     let initialGreetingSent = false;
+    let quotaConsumed = false;
 
     const startListening = (preConnectOnly?: boolean) => {
         if (!preConnectOnly) {
@@ -445,6 +492,35 @@ export function handleVoiceReceptionWsConnection(ws: WebSocket, req: IncomingMes
                 }
                 initialGreetingSent = true;
                 (async () => {
+                    // حصة يومية لكل IP — تُستهلك عند أول بدء فعلي للجلسة
+                    // (الترحيب هو بداية تكلفة STT/LLM/TTS، تماشياً مع دلالة receptionDemo).
+                    if (!quotaConsumed) {
+                        quotaConsumed = true;
+                        try {
+                            await consumeDailyQuota([`vr:${clientIp}`], receptionVoiceDailyLimit());
+                        } catch (quotaErr) {
+                            if (quotaErr instanceof DailyQuotaExceededError) {
+                                console.log(
+                                    `[RECEPTION CAP] ${sessionId.substring(0, 8)}... reception_voice_quota_exceeded ip=${clientIp} limit=${quotaErr.limit}`
+                                );
+                                const quotaMsg =
+                                    language === 'en'
+                                        ? "You've reached today's demo limit. Please come back tomorrow — thanks for your interest in Evaalo!"
+                                        : 'وصلت للحد اليومي لتجربة إيفالو. رجاءً جرّب مرة ثانية بكرة — شكراً لاهتمامك!';
+                                send(ws, { type: 'agent_reply', text: quotaMsg });
+                                send(ws, { type: 'error', message: 'daily demo limit reached' });
+                                setTimeout(() => {
+                                    try {
+                                        ws.close(1008, 'daily demo limit reached');
+                                    } catch {
+                                        /* الإغلاق قد يكون جارياً بالفعل */
+                                    }
+                                }, 200);
+                                return;
+                            }
+                            // أخطاء غير التجاوز: fail-open — نُكمل الترحيب
+                        }
+                    }
                     try {
                         const greetingMsg = pickReceptionGreeting(language);
                         const history = conversationHistory.get(sessionId) || [];
@@ -527,6 +603,7 @@ export function handleVoiceReceptionWsConnection(ws: WebSocket, req: IncomingMes
 
     ws.on('close', () => {
         activeConnections = Math.max(0, activeConnections - 1);
+        if (sessionCapTimer) clearTimeout(sessionCapTimer);
         closeSTTRouterConnection(sessionId);
         clearSttPurgeToken(sessionId);
         lastSentBySession.delete(sessionId);

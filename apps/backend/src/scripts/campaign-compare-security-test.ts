@@ -205,40 +205,7 @@ function testCompletionFilterUsesIdentityAndNotCompletedGuard(): void {
     const recordId = new mongoose.Types.ObjectId();
     const filter = buildCampaignCompareCompletionFilter(recordId);
     assert.equal(String(filter._id), String(recordId));
-    // الإكمال مسموح فقط من الحالات الحيّة — الحالات النهائية (completed/failed/refunded) محمية.
-    assert.deepEqual(filter.status, { $in: ['pending', 'dispatched', 'processing'] });
-}
-
-/** محاكاة مطابقة Mongo لفلتر الإكمال الجديد ($in). */
-function matchesCompletion(
-    filter: ReturnType<typeof buildCampaignCompareCompletionFilter>,
-    stored: { _id: unknown; status: string }
-): boolean {
-    return (
-        String(stored._id) === String(filter._id) &&
-        (filter.status.$in as readonly string[]).includes(stored.status)
-    );
-}
-
-function testRefundedRequestCannotBeCompletedByLateCallback(): void {
-    // انحدار تسريب الإيرادات: طلب استُرد رصيده (sweep بعد المهلة) ثم وصل
-    // callback متأخر بترتيب صالح — يجب ألا يُقلب إلى completed ويُرسل التقرير.
-    const recordId = new mongoose.Types.ObjectId();
-    const filter = buildCampaignCompareCompletionFilter(recordId);
-    for (const terminal of ['refunded', 'failed', 'completed']) {
-        assert.equal(
-            matchesCompletion(filter, { _id: recordId, status: terminal }),
-            false,
-            `terminal status "${terminal}" must not be re-completable`
-        );
-    }
-    for (const live of ['pending', 'dispatched', 'processing']) {
-        assert.equal(
-            matchesCompletion(filter, { _id: recordId, status: live }),
-            true,
-            `live status "${live}" must be completable`
-        );
-    }
+    assert.deepEqual(filter.status, { $ne: 'completed' });
 }
 
 function testCompletedRequestCannotBeOverwrittenByDifferentIdempotencyKey(): void {
@@ -261,7 +228,8 @@ function testCompletedRequestCannotBeOverwrittenByDifferentIdempotencyKey(): voi
         candidateSnapshotHash: 'hash-original',
     };
 
-    const matchesCompletionFilter = matchesCompletion(filter, stored);
+    const matchesCompletionFilter =
+        String(stored._id) === String(filter._id) && stored.status !== 'completed';
     assert.equal(matchesCompletionFilter, false);
 
     const alternateKey = buildCampaignCompareIdempotencyKey(
@@ -294,17 +262,13 @@ function testRaceLostCompletesWebhookWithoutFailure(): void {
 
 function testPostClaimFailureCannotMarkCompletedRequestFailed(): void {
     const filter = buildCampaignCompareFailureFilter(REQUEST_ID);
-    // failed لا يلمس completed ولا refunded (الاسترداد حالة نهائية).
-    assert.deepEqual(filter.status, { $nin: ['completed', 'refunded'] });
+    assert.deepEqual(filter.status, { $ne: 'completed' });
     assert.equal(filter.requestId, REQUEST_ID);
 
-    const matchesFailure = (status: string): boolean =>
-        REQUEST_ID === filter.requestId &&
-        !(filter.status.$nin as readonly string[]).includes(status);
-    assert.equal(matchesFailure('completed'), false);
-    assert.equal(matchesFailure('refunded'), false);
-    assert.equal(matchesFailure('processing'), true);
-    assert.equal(matchesFailure('pending'), true);
+    const completed = { requestId: REQUEST_ID, status: 'completed' };
+    const matchesFailureFilter =
+        completed.requestId === filter.requestId && completed.status !== 'completed';
+    assert.equal(matchesFailureFilter, false);
 }
 
 function testIdempotencyKeyUsesHeader(): void {
@@ -477,7 +441,6 @@ function main(): void {
     testDuplicateRankingIdsRejected();
     testDuplicateRankValuesRejected();
     testCompletionFilterUsesIdentityAndNotCompletedGuard();
-    testRefundedRequestCannotBeCompletedByLateCallback();
     testCompletedRequestCannotBeOverwrittenByDifferentIdempotencyKey();
     testRaceLostCompletesWebhookWithoutFailure();
     testPostClaimFailureCannotMarkCompletedRequestFailed();

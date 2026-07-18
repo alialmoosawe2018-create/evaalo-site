@@ -787,6 +787,7 @@ export async function retrieveSubscription(
 }
 
 const PLAN_RANK: Record<BillingPlanId, number> = {
+    free: -1,
     starter: 0,
     team: 1,
     professional: 2,

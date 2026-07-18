@@ -13,6 +13,8 @@ export interface IUser extends Document {
     email: string;
     fullName?: string;
     companyName?: string;
+    /** وصف الشركة — يُستخدم في توليد إعلان الوظيفة (About the company) وغيره. */
+    companyDescription?: string;
     /** true when fullName, companyName, and email are all present (mirrors Clerk publicMetadata). */
     profileComplete?: boolean;
     imageUrl?: string;
@@ -74,6 +76,11 @@ const UserSchema = new Schema<IUser>(
         companyName: {
             type: String,
             trim: true,
+        },
+        companyDescription: {
+            type: String,
+            trim: true,
+            maxlength: 2000,
         },
         profileComplete: {
             type: Boolean,

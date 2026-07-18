@@ -52,19 +52,28 @@ const router = express.Router();
 /** الاستمارة قد ترسل languages كـ [{ name, level }] بينما المخطط يخزن string[] */
 function normalizeLanguagesToStringArray(input: unknown): string[] {
     if (!Array.isArray(input)) return [];
-    return input
-        .map((item) => {
-            if (typeof item === 'string') return item.trim();
-            if (item && typeof item === 'object' && item !== null && 'name' in item) {
-                const name = String((item as { name?: string }).name || '').trim();
-                const level = String((item as { level?: string }).level || '').trim();
-                if (!name && !level) return '';
-                if (level) return `${name} (${level})`;
-                return name;
-            }
-            return String(item ?? '').trim();
-        })
-        .filter((s) => s.length > 0);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const item of input) {
+        let s = '';
+        if (typeof item === 'string') {
+            s = item.trim();
+        } else if (item && typeof item === 'object' && item !== null && 'name' in item) {
+            const name = String((item as { name?: string }).name || '').trim();
+            const level = String((item as { level?: string }).level || '').trim();
+            if (!name && !level) s = '';
+            else if (level) s = `${name} (${level})`;
+            else s = name;
+        } else {
+            s = String(item ?? '').trim();
+        }
+        if (!s) continue;
+        const key = s.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(s);
+    }
+    return out;
 }
 
 // GET /api/candidates - جلب جميع المرشحين
@@ -475,7 +484,8 @@ function parseSkillsOrLanguagesArray(raw: unknown): string[] {
         return s
             .split(/[;,]/)
             .map((x) => x.trim())
-            .filter(Boolean);
+            .filter(Boolean)
+            .filter((x, i, arr) => arr.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
     }
     return [];
 }

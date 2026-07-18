@@ -1436,9 +1436,15 @@ function resolveLanguageName(language?: string): string {
     return map[raw] || (language.charAt(0).toUpperCase() + language.slice(1));
 }
 
+export interface JobAdCompanyInfo {
+    name?: string;
+    description?: string;
+}
+
 export async function generateJobAdvertisement(
     criteria: JobAdvertisementCriteria,
-    language?: string
+    language?: string,
+    company?: JobAdCompanyInfo
 ): Promise<string> {
     const openai = getOpenAIClient();
     if (!openai) {
@@ -1460,17 +1466,29 @@ export async function generateJobAdvertisement(
         ? `- Write the ENTIRE advertisement in ${langName}. All headings, labels, and body text must be in ${langName}.`
         : '- Use the same language as the majority of the criteria (e.g., if Arabic criteria, write in Arabic; if English, write in English)';
 
+    const companyName = company?.name?.trim() || '';
+    const companyDescription = company?.description?.trim() || '';
+    const companyBlock =
+        companyName || companyDescription
+            ? `\nCompany information (use it to write the Company/About section — translate/adapt naturally to the ad language, do not invent facts beyond it):\n${companyName ? `- Company name: ${companyName}\n` : ''}${companyDescription ? `- About the company: ${companyDescription}\n` : ''}`
+            : '';
+    const companyInstruction =
+        companyName || companyDescription
+            ? '- Base the Company/About section on the provided company information'
+            : '- Keep the Company/About section generic (no company details were provided — do not invent a company name)';
+
     const prompt = `You are a professional HR writer. Generate a formal, professional job advertisement based on the following criteria. The ad should:
 - Be suitable for global/international standards
 - Use clear, professional language
 - Include all provided criteria naturally
 - Have a structure: Title, Company/About, Key Responsibilities, Requirements/Qualifications, Benefits/Compensation (if salary provided)
+${companyInstruction}
 - Do NOT include a "How to Apply" section, application instructions, email addresses for CV submission, or any call-to-action to apply outside the platform — candidates apply through evaalo only
 - Be 200-400 words
 - Format section labels as plain text lines ending with a colon (e.g. Job Title: or Arabic/Kurdish equivalents). Put the label and value on one line OR label on its own line — but NEVER use asterisks, markdown, bold markers, or code fences.
 - Do NOT wrap the output in triple backticks or any markdown code block.
 ${langInstruction}
-
+${companyBlock}
 Job Criteria:
 ${criteriaText}
 

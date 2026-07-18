@@ -18,11 +18,72 @@ import {
     getLiveKitCredentials,
 } from '../services/livekitService.js';
 import ReceptionLead from '../models/ReceptionLead.js';
+import ReceptionDemoUsage from '../models/ReceptionDemoUsage.js';
+import { loadReceptionKnowledge } from '../evaalo-only-voice-reception/receptionKnowledge.js';
+import type { Request } from 'express';
 
 const router = express.Router();
 
 const SCOPE = 'reception' as const;
 const RECEPTION_AGENT_NAME = 'evaalo-reception-agent';
+
+// ── حد الاستخدام اليومي (قرار المالك: 3 جلسات/يوم لكل زائر، بدون فاصل زمني) ──
+
+class DemoQuotaError extends Error {
+    readonly code = 'DEMO_LIMIT_REACHED';
+    constructor(public readonly limit: number) {
+        super('daily demo limit reached');
+    }
+}
+
+function demoDailyLimit(): number {
+    const raw = Number.parseInt((process.env.RECEPTION_DEMO_DAILY_LIMIT || '3').trim(), 10);
+    if (!Number.isFinite(raw)) return 3;
+    return Math.max(0, raw); // 0 = تعطيل الحد
+}
+
+function utcDay(): string {
+    return new Date().toISOString().slice(0, 10);
+}
+
+/** خلف Cloudflare + النفق: العنوان الحقيقي في CF-Connecting-IP. */
+function clientIp(req: Request): string {
+    const cf = req.headers['cf-connecting-ip'];
+    if (typeof cf === 'string' && cf.trim()) return cf.trim();
+    const xf = req.headers['x-forwarded-for'];
+    if (typeof xf === 'string' && xf.trim()) return xf.split(',')[0].trim();
+    return req.ip || 'unknown';
+}
+
+/**
+ * تُستهلك حصة فقط عند إنشاء جلسة LiveKit جديدة (إعادة استخدام غرفة قائمة مجانية).
+ * ترمي DemoQuotaError عند تجاوز أي من المفتاحين (الزائر أو الـ IP).
+ */
+async function consumeDemoQuota(visitorId: string, ip: string): Promise<void> {
+    const limit = demoDailyLimit();
+    if (limit <= 0) return;
+    const day = utcDay();
+    const keys = [`v:${visitorId}`, ...(ip && ip !== 'unknown' ? [`ip:${ip}`] : [])];
+    try {
+        const rows = await ReceptionDemoUsage.find({ key: { $in: keys }, day }).lean();
+        if (rows.some((r) => (r.count ?? 0) >= limit)) {
+            throw new DemoQuotaError(limit);
+        }
+        await Promise.all(
+            keys.map((key) =>
+                ReceptionDemoUsage.updateOne(
+                    { key, day },
+                    { $inc: { count: 1 }, $setOnInsert: { createdAt: new Date() } },
+                    { upsert: true }
+                )
+            )
+        );
+    } catch (e) {
+        if (e instanceof DemoQuotaError) throw e;
+        // عطل Mongo لا يمنع الديمو — الحد حماية تكلفة وليس بوابة أمان
+        console.warn('⚠️ reception-demo quota check skipped:', (e as Error)?.message || e);
+    }
+}
 
 type ReceptionSessionRow = {
     roomName: string;
@@ -124,16 +185,24 @@ function findRowBySessionId(sessionId: string): ReceptionSessionRow | undefined 
  * لا يأخذ lead — البيانات الشخصية لا تشارك في إنشاء/مطابقة الغرفة.
  * النتيجة: prewarm + start يستخدمان نفس الغرفة (لا استبدال).
  */
-async function ensureReceptionLiveKitSession(visitorId: string): Promise<{
+async function ensureReceptionLiveKitSession(
+    visitorId: string,
+    ip: string
+): Promise<{
     sessionId: string;
     roomName: string;
     token: string;
     reused: boolean;
 }> {
-    return runSerializedPerVisitor(visitorId, () => ensureReceptionLiveKitSessionCore(visitorId));
+    return runSerializedPerVisitor(visitorId, () =>
+        ensureReceptionLiveKitSessionCore(visitorId, ip)
+    );
 }
 
-async function ensureReceptionLiveKitSessionCore(visitorId: string): Promise<{
+async function ensureReceptionLiveKitSessionCore(
+    visitorId: string,
+    ip: string
+): Promise<{
     sessionId: string;
     roomName: string;
     token: string;
@@ -167,6 +236,9 @@ async function ensureReceptionLiveKitSessionCore(visitorId: string): Promise<{
             );
         });
     }
+
+    // جلسة جديدة فعلياً (ليست إعادة استخدام) — هنا تُستهلك الحصة اليومية
+    await consumeDemoQuota(visitorId, ip);
 
     const sessionId = `reception-demo-${visitorId}-${Date.now()}`;
     const roomName = await createLiveKitRoom(visitorId, SCOPE);
@@ -236,6 +308,21 @@ function persistReceptionLead(
     })();
 }
 
+/**
+ * GET /api/reception-demo/knowledge — قاعدة المعرفة المشتركة لوكيل الفيديو (LiveKit).
+ * نفس الملف الذي يستخدمه الرسبشن الصوتي وشات التسويق — مصدر واحد للحقيقة.
+ * المحتوى تسويقي عام (غير سري)؛ الكاش دقيقتان لتخفيف القراءة المتكررة.
+ */
+router.get('/knowledge', (_req, res) => {
+    const knowledge = loadReceptionKnowledge();
+    res.set('Cache-Control', 'public, max-age=120');
+    return res.status(200).json({
+        success: true,
+        chars: knowledge.length,
+        knowledge,
+    });
+});
+
 /** POST /api/reception-demo/prepare — لا يحتاج بيانات النموذج. visitorId فقط. */
 router.post('/prepare', async (req, res) => {
     try {
@@ -255,7 +342,7 @@ router.post('/prepare', async (req, res) => {
             });
         }
 
-        const out = await ensureReceptionLiveKitSession(visitorId);
+        const out = await ensureReceptionLiveKitSession(visitorId, clientIp(req));
 
         return res.status(200).json({
             success: true,
@@ -269,6 +356,14 @@ router.post('/prepare', async (req, res) => {
             reused: out.reused,
         });
     } catch (error: unknown) {
+        if (error instanceof DemoQuotaError) {
+            return res.status(429).json({
+                success: false,
+                code: 'DEMO_LIMIT_REACHED',
+                limit: error.limit,
+                message: 'Daily demo limit reached',
+            });
+        }
         const msg = error instanceof Error ? error.message : String(error);
         console.error('❌ reception-demo/prepare:', msg);
         return res.status(500).json({
@@ -312,7 +407,7 @@ router.post('/start', async (req, res) => {
             });
         }
 
-        const out = await ensureReceptionLiveKitSession(visitorId);
+        const out = await ensureReceptionLiveKitSession(visitorId, clientIp(req));
 
         persistReceptionLead(visitorId, out.sessionId, lead, {
             userAgent: typeof req.headers['user-agent'] === 'string' ? req.headers['user-agent'] : undefined,
@@ -333,6 +428,14 @@ router.post('/start', async (req, res) => {
             },
         });
     } catch (error: unknown) {
+        if (error instanceof DemoQuotaError) {
+            return res.status(429).json({
+                success: false,
+                code: 'DEMO_LIMIT_REACHED',
+                limit: error.limit,
+                message: 'Daily demo limit reached',
+            });
+        }
         const msg = error instanceof Error ? error.message : String(error);
         console.error('❌ reception-demo/start:', msg);
         return res.status(500).json({

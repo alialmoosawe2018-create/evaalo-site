@@ -11,6 +11,7 @@
 // — لا تحتاج تعديل هذه الـ helpers.
 
 import type { Request } from 'express';
+import { getAuth } from '@clerk/express';
 import {
     DEFAULT_ORG_ID,
     SYSTEM_ACTOR_ID,
@@ -61,24 +62,46 @@ function resolveDevEmailFromHeader(req: Request): string | undefined {
  * التي لم تُحمى بعد بـ requireAuth().
  */
 export function getAuthContext(req: Request): ClerkAuthContext {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const auth = (req as any).auth as
+    // IMPORTANT: @clerk/express v2 does NOT expose the AuthObject on `req.auth`
+    // in a way that carries sessionClaims — the claims must be read via
+    // getAuth(req). Reading `(req as any).auth` silently yielded undefined
+    // claims, so every request fell back to the default role (HR_MANAGER) with
+    // an empty org, breaking RBAC (403 forbidden_permission) and org-scoped
+    // writes (organizationId required). getAuth() returns userId, sessionClaims
+    // (raw JWT payload, incl. the compact `o` org claim), orgId, orgRole, orgSlug.
+    let auth:
         | {
-              userId?: string;
+              userId?: string | null;
               sessionClaims?: {
                   email?: string;
                   orgId?: string;
                   orgSlug?: string;
                   role?: string;
                   permissions?: string[] | string;
-              };
-              orgId?: string;
-              orgSlug?: string;
-              orgRole?: string;
+                  // Clerk v2 session tokens deliver the active org as a compact
+                  // `o` claim { id, rol, slg } instead of flat org_id/org_role.
+                  o?: { id?: string; rol?: string; slg?: string };
+              } | null;
+              orgId?: string | null;
+              orgSlug?: string | null;
+              orgRole?: string | null;
           }
         | undefined;
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        auth = getAuth(req) as any;
+    } catch {
+        // clerkMiddleware not run (e.g. Clerk keys unset) → anonymous fallback.
+        auth = undefined;
+    }
 
     const claims = auth?.sessionClaims;
+    // New-format compact org claim (Clerk v2 default session token).
+    const orgClaim = claims?.o;
+    // Fallback org resolved from Clerk memberships when the token carries none
+    // (set by the resolveOrgFallback middleware). See middleware/resolveOrg.ts.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const resolvedOrg = (req as any).__resolvedOrg as { id?: string; rol?: string } | undefined;
     const rawPerms = claims?.permissions;
     let permissions = Array.isArray(rawPerms)
         ? rawPerms.filter((p): p is string => typeof p === 'string')
@@ -86,14 +109,16 @@ export function getAuthContext(req: Request): ClerkAuthContext {
           ? rawPerms.split(',').map((p) => p.trim()).filter(Boolean)
           : [];
 
-    const normalizedRole = normalizeClerkRole(claims?.role || auth?.orgRole);
+    const normalizedRole = normalizeClerkRole(
+        claims?.role || auth?.orgRole || orgClaim?.rol || resolvedOrg?.rol,
+    );
     if (permissions.length === 0) {
         permissions = [...permissionsForRole(normalizedRole)];
     }
 
     const devHeaderUserId = resolveDevClerkUserIdFromHeader(req);
     const userId = auth?.userId || devHeaderUserId || SYSTEM_ACTOR_ID;
-    const clerkOrgId = claims?.orgId || auth?.orgId;
+    const clerkOrgId = claims?.orgId || auth?.orgId || orgClaim?.id || resolvedOrg?.id;
 
     let orgId: string;
     if (clerkOrgId) {
@@ -126,7 +151,7 @@ export function getAuthContext(req: Request): ClerkAuthContext {
         userId,
         email: claims?.email || resolveDevEmailFromHeader(req),
         orgId,
-        orgSlug: claims?.orgSlug || auth?.orgSlug,
+        orgSlug: claims?.orgSlug || auth?.orgSlug || orgClaim?.slg,
         role,
         permissions: effectivePermissions,
     };

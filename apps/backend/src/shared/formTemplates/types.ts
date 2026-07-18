@@ -134,6 +134,10 @@ export const SUBMIT_META_FIELDS = new Set([
     'managementTrack',
     'labelKey',
     'roleMatchSource',
+    // Display title duplicate of position_applied_for + research-domain pick,
+    // both injected by the position combobox — not part of any form schema.
+    'position',
+    'researchDomain',
 ]);
 
 /** File upload field names mapped to snapshot field ids. */

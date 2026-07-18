@@ -21,6 +21,7 @@ export const VIDEO_PACK_MINUTES = 50;
 
 /** Display price (USD) of one 50-minute pack, per plan. Null = pack not offered. */
 export const VIDEO_PACK_PRICE_USD: Record<BillingPlanId, number | null> = {
+    free: null,
     starter: null,
     team: 20,
     professional: 20,

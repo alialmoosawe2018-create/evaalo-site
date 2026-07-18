@@ -21,10 +21,25 @@ export type ReserveUsageInput = {
     idempotencyKey: string;
     metadata?: Record<string, unknown>;
     ttlMs?: number;
+    /**
+     * When the balance can't cover estimatedUnits, shrink the reservation to
+     * what the org can afford instead of failing — callers shorten the session
+     * to the granted units. Fails with INSUFFICIENT_CREDITS only below minUnits.
+     */
+    clampToAvailable?: boolean;
+    /** Minimum acceptable units when clamping (default 1). */
+    minUnits?: number;
 };
 
 export type ReserveUsageResult =
-    | { ok: true; reservationId: string; reservedMicro: number; duplicate?: boolean }
+    | {
+          ok: true;
+          reservationId: string;
+          reservedMicro: number;
+          /** Units actually reserved (may be < estimatedUnits when clamped). */
+          grantedUnits: number;
+          duplicate?: boolean;
+      }
     | { ok: false; code: string; message: string };
 
 export type FinalizeUsageInput = {
@@ -111,6 +126,7 @@ export async function reserveUsage(input: ReserveUsageInput): Promise<ReserveUsa
                 ok: true,
                 reservationId: String(existing._id),
                 reservedMicro: existing.reservedMicro,
+                grantedUnits: existing.estimatedUnits,
                 duplicate: true,
             };
         }
@@ -121,12 +137,34 @@ export async function reserveUsage(input: ReserveUsageInput): Promise<ReserveUsa
         };
     }
 
-    const gate = await checkCredits(organizationId, usageType, estimatedUnits);
+    let grantedUnits = Math.max(0, Math.floor(estimatedUnits));
+    if (input.clampToAvailable) {
+        const perUnitMicro = creditCostMicro(usageType, 1);
+        if (perUnitMicro > 0) {
+            const balance = await getCreditBalance(organizationId);
+            const remainingMicro = balance?.balanceMicro ?? 0;
+            const alreadyReserved = await sumActiveReservedMicro(organizationId);
+            const affordableUnits = Math.floor(
+                Math.max(0, remainingMicro - alreadyReserved) / perUnitMicro,
+            );
+            if (affordableUnits < grantedUnits) grantedUnits = affordableUnits;
+            const minUnits = Math.max(1, Math.floor(input.minUnits ?? 1));
+            if (grantedUnits < minUnits) {
+                return {
+                    ok: false,
+                    code: 'INSUFFICIENT_CREDITS',
+                    message: `Insufficient credits for the minimum session (${minUnits} units)`,
+                };
+            }
+        }
+    }
+
+    const gate = await checkCredits(organizationId, usageType, grantedUnits);
     if (!gate.ok) {
         return { ok: false, code: gate.code, message: gate.message };
     }
 
-    const reservedMicro = creditCostMicro(usageType, estimatedUnits);
+    const reservedMicro = creditCostMicro(usageType, grantedUnits);
     if (reservedMicro > 0) {
         const balance = await getCreditBalance(organizationId);
         const remainingMicro = balance?.balanceMicro ?? 0;
@@ -147,7 +185,7 @@ export async function reserveUsage(input: ReserveUsageInput): Promise<ReserveUsa
             organizationId,
             usageType,
             status: 'active',
-            estimatedUnits,
+            estimatedUnits: grantedUnits,
             reservedMicro,
             source,
             sourceId,
@@ -159,6 +197,7 @@ export async function reserveUsage(input: ReserveUsageInput): Promise<ReserveUsa
             ok: true,
             reservationId: String(doc._id),
             reservedMicro,
+            grantedUnits,
         };
     } catch (err) {
         if (isDuplicateKeyError(err)) {
@@ -168,6 +207,7 @@ export async function reserveUsage(input: ReserveUsageInput): Promise<ReserveUsa
                     ok: true,
                     reservationId: String(dup._id),
                     reservedMicro: dup.reservedMicro,
+                    grantedUnits: dup.estimatedUnits,
                     duplicate: true,
                 };
             }

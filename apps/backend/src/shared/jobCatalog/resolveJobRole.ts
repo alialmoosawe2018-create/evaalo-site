@@ -65,6 +65,9 @@ function inferLevelFromPrefix(raw: string): { stripped: string; level?: CareerLe
     return { stripped: text };
 }
 
+/** Min length before suffix/prefix fuzzy matching — short tokens like "st"/"er" match too many titles. */
+const FUZZY_MIN_TOKEN_LEN = 4;
+
 function fuzzyMatchCatalog(raw: string): RoleResolution | null {
     const { stripped, level: prefixLevel } = inferLevelFromPrefix(raw);
     const normStripped = normalizeTitle(stripped);
@@ -73,10 +76,13 @@ function fuzzyMatchCatalog(raw: string): RoleResolution | null {
     // Match display titles that contain or equal stripped base
     const candidates = JOB_CATALOG.filter((e) => {
         const normDisplay = normalizeTitle(e.displayTitle);
+        if (normDisplay === normStripped) return true;
+        // Require enough characters for endsWith — otherwise "st" → Customer Success Specialist
+        if (normStripped.length < FUZZY_MIN_TOKEN_LEN) return false;
+        const baseDisplay = normDisplay.replace(/^(senior|junior|lead)\s+/, '');
         return (
-            normDisplay === normStripped
-            || normDisplay.endsWith(normStripped)
-            || normStripped.endsWith(normDisplay.replace(/^(senior|junior|lead)\s+/, ''))
+            normDisplay.endsWith(normStripped)
+            || normStripped.endsWith(baseDisplay)
         );
     });
 

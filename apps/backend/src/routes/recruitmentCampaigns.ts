@@ -2,10 +2,10 @@ import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import { generateJobAdvertisement, translateJobAdvertisement } from '../services/llmService.js';
+import { getProfileForClerkUser } from '../services/userProfileService.js';
 import { orgScopedQuery, orgScopedDefaults } from '../middleware/orgScope.js';
 import { requirePermission } from '../middleware/rbac.js';
-import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
-import { getOrgId, getClerkUserId } from '../middleware/auth.js';
+import { getOrgId, getClerkUserId, isMissingProductionOrg } from '../middleware/auth.js';
 import { logAudit } from '../services/auditService.js';
 import { ensureBlueprintForCampaign } from '../services/expertise/ensureBlueprint.js';
 import {
@@ -21,7 +21,6 @@ import { DEFAULT_FORM_TEMPLATE_ID } from '../shared/formTemplates/index.js';
 import {
     chargeCompareTopCredits,
     refundCompareEmail,
-    rollbackCompareTopChargeWithoutRecord,
     COMPARE_EMAIL_DEADLINE_MS,
 } from '../services/compareEmailBilling.js';
 import {
@@ -40,60 +39,33 @@ import {
     failWebhook,
     errorMessage as wbErrorMessage,
 } from '../services/webhookIdempotency.js';
-import { consumeCredits, adjustCredits } from '../services/billingRuntimeService.js';
-import { creditCostMicro } from '../services/billingEngine.js';
 
 const router = express.Router();
 
-const BILLING_ENFORCE = process.env.BILLING_ENFORCE !== 'false';
-
 // POST /api/recruitment-campaigns/generate-ad - توليد إعلان الوظيفة تلقائياً من المعايير
-// يتطلب campaign.write (توليد الإعلان جزء من إنشاء الحملة) — والتحصيل JOB_AD = 1 كردت،
-// يُسترد تلقائياً إذا فشل التوليد.
-router.post('/generate-ad', conditionalRequireAuth(), requirePermission('campaign.write'), async (req: Request, res: Response) => {
-    const generationId = crypto.randomUUID();
-    let jobAdCharged = false;
-    const organizationId = getOrgId(req);
-
-    const refundJobAdCharge = async (reason: string): Promise<void> => {
-        if (!jobAdCharged) return;
-        await adjustCredits({
-            organizationId,
-            amountMicro: creditCostMicro('JOB_AD', 1),
-            idempotencyKey: `job-ad-refund:${generationId}`,
-            metadata: { kind: 'job_ad_refund', reason, generationId },
-        }).catch((e) =>
-            console.warn(`[generate-ad] refund failed id=${generationId}: ${e?.message || e}`)
-        );
-    };
-
+router.post('/generate-ad', async (req: Request, res: Response) => {
     try {
         const { language, ...criteria } = req.body || {};
 
-        if (BILLING_ENFORCE) {
-            const billing = await consumeCredits({
-                organizationId,
-                usageType: 'JOB_AD',
-                units: 1,
-                idempotencyKey: `job-ad:${generationId}`,
-                source: 'job_ad',
-                sourceId: generationId,
-                metadata: { language: language || null },
-            });
-            if (!billing.ok) {
-                const status = billing.code === 'INSUFFICIENT_CREDITS' ? 402 : 403;
-                return res.status(status).json({
-                    success: false,
-                    error: billing.code,
-                    message: billing.message,
-                });
+        // معلومات الشركة من بروفايل المستخدم (best-effort — الإعلان يتولد حتى بدونها)
+        let company: { name?: string; description?: string } | undefined;
+        try {
+            const clerkUserId = getClerkUserId(req);
+            if (clerkUserId) {
+                const profile = await getProfileForClerkUser(clerkUserId);
+                if (profile.companyName || profile.companyDescription) {
+                    company = {
+                        name: profile.companyName || undefined,
+                        description: profile.companyDescription || undefined,
+                    };
+                }
             }
-            jobAdCharged = !billing.duplicate;
+        } catch {
+            /* الملف غير موجود أو Clerk غير مهيأ — نكمل بدون معلومات الشركة */
         }
 
-        const ad = await generateJobAdvertisement(criteria, language);
+        const ad = await generateJobAdvertisement(criteria, language, company);
         if (!ad) {
-            await refundJobAdCharge('generation_empty');
             return res.status(400).json({
                 success: false,
                 error: 'Unable to generate advertisement',
@@ -107,7 +79,6 @@ router.post('/generate-ad', conditionalRequireAuth(), requirePermission('campaig
         });
     } catch (error: any) {
         console.error('❌ Error generating job advertisement:', error);
-        await refundJobAdCharge('generation_failed');
         res.status(500).json({
             success: false,
             error: 'Failed to generate job advertisement',
@@ -117,8 +88,7 @@ router.post('/generate-ad', conditionalRequireAuth(), requirePermission('campaig
 });
 
 // POST /api/recruitment-campaigns/translate-ad - ترجمة إعلان الوظيفة إلى لغة أخرى
-// وكيل OpenAI — مصادقة إلزامية كي لا يستنزف مجهولٌ رصيد OpenAI.
-router.post('/translate-ad', conditionalRequireAuth(), requirePermission('campaign.write'), async (req: Request, res: Response) => {
+router.post('/translate-ad', async (req: Request, res: Response) => {
     try {
         const { text, targetLanguage } = req.body || {};
         if (!text || !String(text).trim()) {
@@ -161,6 +131,18 @@ router.post('/translate-ad', conditionalRequireAuth(), requirePermission('campai
 // POST /api/recruitment-campaigns - إنشاء حملة توظيف جديدة وحفظها في قاعدة البيانات
 router.post('/', requirePermission('campaign.write'), async (req: Request, res: Response) => {
     try {
+        // Fail-closed on missing Clerk org: without an active organization the
+        // organizationId default is empty and Mongoose would reject the save with
+        // a raw "Path `organizationId` is required" error leaking to the client.
+        // Return a clean, actionable response instead (mirrors billing's ORG_REQUIRED).
+        if (isMissingProductionOrg(getOrgId(req))) {
+            return res.status(403).json({
+                success: false,
+                error: 'ORG_REQUIRED',
+                message: 'You must create or select an organization before creating a campaign.',
+            });
+        }
+
         const campaignData = req.body;
         
         console.log('📥 Received recruitment campaign data:', JSON.stringify(campaignData, null, 2));
@@ -283,7 +265,7 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
 });
 
 // GET /api/recruitment-campaigns?ids=id1,id2,... — batch metadata (must be before /:campaignId)
-router.get('/', conditionalRequireAuth(), requirePermission('campaign.read'), async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
     try {
         const rawIds = typeof req.query.ids === 'string' ? req.query.ids.trim() : '';
         if (!rawIds) {
@@ -334,7 +316,7 @@ router.get('/', conditionalRequireAuth(), requirePermission('campaign.read'), as
 });
 
 // GET /api/recruitment-campaigns/:campaignId - الحصول على معايير حملة محددة
-router.get('/:campaignId', conditionalRequireAuth(), requirePermission('campaign.read'), async (req: Request, res: Response) => {
+router.get('/:campaignId', async (req: Request, res: Response) => {
     try {
         const { campaignId } = req.params;
         
@@ -707,22 +689,7 @@ router.post(
                 refundIdempotencyKey: `compare-top-refund:${requestId}`,
                 deadlineAt: new Date(Date.now() + COMPARE_EMAIL_DEADLINE_MS),
             };
-            try {
-                await campaign.save();
-            } catch (saveErr) {
-                // بلا حالة محفوظة لا يمكن للـ sweep استرداد الشحنة — نعوّضها مباشرة.
-                await rollbackCompareTopChargeWithoutRecord({
-                    organizationId,
-                    requestId,
-                    amountMicro: chargedMicroCredits,
-                    reason: 'campaign_save_failed',
-                }).catch((e) => {
-                    console.warn(
-                        `[ai-compare-top] orphan rollback failed request=${requestId}: ${e?.message || e}`
-                    );
-                });
-                throw saveErr;
-            }
+            await campaign.save();
 
             const payload = {
                 source: cfg.source,
@@ -822,7 +789,7 @@ router.post(
  * GET /api/recruitment-campaigns/:campaignId/ai-compare-top[?stage=screening|voice|video]
  * استطلاع نتيجة المقارنة لمرحلة محددة (polling من الواجهة).
  */
-router.get('/:campaignId/ai-compare-top', conditionalRequireAuth(), requirePermission('campaign.read'), async (req: Request, res: Response) => {
+router.get('/:campaignId/ai-compare-top', async (req: Request, res: Response) => {
     try {
         const stage = resolveAiCompareStage(req.query.stage);
         if (!stage) {

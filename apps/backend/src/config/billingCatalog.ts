@@ -17,18 +17,16 @@ import type { BillingPlanId } from '../types/billing.js';
  * يعرض ما يُحصَّل فعلاً فقط:
  *  - voice: 15/دقيقة (VOICE_SECONDS)
  *  - search: 6/مرشح (SEARCH_CANDIDATE)
- *  - contact_reveal: 1/حقل (CONTACT_REVEAL)
- *  - compare_email + compare_candidate: نموذج تقرير أفضل المرشحين الفعلي
- *    (1/مستلم إيميل COMPARE_EMAIL + 2/مرشح SCREENING) — بدل «5/تقرير» السابقة
- *    التي لم تُحصَّل قط.
- *  - cv_analysis: 2/عملية (routes/cvComparison.ts) — مُحصَّل فعلاً.
- *  - job_ad: 1/توليد (routes/recruitmentCampaigns.ts /generate-ad) — مُحصَّل فعلاً.
+ *  - screening: 2/عملية (فرز المرشحين) — ظاهر في شريط التسعير
+ *  - compare_candidate: 2/مرشح في تقرير أفضل المرشحين
+ *  - cv_analysis: 2/عملية (routes/cvComparison.ts)
+ *  - job_ad: 1/توليد (routes/recruitmentCampaigns.ts /generate-ad)
+ * مخفي من الشريط العام: contact_reveal، compare_email (ما زال التحصيل الفعلي قائماً).
  */
 const PUBLIC_USAGE_COSTS = [
     { id: 'voice', credits: 15, labelKey: 'pricing_usage_voice', unitKey: 'pricing_usage_unit_per_minute' },
     { id: 'search', credits: 6, labelKey: 'pricing_usage_search', unitKey: 'pricing_usage_unit_per_candidate' },
-    { id: 'contact_reveal', credits: 1, labelKey: 'pricing_usage_contact_reveal', unitKey: 'pricing_usage_unit_per_field' },
-    { id: 'compare_email', credits: 1, labelKey: 'pricing_usage_compare_email', unitKey: 'pricing_usage_unit_per_email' },
+    { id: 'screening', credits: 2, labelKey: 'pricing_usage_screening', unitKey: 'pricing_usage_unit_per_action' },
     { id: 'compare_candidate', credits: 2, labelKey: 'pricing_usage_compare_candidate', unitKey: 'pricing_usage_unit_per_candidate' },
     { id: 'cv_analysis', credits: 2, labelKey: 'pricing_usage_cv_analysis', unitKey: 'pricing_usage_unit_per_action' },
     { id: 'job_ad', credits: 1, labelKey: 'pricing_usage_job_ad', unitKey: 'pricing_usage_unit_per_action' },
@@ -38,7 +36,7 @@ export function buildPublicBillingCatalog() {
     return {
         apiVersion: 1,
         billingCycle: 'monthly' as const,
-        plans: BILLING_PLANS.map((plan) => ({
+        plans: BILLING_PLANS.filter((plan) => !plan.flags?.hidden).map((plan) => ({
             id: plan.id,
             displayNameKey: plan.displayNameKey,
             displayDescKey: plan.displayDescKey,

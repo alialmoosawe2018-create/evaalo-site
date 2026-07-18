@@ -76,7 +76,7 @@ router.patch('/me', conditionalRequireAuth(), async (req: Request, res: Response
     try {
         const clerkUserId = resolveClerkUserId(req);
         const devEmail = resolveDevEmail(req);
-        const body = req.body as { fullName?: string; companyName?: string };
+        const body = req.body as { fullName?: string; companyName?: string; companyDescription?: string };
 
         if (!clerkUserId.startsWith('user_')) {
             if (!devEmail) {
@@ -86,6 +86,7 @@ router.patch('/me', conditionalRequireAuth(), async (req: Request, res: Response
                 email: devEmail,
                 fullName: body.fullName,
                 companyName: body.companyName,
+                companyDescription: body.companyDescription,
             });
             return res.json({ success: true, profile });
         }
@@ -93,11 +94,12 @@ router.patch('/me', conditionalRequireAuth(), async (req: Request, res: Response
         const profile = await updateProfileForClerkUser(clerkUserId, {
             fullName: body.fullName,
             companyName: body.companyName,
+            companyDescription: body.companyDescription,
         });
         return res.json({ success: true, profile });
     } catch (err) {
         const code = err instanceof Error ? err.message : 'profile_error';
-        if (code === 'INVALID_FULL_NAME' || code === 'INVALID_COMPANY') {
+        if (code === 'INVALID_FULL_NAME' || code === 'INVALID_COMPANY' || code === 'INVALID_COMPANY_DESCRIPTION') {
             return res.status(400).json({ success: false, message: code });
         }
         if (code === 'PROFILE_NOT_FOUND') {

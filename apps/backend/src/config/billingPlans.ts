@@ -54,6 +54,19 @@ const BUSINESS_FEATURES: BillingPlan['features'] = [
 
 export const BILLING_PLANS: readonly BillingPlan[] = [
     {
+        // باقة تجريبية مجانية: تُمنح تلقائياً لكل حساب جديد (150 كردت لمرة واحدة،
+        // بدون تجديد شهري وبدون فيديو). مخفية من الكتالوج العام — لا تُشترى.
+        id: 'free',
+        displayNameKey: 'billing_plan_free_name',
+        displayDescKey: 'billing_plan_free_desc',
+        price: { monthly: 0, currency: 'USD' },
+        seatLimit: SEAT_LIMIT_SINGLE,
+        monthlyCredits: 150,
+        includedVideoMinutes: 0,
+        features: STARTER_FEATURES,
+        flags: { hidden: true },
+    },
+    {
         id: 'starter',
         displayNameKey: 'billing_plan_starter_name',
         displayDescKey: 'billing_plan_starter_desc',
