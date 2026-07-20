@@ -17,13 +17,15 @@
         var segmentsToKeep = isGithubIo && pathSegments.length > 0 ? 1 : 0;
         var prefix = '/' + pathSegments.slice(0, segmentsToKeep).join('/');
         if (prefix !== '/') prefix += '/';
-        var decoded = l.search
+        var parts = l.search
           .slice(1)
           .split('&')
-          .map(function (s) { return s.replace(/~and~/g, '&'); })
-          .join('?');
-        var normalized = decoded[0] === '/' ? decoded.slice(1) : decoded;
-        window.history.replaceState(null, null, prefix + normalized + l.hash);
+          .map(function (s) { return s.replace(/~and~/g, '&'); });
+        var pathPart = parts[0] || '';
+        var queryPart = parts.slice(1).join('&');
+        var normalized = pathPart[0] === '/' ? pathPart.slice(1) : pathPart;
+        var restored = prefix + normalized + (queryPart ? '?' + queryPart : '') + l.hash;
+        window.history.replaceState(null, null, restored);
       })(window.location);
     </script>
     <title>evaalo | AI-Powered Candidate Screening and Interview Platform</title>
@@ -55,7 +57,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-DxUlNGHs.js"></script>
+  <script type="module" crossorigin src="/assets/index-DfhkLy9i.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-BKTYv-ZK.css">
     <script>window.__EVAALO_API_BASE__="https://api.evaalo.com";</script>
 </head>
