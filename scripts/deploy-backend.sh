@@ -62,17 +62,20 @@ say "  parity OK: $SM"
 # keeps its own name/scripts (standalone build). We copy deps in and hard-fail
 # if they don't match afterwards — no silent dependency drift.
 say "Gate 4/5 — sync dependencies into deploy package.json"
+# Pass file CONTENTS via env (not paths) so this works in Git Bash on Windows,
+# where node cannot resolve MSYS-style /c/... paths.
+MONO_PKG="$(cat "$M/package.json")"; DEPLOY_PKG="$(cat "$D/package.json")"
+export MONO_PKG DEPLOY_PKG
 node -e '
-  const fs = require("fs");
-  const mono = require(process.argv[1]);
-  const dp = process.argv[2];
-  const dep = JSON.parse(fs.readFileSync(dp, "utf8"));
+  const mono = JSON.parse(process.env.MONO_PKG);
+  const dep  = JSON.parse(process.env.DEPLOY_PKG);
   dep.dependencies = mono.dependencies || {};
   dep.devDependencies = mono.devDependencies || {};
-  fs.writeFileSync(dp, JSON.stringify(dep, null, 2) + "\n");
-' "$M/package.json" "$D/package.json"
-DM="$(node -e "const d=require('$M/package.json');console.log(JSON.stringify([d.dependencies,d.devDependencies]))" | md5sum)"
-DD="$(node -e "const d=require('$D/package.json');console.log(JSON.stringify([d.dependencies,d.devDependencies]))" | md5sum)"
+  process.stdout.write(JSON.stringify(dep, null, 2) + "\n");
+' > "$D/package.json"
+NEW_PKG="$(cat "$D/package.json")"; export NEW_PKG
+DM="$(node -e 'const d=JSON.parse(process.env.MONO_PKG);console.log(JSON.stringify([d.dependencies||{},d.devDependencies||{}]))' | md5sum)"
+DD="$(node -e 'const d=JSON.parse(process.env.NEW_PKG);console.log(JSON.stringify([d.dependencies||{},d.devDependencies||{}]))' | md5sum)"
 [ "$DM" = "$DD" ] || die "dependency sync failed — monorepo deps != deploy deps after sync"
 say "  dependencies in parity"
 
