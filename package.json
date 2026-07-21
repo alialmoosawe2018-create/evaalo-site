@@ -16,7 +16,9 @@
     "build:backend": "npm run build --workspace=apps/backend",
     "install:all": "npm install",
     "clean": "npm run clean --workspaces && rimraf node_modules",
-    "type-check": "npm run type-check --workspace=apps/backend"
+    "type-check": "npm run type-check --workspace=apps/backend",
+    "deploy:backend": "bash scripts/deploy-backend.sh",
+    "deploy:frontend": "npm run deploy --workspace=apps/frontend"
   },
   "devDependencies": {
     "rimraf": "^5.0.5",
