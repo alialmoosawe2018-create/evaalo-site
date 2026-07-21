@@ -1,69 +1,34 @@
-<!DOCTYPE html>
-<html lang="en" id="htmlLang" dir="ltr">
-<head>
-    <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta name="theme-color" content="#4a1d9c">
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirecting…</title>
     <script>
-      // GitHub Pages SPA redirect fallback (supports both repo subpath and custom domain root)
-      (function (l) {
-        if (!l.search || l.search[1] !== '/') return;
-        var pathSegments = l.pathname.split('/').filter(Boolean);
+      // GitHub Pages SPA fallback:
+      // Redirect unknown path to index + encoded route query.
+      // Works for:
+      // - username.github.io/repo-name (keep repo segment)
+      // - custom domain root (keep no segment)
+      (function () {
+        var l = window.location;
+        var parts = l.pathname.split('/').filter(Boolean);
         var isGithubIo = /\.github\.io$/i.test(l.hostname);
-        var segmentsToKeep = isGithubIo && pathSegments.length > 0 ? 1 : 0;
-        var prefix = '/' + pathSegments.slice(0, segmentsToKeep).join('/');
+        var keep = isGithubIo && parts.length > 0 ? 1 : 0;
+        var prefix = '/' + parts.slice(0, keep).join('/');
         if (prefix !== '/') prefix += '/';
-        var parts = l.search
-          .slice(1)
-          .split('&')
-          .map(function (s) { return s.replace(/~and~/g, '&'); });
-        var pathPart = parts[0] || '';
-        var queryPart = parts.slice(1).join('&');
-        var normalized = pathPart[0] === '/' ? pathPart.slice(1) : pathPart;
-        var restored = prefix + normalized + (queryPart ? '?' + queryPart : '') + l.hash;
-        window.history.replaceState(null, null, restored);
-      })(window.location);
+        var rest = parts.slice(keep).join('/');
+        var next =
+          l.protocol +
+          '//' +
+          l.host +
+          prefix +
+          '?/' +
+          rest.replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash;
+        l.replace(next);
+      })();
     </script>
-    <title>evaalo | AI-Powered Candidate Screening and Interview Platform</title>
-    <meta name="description" content="evaalo helps hiring teams screen, interview, and evaluate candidates with AI-powered voice, video, and written assessments.">
-
-    <!-- Open Graph / WhatsApp / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="evaalo">
-    <meta property="og:url" content="https://www.evaalo.com/">
-    <meta property="og:title" content="evaalo | AI-Powered Candidate Screening and Interview Platform">
-    <meta property="og:description" content="evaalo helps hiring teams screen, interview, and evaluate candidates with AI-powered voice, video, and written assessments.">
-    <meta property="og:image" content="https://www.evaalo.com/og-image.png">
-    <meta property="og:image:secure_url" content="https://www.evaalo.com/og-image.png">
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="evaalo.Ai — AI-Powered Hiring Platform">
-    <meta property="og:locale" content="en_US">
-    <meta property="og:locale:alternate" content="ar_IQ">
-
-    <!-- Twitter / X -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="evaalo | AI-Powered Candidate Screening and Interview Platform">
-    <meta name="twitter:description" content="evaalo helps hiring teams screen, interview, and evaluate candidates with AI-powered voice, video, and written assessments.">
-    <meta name="twitter:image" content="https://www.evaalo.com/og-image.png">
-
-    <link rel="canonical" href="https://www.evaalo.com/">
-    <link rel="image_src" href="https://www.evaalo.com/og-image.png">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-BR3MOxNJ.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BBZ6gNgw.css">
-    <script>window.__EVAALO_API_BASE__="https://api.evaalo.com";</script>
-</head>
-<body>
-    <div id="root"></div>
-</body>
+  </head>
+  <body></body>
 </html>
-
-
