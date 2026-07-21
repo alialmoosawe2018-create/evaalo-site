@@ -113,6 +113,7 @@ function clerkSessionToSession(clerk, { remember = true } = {}) {
         user.username ||
         email.split('@')[0];
     const companyName = String(user.unsafeMetadata?.companyName ?? '').trim();
+    const companyDescription = String(user.unsafeMetadata?.companyDescription ?? '').trim();
     const role = user.publicMetadata?.role || 'HR_MANAGER';
     const profileComplete =
         user.publicMetadata?.profileComplete === true ||
@@ -128,6 +129,7 @@ function clerkSessionToSession(clerk, { remember = true } = {}) {
             email,
             name: fullName,
             companyName,
+            companyDescription,
             profileComplete,
             imageUrl: user.imageUrl || '',
             role,
@@ -177,6 +179,7 @@ export function applyProfileToSession(profile, { remember = true } = {}) {
     if (!current?.user) return null;
     const fullName = profile?.fullName ?? profile?.name ?? current.user.name ?? '';
     const companyName = profile?.companyName ?? current.user.companyName ?? '';
+    const companyDescription = profile?.companyDescription ?? current.user.companyDescription ?? '';
     const email = profile?.email ?? current.user.email ?? '';
     const profileComplete =
         profile?.profileComplete === true ||
@@ -187,6 +190,7 @@ export function applyProfileToSession(profile, { remember = true } = {}) {
             ...current.user,
             name: String(fullName).trim() || current.user.name,
             companyName: String(companyName).trim(),
+            companyDescription: String(companyDescription).trim(),
             email: String(email).trim() || current.user.email,
             profileComplete,
             imageUrl: profile?.imageUrl ?? current.user.imageUrl ?? '',
@@ -450,6 +454,14 @@ export function getCurrentSession() {
 export async function refreshCurrentUser() {
     const clerk = await waitForClerk();
     if (clerk?.session && clerk?.user) {
+        // الكائن بالمتصفح لا يعرف تحديثات السيرفر (profileComplete/companyName بعد
+        // PATCH من الباك) — بدون reload نعيد بناء الجلسة من بيانات قديمة وتعلق
+        // البوابة المستخدم بين /onboarding و /dashboard.
+        try {
+            await clerk.user.reload();
+        } catch {
+            /* reload is best-effort */
+        }
         return clerkSessionToSession(clerk, { remember: true });
     }
     return getCurrentSession();

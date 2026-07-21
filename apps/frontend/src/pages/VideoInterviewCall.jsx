@@ -11,6 +11,8 @@ import useLiveKitToken from '../hooks/useLiveKitToken';
 import useLiveKitState from '../hooks/useLiveKitState';
 import useSoundEffects from '../hooks/useSoundEffects';
 import { connectWithRetry, handleConnectionError } from '../utils/connectionRetry';
+import { isLocalHostDebug } from '../utils/isLocalHostDebug';
+import { API_BASE_URL } from '../config/apiBase.js';
 import '../design-styles.css';
 
 const isBeyAvatarIdentity = (p) => p?.identity === 'bey-avatar-agent';
@@ -296,7 +298,7 @@ const AVATAR_LOADING_MAX_WAIT_MS = (() => {
     return Math.min(120000, Math.max(15000, Math.floor(n)));
 })();
 
-const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE = API_BASE_URL;
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
 
 const VideoInterviewCall = () => {
@@ -305,6 +307,8 @@ const VideoInterviewCall = () => {
     const candidateId = searchParams.get('candidateId');
     const campaignId = searchParams.get('campaignId');
     const applicationIdFromUrl = searchParams.get('applicationId');
+    /** Transcript panel: localhost QA only — hidden on production (desktop + mobile). */
+    const showTranscriptPanel = useMemo(() => isLocalHostDebug(), []);
 
     const [prepDone, setPrepDone] = useState(false);
 
@@ -3032,7 +3036,7 @@ const VideoInterviewCall = () => {
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
+            background: 'linear-gradient(160deg, #f5f3ff 0%, #eef2ff 40%, #f8fafc 100%)',
             position: 'relative',
             overflow: 'hidden',
             display: 'flex',
@@ -3048,7 +3052,7 @@ const VideoInterviewCall = () => {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                background: 'radial-gradient(circle at 20% 50%, rgba(34, 211, 238, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(96, 165, 250, 0.1) 0%, transparent 50%)',
+                background: 'radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(56, 189, 248, 0.08) 0%, transparent 50%)',
                 pointerEvents: 'none'
             }}></div>
 
@@ -3081,15 +3085,15 @@ const VideoInterviewCall = () => {
                     >
                         {t('publicVideoScreening_title')}
                     </h1>
-                    <p style={{ margin: '12px 0 0', fontSize: '0.9rem', color: '#F1F5F9' }}>
+                    <p style={{ margin: '12px 0 0', fontSize: '0.9rem', color: '#475569' }}>
                         {candidateSubtitle}
                     </p>
                     
                     {/* Candidate ID Input (للتطوير) */}
                     {!effectiveCandidateId && (
                         <div style={{
-                            background: 'rgba(239, 68, 68, 0.1)',
-                            border: '2px solid rgba(239, 68, 68, 0.3)',
+                            background: 'rgba(239, 68, 68, 0.06)',
+                            border: '2px solid rgba(239, 68, 68, 0.28)',
                             borderRadius: '12px',
                             padding: '20px',
                             marginTop: '20px',
@@ -3097,7 +3101,7 @@ const VideoInterviewCall = () => {
                             margin: '20px auto 0'
                         }}>
                             <p style={{
-                                color: '#FCA5A5',
+                                color: '#dc2626',
                                 fontSize: '16px',
                                 marginBottom: '12px',
                                 fontWeight: 600
@@ -3113,15 +3117,15 @@ const VideoInterviewCall = () => {
                                     width: '100%',
                                     padding: '12px 16px',
                                     borderRadius: '8px',
-                                    border: '2px solid rgba(239, 68, 68, 0.3)',
-                                    background: 'rgba(15, 23, 42, 0.8)',
-                                    color: '#F1F5F9',
+                                    border: '2px solid rgba(239, 68, 68, 0.28)',
+                                    background: '#ffffff',
+                                    color: '#0f172a',
                                     fontSize: '14px',
                                     outline: 'none'
                                 }}
                             />
                             <p style={{
-                                color: '#94A3B8',
+                                color: '#64748b',
                                 fontSize: '12px',
                                 marginTop: '8px',
                                 textAlign: 'center'
@@ -3144,17 +3148,17 @@ const VideoInterviewCall = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: 'rgba(15, 23, 42, 0.92)',
+                        background: 'rgba(248, 250, 252, 0.92)',
                         backdropFilter: 'blur(20px)'
                     }}>
                         <div style={{
-                            background: 'rgba(15, 23, 42, 0.9)',
+                            background: '#ffffff',
                         backdropFilter: 'blur(20px)',
-                        border: '2px solid rgba(34, 211, 238, 0.3)',
+                        border: '2px solid rgba(99, 102, 241, 0.28)',
                         borderRadius: '20px',
                         padding: '40px 60px',
                         textAlign: 'center',
-                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)'
+                        boxShadow: '0 20px 60px rgba(99, 102, 241, 0.15)'
                     }}>
                         {PREPARATION_COUNTDOWN_SECONDS > 0 ? (
                         <div style={{
@@ -3185,7 +3189,7 @@ const VideoInterviewCall = () => {
                         )}
                         <h2 style={{
                             fontSize: '24px',
-                            color: '#F1F5F9',
+                            color: '#0f172a',
                             marginBottom: 0,
                             fontWeight: 600
                         }}>
@@ -3193,7 +3197,7 @@ const VideoInterviewCall = () => {
                         </h2>
                         <p style={{
                             fontSize: '15px',
-                            color: '#94A3B8',
+                            color: '#64748b',
                             marginTop: '12px',
                             marginBottom: 0,
                             lineHeight: 1.6,
@@ -3215,7 +3219,7 @@ const VideoInterviewCall = () => {
                             width: '100%',
                             maxWidth: '1400px',
                             display: 'grid',
-                            gridTemplateColumns: '2fr 1fr', // Avatar كبير + Transcript بجانبه
+                            gridTemplateColumns: showTranscriptPanel ? '2fr 1fr' : '1fr',
                             gap: '20px',
                             marginTop: '20px',
                             marginBottom: '20px', // ✅ FIX: إضافة margin-bottom
@@ -3307,13 +3311,14 @@ const VideoInterviewCall = () => {
                             </>
                         </AvatarHostContainer>
 
-                        {/* Transcript Container - بجانب الأفاتار (يظهر دائماً) - تصميم مثل الصورة */}
+                        {/* Transcript: localhost only — hidden in production (desktop + mobile) */}
+                        {showTranscriptPanel ? (
                         <div 
                             style={{
                                 gridColumn: '2', // ✅ FIX: التأكد من أن Transcript في الـ column الثاني (الصغير)
-                            background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 50%, rgba(51, 65, 85, 0.92) 100%)',
+                            background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 50%, #f1f5f9 100%)',
                             backdropFilter: 'blur(20px)',
-                            border: '1px solid rgba(34, 211, 238, 0.2)',
+                            border: '1px solid rgba(99, 102, 241, 0.22)',
                             borderRadius: '16px',
                             padding: '0',
                             display: 'flex',
@@ -3321,17 +3326,17 @@ const VideoInterviewCall = () => {
                             height: '600px', // ✅ FIX: حجم ثابت - لا يتغير
                             maxHeight: '600px', // ✅ FIX: حد أقصى ثابت
                             overflow: 'hidden', // ✅ Container لا يمرر - فقط Messages area
-                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+                            boxShadow: '0 8px 32px rgba(99, 102, 241, 0.12)'
                         }}>
                             {/* Chat Header - مثل الصورة */}
                             <div style={{
                                 padding: '20px 24px',
-                                borderBottom: '1px solid rgba(34, 211, 238, 0.15)',
-                                background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
+                                borderBottom: '1px solid rgba(99, 102, 241, 0.14)',
+                                background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
                                 position: 'relative'
                             }}>
                                 <div style={{
-                                    color: '#FFFFFF',
+                                    color: '#0f172a',
                                     fontSize: '20px',
                                     fontWeight: 700,
                                     letterSpacing: '0.5px',
@@ -3423,11 +3428,11 @@ const VideoInterviewCall = () => {
 
                                                 const bubbleColor = isUser
                                                     ? rowStreaming
-                                                        ? '#CBD5E1'
-                                                        : '#F1F5F9'
+                                                        ? '#64748b'
+                                                        : '#334155'
                                                     : rowStreaming
-                                                      ? '#a5f3fc'
-                                                      : '#22d3ee';
+                                                      ? '#6366f1'
+                                                      : '#4f46e5';
                                     return (
                                                 <div
                                                         key={`chat-${idx}-${rowStreaming ? 'p' : 'f'}-${displayContent?.substring(0, 12)}`}
@@ -3541,8 +3546,8 @@ const VideoInterviewCall = () => {
                             {isInterviewActive && (
                                 <div style={{
                                     padding: '16px 20px',
-                                    borderTop: '1px solid rgba(34, 211, 238, 0.2)',
-                                    background: 'rgba(15, 23, 42, 0.8)',
+                                    borderTop: '1px solid rgba(99, 102, 241, 0.16)',
+                                    background: '#f8fafc',
                                     display: 'flex',
                                     gap: '12px',
                                     alignItems: 'center'
@@ -3552,11 +3557,11 @@ const VideoInterviewCall = () => {
                                         placeholder={t('videoInterview_typeMessage')}
                                         style={{
                                             flex: 1,
-                                            background: 'rgba(15, 23, 42, 0.6)',
-                                            border: '1px solid rgba(34, 211, 238, 0.3)',
+                                            background: '#ffffff',
+                                            border: '1px solid rgba(99, 102, 241, 0.28)',
                                             borderRadius: '8px',
                                             padding: '10px 16px',
-                                            color: '#F1F5F9',
+                                            color: '#0f172a',
                                             fontSize: '14px',
                                             outline: 'none'
                                         }}
@@ -3564,11 +3569,11 @@ const VideoInterviewCall = () => {
                                     />
                                     <button
                                         style={{
-                                            background: 'rgba(34, 211, 238, 0.2)',
-                                            border: '1px solid rgba(34, 211, 238, 0.5)',
+                                            background: 'rgba(99, 102, 241, 0.12)',
+                                            border: '1px solid rgba(99, 102, 241, 0.4)',
                                             borderRadius: '8px',
                                             padding: '10px 24px',
-                                            color: '#22d3ee',
+                                            color: '#4f46e5',
                                             fontSize: '14px',
                                             fontWeight: 600,
                                             cursor: 'not-allowed',
@@ -3581,6 +3586,7 @@ const VideoInterviewCall = () => {
                                 </div>
                             )}
                         </div>
+                        ) : null}
                     </div>
                 )}
 

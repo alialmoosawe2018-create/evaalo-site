@@ -67,18 +67,25 @@ export default function ScreeningCampaignList({
         }
     };
 
-    const locale =
-        currentLang === 'ar' ? 'ar' : currentLang === 'ku' ? 'ckb-IQ' : 'en-US';
-
     const formatDate = (d) => {
         if (!d) return '';
-        try {
-            return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(
-                d instanceof Date ? d : new Date(d)
-            );
-        } catch {
-            return new Date(d).toLocaleString();
+        const date = d instanceof Date ? d : new Date(d);
+        if (Number.isNaN(date.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        const day = pad(date.getDate());
+        const month = pad(date.getMonth() + 1);
+        const year = date.getFullYear();
+        const minutes = pad(date.getMinutes());
+        let hours = date.getHours();
+        // Fixed numeric order + LTR isolate in JSX avoids Arabic bidi splitting day from year/time.
+        if (currentLang === 'ar' || currentLang === 'ku') {
+            const period = hours >= 12 ? 'م' : 'ص';
+            const h12 = hours % 12 || 12;
+            return `${day}/${month}/${year}، ${h12}:${minutes} ${period}`;
         }
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const h12 = hours % 12 || 12;
+        return `${month}/${day}/${year}, ${h12}:${minutes} ${period}`;
     };
 
     const hasAny = activeCampaigns.length > 0 || Boolean(uncategorized?.totalCount);
@@ -136,7 +143,9 @@ export default function ScreeningCampaignList({
                     <span className="headhunter-campaign-history-row__meta">
                         {dateLabel ? (
                             <>
-                                {dateLabel}
+                                <span className="headhunter-campaign-history-row__meta-date" dir="ltr">
+                                    {dateLabel}
+                                </span>
                                 <span aria-hidden="true"> · </span>
                             </>
                         ) : null}

@@ -7,6 +7,7 @@ import User from '../models/User.js';
 import {
     computeProfileComplete,
     getPrimaryEmail,
+    reclaimUserEmailForClerkId,
     upsertUserFromClerk,
 } from './clerkWebhookHandlers.js';
 import type { ClerkUserPayload } from '../types/clerkWebhookEvents.js';
@@ -126,12 +127,15 @@ async function upsertMongoProfile(
         imageUrl?: string;
     }
 ): Promise<UserProfileDto> {
+    const email = fields.email.trim().toLowerCase();
+    await reclaimUserEmailForClerkId(clerkUserId, email);
+
     const doc = await User.findOneAndUpdate(
         { clerkUserId },
         {
             $set: {
                 clerkUserId,
-                email: fields.email.trim().toLowerCase(),
+                email,
                 fullName: fields.fullName || undefined,
                 companyName: fields.companyName || undefined,
                 companyDescription: fields.companyDescription || undefined,
@@ -139,6 +143,7 @@ async function upsertMongoProfile(
                 imageUrl: fields.imageUrl,
                 permissions: [],
             },
+            $unset: { deletedAt: 1 },
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();

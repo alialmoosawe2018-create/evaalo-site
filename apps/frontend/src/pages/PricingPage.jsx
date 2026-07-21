@@ -134,7 +134,12 @@ function PricingUsageCostsBar({ t }) {
         <section className="pricing-usage-costs" aria-label={t('pricing_usage_costs_heading')}>
             <div className="pricing-usage-costs__row">
                 {items.map((item) => (
-                    <div key={item.id} className="pricing-usage-costs__item" dir="ltr">
+                    <div
+                        key={item.id}
+                        className="pricing-usage-costs__item"
+                        dir="ltr"
+                        data-unit={item.unitKey}
+                    >
                         <span className="pricing-usage-costs__label">{t(item.labelKey)}</span>
                         <span className="pricing-usage-costs__eq" aria-hidden="true">
                             =

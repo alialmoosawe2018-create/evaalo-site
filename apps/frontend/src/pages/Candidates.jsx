@@ -26,6 +26,7 @@ import CandidatesStoredLedgerPanel from '../components/CandidatesStoredLedgerPan
 import MobilePinchPanViewport from '../components/MobilePinchPanViewport.jsx';
 import { mergeIntoPool, candidateToChartEmp } from '../utils/chartCandidatePool.js';
 import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
+import { buildSampleCandidates } from '../utils/demoSampleData.js';
 import { scriptTextProps } from '../utils/textScript.js';
 import { resolveCandidateEvaluation, evaluationSourceLabelKey } from '../utils/candidateEvaluation.js';
 import { resolveJobRole } from '@evaalo/job-catalog';
@@ -144,106 +145,6 @@ function candidateMatchesEducationFilter(filterVal, candidateEdu) {
     return h.includes(String(filterVal).toLowerCase());
 }
 
-/** Sample candidates — fallback إذا لم تكن هناك بيانات من API */
-const SAMPLE_CANDIDATES = [
-        {
-            id: 1,
-            full_name: 'Ahmed Al-Mansouri',
-            email: 'ahmed.almansouri@example.com',
-            phone: '+966 50 123 4567',
-            position_applied_for: 'Software Engineer',
-            years_of_experience: '5',
-            current_company: 'Tech Corp',
-            highest_education_level: "Bachelor's Degree",
-        gender: 'male',
-            skills: ['React', 'Node.js', 'TypeScript', 'MongoDB'],
-            languages: ['Arabic', 'English'],
-            coverLetter: 'Experienced software engineer with 5 years of experience in web development...',
-            aiEvaluation: {
-                score: 85,
-                communication: 90,
-                technical: 88,
-                problemSolving: 82,
-                confidence: 87,
-                feedback: 'Strong technical skills and excellent communication. Shows good problem-solving abilities.'
-            },
-            status: 'pending',
-            interviewDate: '2025-01-15'
-        },
-        {
-            id: 2,
-            full_name: 'Sarah Johnson',
-            email: 'sarah.johnson@example.com',
-            phone: '+1 555 123 4567',
-            position_applied_for: 'Product Manager',
-            years_of_experience: '7',
-            current_company: 'StartupXYZ',
-            highest_education_level: "Master's Degree",
-        gender: 'female',
-            skills: ['Product Management', 'Agile', 'Data Analysis'],
-            languages: ['English'],
-            coverLetter: 'Product manager with extensive experience in agile methodologies...',
-            aiEvaluation: {
-                score: 78,
-                communication: 85,
-                technical: 72,
-                problemSolving: 80,
-                confidence: 75,
-                feedback: 'Good communication skills but needs improvement in technical areas.'
-            },
-            status: 'pending',
-            interviewDate: '2025-01-14'
-        },
-        {
-            id: 3,
-            full_name: 'Mohammed Hassan',
-            email: 'mohammed.hassan@example.com',
-            phone: '+971 50 987 6543',
-            position_applied_for: 'Data Analyst',
-            years_of_experience: '3',
-            current_company: 'Data Solutions Inc',
-            highest_education_level: "Bachelor's Degree",
-        gender: 'male',
-            skills: ['Python', 'SQL', 'Tableau', 'Excel'],
-            languages: ['Arabic', 'English', 'French'],
-            coverLetter: 'Data analyst passionate about turning data into insights...',
-            aiEvaluation: {
-                score: 92,
-                communication: 88,
-                technical: 95,
-                problemSolving: 90,
-                confidence: 93,
-                feedback: 'Excellent technical skills and strong analytical thinking. Highly recommended.'
-            },
-            status: 'pending',
-            interviewDate: '2025-01-13'
-        },
-        {
-            id: 4,
-            full_name: 'Emily Chen',
-            email: 'emily.chen@example.com',
-            phone: '+86 138 0013 8000',
-            position_applied_for: 'UX Designer',
-            years_of_experience: '4',
-            current_company: 'Design Studio',
-            highest_education_level: "Bachelor's Degree",
-        gender: 'female',
-            skills: ['Figma', 'Adobe XD', 'User Research', 'Prototyping'],
-            languages: ['English', 'Mandarin'],
-            coverLetter: 'Creative UX designer focused on user-centered design...',
-            aiEvaluation: {
-                score: 65,
-                communication: 70,
-                technical: 60,
-                problemSolving: 65,
-                confidence: 65,
-                feedback: 'Needs improvement in technical skills and communication clarity.'
-            },
-            status: 'pending',
-            interviewDate: '2025-01-12'
-        }
-    ];
-
 function candidatePrimaryId(candidate) {
     if (!candidate) return null;
     const raw = candidate._id ?? candidate.id;
@@ -297,6 +198,8 @@ const Candidates = () => {
     const { user } = useAuth();
     const userKey = user?.id || user?.email || getUserStorageKeySuffix();
     const { hasPermission } = useOrganization();
+
+    const sampleCandidates = useMemo(() => buildSampleCandidates(t), [t]);
     // Reserved for future More actions → Danger Zone (permanent delete)
     const canDeleteCandidates = hasPermission(PERMISSIONS.CANDIDATE_DELETE);
     void canDeleteCandidates;
@@ -596,7 +499,7 @@ const Candidates = () => {
 
     // استخدام البيانات من API أو البيانات الافتراضية + تطبيق الفلاتر
     const displayCandidates = useMemo(() => {
-        const list = candidates.length > 0 ? candidates : SAMPLE_CANDIDATES;
+        const list = candidates.length > 0 ? candidates : sampleCandidates;
         const hiddenSet = new Set(hiddenSampleIds.map(String));
         return list.filter((c) => {
             const pid = candidatePrimaryId(c);
@@ -605,7 +508,7 @@ const Candidates = () => {
             }
             return candidatePassesTableFilters(c);
         });
-    }, [candidates, hiddenSampleIds, candidatePassesTableFilters]);
+    }, [candidates, hiddenSampleIds, candidatePassesTableFilters, sampleCandidates]);
 
     const visibleShortListRecords = useMemo(
         () => employeesPanelRecords.filter((c) => candidatePassesTableFilters(c)),
@@ -619,14 +522,14 @@ const Candidates = () => {
 
     /** المرشحون الكاملون (بدون فلتر الصفحة) — لزر الشارت وحل السجلات المحددة بعد تصفية العرض */
     const fullCandidateSource = useMemo(() => {
-        const base = candidates.length > 0 ? candidates : SAMPLE_CANDIDATES;
+        const base = candidates.length > 0 ? candidates : sampleCandidates;
         if (candidates.length > 0) return base;
         const hiddenSet = new Set(hiddenSampleIds.map(String));
         return base.filter((c) => {
             const pid = candidatePrimaryId(c);
             return pid == null || !hiddenSet.has(String(pid));
         });
-    }, [candidates, hiddenSampleIds]);
+    }, [candidates, hiddenSampleIds, sampleCandidates]);
 
     /** مرشحون في قائمة المرشحين الرئيسية مُستبعدون لو وُجدوا في القائمة القصيرة أو لوحة الموظفين */
     const mainListExcludedIdSet = useMemo(() => {
@@ -700,6 +603,41 @@ const Candidates = () => {
         company_applied_to: 'companyAppliedTo',
     };
 
+    const formatListFieldItem = (item) => {
+        if (item == null) return '';
+        if (typeof item === 'string') return item.trim();
+        if (typeof item === 'object') {
+            const name = String(item.name || item.label || item.skill || '').trim();
+            const level = String(item.level || item.proficiency || '').trim();
+            if (name && level) return `${name} (${level})`;
+            return name || level;
+        }
+        return String(item).trim();
+    };
+
+    /** Join skills/languages without duplicate entries (case-insensitive). */
+    const formatUniqueListField = (raw) => {
+        let items = [];
+        if (Array.isArray(raw)) {
+            items = raw;
+        } else if (typeof raw === 'string' && raw.trim()) {
+            items = raw.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+        } else {
+            return '';
+        }
+        const seen = new Set();
+        const unique = [];
+        for (const item of items) {
+            const text = formatListFieldItem(item);
+            if (!text) continue;
+            const key = text.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            unique.push(text);
+        }
+        return unique.join(', ');
+    };
+
     const getFieldValue = (candidate, fieldKey) => {
         const legacyKey = candidateFieldLegacy[fieldKey];
         const raw =
@@ -707,7 +645,8 @@ const Candidates = () => {
             (legacyKey ? candidate[legacyKey] : undefined) ??
             candidate[fieldKey?.toLowerCase?.()];
         if (fieldKey === 'skills' || fieldKey === 'languages') {
-            return Array.isArray(raw) ? raw.join(', ') : (raw || t('stageEval_notApplicable'));
+            const display = formatUniqueListField(raw);
+            return display || t('stageEval_notApplicable');
         }
         return raw || t('stageEval_notApplicable');
     };
@@ -2384,8 +2323,8 @@ const Candidates = () => {
                                     {selectedCandidateDetails.skills && selectedCandidateDetails.skills.length > 0 ? (
                                         <div style={{ marginTop: '4px' }}>
                                             <strong>{t('candidates_field_skills')}:</strong>{' '}
-                                            {selectedCandidateDetails.skills.map((s) => (typeof s === 'string' ? s : String(s))).join(', ')}
-                                </div>
+                                            {formatUniqueListField(selectedCandidateDetails.skills) || t('stageEval_notApplicable')}
+                                        </div>
                                     ) : null}
                             </div>
                                     </div>

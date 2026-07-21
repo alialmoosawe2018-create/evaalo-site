@@ -4,6 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import '../design-styles.css';
 import NewInterviewSidebar from '../components/NewInterviewSidebar';
 import RecentInterviewsCard from '../components/RecentInterviewsCard';
+import FreePlanBanner from '../components/FreePlanBanner';
 import PhoneCallOutlineIcon from '../components/PhoneCallOutlineIcon.jsx';
 import { serviceIconTones } from '../utils/brandColor';
 
@@ -256,13 +257,14 @@ const Dashboard = () => {
                 <div className="dashboard-evaalo-visual-texture" aria-hidden="true" />
                 <div className="dashboard-evaalo-visual-gridlines" aria-hidden="true" />
 
-                <div className="container dashboard-visual-container" style={{ 
-                    maxWidth: '1400px', 
-                    margin: '0 auto', 
-                    position: 'relative', 
+                <div className="container dashboard-visual-container" style={{
+                    maxWidth: '1400px',
+                    margin: '0 auto',
+                    position: 'relative',
                     zIndex: 1,
                     minHeight: 'calc(100vh - 250px)'
                 }}>
+                    <FreePlanBanner />
                     {/* Main Content Grid */}
                     <div className="dashboard-grid" style={{ 
                         marginBottom: '40px'

@@ -110,6 +110,16 @@ export function appendFormShareLanguage(url, language) {
 }
 
 /**
+ * Build a shareable campaign form URL with UI language embedded.
+ * @param {(path: string) => string} absoluteAppUrl
+ * @param {{ templateId: string; campaignId: string; language?: string }} opts
+ */
+export function buildCampaignFormShareUrl(absoluteAppUrl, { templateId, campaignId, language }) {
+    const path = `/form?template=${encodeURIComponent(templateId)}&campaign=${encodeURIComponent(campaignId)}`;
+    return appendFormShareLanguage(absoluteAppUrl(path), language);
+}
+
+/**
  * Resolve public application URL from campaign create API response.
  * @param {object} result
  * @param {(path: string) => string} absoluteAppUrl

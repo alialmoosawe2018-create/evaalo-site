@@ -136,7 +136,7 @@ const WrittenInterview = () => {
         (async () => {
             try {
                 const json = await apiClient.get(
-                    `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top?stage=screening`
+                    `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top`
                 );
                 if (cancelled || !json?.success || !json.result) return;
                 const r = json.result;
@@ -177,7 +177,7 @@ const WrittenInterview = () => {
             }
             try {
                 const json = await apiClient.get(
-                    `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top?stage=screening`
+                    `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top`
                 );
                 const r = json?.result;
                 // تجاهل النتائج التي لا تطابق آخر طلب (stale)
@@ -259,16 +259,15 @@ const WrittenInterview = () => {
         setAiCompareSubmitting(true);
         try {
             const json = await apiClient.post(
-                `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top?stage=screening`,
+                `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top`,
                 { emails }
             );
             if (!json?.success) {
-                const noCredits = json?.error === 'INSUFFICIENT_CREDITS';
                 setAiCompareStatus('failed');
                 setAiCompareResult({
                     status: 'failed',
                     emails,
-                    error: noCredits ? t('aiCompareTop_noCredits') : json?.message || json?.error,
+                    error: json?.message || json?.error,
                 });
                 setAiComparePanelOpen(true);
                 setAiCompareModalOpen(false);

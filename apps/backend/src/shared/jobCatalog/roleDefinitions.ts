@@ -53,8 +53,7 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
         { careerLevel: 'director', displayTitle: 'HR Director', managementTrack: 'director' },
     ]),
     role('recruiter', 'business', 'recruitment', 'hr', 'ic', [
-        { careerLevel: 'junior', displayTitle: 'Recruitment Coordinator' },
-        { careerLevel: 'mid', displayTitle: 'Recruiter' },
+        { careerLevel: 'mid', displayTitle: 'Recruitment' },
         { careerLevel: 'senior', displayTitle: 'Senior Recruiter' },
         { careerLevel: 'supervisor', displayTitle: 'Recruitment Supervisor', managementTrack: 'supervisor' },
         { careerLevel: 'manager', displayTitle: 'Recruitment Manager', managementTrack: 'manager' },

@@ -1,0 +1,283 @@
+/* Standalone light-only onboarding (no app nav / dark shell). */
+
+.onboarding-page {
+    position: relative;
+    min-height: 100dvh;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px 48px;
+    box-sizing: border-box;
+    background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(56, 189, 248, 0.12), transparent 55%),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(99, 102, 241, 0.08), transparent 50%),
+        #f8fafc;
+    color: #0f172a;
+}
+
+.onboarding-page__brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 28px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.onboarding-page__brand-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.onboarding-page__brand-name {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+}
+
+.onboarding-page__card {
+    width: 100%;
+    max-width: 520px;
+    padding: 32px 28px;
+    border-radius: 20px;
+    background: #ffffff;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow:
+        0 18px 48px rgba(15, 23, 42, 0.08),
+        0 2px 8px rgba(15, 23, 42, 0.04);
+    box-sizing: border-box;
+}
+
+.onboarding-page__title {
+    margin: 0 0 8px;
+    font-size: clamp(1.35rem, 4vw, 1.65rem);
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    line-height: 1.25;
+    text-align: center;
+}
+
+.onboarding-page__subtitle {
+    margin: 0 0 28px;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: #64748b;
+    text-align: center;
+}
+
+.onboarding-page__fields {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.onboarding-page__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.onboarding-page__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    letter-spacing: 0.01em;
+}
+
+.onboarding-page__input,
+.onboarding-page__textarea {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    background: #ffffff;
+    color: #1f2937;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 15px;
+    line-height: 1.45;
+    font-family: inherit;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.onboarding-page__textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.6;
+}
+
+.onboarding-page__input::placeholder,
+.onboarding-page__textarea::placeholder {
+    color: #9ca3af;
+}
+
+.onboarding-page__input:hover,
+.onboarding-page__textarea:hover {
+    border-color: rgba(37, 99, 235, 0.35);
+}
+
+.onboarding-page__input:focus,
+.onboarding-page__textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+.onboarding-page__input:disabled,
+.onboarding-page__textarea:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background: #f1f5f9;
+}
+
+.onboarding-page__input--readonly {
+    background: #f8fafc;
+    color: #475569;
+    cursor: not-allowed;
+}
+
+.onboarding-page__hint {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.onboarding-page__error {
+    margin-top: 16px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #b91c1c;
+    background: rgba(185, 28, 28, 0.06);
+    border: 1px solid rgba(185, 28, 28, 0.18);
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+.onboarding-page__actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-top: 28px;
+}
+
+.onboarding-page__submit.nav-dashboard-link {
+    margin: 0 !important;
+    position: relative !important;
+    display: inline-flex !important;
+    width: auto !important;
+    min-width: 148px;
+    animation: buttonGradientShift 8s ease infinite !important;
+}
+
+.onboarding-page__submit.nav-dashboard-link:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow:
+        0 8px 32px rgba(56, 189, 248, 0.28),
+        0 4px 16px rgba(168, 85, 247, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+    animation: none !important;
+    pointer-events: none;
+}
+
+.onboarding-page__submit.nav-dashboard-link:disabled::before,
+.onboarding-page__submit.nav-dashboard-link:disabled::after {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .onboarding-page {
+        justify-content: flex-start;
+        padding: 28px 16px 40px;
+        padding-top: max(28px, env(safe-area-inset-top, 0px));
+        padding-bottom: max(40px, env(safe-area-inset-bottom, 0px));
+    }
+
+    .onboarding-page__brand {
+        margin-bottom: 20px;
+        gap: 8px;
+    }
+
+    .onboarding-page__brand-logo {
+        width: 48px;
+        height: 48px;
+    }
+
+    .onboarding-page__brand-name {
+        font-size: 1.05rem;
+    }
+
+    .onboarding-page__card {
+        max-width: 100%;
+        padding: 22px 16px 24px;
+        border-radius: 16px;
+    }
+
+    .onboarding-page__title {
+        margin-bottom: 6px;
+        font-size: 1.28rem;
+        text-align: start;
+    }
+
+    .onboarding-page__subtitle {
+        margin-bottom: 20px;
+        font-size: 0.875rem;
+        line-height: 1.55;
+        text-align: start;
+    }
+
+    .onboarding-page__fields {
+        gap: 14px;
+    }
+
+    .onboarding-page__label {
+        font-size: 12px;
+    }
+
+    .onboarding-page__input,
+    .onboarding-page__textarea {
+        padding: 11px 12px;
+        font-size: 16px; /* avoid iOS zoom on focus */
+        border-radius: 10px;
+    }
+
+    .onboarding-page__textarea {
+        min-height: 100px;
+    }
+
+    .onboarding-page__actions {
+        margin-top: 22px;
+    }
+
+    .onboarding-page__submit.nav-dashboard-link {
+        min-width: 132px;
+        padding: 12px 24px !important;
+        font-size: 0.95rem !important;
+        border-radius: 11px !important;
+    }
+}
+
+@media (max-width: 400px) {
+    .onboarding-page {
+        padding-inline: 12px;
+    }
+
+    .onboarding-page__card {
+        padding: 18px 14px 20px;
+    }
+
+    .onboarding-page__title {
+        font-size: 1.18rem;
+    }
+}

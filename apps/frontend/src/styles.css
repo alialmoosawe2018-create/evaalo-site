@@ -1302,7 +1302,7 @@ html[dir="rtl"] .language-option {
         min-height: 100dvh;
         height: auto;
         overflow: visible;
-        padding: calc(12px + env(safe-area-inset-top, 0px)) 12px calc(28px + env(safe-area-inset-bottom, 0px));
+        padding: 0;
         margin: 0;
     }
 
@@ -1310,7 +1310,9 @@ html[dir="rtl"] .language-option {
         max-width: 100%;
         width: 100%;
         padding: 0;
-        min-height: auto;
+        margin: 0;
+        min-height: 100dvh;
+        align-items: stretch;
     }
 
     .language-selector-wrapper {
@@ -1318,16 +1320,23 @@ html[dir="rtl"] .language-option {
     }
 
     .form-wrapper {
-        padding: 24px 18px 28px;
-        margin-top: 0;
-        border-radius: 16px;
-        max-width: 100%;
+        padding: calc(20px + env(safe-area-inset-top, 0px)) 18px calc(28px + env(safe-area-inset-bottom, 0px));
+        margin: 0;
+        border-radius: 0;
+        max-width: none;
+        width: 100%;
+        min-height: 100dvh;
+        box-sizing: border-box;
+        box-shadow: none;
     }
 
     .form-page .form-wrapper {
-        padding: 24px 18px 28px;
-        border-radius: 16px;
-        box-shadow: 0 10px 36px rgba(0, 0, 0, 0.14), 0 4px 14px rgba(139, 92, 246, 0.1);
+        padding: calc(20px + env(safe-area-inset-top, 0px)) 18px calc(28px + env(safe-area-inset-bottom, 0px));
+        border-radius: 0;
+        max-width: none;
+        width: 100%;
+        min-height: 100dvh;
+        box-shadow: none;
     }
 
     .form-header {
@@ -1486,7 +1495,7 @@ html[dir="rtl"] .language-option {
 
 @media (max-width: 480px) {
     .form-page {
-        padding: calc(10px + env(safe-area-inset-top, 0px)) 10px calc(24px + env(safe-area-inset-bottom, 0px));
+        padding: 0;
     }
 
     .form-header h1 {
@@ -1500,8 +1509,12 @@ html[dir="rtl"] .language-option {
 
     .form-wrapper,
     .form-page .form-wrapper {
-        padding: 18px 14px 22px;
-        border-radius: 14px;
+        padding: calc(16px + env(safe-area-inset-top, 0px)) 14px calc(22px + env(safe-area-inset-bottom, 0px));
+        border-radius: 0;
+        max-width: none;
+        width: 100%;
+        min-height: 100dvh;
+        box-shadow: none;
     }
 
     .form-header {
@@ -2124,7 +2137,12 @@ textarea.error {
 
 @media (max-width: 520px) {
     .form-page.public-screening-intake .form-wrapper.psc-card {
-        padding: 22px 18px 20px;
+        padding: calc(18px + env(safe-area-inset-top, 0px)) 16px calc(20px + env(safe-area-inset-bottom, 0px));
+        border-radius: 0;
+        max-width: none;
+        width: 100%;
+        min-height: 100dvh;
+        box-shadow: none;
     }
     .form-page.public-screening-intake .psc-lang-row {
         flex-direction: column;

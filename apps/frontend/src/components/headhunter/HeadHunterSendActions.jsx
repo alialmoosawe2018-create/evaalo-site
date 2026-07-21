@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useLanguage } from '../../contexts/LanguageContext.jsx';
 import {
     getHeadHunterSendChannels,
     headHunterCandidatePosition,
@@ -23,6 +24,7 @@ export default function HeadHunterSendActions({
     const [composer, setComposer] = useState(null);
     const [message, setMessage] = useState('');
     const [includeLink, setIncludeLink] = useState(true);
+    const { currentLang } = useLanguage();
 
     const { phone, linkedinUrl, canWhatsApp, canLinkedIn } = useMemo(
         () => getHeadHunterSendChannels(contactStatusProp, candidate),
@@ -50,6 +52,7 @@ export default function HeadHunterSendActions({
             message,
             position: interviewType === 'video' ? position : undefined,
             sendInterviewLink: includeLink,
+            language: currentLang,
         });
         if (ok) setComposer(null);
     };

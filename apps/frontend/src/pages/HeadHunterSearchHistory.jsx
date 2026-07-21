@@ -10,7 +10,7 @@ import '../design-styles.css';
  * قائمة بحثيات Head Hunter المحفوظة محلياً.
  */
 export default function HeadHunterSearchHistory() {
-    const { t } = useLanguage();
+    const { t, currentLang } = useLanguage();
     const { list, remove } = useHeadHunterSearchHistory();
     const [historyViewMode, setHistoryViewMode] = useState(/** @type {'list' | 'cards'} */ ('cards'));
     /** @type {[object | null, Function]} */
@@ -29,6 +29,26 @@ export default function HeadHunterSearchHistory() {
         } finally {
             setHiding(false);
         }
+    };
+
+    const formatMetaDate = (iso) => {
+        if (!iso) return '';
+        const date = new Date(iso);
+        if (Number.isNaN(date.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        const day = pad(date.getDate());
+        const month = pad(date.getMonth() + 1);
+        const year = date.getFullYear();
+        const minutes = pad(date.getMinutes());
+        let hours = date.getHours();
+        if (currentLang === 'ar' || currentLang === 'ku') {
+            const period = hours >= 12 ? 'م' : 'ص';
+            const h12 = hours % 12 || 12;
+            return `${day}/${month}/${year}، ${h12}:${minutes} ${period}`;
+        }
+        const period = hours >= 12 ? 'PM' : 'AM';
+        const h12 = hours % 12 || 12;
+        return `${month}/${day}/${year}, ${h12}:${minutes} ${period}`;
     };
 
     useEffect(() => {
@@ -138,7 +158,9 @@ export default function HeadHunterSearchHistory() {
                                                     {row.position}
                                                 </span>
                                                 <span className="headhunter-campaign-history-row__meta">
-                                                    {new Date(row.receivedAt).toLocaleString()}
+                                                    <span className="headhunter-campaign-history-row__meta-date" dir="ltr">
+                                                        {formatMetaDate(row.receivedAt)}
+                                                    </span>
                                                     <span aria-hidden="true"> · </span>
                                                     {row.location}
                                                     <span aria-hidden="true"> · </span>

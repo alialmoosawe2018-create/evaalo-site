@@ -8,8 +8,8 @@ import { useCallback } from 'react';
 const AVATAR_HOST_STYLE = {
     gridColumn: '1',
     aspectRatio: '16/9',
-    background: 'rgba(15, 23, 42, 0.8)',
-    border: '2px solid rgba(34, 211, 238, 0.3)',
+    background: 'linear-gradient(160deg, #f8fafc 0%, #eef2ff 55%, #f5f3ff 100%)',
+    border: '2px solid rgba(99, 102, 241, 0.28)',
     borderRadius: '20px',
     position: 'relative',
     overflow: 'hidden',
@@ -26,6 +26,7 @@ const AVATAR_HOST_STYLE = {
     flexGrow: 1,
     boxSizing: 'border-box',
     margin: '0 auto',
+    boxShadow: '0 8px 28px rgba(99, 102, 241, 0.12)',
 };
 
 export function AvatarHostContainer({ children, onContainerNode }) {

@@ -26,6 +26,25 @@ export function resolveCampaignFormBinding(campaign: CampaignFormContext): Campa
     return resolveLegacyFormBinding();
 }
 
+/**
+ * Form binding for POST /api/candidates.
+ * Public voice/video screening sends only name/email/phone — do not fall back to the
+ * legacy full application template when the campaign has no stored formBinding.
+ */
+export function resolveCampaignFormBindingForCandidateSubmit(
+    campaign: CampaignFormContext,
+    options: { sourceType?: string } = {}
+): CampaignFormBinding | null {
+    if (campaign.formBinding && typeof campaign.formBinding === 'object') {
+        return campaign.formBinding as CampaignFormBinding;
+    }
+    const src = (options.sourceType || '').trim().toLowerCase();
+    if (src === 'public_screening') {
+        return null;
+    }
+    return resolveLegacyFormBinding();
+}
+
 export function assertCampaignAcceptsApplications(campaign: CampaignFormContext): void {
     if (campaign.status === 'closed') {
         throw new PublicCampaignClosedError();

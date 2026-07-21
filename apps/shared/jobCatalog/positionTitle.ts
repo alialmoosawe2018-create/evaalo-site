@@ -25,6 +25,7 @@ const POSITION_TITLE_OVERRIDES: Record<string, string> = {
     researcher_market_intelligence: 'Market Intelligence Researcher',
     researcher_public_policy: 'Public Policy Researcher',
     researcher_data_research: 'Data Researcher',
+    recruiter: 'Recruitment',
 };
 
 function stripLevelPrefix(title: string): string {

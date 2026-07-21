@@ -1084,6 +1084,7 @@ router.post(
                 : typeof body.hh === 'string'
                   ? body.hh.trim()
                   : '';
+        const language = typeof body.language === 'string' ? body.language.trim() : '';
 
         if (channel !== 'whatsapp' && channel !== 'linkedin') {
             return res.status(400).json({ ok: false, error: 'Invalid channel' });
@@ -1117,6 +1118,7 @@ router.post(
                       interviewType,
                       position: position || undefined,
                       headHunterContextId: headHunterContextId || undefined,
+                      language: language || undefined,
                   })
                 : await sendMessage(
                       orgId,

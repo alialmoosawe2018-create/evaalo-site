@@ -17,7 +17,7 @@ import {
 } from '../services/applicationSubmitValidation.js';
 import {
     markFirstCandidateIfNeeded,
-    resolveCampaignFormBinding,
+    resolveCampaignFormBindingForCandidateSubmit,
 } from '../services/publicCampaignService.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import type { CampaignFormBinding } from '../shared/formTemplates/types.js';
@@ -175,14 +175,27 @@ router.get('/:id', async (req: Request, res: Response) => {
             });
         }
 
+        const authOrgId = getOrgId(req);
+        const isPublicInterviewLookup = !authOrgId;
+
         // قد يكون المعرّف Application MongoId (صفوف Stage بعد M2M)
-        const asApp = await CandidateApplication.findOne({
-            _id: id,
-            deletedAt: null,
-            ...orgScopedQuery(req, {}),
-        }).lean();
+        const appQuery: Record<string, unknown> = { _id: id, deletedAt: null };
+        if (!isPublicInterviewLookup) {
+            Object.assign(appQuery, orgScopedQuery(req, {}));
+        }
+        const asApp = await CandidateApplication.findOne(appQuery).lean();
         if (asApp) {
             const person = await Candidate.findById(asApp.candidateId).lean();
+            if (
+                isPublicInterviewLookup &&
+                String((person as { sourceType?: string } | null)?.sourceType || '').toLowerCase() !==
+                    'public_screening'
+            ) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Candidate not found',
+                });
+            }
             return res.json({
                 success: true,
                 data: applicationToStageListRow(
@@ -193,7 +206,9 @@ router.get('/:id', async (req: Request, res: Response) => {
             });
         }
 
-        const candidate = await Candidate.findOne(orgScopedQuery(req, { _id: id }));
+        const candidate = isPublicInterviewLookup
+            ? await Candidate.findOne({ _id: id, sourceType: 'public_screening' })
+            : await Candidate.findOne(orgScopedQuery(req, { _id: id }));
         
         if (!candidate) {
             return res.status(404).json({
@@ -558,6 +573,10 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             typeof candidateData.campaignId === 'string' && candidateData.campaignId.trim()
                 ? candidateData.campaignId.trim()
                 : undefined;
+        const rawSourceType =
+            typeof candidateData.sourceType === 'string'
+                ? candidateData.sourceType.trim().toLowerCase()
+                : '';
         let campaignFormBinding: CampaignFormBinding | null = null;
         let campaignRubricVersion = 1;
         let campaignRubricHash = '';
@@ -581,7 +600,10 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                     });
                 }
                 if (campaign) {
-                    campaignFormBinding = resolveCampaignFormBinding(campaign as CampaignFormContext);
+                    campaignFormBinding = resolveCampaignFormBindingForCandidateSubmit(
+                        campaign as CampaignFormContext,
+                        { sourceType: rawSourceType }
+                    );
                     campaignRubricVersion = campaign.rubricVersion ?? 1;
                     campaignRubricHash = campaign.rubricSnapshotHash ?? '';
                     if (typeof campaign.organizationId === 'string' && campaign.organizationId.trim()) {

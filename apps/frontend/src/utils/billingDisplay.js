@@ -29,12 +29,26 @@ export function getPlanById(planId) {
 }
 
 export function listPlans() {
-    return BILLING_PLANS.slice();
+    // الباقات المخفية (free) لا تظهر في بطاقات التسعير ولا قوائم الترقية.
+    return BILLING_PLANS.filter((p) => !p.flags?.hidden);
 }
 
 /** Per-operation credit costs for public pricing display (highest credits first). */
+const USAGE_COST_DISPLAY_ORDER = Object.freeze({
+    voice: 0,
+    search: 1,
+    screening: 2,
+    cv_analysis: 3,
+    compare_candidate: 4,
+    job_ad: 5,
+    contact_reveal: 6,
+});
+
 export function listUsageCreditCosts() {
-    return [...USAGE_CREDIT_COSTS].sort((a, b) => b.credits - a.credits);
+    return [...USAGE_CREDIT_COSTS].sort((a, b) => {
+        if (b.credits !== a.credits) return b.credits - a.credits;
+        return (USAGE_COST_DISPLAY_ORDER[a.id] ?? 99) - (USAGE_COST_DISPLAY_ORDER[b.id] ?? 99);
+    });
 }
 
 export function planHasFeature(planId, feature) {
@@ -206,6 +220,20 @@ export function resolvePlanId(maybePlanId) {
     if (typeof maybePlanId !== 'string') return DEFAULT_PLAN_ID;
     const exists = BILLING_PLANS.some((p) => p.id === maybePlanId);
     return exists ? maybePlanId : DEFAULT_PLAN_ID;
+}
+
+/**
+ * Next catalog plans above the current plan (full order, including free → starter).
+ * Used for spending-page upgrade cards that encourage stepping up one/two tiers.
+ */
+export function listNextUpgradePlans(currentPlanId, limit = 2) {
+    const resolved = BILLING_PLANS.some((p) => p.id === currentPlanId)
+        ? currentPlanId
+        : resolvePlanId(currentPlanId);
+    const idx = BILLING_PLANS.findIndex((p) => p.id === resolved);
+    if (idx < 0) return [];
+    const max = Math.max(0, Number(limit) || 0);
+    return BILLING_PLANS.slice(idx + 1, idx + 1 + max);
 }
 
 /**

@@ -31,6 +31,20 @@ function appBaseUrl(): string {
     );
 }
 
+function resolveFormShareLanguage(language?: string): 'en' | 'ar' | null {
+    const v = (language || '').toLowerCase();
+    if (v === 'en' || v === 'english') return 'en';
+    if (v === 'ar' || v === 'arabic' || v === 'ku' || v === 'kurdish' || v === 'ckb') return 'ar';
+    return null;
+}
+
+function appendShareLanguage(url: string, language?: string): string {
+    const shareLang = resolveFormShareLanguage(language);
+    if (!shareLang || /[?&]language=/i.test(url)) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    return `${url}${sep}language=${shareLang}`;
+}
+
 export type InterviewLinkType = 'form' | 'video';
 
 export interface BuildInterviewLinkOptions {
@@ -39,6 +53,8 @@ export interface BuildInterviewLinkOptions {
     position?: string;
     /** معرّف لقطة سياق الهيد هانتر (HeadHunterSourcingContext) — يُلحق كـ ?hh= لمسار الفيديو. */
     headHunterContextId?: string;
+    /** UI language when the link was shared (ar/en; ku maps to ar). */
+    language?: string;
 }
 
 /** يبني رابط استمارة التقديم أو مقابلة الفيديو العامة. */
@@ -55,13 +71,16 @@ export function buildInterviewLink(options?: string | BuildInterviewLinkOptions)
         if (position) params.set('position', position);
         const hh = (opts.headHunterContextId || '').trim();
         if (hh) params.set('hh', hh);
+        const shareLang = resolveFormShareLanguage(opts.language);
+        if (shareLang) params.set('language', shareLang);
         const qs = params.toString();
         return qs ? `${base}/video-screening-call?${qs}` : `${base}/video-screening-call`;
     }
 
-    return opts.campaignId
+    const path = opts.campaignId
         ? `${base}/form?campaign=${encodeURIComponent(opts.campaignId)}`
         : `${base}/form`;
+    return appendShareLanguage(path, opts.language);
 }
 
 export interface InterviewInviteInput {
@@ -75,12 +94,13 @@ export interface InterviewInviteInput {
     interviewType?: InterviewLinkType;
     position?: string;
     headHunterContextId?: string;
+    language?: string;
 }
 
 /** يبني رابط المقابلة ويُرسله عبر القناة المختارة. */
 export async function sendInterviewInvite(input: InterviewInviteInput): Promise<SendResult> {
-    const { orgId, channel, recipient, campaignId, message, interviewType, position, headHunterContextId } = input;
-    const link = buildInterviewLink({ campaignId, interviewType, position, headHunterContextId });
+    const { orgId, channel, recipient, campaignId, message, interviewType, position, headHunterContextId, language } = input;
+    const link = buildInterviewLink({ campaignId, interviewType, position, headHunterContextId, language });
 
     if (channel === 'whatsapp') {
         const body = message ? `${message}\n\n${link}` : link;

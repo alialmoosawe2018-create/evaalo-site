@@ -4,6 +4,7 @@ import { useInterviewTemplate } from '../contexts/InterviewTemplateContext';
 import {
     buildPresetCriteriaPayload,
     buildScreeningCampaignCreateBody,
+    buildCampaignFormShareUrl,
     countFilledCustomRubricItems,
     formatCampaignCreateError,
     resolvePublicFormUrlFromCampaignResponse,
@@ -830,14 +831,14 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         voiceInterviewLinkWithCandidate ||
         videoInterviewLinkWithCandidate ||
         formLinkWithCampaign ||
-        getCurrentFormLink(currentTemplateType);
+        getCurrentFormLink(currentTemplateType, currentLang);
 
     const buildShareCopyText = () => {
         const adText =
             includeAdWhenSharing && hasJobAd ? stripJobAdMarkdownForShare(jobAdvertisement) : '';
         let linkText = '';
         if (includeLinkWhenSharing) {
-            const formLink = formLinkWithCampaign || getCurrentFormLink(currentTemplateType);
+            const formLink = formLinkWithCampaign || getCurrentFormLink(currentTemplateType, currentLang);
             const chunks = [];
             if (publicScreeningLink) {
                 chunks.push(`Public screening: ${publicScreeningLink}`);
@@ -868,7 +869,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
             voiceInterviewLinkWithCandidate ||
                 videoInterviewLinkWithCandidate ||
                 formLinkWithCampaign ||
-                getCurrentFormLink(currentTemplateType)
+                getCurrentFormLink(currentTemplateType, currentLang)
         );
         const wantsLink = includeLinkWhenSharing && hasAnyLink;
         return Boolean(wantsAd || wantsLink);
@@ -1109,6 +1110,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                 roleMatchSource: '',
                 position: '',
             }));
+            return;
+        }
+        // Ignore partial free-text from the combobox — only commit known catalog roleKeys
+        if (!getRepresentativeEntry(rk)) {
             return;
         }
         const storedLevel =
@@ -1564,9 +1569,11 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                         ? resolvePublicFormUrlFromCampaignResponse(result, absoluteAppUrl, {
                               language: currentLang,
                           })
-                        : absoluteAppUrl(
-                              `/form?template=${encodeURIComponent(resolveCampaignFormTemplateId())}&campaign=${encodeURIComponent(result.campaignId)}`
-                          );
+                        : buildCampaignFormShareUrl(absoluteAppUrl, {
+                              templateId: resolveCampaignFormTemplateId(),
+                              campaignId: result.campaignId,
+                              language: currentLang,
+                          });
                     setFormLinkWithCampaign(formLink);
 
                     if (selectedInterviewType === 'audio' || selectedInterviewType === 'video') {
@@ -1719,7 +1726,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
     };
 
     const handleCopyLink = () => {
-        const formLink = getCurrentFormLink(currentTemplateType);
+        const formLink = getCurrentFormLink(currentTemplateType, currentLang);
         if (formLink) {
             navigator.clipboard.writeText(formLink).then(() => {
                 setCopiedLink(true);
@@ -1939,7 +1946,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                     ) : null}
                     {/* Success Message */}
                     {sendSuccess && (
-                        <div className="ni-campaign-ready-success" style={{
+                        <div className="ni-feedback-banner ni-feedback-banner--success ni-campaign-ready-success" style={{
                             marginTop: '12px',
                             padding: '12px 18px',
                             background: NT.itemBg,
@@ -1958,7 +1965,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                     )}
                     {/* Loading Message */}
                     {sendingToN8N && (
-                        <div className="ni-campaign-ready-loading" style={{
+                        <div className="ni-feedback-banner ni-feedback-banner--loading ni-campaign-ready-loading" style={{
                             marginTop: '12px',
                             padding: '12px 18px',
                             background: NT.itemBg,
@@ -1993,7 +2000,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                     }}>
                         {/* General Error */}
                         {errors.general && (
-                            <div style={{
+                            <div
+                                className="ni-feedback-banner ni-feedback-banner--error"
+                                style={{
                                 padding: '14px 18px',
                                 background: NT.itemBg,
                                 border: '1px solid rgba(239, 68, 68, 0.4)',
@@ -2779,6 +2788,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                                                 key={c.id}
                                                                 type="button"
                                                                 role="menuitem"
+                                                                data-criterion={c.id}
                                                                 onClick={() => handleAddPresetCriterion(c.id)}
                                                                                     className="ni-criterion-menu__item"
                                                                                 >
@@ -3381,7 +3391,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                         fontFamily: 'monospace',
                                         lineHeight: 1.5
                                     }}>
-                                        {formLinkWithCampaign || getCurrentFormLink(currentTemplateType)}
+                                        {formLinkWithCampaign || getCurrentFormLink(currentTemplateType, currentLang)}
                                     </div>
                                 </div>
                                     </>
@@ -3636,7 +3646,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                 borderRadius: NT.radius,
                                 border: '1px solid rgba(34, 211, 238, 0.2)'
                             }}>
-                                {getCurrentFormLink(currentTemplateType)}
+                                {getCurrentFormLink(currentTemplateType, currentLang)}
                             </div>
                         </div>
 

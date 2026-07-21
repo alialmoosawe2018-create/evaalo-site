@@ -13,8 +13,9 @@
 // It does NOT render any UI.
 
 import { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from '../config/apiBase.js';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = API_BASE_URL;
 const WS_BASE = API_BASE.replace(/^http/, 'ws');
 const VOICE_WS_PATH = '/ws/voice-interview';
 
@@ -37,16 +38,53 @@ function base64ToArrayBuffer(base64) {
   return bytes.buffer;
 }
 
+/** Fallback player for iOS/Safari without MediaSource: يجمّع مقاطع MP3 ويشغّلها كـ Blob عند اكتمال الرد */
+function createBlobAudioPlayer(onError, onPlaybackEnded) {
+  const chunks = [];
+  const audio = document.createElement('audio');
+  audio.setAttribute('playsinline', '');
+  document.body.appendChild(audio);
+  let url = null;
+  let done = false;
+  const cleanup = () => {
+    try { audio.pause(); audio.remove(); } catch (_) {}
+    if (url) { try { URL.revokeObjectURL(url); } catch (_) {} url = null; }
+  };
+  const finish = () => {
+    if (done) return;
+    done = true;
+    onPlaybackEnded?.();
+    cleanup();
+  };
+  audio.addEventListener('ended', finish);
+  audio.addEventListener('error', () => { onError?.('Audio playback failed'); finish(); });
+  return {
+    appendChunk(buf) { chunks.push(buf); },
+    endStream() {
+      if (chunks.length === 0) { finish(); return; }
+      const blob = new Blob(chunks, { type: 'audio/mpeg' });
+      url = URL.createObjectURL(blob);
+      audio.src = url;
+      audio.play().catch(() => {});
+    },
+    getAudioElement() { return audio; },
+    destroy: cleanup,
+  };
+}
+
 /** MediaSource streaming player - supports MP3 chunks without decodeAudioData.
  *  onPlaybackEnded: called when audio playback actually ends (end-of-speech detection). */
 function createMediaSourcePlayer(onError, onPlaybackEnded) {
-  if (!window.MediaSource) {
-    onError?.('MediaSource API not supported');
-    return null;
+  // iOS 17.1+ يوفر ManagedMediaSource بدل MediaSource؛ الأقدم لا يوفر أياً منهما
+  const MSE = window.MediaSource || window.ManagedMediaSource;
+  if (!MSE || (typeof MSE.isTypeSupported === 'function' && !MSE.isTypeSupported('audio/mpeg') && !MSE.isTypeSupported('audio/mp4'))) {
+    return createBlobAudioPlayer(onError, onPlaybackEnded);
   }
-  const mediaSource = new MediaSource();
+  const mediaSource = new MSE();
   const audio = document.createElement('audio');
   audio.autoplay = true;
+  audio.setAttribute('playsinline', '');
+  if ('disableRemotePlayback' in audio) audio.disableRemotePlayback = true;
   document.body.appendChild(audio);
   const url = URL.createObjectURL(mediaSource);
   audio.src = url;
@@ -90,9 +128,9 @@ function createMediaSourcePlayer(onError, onPlaybackEnded) {
   mediaSource.addEventListener('sourceopen', () => {
     if (sourceBuffer) return;
     try {
-      if (MediaSource.isTypeSupported('audio/mpeg')) {
+      if (MSE.isTypeSupported('audio/mpeg')) {
         sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
-      } else if (MediaSource.isTypeSupported('audio/mp4')) {
+      } else if (MSE.isTypeSupported('audio/mp4')) {
         sourceBuffer = mediaSource.addSourceBuffer('audio/mp4');
       } else {
         onError?.('MP3/MP4 not supported in MediaSource');

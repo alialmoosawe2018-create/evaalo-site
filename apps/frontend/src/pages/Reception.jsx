@@ -38,15 +38,52 @@ function base64ToArrayBuffer(base64) {
     return bytes.buffer;
 }
 
+/** Fallback player for iOS/Safari without MediaSource: يجمّع مقاطع MP3 ويشغّلها كـ Blob عند اكتمال الرد */
+function createBlobAudioPlayer(onError, onPlaybackEnded) {
+    const chunks = [];
+    const audio = document.createElement('audio');
+    audio.setAttribute('playsinline', '');
+    document.body.appendChild(audio);
+    let url = null;
+    let done = false;
+    const cleanup = () => {
+        try { audio.pause(); audio.remove(); } catch (_) {}
+        if (url) { try { URL.revokeObjectURL(url); } catch (_) {} url = null; }
+    };
+    const finish = () => {
+        if (done) return;
+        done = true;
+        onPlaybackEnded?.();
+        cleanup();
+    };
+    audio.addEventListener('ended', finish);
+    audio.addEventListener('error', () => { onError?.('Audio playback failed'); finish(); });
+    return {
+        appendChunk: (chunk) => { chunks.push(chunk); },
+        endStream: () => {
+            if (chunks.length === 0) { finish(); return; }
+            const blob = new Blob(chunks, { type: 'audio/mpeg' });
+            url = URL.createObjectURL(blob);
+            audio.src = url;
+            audio.play().catch(() => {});
+        },
+        destroy: cleanup,
+        getAudioElement: () => audio,
+    };
+}
+
 /** MediaSource streaming player */
 function createMediaSourcePlayer(onError, onPlaybackEnded) {
-    if (!window.MediaSource) {
-        onError?.('MediaSource API not supported');
-        return null;
+    // iOS 17.1+ يوفر ManagedMediaSource بدل MediaSource؛ الأقدم لا يوفر أياً منهما
+    const MSE = window.MediaSource || window.ManagedMediaSource;
+    if (!MSE || (typeof MSE.isTypeSupported === 'function' && !MSE.isTypeSupported('audio/mpeg'))) {
+        return createBlobAudioPlayer(onError, onPlaybackEnded);
     }
-    const mediaSource = new MediaSource();
+    const mediaSource = new MSE();
     const audio = document.createElement('audio');
     audio.autoplay = true;
+    audio.setAttribute('playsinline', '');
+    if ('disableRemotePlayback' in audio) audio.disableRemotePlayback = true;
     document.body.appendChild(audio);
     const url = URL.createObjectURL(mediaSource);
     audio.src = url;

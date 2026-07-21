@@ -9,6 +9,20 @@ export const LEGACY_TITLE_ALIASES: Record<
         displayTitle: string;
     }
 > = {
+    Recruiter: {
+        roleKey: 'recruiter',
+        careerLevel: 'mid',
+        managementTrack: 'ic',
+        labelKey: 'recruiter.mid',
+        displayTitle: 'Recruitment',
+    },
+    'Recruitment Coordinator': {
+        roleKey: 'recruiter',
+        careerLevel: 'mid',
+        managementTrack: 'ic',
+        labelKey: 'recruiter.mid',
+        displayTitle: 'Recruitment',
+    },
     Accountant: {
         roleKey: 'general_accountant',
         careerLevel: 'mid',

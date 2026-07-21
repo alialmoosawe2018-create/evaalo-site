@@ -49,6 +49,10 @@ export function AdjustPlanModal({
     const { t, currentLang } = useLanguage();
     const billingCtx = useBilling();
     const currentPlanId = currentPlanIdProp || billingCtx.currentPlanId;
+    // An explicit prop is authoritative; otherwise only trust currentPlanId once
+    // billing has loaded (before that it is a placeholder default) so we never
+    // mark the wrong plan as "current".
+    const planLoaded = Boolean(currentPlanIdProp) || billingCtx.isLoaded;
     const modalDir = currentLang === 'ar' || currentLang === 'ku' ? 'rtl' : 'ltr';
 
     const allPlans = useMemo(() => listPlans(), []);
@@ -179,7 +183,7 @@ export function AdjustPlanModal({
                     <p className="adjust-plan-modal__subtitle">
                         {t('adjust_plan_currentLabel')}{' '}
                         <span dir="ltr" className="adjust-plan-modal__subtitle-plan">
-                            {currentPlan ? t(currentPlan.displayNameKey) : ''}
+                            {planLoaded && currentPlan ? t(currentPlan.displayNameKey) : t('account_billing_planLoading')}
                         </span>
                     </p>
                 </div>
@@ -202,7 +206,7 @@ export function AdjustPlanModal({
                 style={{ gridTemplateColumns: `repeat(${allPlans.length}, minmax(0, 1fr))` }}
             >
                 {allPlans.map((plan) => {
-                    const isCurrent = plan.id === currentPlanId;
+                    const isCurrent = planLoaded && plan.id === currentPlanId;
                     const popular = isPopularPlan(plan.id);
                     const isCustomPrice = plan.price === 'custom';
 

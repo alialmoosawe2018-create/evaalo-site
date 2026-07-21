@@ -17,17 +17,43 @@
         var segmentsToKeep = isGithubIo && pathSegments.length > 0 ? 1 : 0;
         var prefix = '/' + pathSegments.slice(0, segmentsToKeep).join('/');
         if (prefix !== '/') prefix += '/';
-        var decoded = l.search
+        var parts = l.search
           .slice(1)
           .split('&')
-          .map(function (s) { return s.replace(/~and~/g, '&'); })
-          .join('?');
-        var normalized = decoded[0] === '/' ? decoded.slice(1) : decoded;
-        window.history.replaceState(null, null, prefix + normalized + l.hash);
+          .map(function (s) { return s.replace(/~and~/g, '&'); });
+        var pathPart = parts[0] || '';
+        var queryPart = parts.slice(1).join('&');
+        var normalized = pathPart[0] === '/' ? pathPart.slice(1) : pathPart;
+        var restored = prefix + normalized + (queryPart ? '?' + queryPart : '') + l.hash;
+        window.history.replaceState(null, null, restored);
       })(window.location);
     </script>
     <title>evaalo | AI-Powered Candidate Screening and Interview Platform</title>
     <meta name="description" content="evaalo helps hiring teams screen, interview, and evaluate candidates with AI-powered voice, video, and written assessments.">
+
+    <!-- Open Graph / WhatsApp / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="evaalo">
+    <meta property="og:url" content="https://www.evaalo.com/">
+    <meta property="og:title" content="evaalo | AI-Powered Candidate Screening and Interview Platform">
+    <meta property="og:description" content="evaalo helps hiring teams screen, interview, and evaluate candidates with AI-powered voice, video, and written assessments.">
+    <meta property="og:image" content="https://www.evaalo.com/og-image.png">
+    <meta property="og:image:secure_url" content="https://www.evaalo.com/og-image.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="evaalo.Ai — AI-Powered Hiring Platform">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="ar_IQ">
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="evaalo | AI-Powered Candidate Screening and Interview Platform">
+    <meta name="twitter:description" content="evaalo helps hiring teams screen, interview, and evaluate candidates with AI-powered voice, video, and written assessments.">
+    <meta name="twitter:image" content="https://www.evaalo.com/og-image.png">
+
+    <link rel="canonical" href="https://www.evaalo.com/">
+    <link rel="image_src" href="https://www.evaalo.com/og-image.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">

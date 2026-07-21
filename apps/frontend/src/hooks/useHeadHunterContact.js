@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { apiClient } from '../services/apiClient';
+import { appendInterviewShareLanguage } from '../utils/interviewShareLink.js';
 
 /**
  * @param {unknown} status
@@ -41,6 +42,7 @@ export function buildPublicVideoScreeningUrl(opts = {}) {
     if (campaignId) params.set('campaignId', campaignId);
     if (position) params.set('position', position);
     if (hh) params.set('hh', hh);
+    appendInterviewShareLanguage(params, opts.language);
     const qs = params.toString();
     const base = `${window.location.origin}${import.meta.env.BASE_URL || '/'}`.replace(/\/?$/, '/');
     return qs ? `${base}video-screening-call?${qs}` : `${base}video-screening-call`;
@@ -161,7 +163,7 @@ export function useHeadHunterContactSend({ t, interviewType = 'form' }) {
     const [feedback, setFeedback] = useState(null);
 
     const send = useCallback(
-        async ({ channel, recipient, message, campaignId, position, headHunterContextId, sendInterviewLink = true }) => {
+        async ({ channel, recipient, message, campaignId, position, headHunterContextId, sendInterviewLink = true, language }) => {
             setSending(true);
             setFeedback(null);
             try {
@@ -174,6 +176,7 @@ export function useHeadHunterContactSend({ t, interviewType = 'form' }) {
                     campaignId: campaignId || undefined,
                     position: position?.trim() || undefined,
                     headHunterContextId: headHunterContextId || undefined,
+                    language: language || undefined,
                 });
                 setFeedback({ ok: true, text: t('aiHeadHunterSent') });
                 return true;

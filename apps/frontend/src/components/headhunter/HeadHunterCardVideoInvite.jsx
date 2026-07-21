@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLanguage } from '../../contexts/LanguageContext.jsx';
 import {
     buildMailtoShareLink,
     buildPublicVideoScreeningUrl,
@@ -70,6 +71,7 @@ export default function HeadHunterCardVideoInvite({
     const [localFeedback, setLocalFeedback] = useState(null);
     const [popoverStyle, setPopoverStyle] = useState(null);
     const [hhId, setHhId] = useState('');
+    const { currentLang } = useLanguage();
 
     const { phone, linkedinUrl, canWhatsApp, canLinkedIn } = useMemo(
         () => getHeadHunterSendChannels(contactStatus, candidate),
@@ -184,7 +186,7 @@ export default function HeadHunterCardVideoInvite({
     const handleCopyLink = async (e) => {
         stopBubble(e);
         const id = await ensureSourcingContext();
-        const url = buildPublicVideoScreeningUrl({ campaignId, position, headHunterContextId: id });
+        const url = buildPublicVideoScreeningUrl({ campaignId, position, headHunterContextId: id, language: currentLang });
         try {
             await navigator.clipboard.writeText(url);
             setLocalFeedback({ ok: true, text: t('aiHeadHunterLinkCopied') });
@@ -195,7 +197,7 @@ export default function HeadHunterCardVideoInvite({
 
     const openFreeShare = async (kind) => {
         const id = await ensureSourcingContext();
-        const url = buildPublicVideoScreeningUrl({ campaignId, position, headHunterContextId: id });
+        const url = buildPublicVideoScreeningUrl({ campaignId, position, headHunterContextId: id, language: currentLang });
         if (kind === 'whatsapp') {
             const text = buildShareInviteText({ t, candidate, url });
             window.open(buildWhatsAppShareLink(phone, text), '_blank', 'noopener,noreferrer');
@@ -224,6 +226,7 @@ export default function HeadHunterCardVideoInvite({
             position,
             headHunterContextId: id,
             sendInterviewLink: true,
+            language: currentLang,
         });
         if (ok) {
             setTimeout(closePopover, 1200);

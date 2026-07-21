@@ -59,6 +59,40 @@ export interface AuditContext {
 }
 
 /**
+ * إذا تغيّر clerkUserId لنفس الإيميل (إعادة إنشاء حساب Clerk)،
+ * نعيد ربط السجل الموجود بدل إدراج صف جديد يصطدم بـ email_1 unique.
+ */
+export async function reclaimUserEmailForClerkId(
+    clerkUserId: string,
+    email: string
+): Promise<boolean> {
+    const normalized = String(email || '')
+        .trim()
+        .toLowerCase();
+    if (!clerkUserId || !normalized) return false;
+
+    const already = await User.findOne({ clerkUserId }).lean();
+    if (already) return false;
+
+    const byEmail = await User.findOne({ email: normalized }).lean();
+    if (!byEmail || byEmail.clerkUserId === clerkUserId) return false;
+
+    await User.updateOne(
+        { _id: byEmail._id },
+        {
+            $set: { clerkUserId },
+            $unset: { deletedAt: 1 },
+        }
+    );
+    console.warn('[clerkWebhooks] reclaimed user email for new clerkUserId', {
+        email: normalized,
+        from: byEmail.clerkUserId,
+        to: clerkUserId,
+    });
+    return true;
+}
+
+/**
  * نسخ/تحديث مستخدم Clerk في collection users.
  * منطقياً مطابق للنسخة السابقة في routes/clerkWebhooks.ts.
  */
@@ -89,6 +123,8 @@ export async function upsertUserFromClerk(
         payload.public_metadata?.profileComplete === true ||
         computeProfileComplete(fullName, companyName, email);
 
+    await reclaimUserEmailForClerkId(payload.id, email);
+
     const before = await User.findOne({ clerkUserId: payload.id }).lean();
 
     const updated = await User.findOneAndUpdate(
@@ -104,8 +140,8 @@ export async function upsertUserFromClerk(
                 imageUrl: payload.image_url,
                 role: sanitizedRole || undefined,
                 permissions,
-                deletedAt: undefined,
             },
+            $unset: { deletedAt: 1 },
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
     ).lean();

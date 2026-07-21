@@ -3,6 +3,7 @@
  *
  * Phase 2a:
  *   GET  /api/billing/status  — org plan + live balances (auth required)
+ *   GET  /api/billing/activity — metered operation history with credit cost
  *   POST /api/billing/seed    — dev/admin: initialize org billing state
  *   POST /api/billing/adjust  — dev/admin: manual credit adjustment
  *
@@ -29,6 +30,7 @@ import {
     findOrgByStripeCustomerId,
     getBillingStatus,
     getOrgPlanState,
+    listOrgBillingActivity,
     markPendingCheckout,
     reconcileOrgPlanWithStripe,
     seedOrgBilling,
@@ -149,6 +151,24 @@ router.get('/status', conditionalRequireAuth(), requirePermission('billing.read'
     } catch (err) {
         console.error('[billing/status]', err);
         res.status(500).json({ ok: false, message: 'Failed to load billing status' });
+    }
+});
+
+/** GET /api/billing/activity?days=1|7|30&limit=100 — credit ledger activity for the org. */
+router.get('/activity', conditionalRequireAuth(), requirePermission('billing.read'), requireBillingOrg, async (req: Request, res: Response) => {
+    try {
+        const organizationId = getOrgId(req);
+        const daysRaw = typeof req.query.days === 'string' ? parseInt(req.query.days, 10) : 30;
+        const days = daysRaw === 1 || daysRaw === 7 || daysRaw === 30 ? daysRaw : 30;
+        const limitRaw = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : 100;
+        const limit = Number.isFinite(limitRaw) ? limitRaw : 100;
+        const since = new Date(Date.now() - days * 86400000);
+        const entries = await listOrgBillingActivity(organizationId, { since, limit });
+        res.json({ ok: true, days, entries });
+    } catch (err) {
+        console.error('[billing/activity]', err);
+        const message = err instanceof Error ? err.message : 'Failed to load billing activity';
+        res.status(500).json({ ok: false, message });
     }
 });
 

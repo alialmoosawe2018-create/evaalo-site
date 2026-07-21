@@ -15,7 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
  * the UI doesn't flash the login page for authenticated users on refresh.
  */
 const ProtectedRoute = ({ children }) => {
-    const { isAuthenticated, loading } = useAuth();
+    const { isAuthenticated, loading, user } = useAuth();
     const location = useLocation();
 
     if (loading) {
@@ -40,6 +40,14 @@ const ProtectedRoute = ({ children }) => {
         const from = `${location.pathname}${location.search || ''}`;
         const suffix = from && from !== '/login' ? `?from=${encodeURIComponent(from)}` : '';
         return <Navigate to={`/login${suffix}`} replace />;
+    }
+
+    // أول تسجيل دخول: بروفايل غير مكتمل أو بدون وصف شركة → صفحة Onboarding.
+    // مقارنات صارمة (=== false / === '') حتى لا نزعج جلسات قديمة لا تحمل الحقول.
+    const needsOnboarding =
+        user?.profileComplete === false || user?.companyDescription === '';
+    if (needsOnboarding && location.pathname !== '/onboarding') {
+        return <Navigate to="/onboarding" replace />;
     }
 
     return children;

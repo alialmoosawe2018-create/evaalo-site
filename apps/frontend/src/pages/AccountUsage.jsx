@@ -1,18 +1,40 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AccountSidebar from '../components/AccountSidebar';
 import AccountMobileNav from '../components/AccountMobileNav';
 import AccountPageLayout from '../components/AccountPageLayout';
 import { useLanguage } from '../contexts/LanguageContext';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
 import { accountPageH1Style, ACCOUNT_PAGE_H1_CLASS, ACCOUNT_TEXT_MUTED_CLASS } from '../utils/accountTypography';
+import { apiClient } from '../services/apiClient';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const SESSIONS_API_KEY = import.meta.env.VITE_VIDEO_INTERVIEW_SESSIONS_API_KEY || '';
+/** @typedef {'VOICE_SECONDS'|'VIDEO_SECONDS'|'SEARCH_CANDIDATE'|'SCREENING'|'TOP_CANDIDATES'|'CV_ANALYSIS'|'JOB_AD'|'CONTACT_REVEAL'|'COMPARE_EMAIL'} UsageType */
 
-/** @typedef {'video' | 'voice' | 'screen'} InterviewMode */
-/** @typedef {{ sessionId?: string, startedAt: string, endedAt?: string, mode: InterviewMode, status?: string }} UsageRow */
+/** @typedef {{
+ *   id: string;
+ *   createdAt: string;
+ *   usageType: UsageType;
+ *   source: string;
+ *   units?: number;
+ *   credits: number;
+ *   amountMicro: number;
+ * }} ActivityRow */
 
-const GRID_COLS = 'minmax(168px,1.5fr) minmax(112px,1.05fr) minmax(88px,0.75fr) minmax(96px,0.85fr)';
+const GRID_COLS = 'minmax(168px,1.5fr) minmax(140px,1.25fr) minmax(96px,0.85fr) minmax(72px,0.7fr)';
+
+/** @type {Record<string, string>} */
+const USAGE_TYPE_LABEL_KEYS = {
+    VOICE_SECONDS: 'pricing_usage_voice',
+    VIDEO_SECONDS: 'pricing_usage_video',
+    SEARCH_CANDIDATE: 'pricing_usage_search',
+    SCREENING: 'pricing_usage_screening',
+    TOP_CANDIDATES: 'pricing_usage_top_candidates',
+    CV_ANALYSIS: 'pricing_usage_cv_analysis',
+    JOB_AD: 'pricing_usage_job_ad',
+    CONTACT_REVEAL: 'pricing_usage_contact_reveal',
+    COMPARE_EMAIL: 'pricing_usage_compare_email',
+};
+
+const SECONDS_USAGE_TYPES = new Set(['VOICE_SECONDS', 'VIDEO_SECONDS']);
 
 function IconDownload(props) {
     return (
@@ -30,130 +52,70 @@ function IconChevronDown(props) {
     );
 }
 
-function buildMockInterviewRows() {
-    const now = Date.now();
-    const h = 3600000;
-    const m = 60000;
-    return [
-        {
-            sessionId: 'mock-video-1',
-            startedAt: new Date(now - 2 * h).toISOString(),
-            endedAt: new Date(now - 2 * h + 18 * m).toISOString(),
-            mode: 'video',
-            status: 'completed',
-        },
-        {
-            sessionId: 'mock-voice-1',
-            startedAt: new Date(now - 5 * h).toISOString(),
-            endedAt: new Date(now - 5 * h + 33 * m).toISOString(),
-            mode: 'voice',
-            status: 'completed',
-        },
-        {
-            sessionId: 'mock-screen-1',
-            startedAt: new Date(now - 26 * h).toISOString(),
-            endedAt: new Date(now - 26 * h + 42 * m).toISOString(),
-            mode: 'screen',
-            status: 'completed',
-        },
-        {
-            sessionId: 'mock-video-2',
-            startedAt: new Date(now - 9 * h).toISOString(),
-            endedAt: new Date(now - 9 * h + 12 * m).toISOString(),
-            mode: 'video',
-            status: 'completed',
-        },
-        {
-            sessionId: 'mock-active-1',
-            startedAt: new Date(now - 30 * m).toISOString(),
-            endedAt: undefined,
-            mode: 'screen',
-            status: 'active',
-        },
-    ];
-}
-
-/** @param {unknown} s */
-function normalizeApiSession(s) {
-    if (!s || typeof s !== 'object') return null;
-    const o = /** @type {Record<string, unknown>} */ (s);
-    const startedAt = o.startedAt;
-    if (!startedAt) return null;
-    const startIso =
-        typeof startedAt === 'string' ? startedAt : new Date(/** @type {Date} */ (startedAt)).toISOString();
-    let endedIso;
-    if (o.endedAt != null) {
-        endedIso =
-            typeof o.endedAt === 'string' ? o.endedAt : new Date(/** @type {Date} */ (o.endedAt)).toISOString();
-    }
-    const modeRaw = o.interviewMode ?? o.mode;
-    const mode =
-        modeRaw === 'voice' || modeRaw === 'screen' || modeRaw === 'video' ? modeRaw : 'video';
-    const statusRaw = typeof o.status === 'string' ? o.status : 'completed';
-    const status =
-        statusRaw === 'active' || statusRaw === 'completed' || statusRaw === 'cancelled'
-            ? statusRaw
-            : 'completed';
-    const sessionId = typeof o.sessionId === 'string' ? o.sessionId : undefined;
-    return { sessionId, startedAt: startIso, endedAt: endedIso, mode, status };
-}
-
 /**
- * @param {string} isoStart
  * @param {string} preset
  */
-function inPresetRange(isoStart, preset) {
-    const t0 = new Date(isoStart).getTime();
-    if (Number.isNaN(t0)) return false;
-    const now = Date.now();
-    const age = now - t0;
-    const day = 86400000;
-    if (preset === '1d') return age >= 0 && age <= day;
-    if (preset === '7d') return age >= 0 && age <= 7 * day;
-    return age >= 0 && age <= 30 * day;
+function presetToDays(preset) {
+    if (preset === '1d') return 1;
+    if (preset === '7d') return 7;
+    return 30;
 }
 
 /**
- * @param {UsageRow[]} rows
+ * @param {number} credits
+ */
+function formatCredits(credits) {
+    if (!Number.isFinite(credits) || credits <= 0) return '0';
+    if (Math.abs(credits - Math.round(credits)) < 0.005) return String(Math.round(credits));
+    return credits.toFixed(2);
+}
+
+/**
+ * @param {ActivityRow} row
+ * @param {(k: string) => string} t
+ */
+function formatDetails(row, t) {
+    const units = row.units;
+    if (units == null || !Number.isFinite(units)) return '—';
+    if (SECONDS_USAGE_TYPES.has(row.usageType)) {
+        const totalSec = Math.max(0, Math.floor(units));
+        const mins = Math.floor(totalSec / 60);
+        const secs = totalSec % 60;
+        return fillI18nTemplate(t('account_usage_durationFmt'), {
+            mins: String(mins),
+            secs: String(secs),
+        });
+    }
+    return fillI18nTemplate(t('account_usage_quantityFmt'), { count: String(units) });
+}
+
+/**
+ * @param {ActivityRow} row
+ * @param {(k: string) => string} t
+ */
+function operationLabel(row, t) {
+    const key = USAGE_TYPE_LABEL_KEYS[row.usageType];
+    return key ? t(key) : row.usageType;
+}
+
+/**
+ * @param {ActivityRow[]} rows
  * @param {string} dateLocale
  * @param {(k: string) => string} t
  */
 function rowsToCsv(rows, dateLocale, t) {
     const header = [
-        t('account_usage_csv_sess'),
         t('account_usage_headerTime'),
         t('account_usage_headerType'),
-        t('account_usage_headerDuration'),
-        t('account_usage_headerStatus'),
+        t('account_usage_headerDetails'),
+        t('account_usage_headerCost'),
     ].join(',');
     const lines = rows.map((r) => {
-        const startMs = new Date(r.startedAt).getTime();
-        let dur = '—';
-        if (r.endedAt) {
-            const ms = new Date(r.endedAt).getTime() - startMs;
-            if (Number.isFinite(ms) && ms > 0) {
-                const totalSec = Math.floor(ms / 1000);
-                const mins = Math.floor(totalSec / 60);
-                const secs = totalSec % 60;
-                dur = fillI18nTemplate(t('account_usage_durationFmt'), {
-                    mins: String(mins),
-                    secs: String(secs),
-                });
-            }
-        }
-        const d = new Date(r.startedAt);
+        const d = new Date(r.createdAt);
         const dateStr = Number.isNaN(d.getTime())
             ? '—'
             : new Intl.DateTimeFormat(dateLocale, { dateStyle: 'medium', timeStyle: 'short' }).format(d);
-        const typeStr = t(`account_usage_mode_${r.mode}`);
-        let statusKey =
-            r.status === 'active'
-                ? 'account_usage_status_active'
-                : r.status === 'cancelled'
-                  ? 'account_usage_status_cancelled'
-                  : 'account_usage_status_completed';
-        const statusStr = t(statusKey);
-        return [r.sessionId ?? '—', dateStr, typeStr, dur, statusStr]
+        return [dateStr, operationLabel(r, t), formatDetails(r, t), formatCredits(r.credits)]
             .map((cell) => `"${String(cell).replace(/"/g, '""')}"`)
             .join(',');
     });
@@ -166,28 +128,42 @@ const AccountUsage = () => {
     const dateLocale = currentLang === 'ar' ? 'ar' : currentLang === 'ku' ? 'ku' : 'en-US';
 
     const [rangePreset, setRangePreset] = useState('30d');
-    const [rows, setRows] = useState(() => buildMockInterviewRows());
+    const [rows, setRows] = useState(/** @type {ActivityRow[]} */ ([]));
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+
+    const days = presetToDays(rangePreset);
+
+    const fetchActivity = useCallback(async () => {
+        setLoading(true);
+        setLoadError(null);
+        try {
+            const res = await apiClient.get(`/api/billing/activity?days=${days}&limit=200`);
+            if (res?.ok && Array.isArray(res.entries)) {
+                setRows(res.entries);
+            } else {
+                setRows([]);
+                setLoadError(res?.message || t('account_usage_loadError'));
+            }
+        } catch (err) {
+            setRows([]);
+            setLoadError(err instanceof Error ? err.message : t('account_usage_loadError'));
+        } finally {
+            setLoading(false);
+        }
+    }, [days, t]);
+
+    useEffect(() => {
+        fetchActivity();
+    }, [fetchActivity]);
 
     const displayedRows = useMemo(
         () =>
-            [...rows]
-                .filter((r) => inPresetRange(r.startedAt, rangePreset))
-                .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
-        [rows, rangePreset]
+            [...rows].sort(
+                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            ),
+        [rows],
     );
-
-    const formatDurationRow = useMemo(() => {
-        /** @param {UsageRow} row */
-        return (row) => {
-            if (!row.endedAt) return '—';
-            const ms = new Date(row.endedAt).getTime() - new Date(row.startedAt).getTime();
-            if (!Number.isFinite(ms) || ms <= 0) return '—';
-            const totalSec = Math.floor(ms / 1000);
-            const mins = Math.floor(totalSec / 60);
-            const secs = totalSec % 60;
-            return fillI18nTemplate(t('account_usage_durationFmt'), { mins: String(mins), secs: String(secs) });
-        };
-    }, [t]);
 
     /** @param {string} iso */
     const formatDateTime = (iso) => {
@@ -195,37 +171,6 @@ const AccountUsage = () => {
         if (Number.isNaN(d.getTime())) return '—';
         return new Intl.DateTimeFormat(dateLocale, { dateStyle: 'medium', timeStyle: 'short' }).format(d);
     };
-
-    const interviewStatus = (/** @type {string|undefined} */ status) =>
-        status === 'active'
-            ? t('account_usage_status_active')
-            : status === 'cancelled'
-              ? t('account_usage_status_cancelled')
-              : t('account_usage_status_completed');
-
-    useEffect(() => {
-        let cancelled = false;
-        const url = `${API_BASE.replace(/\/$/, '')}/api/video-interview/sessions/recent?limit=100`;
-        const headers = { Accept: 'application/json' };
-        if (SESSIONS_API_KEY.trim()) {
-            headers['X-API-Key'] = SESSIONS_API_KEY.trim();
-        }
-        fetch(url, { headers })
-            .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-            .then((data) => {
-                if (cancelled || !data?.success || !Array.isArray(data.sessions)) return;
-                const mapped = data.sessions.map(normalizeApiSession).filter(Boolean);
-                if (mapped.length > 0) {
-                    setRows(/** @type {UsageRow[]} */ (mapped));
-                }
-            })
-            .catch(() => {
-                /* keep mock rows */
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, []);
 
     const dateRangeLabel =
         rangePreset === '1d'
@@ -240,7 +185,7 @@ const AccountUsage = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `interview-activity-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.download = `operations-activity-${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -270,54 +215,60 @@ const AccountUsage = () => {
                 }
             `;
 
-    const textAlignDur = mainDir === 'rtl' ? 'left' : 'right';
-    const textAlignStat = textAlignDur;
+    const textAlignNum = mainDir === 'rtl' ? 'left' : 'right';
 
     return (
         <AccountPageLayout pageClass="account-usage-page" injectStyle={usageInjectStyle}>
-                <AccountSidebar activeId="usage" />
+            <AccountSidebar activeId="usage" />
 
             <main dir={mainDir} style={{ flex: 1, minWidth: 0 }}>
                 <AccountMobileNav activeId="usage" />
-                <h1 className={ACCOUNT_PAGE_H1_CLASS} style={accountPageH1Style('0 0 24px')}>{t('account_usage_pageTitle')}</h1>
+                <h1 className={ACCOUNT_PAGE_H1_CLASS} style={accountPageH1Style('0 0 24px')}>
+                    {t('account_usage_pageTitle')}
+                </h1>
 
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            flexWrap: 'wrap',
-                            gap: 16,
-                            marginBottom: 20,
-                        }}
-                    >
-                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: 16,
+                        marginBottom: 20,
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                         <button type="button" className="workflow-btn-primary account-usage-date">
-                                {dateRangeLabel}
-                                <IconChevronDown style={{ opacity: 0.7 }} />
-                            </button>
-                            <div
-                                className="account-usage-segment"
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    padding: 3,
-                                    borderRadius: 8,
-                                    gap: 2,
-                                }}
-                            >
+                            {dateRangeLabel}
+                            <IconChevronDown style={{ opacity: 0.7 }} />
+                        </button>
+                        <div
+                            className="account-usage-segment"
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                padding: 3,
+                                borderRadius: 8,
+                                gap: 2,
+                            }}
+                        >
                             {segmentBtn('1d', t('account_usage_segment1d'))}
                             {segmentBtn('7d', t('account_usage_segment7d'))}
                             {segmentBtn('30d', t('account_usage_segment30d'))}
                         </div>
                     </div>
-                    <button type="button" onClick={exportCsv} className="workflow-btn-primary account-btn-connect">
+                    <button
+                        type="button"
+                        onClick={exportCsv}
+                        className="workflow-btn-primary account-btn-connect"
+                        disabled={displayedRows.length === 0}
+                    >
                         <IconDownload />
                         {t('account_usage_exportCsv')}
                     </button>
-                    </div>
+                </div>
 
-                    <div className="dashboard-card" style={{ padding: 0, overflowX: 'auto' }}>
+                <div className="dashboard-card" style={{ padding: 0, overflowX: 'auto' }}>
                     <div style={{ minWidth: 640 }}>
                         <div
                             style={{
@@ -330,49 +281,63 @@ const AccountUsage = () => {
                         >
                             <span>{t('account_usage_headerTime')}</span>
                             <span>{t('account_usage_headerType')}</span>
-                            <span style={{ textAlign: textAlignDur }}>{t('account_usage_headerDuration')}</span>
-                            <span style={{ textAlign: textAlignStat }}>{t('account_usage_headerStatus')}</span>
+                            <span>{t('account_usage_headerDetails')}</span>
+                            <span style={{ textAlign: textAlignNum }}>{t('account_usage_headerCost')}</span>
                         </div>
                         <div style={{ padding: '0 22px 8px' }}>
-                            {displayedRows.length === 0 ? (
+                            {loading ? (
                                 <div
                                     className={ACCOUNT_TEXT_MUTED_CLASS}
-                                    style={{
-                                        padding: '28px 22px',
-                                        fontSize: 14,
-                                        textAlign: 'center',
-                                    }}
+                                    style={{ padding: '28px 22px', fontSize: 14, textAlign: 'center' }}
+                                >
+                                    {t('account_usage_loading')}
+                                </div>
+                            ) : loadError ? (
+                                <div
+                                    className={ACCOUNT_TEXT_MUTED_CLASS}
+                                    style={{ padding: '28px 22px', fontSize: 14, textAlign: 'center', color: '#dc2626' }}
+                                >
+                                    {loadError}
+                                </div>
+                            ) : displayedRows.length === 0 ? (
+                                <div
+                                    className={ACCOUNT_TEXT_MUTED_CLASS}
+                                    style={{ padding: '28px 22px', fontSize: 14, textAlign: 'center' }}
                                 >
                                     {t('account_usage_empty')}
                                 </div>
                             ) : (
-                                displayedRows.map((row, i) => (
+                                displayedRows.map((row) => (
                                     <div
-                                        key={row.sessionId || `${row.startedAt}-${row.mode}-${i}`}
-                                    style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: GRID_COLS,
-                                        gap: 12,
-                                        alignItems: 'center',
-                                        padding: '14px 0',
-                                    }}
-                                    className="account-usage-table-row"
-                                >
-                                        <span className="account-table-cell-strong">{formatDateTime(row.startedAt)}</span>
-                                        <span className="account-table-cell-muted">{t(`account_usage_mode_${row.mode}`)}</span>
-                                        <span className="account-table-cell-strong" style={{ textAlign: textAlignDur }}>
-                                            {formatDurationRow(row)}
-                                    </span>
-                                        <span className="account-table-cell-muted" style={{ textAlign: textAlignStat }}>
-                                            {interviewStatus(row.status || 'completed')}
-                                    </span>
-                                </div>
+                                        key={row.id}
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: GRID_COLS,
+                                            gap: 12,
+                                            alignItems: 'center',
+                                            padding: '14px 0',
+                                        }}
+                                        className="account-usage-table-row"
+                                    >
+                                        <span className="account-table-cell-strong">
+                                            {formatDateTime(row.createdAt)}
+                                        </span>
+                                        <span className="account-table-cell-muted">{operationLabel(row, t)}</span>
+                                        <span className="account-table-cell-muted">{formatDetails(row, t)}</span>
+                                        <span
+                                            className="account-table-cell-strong"
+                                            style={{ textAlign: textAlignNum }}
+                                            dir="ltr"
+                                        >
+                                            {formatCredits(row.credits)}
+                                        </span>
+                                    </div>
                                 ))
                             )}
                         </div>
-                        </div>
                     </div>
-                </main>
+                </div>
+            </main>
         </AccountPageLayout>
     );
 };

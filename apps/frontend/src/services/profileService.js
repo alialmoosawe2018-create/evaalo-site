@@ -16,15 +16,16 @@ function profileFromSessionUser(user) {
     if (!user) return null;
     const fullName = String(user.name ?? '').trim();
     const companyName = String(user.companyName ?? '').trim();
+    const companyDescription = String(user.companyDescription ?? '').trim();
     const email = String(user.email ?? '').trim();
     const profileComplete =
         user.profileComplete === true ||
         computeProfileComplete({ fullName, companyName, email });
     const imageUrl = String(user.imageUrl ?? '').trim();
-    return { fullName, companyName, email, profileComplete, imageUrl: imageUrl || undefined };
+    return { fullName, companyName, companyDescription, email, profileComplete, imageUrl: imageUrl || undefined };
 }
 
-function mockUpdateProfile({ fullName, companyName }) {
+function mockUpdateProfile({ fullName, companyName, companyDescription }) {
     const session = authStorage.getSession();
     if (!session?.user) throw new Error('not_authenticated');
     const merged = {
@@ -33,6 +34,10 @@ function mockUpdateProfile({ fullName, companyName }) {
             companyName !== undefined
                 ? String(companyName).trim()
                 : String(session.user.companyName ?? '').trim(),
+        companyDescription:
+            companyDescription !== undefined
+                ? String(companyDescription).trim()
+                : String(session.user.companyDescription ?? '').trim(),
         email: session.user.email,
     };
     const profile = {
@@ -65,7 +70,7 @@ export async function getMyProfile() {
     }
 }
 
-async function clerkBrowserUpdateProfile({ fullName, companyName }) {
+async function clerkBrowserUpdateProfile({ fullName, companyName, companyDescription }) {
     const clerk = typeof window !== 'undefined' ? window.Clerk : undefined;
     const user = clerk?.user;
     if (!user || typeof user.update !== 'function') {
@@ -77,6 +82,10 @@ async function clerkBrowserUpdateProfile({ fullName, companyName }) {
         companyName !== undefined
             ? String(companyName).trim()
             : String(user.unsafeMetadata?.companyName ?? '').trim();
+    const descriptionTrimmed =
+        companyDescription !== undefined
+            ? String(companyDescription).trim()
+            : String(user.unsafeMetadata?.companyDescription ?? '').trim();
 
     const [firstName, ...rest] = (nameTrimmed || user.fullName || 'User').split(/\s+/);
     const lastName = rest.join(' ') || '';
@@ -97,6 +106,7 @@ async function clerkBrowserUpdateProfile({ fullName, companyName }) {
         unsafeMetadata: {
             ...(user.unsafeMetadata || {}),
             companyName: companyTrimmed,
+            companyDescription: descriptionTrimmed,
         },
         publicMetadata: {
             ...(user.publicMetadata || {}),
@@ -112,13 +122,13 @@ async function clerkBrowserUpdateProfile({ fullName, companyName }) {
     return profile;
 }
 
-export async function updateMyProfile({ fullName, companyName }) {
+export async function updateMyProfile({ fullName, companyName, companyDescription }) {
     if (isMockMode()) {
-        return mockUpdateProfile({ fullName, companyName });
+        return mockUpdateProfile({ fullName, companyName, companyDescription });
     }
 
     try {
-        const data = await apiClient.patch('/api/users/me', { fullName, companyName });
+        const data = await apiClient.patch('/api/users/me', { fullName, companyName, companyDescription });
         const profile = data?.profile;
         if (!profile) throw new Error('profile_missing');
         await authService.refreshCurrentUser();
@@ -140,7 +150,7 @@ export async function updateMyProfile({ fullName, companyName }) {
 
         if (canUseClerk && (retryable || err.message === 'profile_missing')) {
             try {
-                return await clerkBrowserUpdateProfile({ fullName, companyName });
+                return await clerkBrowserUpdateProfile({ fullName, companyName, companyDescription });
             } catch (clerkErr) {
                 console.warn('[profileService] Clerk browser fallback failed:', clerkErr);
             }

@@ -62,7 +62,7 @@ function AudioWaveform({ active, level = 0.5, color = 'rgba(96, 165, 250, 0.9)' 
               height: `${hPx}px`,
               minHeight: '8px',
               background: active
-                ? `linear-gradient(180deg, ${color}, rgba(15,23,42,0.95))`
+                ? `linear-gradient(180deg, ${color}, rgba(99,102,241,0.45))`
                 : 'rgba(148, 163, 184, 0.25)',
               borderRadius: `${widthPx}px`,
               boxShadow: active ? `0 0 10px ${color}33` : 'none',
@@ -77,26 +77,7 @@ function AudioWaveform({ active, level = 0.5, color = 'rgba(96, 165, 250, 0.9)' 
 
 const isArabicText = (t) => /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(t || '');
 
-/* Same design as the main container in Design page (questions container) */
-const questionContainerStyle = {
-  position: 'relative',
-  minHeight: '260px',
-  padding: '32px',
-  background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(2, 6, 23, 0.98) 100%)',
-  backdropFilter: 'blur(22px)',
-  WebkitBackdropFilter: 'blur(22px)',
-  borderRadius: '14px',
-  border: '2px solid rgba(34, 211, 238, 0.3)',
-  boxShadow: '0 10px 28px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(34, 211, 238, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.03)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  overflow: 'hidden',
-};
-
 const profileCardStyle = {
-  flex: 0,
-  minWidth: 340,
   background: 'linear-gradient(180deg, rgba(248, 250, 252, 0.92) 0%, rgba(241, 245, 249, 0.88) 100%)',
   borderRadius: '12px',
   padding: '12px 20px',
@@ -142,47 +123,13 @@ const VoiceInterviewStage = ({
   } = session;
 
   return (
-    <div dir="ltr"
-      style={{
-      minHeight: '100vh',
-      padding: '40px 20px',
-        background: 'linear-gradient(160deg, #0f172a 0%, #1e293b 35%, #0f172a 100%)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <div
-        style={{
-          position: 'relative',
-        width: '100%',
-          maxWidth: '900px',
-          background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(2, 6, 23, 0.98) 100%)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderRadius: '12px',
-          padding: '32px 40px',
-          border: '2px solid rgba(34, 211, 238, 0.3)',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(34, 211, 238, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.03)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Shimmer bar at top of container - like Design page */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '2px',
-            background: 'linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), rgba(34, 211, 238, 0.8), rgba(34, 211, 238, 0.5), transparent)',
-            animation: 'shimmer 3s ease-in-out infinite',
-          }}
-        />
+    <div className="voice-interview-stage" dir="ltr">
+      <div className="voice-interview-stage__card">
+        <div className="voice-interview-stage__shimmer" aria-hidden />
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+        <div className="voice-interview-stage__header">
           <h1
+            className="voice-interview-stage__title"
             style={{
               fontSize: '30px',
               fontWeight: 700,
@@ -195,7 +142,7 @@ const VoiceInterviewStage = ({
           >
             {title}
           </h1>
-          <p style={{ margin: '12px 0 0', fontSize: '0.9rem', color: '#F1F5F9' }}>
+          <p style={{ margin: '12px 0 0', fontSize: '0.9rem', color: '#475569' }}>
             {subtitle}
           </p>
           {/* عداد وقت المقابلة: 10:00 → 00:00 */}
@@ -206,9 +153,9 @@ const VoiceInterviewStage = ({
               alignItems: 'center',
               gap: '8px',
               padding: '10px 20px',
-              background: connectionStatus === 'connected' ? 'linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(59, 130, 246, 0.15))' : 'rgba(30, 41, 59, 0.5)',
+              background: connectionStatus === 'connected' ? 'linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(99, 102, 241, 0.12))' : 'rgba(241, 245, 249, 0.95)',
               borderRadius: '12px',
-              border: '1px solid rgba(34, 211, 238, 0.3)',
+              border: '1px solid rgba(99, 102, 241, 0.25)',
             }}
           >
             <span
@@ -216,7 +163,7 @@ const VoiceInterviewStage = ({
                 fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                 fontSize: '1.5rem',
                 fontWeight: 700,
-                color: interviewTimeLeft <= 60 ? '#F87171' : '#22D3EE',
+                color: interviewTimeLeft <= 60 ? '#dc2626' : '#0284c7',
                 minWidth: '60px',
               }}
             >
@@ -224,133 +171,89 @@ const VoiceInterviewStage = ({
             </span>
           </div>
           {recordingNotice && (
-            <p style={{ margin: '14px 0 0', fontSize: '0.78rem', color: 'rgba(148, 163, 184, 0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', display: 'inline-block', boxShadow: '0 0 8px rgba(239,68,68,0.7)' }} />
+            <p style={{ margin: '14px 0 0', fontSize: '0.78rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', display: 'inline-block', boxShadow: '0 0 8px rgba(239,68,68,0.45)' }} />
               {recordingNotice}
             </p>
           )}
         </div>
 
-        {/* Agent card (top, like illustration) */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
-          <div style={{ ...profileCardStyle, maxWidth: '50%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexDirection: 'row-reverse' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexDirection: 'row-reverse' }}>
+        {/* Agent card (top) */}
+        <div className="voice-interview-stage__profile-wrap voice-interview-stage__profile-wrap--agent">
+          <div className="voice-interview-stage__profile" style={profileCardStyle}>
+            <div className="voice-interview-stage__profile-row">
+              <div className="voice-interview-stage__profile-identity">
                 <div
-                  style={{
-                    width: '42px',
-                    height: '42px',
-                    flexShrink: 0,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.25rem',
-                    boxShadow: '0 8px 14px rgba(139, 92, 246, 0.25)',
-                  }}
+                  className="voice-interview-stage__avatar voice-interview-stage__avatar--agent"
+                  aria-hidden
                 >
                   🤖
                 </div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
-                  evaalo
-                </div>
+                <div className="voice-interview-stage__profile-name">evaalo</div>
               </div>
-              <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'flex-start' }}>
-                <div style={{ width: '120px' }}>
-                  <AudioWaveform
-                    active={serverState === 'SPEAKING'}
-                    level={agentAudioLevel}
-                    color={serverState === 'SPEAKING' ? 'rgba(34, 211, 238, 0.95)' : 'rgba(96, 165, 250, 0.95)'}
-                  />
-                </div>
+              <div className="voice-interview-stage__waveform">
+                <AudioWaveform
+                  active={serverState === 'SPEAKING'}
+                  level={agentAudioLevel}
+                  color={serverState === 'SPEAKING' ? 'rgba(34, 211, 238, 0.95)' : 'rgba(96, 165, 250, 0.95)'}
+                />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Two panels: User transcript | Agent reply */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '20px',
-            marginBottom: '24px',
-          }}
-        >
-          <div style={questionContainerStyle}>
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '2px',
-                background: 'linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), rgba(34, 211, 238, 0.8), rgba(34, 211, 238, 0.5), transparent)',
-                animation: 'shimmer 3s ease-in-out infinite',
-              }}
-            />
-            <div style={{ width: '100%', padding: '0 12px' }}>
-              <span style={{ color: 'rgba(203, 213, 225, 0.9)', fontSize: '1rem', display: 'block', textAlign: 'left', fontFamily: isArabicText(lastTranscript || streamingTranscript) ? "'Noto Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : 'inherit' }}>
-                {(lastTranscript || streamingTranscript) ? `«${[lastTranscript, streamingTranscript].filter(Boolean).join(' ')}»` : ''}
+        {/* Transcript panels: candidate | agent (desktop side-by-side; mobile stacked — agent top, candidate below) */}
+        <div className="voice-interview-stage__panels">
+          <div className="voice-interview-stage__panel voice-interview-stage__panel--candidate">
+            <div className="voice-interview-stage__panel-shimmer" aria-hidden />
+            <div className="voice-interview-stage__panel-body">
+              <span
+                className="voice-interview-stage__panel-text"
+                style={{
+                  fontFamily: isArabicText(lastTranscript || streamingTranscript)
+                    ? "'Noto Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                    : 'inherit',
+                }}
+              >
+                {(lastTranscript || streamingTranscript)
+                  ? `«${[lastTranscript, streamingTranscript].filter(Boolean).join(' ')}»`
+                  : ''}
               </span>
             </div>
           </div>
-          <div style={questionContainerStyle}>
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '2px',
-                background: 'linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), rgba(34, 211, 238, 0.8), rgba(34, 211, 238, 0.5), transparent)',
-                animation: 'shimmer 3s ease-in-out infinite',
-              }}
-            />
-            <div style={{ width: '100%', padding: '0 12px' }}>
-              <span style={{ color: 'rgba(203, 213, 225, 0.9)', fontSize: '1rem', display: 'block', textAlign: 'left', fontFamily: isArabicText(lastAgentReply || streamingAgentReply) ? "'Noto Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" : 'inherit' }}>
+          <div className="voice-interview-stage__panel voice-interview-stage__panel--agent">
+            <div className="voice-interview-stage__panel-shimmer" aria-hidden />
+            <div className="voice-interview-stage__panel-body">
+              <span
+                className="voice-interview-stage__panel-text"
+                style={{
+                  fontFamily: isArabicText(lastAgentReply || streamingAgentReply)
+                    ? "'Noto Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+                    : 'inherit',
+                }}
+              >
                 {lastAgentReply || streamingAgentReply || ''}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Candidate card under candidate transcript */}
-        <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '20px' }}>
-          <div style={{ ...profileCardStyle, maxWidth: '50%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  flexShrink: 0,
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.25rem',
-                  boxShadow: '0 8px 14px rgba(14, 165, 233, 0.25)',
-                }}
-              >
-                👤
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Candidate card */}
+        <div className="voice-interview-stage__profile-wrap voice-interview-stage__profile-wrap--candidate">
+          <div className="voice-interview-stage__profile" style={profileCardStyle}>
+            <div className="voice-interview-stage__profile-row">
+              <div className="voice-interview-stage__profile-identity">
                 <div
-                  style={{
-                    fontSize: '0.9rem',
-                    fontWeight: 600,
-                    color: '#0f172a',
-                    lineHeight: 1.35,
-                    wordBreak: 'break-word',
-                    overflowWrap: 'anywhere',
-                  }}
+                  className="voice-interview-stage__avatar voice-interview-stage__avatar--candidate"
+                  aria-hidden
                 >
+                  👤
+                </div>
+                <div className="voice-interview-stage__profile-name voice-interview-stage__profile-name--wrap">
                   {candidateName}
                 </div>
               </div>
-              <div style={{ flexShrink: 0, width: '120px' }}>
+              <div className="voice-interview-stage__waveform">
                 <AudioWaveform
                   active={serverState === 'LISTENING' && (!!lastTranscript || !!streamingTranscript || micActive)}
                   level={userAudioLevel}
@@ -367,26 +270,26 @@ const VoiceInterviewStage = ({
             style={{
               marginBottom: '20px',
               padding: '16px 20px',
-              background: 'rgba(239, 68, 68, 0.1)',
+              background: 'rgba(239, 68, 68, 0.08)',
               borderRadius: '10px',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
             }}
           >
-            <p style={{ margin: 0, fontSize: '0.95rem', color: 'rgba(248, 113, 113, 0.95)', fontWeight: 600 }}>
+            <p style={{ margin: 0, fontSize: '0.95rem', color: '#dc2626', fontWeight: 600 }}>
               API keys not found on server
             </p>
-            <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: 'rgba(203, 213, 225, 0.9)' }}>
+            <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
               Please add OPENAI_API_KEY and ELEVENLABS_API_KEY to the .env file in apps/backend
             </p>
           </div>
         )}
 
         {lastError && (
-          <p style={{ textAlign: 'center', marginBottom: '12px', fontSize: '0.85rem', color: 'rgba(248, 113, 113, 0.95)' }}>{lastError}</p>
+          <p style={{ textAlign: 'center', marginBottom: '12px', fontSize: '0.85rem', color: '#dc2626' }}>{lastError}</p>
         )}
 
         {/* Start / End button */}
-        <div style={{ textAlign: 'center', marginTop: '28px', display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
+        <div className="voice-interview-stage__actions">
           {connectionStatus !== 'connected' ? (
             <button
               type="button"
@@ -441,7 +344,7 @@ const VoiceInterviewStage = ({
             </button>
           )}
           {startHint && (
-            <p style={{ width: '100%', marginTop: '10px', fontSize: '0.85rem', color: 'rgba(148, 163, 184, 0.9)' }}>
+            <p style={{ width: '100%', marginTop: '10px', fontSize: '0.85rem', color: '#64748b' }}>
               {startHint}
             </p>
           )}

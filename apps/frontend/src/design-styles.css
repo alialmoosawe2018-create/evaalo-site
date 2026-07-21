@@ -5606,6 +5606,533 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     -webkit-backdrop-filter: blur(12px);
 }
 
+/* Voice interview live stage shell + card — light mode (aligned with form intake) */
+.voice-interview-stage {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 40px 20px;
+    box-sizing: border-box;
+    background: linear-gradient(160deg, #f5f3ff 0%, #eef2ff 40%, #f8fafc 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.voice-interview-stage__card {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    background: #ffffff;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 12px;
+    padding: 32px 40px;
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    box-shadow:
+        0 8px 28px rgba(99, 102, 241, 0.1),
+        0 2px 8px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.voice-interview-stage__shimmer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(99, 102, 241, 0.35),
+        rgba(56, 189, 248, 0.55),
+        rgba(99, 102, 241, 0.35),
+        transparent
+    );
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Voice interview live stage — transcript panels (candidate | agent) */
+.voice-interview-stage__panels {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+    width: 100%;
+    align-items: stretch;
+}
+
+.voice-interview-stage__panel {
+    position: relative;
+    min-height: 260px;
+    min-width: 0;
+    padding: 32px;
+    box-sizing: border-box;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border-radius: 14px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    box-shadow:
+        0 6px 20px rgba(99, 102, 241, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.voice-interview-stage__panel-shimmer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(99, 102, 241, 0.35),
+        rgba(56, 189, 248, 0.55),
+        rgba(99, 102, 241, 0.35),
+        transparent
+    );
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+.voice-interview-stage__panel-body {
+    width: 100%;
+    padding: 0 12px;
+    box-sizing: border-box;
+}
+
+.voice-interview-stage__panel-text {
+    color: #334155;
+    font-size: 1rem;
+    display: block;
+    text-align: left;
+    line-height: 1.5;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+/* Profile cards (agent top-right / candidate bottom-left on desktop) */
+.voice-interview-stage__profile-wrap {
+    display: flex;
+    width: 100%;
+}
+
+.voice-interview-stage__profile-wrap--agent {
+    justify-content: flex-end;
+    margin-bottom: 24px;
+}
+
+.voice-interview-stage__profile-wrap--candidate {
+    justify-content: flex-start;
+    margin-bottom: 20px;
+}
+
+.voice-interview-stage__profile {
+    flex: 0 1 auto;
+    max-width: 50%;
+    min-width: 280px;
+    box-sizing: border-box;
+}
+
+.voice-interview-stage__profile-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.voice-interview-stage__profile-wrap--agent .voice-interview-stage__profile-row {
+    flex-direction: row-reverse;
+}
+
+.voice-interview-stage__profile-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.voice-interview-stage__profile-wrap--agent .voice-interview-stage__profile-identity {
+    flex-direction: row-reverse;
+}
+
+.voice-interview-stage__avatar {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.voice-interview-stage__avatar--agent {
+    background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+    box-shadow: 0 8px 14px rgba(139, 92, 246, 0.25);
+}
+
+.voice-interview-stage__avatar--candidate {
+    background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+    box-shadow: 0 8px 14px rgba(14, 165, 233, 0.25);
+}
+
+.voice-interview-stage__profile-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: 1.35;
+    min-width: 0;
+}
+
+.voice-interview-stage__profile-name--wrap {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.voice-interview-stage__waveform {
+    flex: 0 0 120px;
+    width: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.voice-interview-stage__header {
+    text-align: center;
+    margin-bottom: 28px;
+    flex: 0 0 auto;
+}
+
+.voice-interview-stage__actions {
+    text-align: center;
+    margin-top: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+/* Mobile: fill viewport; transcript panels absorb leftover height */
+@media (max-width: 768px) {
+    .voice-interview-stage {
+        padding: 0;
+        align-items: stretch;
+        justify-content: stretch;
+        height: 100vh;
+        height: 100dvh;
+        min-height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+    }
+
+    .voice-interview-stage__card {
+        max-width: none;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        max-height: 100%;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        border-bottom: none;
+        padding: 16px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+        box-shadow: none;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .voice-interview-stage__header {
+        margin-bottom: 10px;
+    }
+
+    .voice-interview-stage__title {
+        font-size: 1.45rem !important;
+    }
+
+    .voice-interview-stage__panels {
+        display: flex !important;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 10px;
+        flex: 1 1 auto;
+        min-height: 220px;
+        align-items: stretch;
+    }
+
+    .voice-interview-stage__panel--agent {
+        order: 1;
+    }
+
+    .voice-interview-stage__panel--candidate {
+        order: 2;
+    }
+
+    .voice-interview-stage__panel {
+        min-height: 0 !important;
+        flex: 1 1 0;
+        width: 100%;
+        min-width: 0;
+        padding: 14px 12px;
+        border-radius: 12px;
+        align-self: stretch;
+    }
+
+    .voice-interview-stage__panel-body {
+        padding: 0 4px;
+        height: 100%;
+        overflow: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .voice-interview-stage__panel-text {
+        font-size: 0.85rem;
+    }
+
+    .voice-interview-stage__profile-wrap--agent,
+    .voice-interview-stage__profile-wrap--candidate {
+        justify-content: stretch;
+        margin-bottom: 10px;
+        flex: 0 0 auto;
+    }
+
+    .voice-interview-stage__profile {
+        min-width: 0 !important;
+        max-width: none !important;
+        width: 100%;
+        flex: 0 0 auto;
+    }
+
+    .voice-interview-stage__profile-wrap--candidate .voice-interview-stage__profile-row {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 10px;
+    }
+
+    /* Agent: mirrored — waveform → name → avatar, aligned right */
+    .voice-interview-stage__profile-wrap--agent .voice-interview-stage__profile-row {
+        flex-direction: row-reverse;
+        justify-content: flex-start;
+        gap: 10px;
+    }
+
+    .voice-interview-stage__profile-wrap--candidate .voice-interview-stage__profile-identity {
+        flex-direction: row;
+        flex: 0 1 auto;
+    }
+
+    .voice-interview-stage__profile-wrap--agent .voice-interview-stage__profile-identity {
+        flex-direction: row-reverse;
+        flex: 0 1 auto;
+    }
+
+    .voice-interview-stage__profile-wrap--agent .voice-interview-stage__waveform,
+    .voice-interview-stage__profile-wrap--candidate .voice-interview-stage__waveform {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 0;
+        margin-inline-start: 0;
+    }
+
+    .voice-interview-stage__actions {
+        margin-top: 8px;
+        padding-top: 4px;
+    }
+}
+
+/* Voice / video interview prep tips (pre-session screen) — light mode */
+.voice-interview-prep {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 40px 20px;
+    box-sizing: border-box;
+    background: linear-gradient(160deg, #f5f3ff 0%, #eef2ff 40%, #f8fafc 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.voice-interview-prep__card {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    background: #ffffff;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 12px;
+    padding: 32px 40px;
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    box-shadow:
+        0 8px 28px rgba(99, 102, 241, 0.1),
+        0 2px 8px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.voice-interview-prep__shimmer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(99, 102, 241, 0.35),
+        rgba(56, 189, 248, 0.55),
+        rgba(99, 102, 241, 0.35),
+        transparent
+    );
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+.voice-interview-prep__header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.voice-interview-prep__title {
+    font-size: 30px;
+    font-weight: 700;
+    margin: 0;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.voice-interview-prep__subtitle {
+    margin: 12px 0 0;
+    font-size: 0.95rem;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.voice-interview-prep__tips {
+    list-style: none;
+    margin: 0 0 32px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.voice-interview-prep__tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
+}
+
+.voice-interview-prep__tip-check {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(129, 140, 248, 0.22));
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    color: #4f46e5;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.voice-interview-prep__tip-text {
+    flex: 1;
+    color: #334155;
+    font-size: 1rem;
+    line-height: 1.55;
+    text-align: start;
+}
+
+.voice-interview-prep__actions {
+    text-align: center;
+}
+
+.voice-interview-prep__continue {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 32px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Mobile: card fills the viewport */
+@media (max-width: 768px) {
+    .voice-interview-prep {
+        padding: 0;
+        align-items: stretch;
+        justify-content: stretch;
+    }
+
+    .voice-interview-prep__card {
+        max-width: none;
+        width: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        border-bottom: none;
+        padding: 28px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+        display: flex;
+        flex-direction: column;
+        box-shadow: none;
+    }
+
+    .voice-interview-prep__title {
+        font-size: 1.55rem;
+    }
+
+    .voice-interview-prep__tips {
+        flex: 1 1 auto;
+        margin-bottom: 24px;
+    }
+
+    .voice-interview-prep__tip {
+        padding: 14px 14px;
+    }
+
+    .voice-interview-prep__tip-text {
+        font-size: 0.95rem;
+    }
+
+    .voice-interview-prep__actions {
+        margin-top: auto;
+        padding-top: 8px;
+    }
+
+    .voice-interview-prep__continue {
+        width: auto;
+        max-width: min(280px, 78vw);
+        min-height: 42px;
+        padding: 10px 22px;
+        font-size: 0.92rem;
+        gap: 8px;
+        border-radius: 12px;
+    }
+}
+
 /* Continue + Generate — نفس التدرج (سماوي → بنفسجي)؛ ni-continue-btn خارج المودال = Start صوت/فيديو */
 .new-interview-modal .ni-continue-btn.workflow-btn-primary,
 .new-interview-modal .ni-generate-ad-btn.workflow-btn-primary,
@@ -6162,6 +6689,133 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
 .toast.show {
     opacity: 1;
     transform: translateY(0);
+}
+
+/* System toast — insufficient credits (global) */
+.insufficient-credits-toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(520px, calc(100vw - 32px));
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgba(127, 29, 29, 0.92);
+    border: 1px solid rgba(248, 113, 113, 0.45);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(239, 68, 68, 0.12);
+    color: #fecaca;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.insufficient-credits-toast svg {
+    flex-shrink: 0;
+    color: #f87171;
+}
+
+.insufficient-credits-toast__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.insufficient-credits-toast__cta {
+    flex-shrink: 0;
+    padding: 7px 12px;
+    border-radius: 8px;
+    background: rgba(248, 113, 113, 0.2);
+    border: 1px solid rgba(252, 165, 165, 0.45);
+    color: #fff;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.insufficient-credits-toast__cta:hover {
+    background: rgba(248, 113, 113, 0.32);
+    border-color: rgba(254, 202, 202, 0.6);
+    color: #fff;
+}
+
+.insufficient-credits-toast__close {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #fecaca;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.85;
+}
+
+.insufficient-credits-toast__close:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-app-theme='light'] .insufficient-credits-toast {
+    background: #fff1f2;
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    box-shadow: 0 10px 28px rgba(239, 68, 68, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
+    color: #b91c1c;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+html[data-app-theme='light'] .insufficient-credits-toast svg {
+    color: #dc2626;
+}
+
+html[data-app-theme='light'] .insufficient-credits-toast__cta {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border-color: rgba(185, 28, 28, 0.35);
+    color: #ffffff;
+}
+
+html[data-app-theme='light'] .insufficient-credits-toast__cta:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    border-color: rgba(153, 27, 27, 0.45);
+    color: #ffffff;
+}
+
+html[data-app-theme='light'] .insufficient-credits-toast__close {
+    color: #9f1239;
+}
+
+html[data-app-theme='light'] .insufficient-credits-toast__close:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* Account area — system / billing error banners */
+.account-system-alert {
+    padding: 12px 16px;
+    margin: 0 0 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.45;
+    background: rgba(127, 29, 29, 0.35);
+    border: 1px solid rgba(248, 113, 113, 0.45);
+    color: #fecaca;
+    box-shadow: 0 2px 10px rgba(127, 29, 29, 0.2);
+}
+
+html[data-app-theme='light'] .account-system-alert {
+    background: #fff1f2;
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    color: #b91c1c;
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.08);
 }
 
 /* Share Modal Specific Styles */
@@ -10183,6 +10837,14 @@ body.rtl-text .recent-interviews-card .dashboard-card-title {
     font-size: 0.82rem;
     color: rgba(255, 255, 255, 0.62);
     line-height: 1.4;
+}
+
+/* Keep day/month/year/time as one LTR unit inside RTL pages */
+.headhunter-campaign-history-row__meta-date {
+    display: inline-block;
+    direction: ltr;
+    unicode-bidi: isolate;
+    white-space: nowrap;
 }
 
 .headhunter-campaign-history-empty {
@@ -14330,589 +14992,6 @@ html[data-app-theme='light'] .screening-ai-compare-panel__close:hover {
     color: #34d399;
 }
 
-/* ── Nav credits chip (رصيد الكردت في الهيدر — صفحات التطبيق فقط) ────────── */
-.nav-credits-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border-radius: 999px;
-    background: rgba(56, 189, 248, 0.12);
-    border: 1px solid rgba(56, 189, 248, 0.35);
-    color: #7dd3fc;
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 700;
-    white-space: nowrap;
-    transition: background 0.2s ease, border-color 0.2s ease;
-}
-
-.nav-credits-chip:hover {
-    background: rgba(56, 189, 248, 0.2);
-    border-color: rgba(56, 189, 248, 0.55);
-    color: #bae6fd;
-}
-
-.nav-credits-chip svg {
-    flex: 0 0 auto;
-}
-
-html[data-app-theme='light'] .nav-credits-chip {
-    background: rgba(37, 99, 235, 0.1);
-    border-color: rgba(37, 99, 235, 0.3);
-    color: #2563eb;
-}
-
-html[data-app-theme='light'] .nav-credits-chip:hover {
-    background: rgba(37, 99, 235, 0.16);
-    border-color: rgba(37, 99, 235, 0.45);
-    color: #1d4ed8;
-}
-
-/* ── Insufficient credits toast (تنبيه نفاد الرصيد المركزي) ─────────────── */
-.insufficient-credits-toast {
-    position: fixed;
-    top: 84px;
-    inset-inline-end: 24px;
-    z-index: 3000;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    max-width: min(420px, calc(100vw - 48px));
-    padding: 12px 16px;
-    border-radius: 12px;
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid rgba(251, 191, 36, 0.5);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    color: #fcd34d;
-    animation: fadeIn 0.25s ease;
-}
-
-.insufficient-credits-toast__text {
-    color: #f1f5f9;
-    font-size: 13.5px;
-    line-height: 1.5;
-    flex: 1 1 auto;
-}
-
-.insufficient-credits-toast__cta {
-    flex: 0 0 auto;
-    padding: 6px 14px;
-    border-radius: 8px;
-    background: rgba(251, 191, 36, 0.16);
-    border: 1px solid rgba(251, 191, 36, 0.5);
-    color: #fcd34d;
-    font-size: 12.5px;
-    font-weight: 700;
-    text-decoration: none;
-    white-space: nowrap;
-    transition: background 0.2s ease;
-}
-
-.insufficient-credits-toast__cta:hover {
-    background: rgba(251, 191, 36, 0.28);
-    color: #fde68a;
-}
-
-.insufficient-credits-toast__close {
-    flex: 0 0 auto;
-    background: none;
-    border: none;
-    color: #94a3b8;
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 2px 4px;
-}
-
-.insufficient-credits-toast__close:hover {
-    color: #e2e8f0;
-}
-
-html[data-app-theme='light'] .insufficient-credits-toast {
-    background: rgba(255, 255, 255, 0.96);
-    border-color: rgba(180, 83, 9, 0.4);
-    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
-    color: #b45309;
-}
-
-html[data-app-theme='light'] .insufficient-credits-toast__text {
-    color: #1e293b;
-}
-
-html[data-app-theme='light'] .insufficient-credits-toast__cta {
-    background: rgba(180, 83, 9, 0.1);
-    border-color: rgba(180, 83, 9, 0.4);
-    color: #b45309;
-}
-
-html[data-app-theme='light'] .insufficient-credits-toast__cta:hover {
-    background: rgba(180, 83, 9, 0.18);
-    color: #92400e;
-}
-
-html[data-app-theme='light'] .insufficient-credits-toast__close {
-    color: #64748b;
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   COMPARE TOP CANDIDATES — Executive Decision Support
-   Consulting-report layout: Context → Decision → Comparison → Cards → Why → Final
-   Unified `.compare-section` system (accent driven by CSS custom props).
-   Dark theme is the base; html[data-app-theme='light'] overrides at the bottom.
-   ═════════════════════════════════════════════════════════════════════════ */
-
-/* Consistent vertical rhythm between every report block. */
-.screening-ai-compare-panel__body > .compare-section,
-.screening-ai-compare-panel__body > .screening-ai-compare-cards {
-    margin-top: 18px;
-}
-
-/* ─ Unified analytical section ─────────────────────────────────────────────── */
-.compare-section {
-    --cmp-accent: #38bdf8;
-    --cmp-accent-soft: rgba(56, 189, 248, 0.09);
-    --cmp-border: rgba(56, 189, 248, 0.22);
-    --cmp-text: #dbe4f0;
-    background: var(--cmp-accent-soft);
-    border: 1px solid var(--cmp-border);
-    border-inline-start: 3px solid var(--cmp-accent);
-    border-radius: 14px;
-    padding: 18px 20px;
-}
-
-.compare-section__label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 0 10px 0;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: var(--cmp-accent);
-}
-
-.compare-section__label::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--cmp-accent);
-    flex: 0 0 auto;
-}
-
-.compare-section__text {
-    margin: 0;
-    color: var(--cmp-text);
-    font-size: 15px;
-    line-height: 1.7;
-    white-space: pre-wrap;
-}
-
-/* Section accent variants — only override the custom props. */
-.compare-section--context {
-    --cmp-accent: #7dd3fc;
-    --cmp-accent-soft: rgba(56, 189, 248, 0.08);
-    --cmp-border: rgba(56, 189, 248, 0.2);
-}
-
-.compare-section--decision {
-    --cmp-accent: #34d399;
-    --cmp-border: rgba(52, 211, 153, 0.34);
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(56, 189, 248, 0.07));
-    padding: 20px 22px;
-}
-.compare-section--decision .compare-section__text {
-    color: #f1f5f9;
-    font-size: 15.5px;
-}
-
-.compare-section--summary {
-    --cmp-accent: #67e8f9;
-    --cmp-accent-soft: rgba(103, 232, 249, 0.06);
-    --cmp-border: rgba(103, 232, 249, 0.18);
-}
-
-.compare-section--comparative {
-    --cmp-accent: #c4b5fd;
-    --cmp-accent-soft: rgba(139, 92, 246, 0.09);
-    --cmp-border: rgba(139, 92, 246, 0.22);
-}
-
-.compare-section--why {
-    --cmp-accent: #6ee7b7;
-    --cmp-accent-soft: rgba(16, 185, 129, 0.09);
-    --cmp-border: rgba(16, 185, 129, 0.22);
-}
-
-.compare-section--final {
-    --cmp-accent: #fbbf24;
-    --cmp-border: rgba(251, 191, 36, 0.32);
-    background: linear-gradient(135deg, rgba(251, 191, 36, 0.11), rgba(249, 115, 22, 0.06));
-    padding: 20px 22px;
-}
-.compare-section--final .compare-section__text {
-    color: #f1f5f9;
-}
-
-/* ─ Comparative insights (dimension → ranking) ─────────────────────────────── */
-.compare-insights {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-.compare-insights__row {
-    display: grid;
-    grid-template-columns: minmax(110px, 32%) 1fr;
-    gap: 14px;
-    align-items: baseline;
-    padding: 9px 0;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-}
-.compare-insights__row:first-child { padding-top: 0; }
-.compare-insights__row:last-child { border-bottom: none; padding-bottom: 0; }
-
-.compare-insights__dim {
-    font-weight: 700;
-    color: var(--cmp-accent);
-    font-size: 13.5px;
-    text-transform: capitalize;
-}
-
-.compare-insights__val {
-    color: #dbe4f0;
-    font-size: 15px;
-    line-height: 1.55;
-}
-
-/* ─ Candidate cards ────────────────────────────────────────────────────────── */
-.screening-ai-compare-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.screening-ai-compare-card {
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.55) 0%, rgba(15, 23, 42, 0.38) 100%);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: 14px;
-    padding: 20px;
-    transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-/* Rank #1 gets a subtle "top candidate" emphasis. */
-.screening-ai-compare-card--top {
-    border-color: rgba(34, 211, 238, 0.4);
-    box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.08);
-}
-
-.screening-ai-compare-card:hover {
-    border-color: rgba(148, 163, 184, 0.36);
-    background: linear-gradient(180deg, rgba(30, 41, 59, 0.72) 0%, rgba(15, 23, 42, 0.5) 100%);
-}
-
-.screening-ai-compare-card__head {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    padding-bottom: 16px;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.screening-ai-compare-card__rank {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: rgba(34, 211, 238, 0.14);
-    border: 1px solid rgba(34, 211, 238, 0.4);
-    color: #22d3ee;
-    font-weight: 800;
-    font-size: 15px;
-    flex: 0 0 auto;
-}
-
-.screening-ai-compare-card__identity {
-    flex: 1 1 150px;
-    min-width: 0;
-}
-
-.screening-ai-compare-card__name {
-    font-weight: 700;
-    font-size: 17px;
-    color: #f1f5f9;
-    margin-bottom: 3px;
-}
-
-.screening-ai-compare-card__email {
-    color: #94a3b8;
-    font-size: 13px;
-    word-break: break-all;
-}
-
-.screening-ai-compare-card__badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: flex-start;
-}
-
-.screening-ai-compare-badge {
-    display: inline-block;
-    padding: 4px 12px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 600;
-    white-space: nowrap;
-    border: 1px solid transparent;
-}
-
-.screening-ai-compare-badge--rec,
-.screening-ai-compare-badge--rec-positive {
-    background: rgba(52, 211, 153, 0.16);
-    border-color: rgba(52, 211, 153, 0.45);
-    color: #6ee7b7;
-}
-
-.screening-ai-compare-badge--rec-neutral {
-    background: rgba(251, 191, 36, 0.16);
-    border-color: rgba(251, 191, 36, 0.45);
-    color: #fcd34d;
-}
-
-.screening-ai-compare-badge--rec-negative {
-    background: rgba(248, 113, 113, 0.16);
-    border-color: rgba(248, 113, 113, 0.45);
-    color: #fca5a5;
-}
-
-.screening-ai-compare-badge--conf {
-    background: rgba(56, 189, 248, 0.16);
-    border-color: rgba(56, 189, 248, 0.45);
-    color: #7dd3fc;
-}
-
-.screening-ai-compare-badge--score {
-    background: rgba(148, 163, 184, 0.14);
-    border-color: rgba(148, 163, 184, 0.35);
-    color: #cbd5e1;
-}
-
-/* Confidence badge + its one-line rationale, stacked. */
-.screening-ai-compare-card__conf {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    align-items: flex-start;
-}
-.screening-ai-compare-card__conf-rationale {
-    font-size: 12px;
-    color: #94a3b8;
-    font-style: italic;
-    line-height: 1.4;
-    max-width: 240px;
-}
-
-.screening-ai-compare-card__comment {
-    color: #cbd5e1;
-    font-size: 15px;
-    line-height: 1.7;
-    margin: 16px 0 0 0;
-    font-style: italic;
-}
-
-.screening-ai-compare-card__section {
-    margin-top: 16px;
-}
-
-.screening-ai-compare-card__section h5 {
-    margin: 0 0 8px 0;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #94a3b8;
-}
-
-.screening-ai-compare-card__section--diff p,
-.screening-ai-compare-card__section--watch p {
-    margin: 0;
-    color: #e2e8f0;
-    font-size: 14px;
-    line-height: 1.65;
-    white-space: pre-wrap;
-}
-
-.screening-ai-compare-card__section--watch {
-    background: rgba(251, 191, 36, 0.09);
-    border: 1px solid rgba(251, 191, 36, 0.28);
-    border-radius: 10px;
-    padding: 12px 14px;
-}
-.screening-ai-compare-card__section--watch h5 {
-    color: #fcd34d;
-    margin-bottom: 6px;
-}
-
-.screening-ai-compare-card__list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.screening-ai-compare-card__list li {
-    position: relative;
-    padding-inline-start: 24px;
-    color: #e2e8f0;
-    font-size: 14px;
-    line-height: 1.6;
-}
-
-.screening-ai-compare-card__list li::before {
-    position: absolute;
-    inset-inline-start: 0;
-    top: 1px;
-    font-size: 13px;
-}
-
-.screening-ai-compare-card__list--check li::before {
-    content: '✓';
-    color: #34d399;
-    font-weight: bold;
-}
-
-.screening-ai-compare-card__list--risk li::before {
-    content: '⚠';
-    color: #fbbf24;
-}
-
-/* ─ Light Mode ─────────────────────────────────────────────────────────────── */
-html[data-app-theme='light'] .compare-section {
-    --cmp-text: #334155;
-}
-html[data-app-theme='light'] .compare-section--context {
-    --cmp-accent: #2563eb;
-    --cmp-accent-soft: rgba(37, 99, 235, 0.07);
-    --cmp-border: rgba(37, 99, 235, 0.2);
-}
-html[data-app-theme='light'] .compare-section--decision {
-    --cmp-accent: #059669;
-    --cmp-border: rgba(5, 150, 105, 0.32);
-    background: linear-gradient(135deg, rgba(5, 150, 105, 0.1), rgba(37, 99, 235, 0.06));
-}
-html[data-app-theme='light'] .compare-section--decision .compare-section__text {
-    color: #0f172a;
-}
-html[data-app-theme='light'] .compare-section--summary {
-    --cmp-accent: #0891b2;
-    --cmp-accent-soft: rgba(8, 145, 178, 0.06);
-    --cmp-border: rgba(8, 145, 178, 0.18);
-}
-html[data-app-theme='light'] .compare-section--comparative {
-    --cmp-accent: #7c3aed;
-    --cmp-accent-soft: rgba(124, 58, 237, 0.07);
-    --cmp-border: rgba(124, 58, 237, 0.2);
-}
-html[data-app-theme='light'] .compare-section--why {
-    --cmp-accent: #059669;
-    --cmp-accent-soft: rgba(5, 150, 105, 0.07);
-    --cmp-border: rgba(5, 150, 105, 0.2);
-}
-html[data-app-theme='light'] .compare-section--final {
-    --cmp-accent: #b45309;
-    --cmp-border: rgba(245, 158, 11, 0.34);
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(234, 88, 12, 0.05));
-}
-html[data-app-theme='light'] .compare-section--final .compare-section__text {
-    color: #0f172a;
-}
-html[data-app-theme='light'] .compare-insights__val {
-    color: #334155;
-}
-
-html[data-app-theme='light'] .screening-ai-compare-card {
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    border-color: rgba(148, 163, 184, 0.3);
-}
-html[data-app-theme='light'] .screening-ai-compare-card--top {
-    border-color: rgba(8, 145, 178, 0.4);
-    box-shadow: inset 0 0 0 1px rgba(8, 145, 178, 0.08);
-}
-html[data-app-theme='light'] .screening-ai-compare-card:hover {
-    border-color: rgba(148, 163, 184, 0.45);
-    background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
-}
-html[data-app-theme='light'] .screening-ai-compare-card__rank {
-    background: rgba(8, 145, 178, 0.12);
-    border-color: rgba(8, 145, 178, 0.4);
-    color: #0891b2;
-}
-html[data-app-theme='light'] .screening-ai-compare-card__name {
-    color: #0f172a;
-}
-html[data-app-theme='light'] .screening-ai-compare-card__email,
-html[data-app-theme='light'] .screening-ai-compare-card__conf-rationale {
-    color: #64748b;
-}
-html[data-app-theme='light'] .screening-ai-compare-card__comment,
-html[data-app-theme='light'] .screening-ai-compare-card__section--diff p,
-html[data-app-theme='light'] .screening-ai-compare-card__section--watch p,
-html[data-app-theme='light'] .screening-ai-compare-card__list li {
-    color: #1e293b;
-}
-html[data-app-theme='light'] .screening-ai-compare-card__section h5 {
-    color: #64748b;
-}
-html[data-app-theme='light'] .screening-ai-compare-badge--rec,
-html[data-app-theme='light'] .screening-ai-compare-badge--rec-positive {
-    background: rgba(5, 150, 105, 0.14);
-    border-color: rgba(5, 150, 105, 0.35);
-    color: #059669;
-}
-html[data-app-theme='light'] .screening-ai-compare-badge--rec-neutral {
-    background: rgba(180, 83, 9, 0.12);
-    border-color: rgba(180, 83, 9, 0.35);
-    color: #b45309;
-}
-html[data-app-theme='light'] .screening-ai-compare-badge--rec-negative {
-    background: rgba(153, 27, 27, 0.12);
-    border-color: rgba(153, 27, 27, 0.35);
-    color: #991b1b;
-}
-html[data-app-theme='light'] .screening-ai-compare-badge--conf {
-    background: rgba(37, 99, 235, 0.12);
-    border-color: rgba(37, 99, 235, 0.35);
-    color: #2563eb;
-}
-html[data-app-theme='light'] .screening-ai-compare-badge--score {
-    background: rgba(100, 116, 139, 0.12);
-    border-color: rgba(100, 116, 139, 0.3);
-    color: #475569;
-}
-html[data-app-theme='light'] .screening-ai-compare-card__section--watch {
-    background: rgba(245, 158, 11, 0.09);
-    border-color: rgba(245, 158, 11, 0.28);
-}
-html[data-app-theme='light'] .screening-ai-compare-card__section--watch h5 {
-    color: #b45309;
-}
-html[data-app-theme='light'] .screening-ai-compare-card__list--check li::before {
-    color: #059669;
-}
-html[data-app-theme='light'] .screening-ai-compare-card__list--risk li::before {
-    color: #b45309;
-}
-
 /* Modal — نفس حاوية Job criteria (new-interview-modal / NT shell) */
 .ai-compare-modal-overlay {
     position: fixed;
@@ -17224,6 +17303,47 @@ html[data-app-theme='light'] .dashboard-page--evaalo-visual.ai-cv-comparison-pag
     color: #ffffff;
 }
 
+.account-usage-metric__label {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.account-usage-metric__values {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.account-usage-metric__remaining {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.account-usage-metric__of {
+    font-size: 15px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.account-usage-metric__track {
+    margin-bottom: 8px;
+}
+
+.account-usage-metric__used {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
 .account-card-divider {
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -18291,8 +18411,16 @@ html[data-app-theme='light'] .account-dashboard-page .design-background--evaalo-
 html[data-app-theme='light'] .account-dashboard-page .account-stat-value,
 html[data-app-theme='light'] .account-dashboard-page .account-stat-highlight,
 html[data-app-theme='light'] .account-dashboard-page .account-usage-title,
+html[data-app-theme='light'] .account-dashboard-page .account-usage-metric__of,
 html[data-app-theme='light'] .account-dashboard-page .account-text-primary {
     color: var(--app-text) !important;
+}
+
+html[data-app-theme='light'] .account-dashboard-page .account-usage-metric__remaining {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
 }
 
 html[data-app-theme='light'] .account-dashboard-page .account-text-muted,
@@ -18872,6 +19000,32 @@ html[data-app-theme='light'] .account-dashboard-page .account-btn-danger.btn.btn
     background: rgba(254, 242, 242, 0.95) !important;
     border-color: rgba(239, 68, 68, 0.35) !important;
     color: #dc2626 !important;
+}
+
+/* Billing lifecycle / pending banners — light surfaces instead of dark glass */
+html[data-app-theme='light'] .account-billing-page .account-billing-lifecycle-banner {
+    background: #eff6ff !important;
+    border-color: rgba(59, 130, 246, 0.28) !important;
+    box-shadow: 0 2px 10px rgba(59, 130, 246, 0.08) !important;
+}
+
+html[data-app-theme='light'] .account-billing-page .account-billing-lifecycle-banner span {
+    color: #1d4ed8 !important;
+}
+
+html[data-app-theme='light'] .account-billing-page .account-billing-pending-banner {
+    background: #fff7ed !important;
+    border-color: rgba(249, 115, 22, 0.3) !important;
+    box-shadow: 0 2px 10px rgba(249, 115, 22, 0.08) !important;
+}
+
+html[data-app-theme='light'] .account-billing-page .account-billing-pending-banner span {
+    color: #c2410c !important;
+}
+
+html[data-app-theme='light'] .account-billing-page .account-billing-annual-banner {
+    background: #f8fafc !important;
+    border-color: rgba(99, 102, 241, 0.25) !important;
 }
 
 html[data-app-theme='light'] .account-dashboard-page .account-integration-row__badge {
@@ -20810,6 +20964,60 @@ html[data-app-theme='light'] .new-interview-modal .ni-criteria-card--selected {
         0 4px 14px rgba(99, 102, 241, 0.1) !important;
 }
 
+/* Criteria row actions (remove / add) — avoid dark-glass buttons in light mode */
+html[data-app-theme='light'] .new-interview-modal .dashboard-delete-btn {
+    background: #ffffff !important;
+    border: 1px solid rgba(99, 102, 241, 0.3) !important;
+    color: #6366f1 !important;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .dashboard-delete-btn::before {
+    background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.08), transparent);
+}
+
+html[data-app-theme='light'] .new-interview-modal .dashboard-delete-btn svg {
+    color: inherit !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .dashboard-delete-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%) !important;
+    border-color: rgba(99, 102, 241, 0.52) !important;
+    color: #4338ca !important;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.16) !important;
+    transform: translateY(-2px) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .dashboard-delete-btn:focus,
+html[data-app-theme='light'] .new-interview-modal .dashboard-delete-btn:active {
+    border-color: rgba(99, 102, 241, 0.45) !important;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-feedback-banner {
+    background: #ffffff !important;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-feedback-banner--error {
+    background: #fff1f2 !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.08) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-feedback-banner--success {
+    background: #ecfdf5 !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-feedback-banner--loading {
+    background: #f8fafc !important;
+    border-color: rgba(99, 102, 241, 0.28) !important;
+    color: #4338ca !important;
+}
+
 html[data-app-theme='light'] .new-interview-modal .ni-criteria-label {
     color: var(--app-text) !important;
 }
@@ -21146,20 +21354,117 @@ html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__body {
 }
 
 html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__section-title {
-    color: var(--app-text-muted) !important;
+    color: #64748b !important;
 }
 
 html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item {
     background: #ffffff !important;
-    border-color: var(--app-container-border) !important;
+    border-color: rgba(148, 163, 184, 0.35) !important;
     color: var(--app-text) !important;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
 }
 
 html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item:hover,
 html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item:focus-visible {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='position'] {
+    background: linear-gradient(145deg, #f0f9ff 0%, #ffffff 70%) !important;
+    border-color: rgba(14, 165, 233, 0.35) !important;
+}
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='position'] .ni-criterion-menu__item-icon {
+    color: #0284c7 !important;
+    background: rgba(14, 165, 233, 0.12) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='location'] {
+    background: linear-gradient(145deg, #ecfdf5 0%, #ffffff 70%) !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+}
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='location'] .ni-criterion-menu__item-icon {
+    color: #059669 !important;
+    background: rgba(16, 185, 129, 0.12) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='job'] {
+    background: linear-gradient(145deg, #f5f3ff 0%, #ffffff 70%) !important;
+    border-color: rgba(139, 92, 246, 0.35) !important;
+}
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='job'] .ni-criterion-menu__item-icon {
+    color: #7c3aed !important;
+    background: rgba(139, 92, 246, 0.12) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='company'] {
+    background: linear-gradient(145deg, #fff7ed 0%, #ffffff 70%) !important;
+    border-color: rgba(249, 115, 22, 0.35) !important;
+}
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='company'] .ni-criterion-menu__item-icon {
+    color: #ea580c !important;
+    background: rgba(249, 115, 22, 0.12) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='age'] {
+    background: linear-gradient(145deg, #eff6ff 0%, #ffffff 70%) !important;
+    border-color: rgba(59, 130, 246, 0.35) !important;
+}
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='age'] .ni-criterion-menu__item-icon {
+    color: #2563eb !important;
+    background: rgba(59, 130, 246, 0.12) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='gender'] {
+    background: linear-gradient(145deg, #fdf2f8 0%, #ffffff 70%) !important;
+    border-color: rgba(236, 72, 153, 0.35) !important;
+}
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='gender'] .ni-criterion-menu__item-icon {
+    color: #db2777 !important;
+    background: rgba(236, 72, 153, 0.12) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='educationLevel'] {
+    background: linear-gradient(145deg, #f0fdfa 0%, #ffffff 70%) !important;
+    border-color: rgba(20, 184, 166, 0.35) !important;
+}
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='educationLevel'] .ni-criterion-menu__item-icon {
+    color: #0d9488 !important;
+    background: rgba(20, 184, 166, 0.12) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='experienceYears'] {
+    background: linear-gradient(145deg, #eef2ff 0%, #ffffff 70%) !important;
+    border-color: rgba(99, 102, 241, 0.35) !important;
+}
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='experienceYears'] .ni-criterion-menu__item-icon {
+    color: #4f46e5 !important;
+    background: rgba(99, 102, 241, 0.12) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__footer {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border-top-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item--accent {
+    background: #ffffff !important;
+    color: #475569 !important;
+    border: 1px dashed rgba(99, 102, 241, 0.4) !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item--accent .ni-criterion-menu__item-icon {
+    background: rgba(99, 102, 241, 0.1) !important;
+    color: #6366f1 !important;
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.22) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item--accent:hover,
+html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item--accent:focus-visible {
     background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%) !important;
-    border-color: rgba(99, 102, 241, 0.4) !important;
-    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.1) !important;
+    color: #312e81 !important;
+    border-color: rgba(99, 102, 241, 0.55) !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12) !important;
 }
 
 /* Campaign ready — success / loading banners */

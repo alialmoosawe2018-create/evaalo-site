@@ -22,12 +22,17 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { DEFAULT_PLAN_ID } from '../config/billingPlans';
 import { resolvePlanId } from '../utils/billingDisplay';
 import { apiClient } from '../services/apiClient';
+import { useAuth } from './AuthContext';
 
 const BillingContext = createContext(null);
 
 const REGULAR_POLL_MS = 30_000;
 const DEFAULT_FAST_DURATION_MS = 30_000;
 const DEFAULT_FAST_INTERVAL_MS = 2_000;
+// How many consecutive race-suppressed 403s to tolerate before surfacing the
+// error anyway. Bounds the "no active org yet" grace period so a genuinely
+// stuck state (org never activates) doesn't loop on a silent "Loading…".
+const MAX_RACE_RETRIES = 5;
 
 const INITIAL_STATE = {
     currentPlanId: DEFAULT_PLAN_ID,
@@ -57,6 +62,34 @@ export const BillingProvider = ({ children }) => {
     const aliveRef = useRef(true);
     const fastTimerRef = useRef(null);
     const fastDeadlineRef = useRef(0);
+    const raceRetriesRef = useRef(0);
+    // Billing is org-scoped and requires an authenticated session. On public
+    // candidate-facing pages (form, interview, screening…) there is no session,
+    // so polling would only produce 403 noise — gate the polling on auth.
+    const { isAuthenticated } = useAuth();
+
+    // Track Clerk's ACTIVE organization id. On first load there is a race: the
+    // app activates the org (setActive) a beat after the session loads, so an
+    // early billing call can 403 before the token carries the org. We refetch
+    // the moment an active org appears, and use its presence to tell a transient
+    // race-403 apart from a real permission denial.
+    const [activeOrgId, setActiveOrgId] = useState(
+        () => (typeof window !== 'undefined' && window.Clerk?.organization?.id) || null,
+    );
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+        const read = () => {
+            const id = window.Clerk?.organization?.id || null;
+            setActiveOrgId((prev) => (prev === id ? prev : id));
+        };
+        read();
+        const interval = setInterval(read, 3000);
+        const detach = window.Clerk?.addListener?.(read);
+        return () => {
+            clearInterval(interval);
+            if (typeof detach === 'function') detach();
+        };
+    }, []);
 
     const fetchStatus = useCallback(async () => {
         try {
@@ -100,13 +133,33 @@ export const BillingProvider = ({ children }) => {
                 isLoaded: true,
                 error: null,
             }));
+            raceRetriesRef.current = 0;
             return data;
         } catch (err) {
             if (!aliveRef.current) throw err;
+            const status = err?.status;
+            const code = err?.data?.error;
+            const hasActiveOrg =
+                typeof window !== 'undefined' && Boolean(window.Clerk?.organization?.id);
+            // Transient org-activation race: no active org in the token yet, so an
+            // owner-only/org-scoped route returns 403/401. Do NOT surface it — a
+            // refetch fires as soon as the org activates. Real permission denials
+            // (org IS active) and any non-auth error DO surface normally. Bounded
+            // by MAX_RACE_RETRIES so a genuinely stuck state still shows an error.
+            const transientAuthRace =
+                (status === 401 || status === 403) &&
+                (code === 'forbidden_permission' || code === 'ORG_REQUIRED' || code == null) &&
+                !hasActiveOrg &&
+                raceRetriesRef.current < MAX_RACE_RETRIES;
+            if (transientAuthRace) {
+                raceRetriesRef.current += 1;
+            } else {
+                raceRetriesRef.current = 0;
+            }
             setState((prev) => ({
                 ...prev,
-                isLoaded: true,
-                error: err?.message || 'billing_status_failed',
+                isLoaded: transientAuthRace ? prev.isLoaded : true,
+                error: transientAuthRace ? null : err?.message || 'billing_status_failed',
             }));
             throw err;
         }
@@ -122,6 +175,13 @@ export const BillingProvider = ({ children }) => {
 
     useEffect(() => {
         aliveRef.current = true;
+        // Skip all polling for anonymous visitors (no org → billing.read 403).
+        if (!isAuthenticated) {
+            setState((prev) => (prev.isLoaded ? prev : { ...prev, isLoaded: true }));
+            return () => {
+                aliveRef.current = false;
+            };
+        }
         fetchStatus().catch(() => undefined);
         const interval = setInterval(() => {
             fetchStatus().catch(() => undefined);
@@ -131,7 +191,7 @@ export const BillingProvider = ({ children }) => {
             clearInterval(interval);
             stopFastRefresh();
         };
-    }, [fetchStatus, stopFastRefresh]);
+    }, [fetchStatus, stopFastRefresh, isAuthenticated, activeOrgId]);
 
     const refetch = useCallback(async () => {
         try {

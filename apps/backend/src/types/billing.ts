@@ -172,6 +172,18 @@ export type LedgerSource =
     // One-time purchase of an extra video-minutes pack (separate from credits).
     | 'video_pack';
 
+/** Public activity row for GET /api/billing/activity. */
+export type BillingActivityEntry = {
+    id: string;
+    createdAt: string;
+    usageType: UsageType;
+    source: LedgerSource;
+    units?: number;
+    /** Whole credits charged (0 when covered by included video minutes). */
+    credits: number;
+    amountMicro: number;
+};
+
 export type ConsumeCreditsInput = {
     organizationId: string;
     usageType: UsageType;

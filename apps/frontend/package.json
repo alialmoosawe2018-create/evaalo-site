@@ -35,7 +35,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "vite build && npx gh-pages -d dist -t --nojekyll -r https://github.com/alialmoosawe2018-create/evaalo-site.git -m \"Deploy frontend dist\""
+    "deploy": "vite build && npx gh-pages -d dist -t --nojekyll -b main -r https://github.com/alialmoosawe2018-create/evaalo-site.git -m \"Deploy frontend dist\""
   },
   "browserslist": {
     "production": [

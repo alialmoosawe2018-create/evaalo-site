@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useInterviewTemplate } from '../contexts/InterviewTemplateContext';
@@ -1334,15 +1334,12 @@ const LegacyApplicationForm = () => {
 
 const Form = () => {
     const [searchParams] = useSearchParams();
-    const { currentLang, changeLanguage } = useLanguage();
+    const { changeLanguage } = useLanguage();
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const fromUrl = parseInterviewUrlLanguage(searchParams.get('language'));
-        if (fromUrl && fromUrl !== currentLang) {
-            changeLanguage(fromUrl);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchParams]);
+        if (fromUrl) changeLanguage(fromUrl);
+    }, [searchParams, changeLanguage]);
 
     if (shouldUsePublicDynamicForm(searchParams)) {
         return <DynamicApplicationForm pubToken={searchParams.get('pub').trim()} />;

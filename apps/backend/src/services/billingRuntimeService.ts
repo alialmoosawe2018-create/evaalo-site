@@ -29,6 +29,7 @@ import CreditBalance, { type ICreditBalance } from '../models/CreditBalance.js';
 import CreditLedger from '../models/CreditLedger.js';
 import type {
     AdjustCreditsInput,
+    BillingActivityEntry,
     BillingCycle,
     BillingPlanId,
     ConsumeCreditsInput,
@@ -1357,4 +1358,48 @@ async function seedBalanceForStripe(
     } catch (err) {
         if (!isDuplicateKeyError(err)) throw err;
     }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Activity feed (credit ledger — all metered operations)
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function listOrgBillingActivity(
+    organizationId: string,
+    options: { since?: Date; limit?: number } = {},
+): Promise<BillingActivityEntry[]> {
+    const limit = Math.min(Math.max(options.limit ?? 100, 1), 500);
+    const query: Record<string, unknown> = {
+        organizationId,
+        usageType: { $exists: true, $ne: null },
+    };
+    if (options.since) {
+        query.createdAt = { $gte: options.since };
+    }
+
+    const rows = await CreditLedger.find(query)
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean()
+        .exec();
+
+    return rows.map((row) => {
+        const chargedMicro =
+            typeof row.chargedMicroCredits === 'number' && row.chargedMicroCredits > 0
+                ? row.chargedMicroCredits
+                : Math.abs(row.amountMicro ?? 0);
+        const credits = chargedMicro / MICRO_PER_CREDIT;
+        return {
+            id: String(row._id),
+            createdAt:
+                row.createdAt instanceof Date
+                    ? row.createdAt.toISOString()
+                    : new Date(row.createdAt).toISOString(),
+            usageType: row.usageType as UsageType,
+            source: row.source as BillingActivityEntry['source'],
+            units: typeof row.units === 'number' ? row.units : undefined,
+            credits,
+            amountMicro: row.amountMicro ?? 0,
+        };
+    });
 }

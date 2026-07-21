@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+import { appendFormShareLanguage } from '../utils/screeningCampaignPayload.js';
 
 const InterviewTemplateContext = createContext();
 
@@ -60,7 +61,7 @@ export const InterviewTemplateProvider = ({ children }) => {
     };
 
     const getCurrentFormLink = useCallback(
-        (type = 'process') => {
+        (type = 'process', language) => {
             const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
             let tid = selectedTemplate?.id || DEFAULT_FORM_TEMPLATE.id;
             if (type === 'audio' && selectedAudioTemplate?.id) {
@@ -70,7 +71,7 @@ export const InterviewTemplateProvider = ({ children }) => {
             } else if (type === 'process') {
                 tid = selectedTemplate?.id || DEFAULT_FORM_TEMPLATE.id;
             }
-            return `${baseUrl}/form?template=${encodeURIComponent(tid)}`;
+            return appendFormShareLanguage(`${baseUrl}/form?template=${encodeURIComponent(tid)}`, language);
         },
         [selectedTemplate, selectedAudioTemplate, selectedVideoTemplate]
     );

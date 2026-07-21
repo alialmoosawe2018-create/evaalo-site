@@ -4,9 +4,9 @@ import { brandRgba } from '../utils/brandColor';
 import { CONTACT_EMAIL, getContactWhatsAppUrl } from '../constants/contact';
 
 const SOCIAL_DEFAULTS = {
-    facebook: 'https://www.facebook.com/',
-    instagram: 'https://www.instagram.com/',
-    linkedin: 'https://www.linkedin.com/',
+    facebook: 'https://www.facebook.com/share/1BVLXtPvji/?mibextid=wwXIfr',
+    instagram: 'https://www.instagram.com/evaalo.ai/',
+    linkedin: 'https://www.linkedin.com/company/evaalo/',
     tiktok: 'https://www.tiktok.com/',
 };
 

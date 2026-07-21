@@ -424,7 +424,7 @@ const Account = () => {
                         {/* Current plan summary — name, renewal, price */}
                         <div className="dashboard-card account-credits-card" style={{ ...cardPadding }}>
                             {billingError ? (
-                                <p className={ACCOUNT_TEXT_MUTED_CLASS} style={{ margin: '0 0 12px', fontSize: 13, color: '#fca5a5' }}>
+                                <p className="account-system-alert" role="alert" style={{ margin: '0 0 12px' }}>
                                     {t('account_billing_load_error')}
                                 </p>
                             ) : null}

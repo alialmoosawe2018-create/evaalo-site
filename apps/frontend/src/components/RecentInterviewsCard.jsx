@@ -27,16 +27,13 @@ import {
     isNotificationDismissed,
 } from '../utils/notificationActivity.js';
 import { scriptTextProps } from '../utils/textScript.js';
+import {
+    buildMockRecentInterviews,
+    isMockRecentInterviewId,
+} from '../utils/demoSampleData.js';
 
 const DASHBOARD_UNKNOWN = 'Unknown';
 const DASHBOARD_NA = 'N/A';
-
-const MOCK_RECENT_INTERVIEWS = [
-    { id: 'mock-1', candidate: 'Ahmed Al-Mansouri', position: 'Software Engineer', status: 'pending', date: '2025-01-15' },
-    { id: 'mock-2', candidate: 'Sarah Johnson', position: 'Product Manager', status: 'pending', date: '2025-01-14' },
-    { id: 'mock-3', candidate: 'Mohammed Hassan', position: 'Data Analyst', status: 'pending', date: '2025-01-13' },
-    { id: 'mock-4', candidate: 'Emily Chen', position: 'UX Designer', status: 'pending', date: '2025-01-12' },
-];
 
 function toTime(value) {
     if (!value) return 0;
@@ -123,6 +120,10 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
     const [clearRecentError, setClearRecentError] = useState(null);
     const clearedAtRef = useRef(null);
 
+    const mockRecentInterviews = useMemo(() => buildMockRecentInterviews(t), [t]);
+    const mockRecentInterviewsRef = useRef(mockRecentInterviews);
+    mockRecentInterviewsRef.current = mockRecentInterviews;
+
     const buildRecentInterviewsList = (candidates, clearedAtIso, metaByCampaignId = {}) => {
         const filtered = filterCandidatesByClearedAt(candidates, clearedAtIso ?? clearedAtRef.current);
         const interviews = filtered
@@ -130,7 +131,7 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
             .sort((a, b) => new Date(b.date) - new Date(a.date));
         const hasClearedAt = toTime(clearedAtIso ?? clearedAtRef.current) > 0;
         if (interviews.length === 0 && !hasClearedAt) {
-            return MOCK_RECENT_INTERVIEWS;
+            return mockRecentInterviewsRef.current;
         }
         return interviews;
     };
@@ -176,7 +177,7 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
             } catch (error) {
                 console.error('Error fetching recent interviews:', error);
                 const hasClearedAt = toTime(clearedAtRef.current) > 0;
-                setRecentInterviews(hasClearedAt ? [] : MOCK_RECENT_INTERVIEWS);
+                setRecentInterviews(hasClearedAt ? [] : mockRecentInterviewsRef.current);
             } finally {
                 setLoadingInterviews(false);
             }
@@ -186,11 +187,23 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
     }, []);
 
     useEffect(() => {
+        setRecentInterviews((prev) => {
+            if (
+                prev.length > 0 &&
+                prev.every((item) => isMockRecentInterviewId(item.id))
+            ) {
+                return mockRecentInterviews;
+            }
+            return prev;
+        });
+    }, [mockRecentInterviews]);
+
+    useEffect(() => {
         const onDismissed = () => {
             setRecentInterviews((prev) =>
                 prev.filter(
                     (item) =>
-                        String(item.id).startsWith('mock-') ||
+                        isMockRecentInterviewId(item.id) ||
                         !isNotificationDismissed(item),
                 ),
             );

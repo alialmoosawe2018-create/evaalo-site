@@ -4636,18 +4636,18 @@ body.rtl-text .nav-links {
 }
 
 .new-interview-modal .ni-criterion-menu__section-title {
-    padding: 0 4px 8px;
+    padding: 0 6px 10px;
     font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.11em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: rgba(148, 163, 184, 0.82);
+    color: rgba(147, 197, 253, 0.88);
 }
 
 .new-interview-modal .ni-criterion-menu__grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
+    gap: 8px;
 }
 
 @media (max-width: 520px) {
@@ -4659,20 +4659,29 @@ body.rtl-text .nav-links {
 .new-interview-modal .ni-criterion-menu__item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 11px;
     width: 100%;
     text-align: start;
-    padding: 9px 11px;
+    padding: 11px 12px;
     margin: 0;
-    background: rgba(30, 41, 59, 0.55);
-    border: 1px solid rgba(71, 85, 105, 0.35);
-    border-radius: 9px;
-    color: #e2e8f0;
-    font-size: 12px;
-    font-weight: 500;
+    background: linear-gradient(
+        145deg,
+        rgba(36, 48, 68, 0.92) 0%,
+        rgba(24, 34, 52, 0.88) 100%
+    );
+    border: 1px solid rgba(100, 116, 139, 0.28);
+    border-radius: 12px;
+    color: #e8eef7;
+    font-size: 12.5px;
+    font-weight: 600;
     line-height: 1.35;
     cursor: pointer;
-    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    transition:
+        background 0.18s ease,
+        color 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        transform 0.18s ease;
 }
 
 .new-interview-modal .ni-criterion-menu__item-icon {
@@ -4680,12 +4689,15 @@ body.rtl-text .nav-links {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-    background: rgba(51, 65, 85, 0.65);
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: rgba(51, 65, 85, 0.72);
     color: #93c5fd;
-    box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.35);
+    box-shadow:
+        inset 0 0 0 1px rgba(148, 163, 184, 0.22),
+        0 2px 6px rgba(0, 0, 0, 0.18);
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .new-interview-modal .ni-criterion-menu__item-label {
@@ -4694,22 +4706,197 @@ body.rtl-text .nav-links {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    letter-spacing: 0.01em;
 }
 
 .new-interview-modal .ni-criterion-menu__item:hover,
 .new-interview-modal .ni-criterion-menu__item:focus-visible {
     outline: none;
-    background: rgba(51, 65, 85, 0.72);
-    color: #f8fafc;
-    border-color: rgba(96, 165, 250, 0.38);
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.28);
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(8, 15, 30, 0.35);
 }
 
 .new-interview-modal .ni-criterion-menu__item:hover .ni-criterion-menu__item-icon,
 .new-interview-modal .ni-criterion-menu__item:focus-visible .ni-criterion-menu__item-icon {
-    color: #bfdbfe;
-    background: rgba(59, 130, 246, 0.18);
-    box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.28);
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+        0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+/* Per-criterion accent colors */
+.new-interview-modal .ni-criterion-menu__item[data-criterion='position'] {
+    border-color: rgba(56, 189, 248, 0.32);
+    background: linear-gradient(145deg, rgba(14, 116, 144, 0.28) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='position'] .ni-criterion-menu__item-icon {
+    color: #7dd3fc;
+    background: rgba(14, 165, 233, 0.22);
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='position']:hover,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='position']:focus-visible {
+    border-color: rgba(56, 189, 248, 0.55);
+    background: linear-gradient(145deg, rgba(14, 165, 233, 0.28) 0%, rgba(30, 41, 59, 0.95) 75%);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='location'] {
+    border-color: rgba(52, 211, 153, 0.32);
+    background: linear-gradient(145deg, rgba(6, 95, 70, 0.28) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='location'] .ni-criterion-menu__item-icon {
+    color: #6ee7b7;
+    background: rgba(16, 185, 129, 0.22);
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.35);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='location']:hover,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='location']:focus-visible {
+    border-color: rgba(52, 211, 153, 0.55);
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.28) 0%, rgba(30, 41, 59, 0.95) 75%);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='job'] {
+    border-color: rgba(167, 139, 250, 0.34);
+    background: linear-gradient(145deg, rgba(91, 33, 182, 0.26) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='job'] .ni-criterion-menu__item-icon {
+    color: #c4b5fd;
+    background: rgba(139, 92, 246, 0.22);
+    box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.38);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='job']:hover,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='job']:focus-visible {
+    border-color: rgba(167, 139, 250, 0.58);
+    background: linear-gradient(145deg, rgba(139, 92, 246, 0.3) 0%, rgba(30, 41, 59, 0.95) 75%);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='company'] {
+    border-color: rgba(251, 146, 60, 0.34);
+    background: linear-gradient(145deg, rgba(154, 52, 18, 0.26) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='company'] .ni-criterion-menu__item-icon {
+    color: #fdba74;
+    background: rgba(249, 115, 22, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(251, 146, 60, 0.38);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='company']:hover,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='company']:focus-visible {
+    border-color: rgba(251, 146, 60, 0.58);
+    background: linear-gradient(145deg, rgba(249, 115, 22, 0.28) 0%, rgba(30, 41, 59, 0.95) 75%);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='age'] {
+    border-color: rgba(96, 165, 250, 0.34);
+    background: linear-gradient(145deg, rgba(30, 64, 175, 0.28) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='age'] .ni-criterion-menu__item-icon {
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.22);
+    box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.38);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='age']:hover,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='age']:focus-visible {
+    border-color: rgba(96, 165, 250, 0.58);
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.3) 0%, rgba(30, 41, 59, 0.95) 75%);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='gender'] {
+    border-color: rgba(244, 114, 182, 0.34);
+    background: linear-gradient(145deg, rgba(157, 23, 77, 0.26) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='gender'] .ni-criterion-menu__item-icon {
+    color: #f9a8d4;
+    background: rgba(236, 72, 153, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(244, 114, 182, 0.38);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='gender']:hover,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='gender']:focus-visible {
+    border-color: rgba(244, 114, 182, 0.58);
+    background: linear-gradient(145deg, rgba(236, 72, 153, 0.28) 0%, rgba(30, 41, 59, 0.95) 75%);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='educationLevel'] {
+    border-color: rgba(45, 212, 191, 0.34);
+    background: linear-gradient(145deg, rgba(15, 118, 110, 0.26) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='educationLevel'] .ni-criterion-menu__item-icon {
+    color: #5eead4;
+    background: rgba(20, 184, 166, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(45, 212, 191, 0.38);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='educationLevel']:hover,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='educationLevel']:focus-visible {
+    border-color: rgba(45, 212, 191, 0.58);
+    background: linear-gradient(145deg, rgba(20, 184, 166, 0.28) 0%, rgba(30, 41, 59, 0.95) 75%);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='experienceYears'] {
+    border-color: rgba(129, 140, 248, 0.34);
+    background: linear-gradient(145deg, rgba(67, 56, 202, 0.26) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='experienceYears'] .ni-criterion-menu__item-icon {
+    color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.22);
+    box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.38);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='experienceYears']:hover,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='experienceYears']:focus-visible {
+    border-color: rgba(129, 140, 248, 0.58);
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.3) 0%, rgba(30, 41, 59, 0.95) 75%);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='salaryMin'],
+.new-interview-modal .ni-criterion-menu__item[data-criterion='salaryMax'],
+.new-interview-modal .ni-criterion-menu__item[data-criterion='salaryCurrency'] {
+    border-color: rgba(250, 204, 21, 0.32);
+    background: linear-gradient(145deg, rgba(133, 77, 14, 0.24) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='salaryMin'] .ni-criterion-menu__item-icon,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='salaryMax'] .ni-criterion-menu__item-icon,
+.new-interview-modal .ni-criterion-menu__item[data-criterion='salaryCurrency'] .ni-criterion-menu__item-icon {
+    color: #fde047;
+    background: rgba(234, 179, 8, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.35);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='availability'] {
+    border-color: rgba(94, 234, 212, 0.3);
+    background: linear-gradient(145deg, rgba(19, 78, 74, 0.26) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='availability'] .ni-criterion-menu__item-icon {
+    color: #99f6e4;
+    background: rgba(45, 212, 191, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.35);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='skills'] {
+    border-color: rgba(56, 189, 248, 0.32);
+    background: linear-gradient(145deg, rgba(12, 74, 110, 0.28) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='skills'] .ni-criterion-menu__item-icon {
+    color: #7dd3fc;
+    background: rgba(14, 165, 233, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='languages'] {
+    border-color: rgba(192, 132, 252, 0.34);
+    background: linear-gradient(145deg, rgba(88, 28, 135, 0.26) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='languages'] .ni-criterion-menu__item-icon {
+    color: #d8b4fe;
+    background: rgba(168, 85, 247, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(192, 132, 252, 0.38);
+}
+
+.new-interview-modal .ni-criterion-menu__item[data-criterion='certifications'] {
+    border-color: rgba(248, 113, 113, 0.34);
+    background: linear-gradient(145deg, rgba(127, 29, 29, 0.26) 0%, rgba(24, 34, 52, 0.9) 70%);
+}
+.new-interview-modal .ni-criterion-menu__item[data-criterion='certifications'] .ni-criterion-menu__item-icon {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.38);
 }
 
 .new-interview-modal .ni-criterion-menu__footer {
@@ -4733,6 +4920,7 @@ body.rtl-text .nav-links {
     background: rgba(30, 41, 59, 0.75);
     border: 1px dashed rgba(100, 116, 139, 0.45);
     box-shadow: none;
+    transform: none;
 }
 
 .new-interview-modal .ni-criterion-menu__item--accent .ni-criterion-menu__item-icon {
@@ -5620,30 +5808,32 @@ body.rtl-text #features:not(.features--demo) .features-hub-core > .simple-icon-w
     align-items: flex-end;
 }
 
-/* RTL hub row cards: lock icon position (same physical layout as LTR) */
-html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
-html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
-body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end {
-    flex-direction: row-reverse !important;
-    direction: ltr;
-}
+/* RTL hub row cards (desktop): lock icon position (same physical layout as LTR) */
+@media (min-width: 769px) {
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end {
+        flex-direction: row-reverse !important;
+        direction: ltr;
+    }
 
-html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
-html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
-body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
-    flex-direction: row !important;
-    direction: ltr;
-}
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
+        flex-direction: row !important;
+        direction: ltr;
+    }
 
-html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top .icon-text-content,
-html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top .icon-text-content,
-body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top .icon-text-content,
-html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom .icon-text-content,
-html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom .icon-text-content,
-body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom .icon-text-content {
-    direction: rtl;
-    text-align: right;
-    align-items: flex-end;
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top .icon-text-content,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top .icon-text-content,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top .icon-text-content,
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom .icon-text-content,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom .icon-text-content,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom .icon-text-content {
+        direction: rtl;
+        text-align: right;
+        align-items: flex-end;
+    }
 }
 
 #features:not(.features--demo) .features-hub-core > .simple-icon-wrapper > .hub-card__arc {
@@ -6092,35 +6282,50 @@ body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simpl
         direction: rtl;
     }
 
-    /* Hub row cards — lock icon column across languages (mobile) */
+    /* Hub row cards — LTR: icon|text (match English mobile cards) */
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
     #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
-    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
-    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
-    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end {
-        grid-template-columns: minmax(0, 1fr) 85px !important;
-        grid-template-areas: "hub-text hub-icon" !important;
-    }
-
-    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
-    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
-    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
-    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner {
-        justify-self: end !important;
-    }
-
-    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
-    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
-    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
-    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
+        direction: ltr !important;
+        flex-direction: row !important;
         grid-template-columns: 85px minmax(0, 1fr) !important;
         grid-template-areas: "hub-icon hub-text" !important;
     }
 
-    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner,
-    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner,
-    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner,
-    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner {
+    /* Hub row cards — Arabic/KU: same physical layout as hub-core
+       (html stays dir=ltr; only flip grid areas — do NOT set direction:rtl
+       or the icon side double-flips vs the rest). */
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
+        direction: ltr !important;
+        flex-direction: row !important;
+        grid-template-columns: minmax(0, 1fr) 85px !important;
+        grid-template-areas: "hub-text hub-icon" !important;
+    }
+
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top > .icon-wrapper-inner,
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner {
         justify-self: start !important;
+    }
+
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top > .icon-wrapper-inner,
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top > .icon-wrapper-inner,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top > .icon-wrapper-inner,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner {
+        justify-self: end !important;
     }
 
     #features:not(.features--demo) .simple-icon-wrapper--grid-centered {
@@ -7007,12 +7212,15 @@ body.rtl-text #features .icon-description {
         inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
-/* Hub row (top/bottom) — border only via shell; block generic card glow */
-#features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
-#features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
+/* Hub row (top/bottom) — desktop only: card lives on ::before/::after shell.
+   On mobile that shell is display:none, so the element itself must keep the white card. */
+@media (min-width: 769px) {
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
 }
 
 /* Individual hover glow for each wrapper - Vibrant on white */
@@ -8191,20 +8399,30 @@ body.rtl-text #features .icon-description {
         grid-template-areas: "hub-text hub-icon" !important;
     }
 
+    /* Top/bottom hub — LTR icon|text; ignore --icon-end on mobile */
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
     #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
-    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
-    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
-    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end {
-        grid-template-columns: minmax(0, 1fr) 85px !important;
-        grid-template-areas: "hub-text hub-icon" !important;
-    }
-
-    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
-    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
-    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
-    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
+        direction: ltr !important;
+        flex-direction: row !important;
         grid-template-columns: 85px minmax(0, 1fr) !important;
         grid-template-areas: "hub-icon hub-text" !important;
+    }
+
+    /* Top/bottom hub — Arabic/KU match hub-core (icon on same side; keep dir=ltr) */
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom {
+        direction: ltr !important;
+        flex-direction: row !important;
+        grid-template-columns: minmax(0, 1fr) 85px !important;
+        grid-template-areas: "hub-text hub-icon" !important;
     }
 
     #features:not(.features--demo) .features-hub-core > .simple-icon-wrapper[data-feature-color] > .icon-wrapper-inner,
@@ -8218,24 +8436,28 @@ body.rtl-text #features .icon-description {
     html[lang="ar"] #features:not(.features--demo) .features-hub-core > .simple-icon-wrapper[data-feature-color] > .icon-wrapper-inner,
     html[lang="ku"] #features:not(.features--demo) .features-hub-core > .simple-icon-wrapper[data-feature-color] > .icon-wrapper-inner,
     body.rtl-text #features:not(.features--demo) .features-hub-core > .simple-icon-wrapper[data-feature-color] > .icon-wrapper-inner,
-    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered:not(.simple-icon-wrapper--grid-centered-top):not(.simple-icon-wrapper--grid-centered-bottom) > .icon-wrapper-inner,
-    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered:not(.simple-icon-wrapper--grid-centered-top):not(.simple-icon-wrapper--grid-centered-bottom) > .icon-wrapper-inner,
-    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered:not(.simple-icon-wrapper--grid-centered-top):not(.simple-icon-wrapper--grid-centered-bottom) > .icon-wrapper-inner {
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered > .icon-wrapper-inner,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered > .icon-wrapper-inner,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered > .icon-wrapper-inner {
         justify-self: end;
     }
 
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top > .icon-wrapper-inner,
     #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
-    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
-    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
-    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner {
-        justify-self: end !important;
+    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner {
+        justify-self: start !important;
     }
 
-    #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner,
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top > .icon-wrapper-inner,
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
     html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top > .icon-wrapper-inner,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
     html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top > .icon-wrapper-inner,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end > .icon-wrapper-inner,
     body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom > .icon-wrapper-inner {
-        justify-self: start !important;
+        justify-self: end !important;
     }
 
     #features:not(.features--demo) .features-hub-core > .simple-icon-wrapper[data-feature-color] .icon-text-content,
@@ -15384,6 +15606,8 @@ button:focus {
     gap: clamp(4px, 0.5vw, 8px);
     overflow: visible;
     padding-block: 4px 2px;
+    /* Keep credit-desc order stable (items use dir=ltr); do not mirror in RTL. */
+    direction: ltr;
 }
 
 .legal-page-shell--agent .pricing-usage-costs__item {
@@ -15981,18 +16205,66 @@ button:focus {
 }
 
 @media (max-width: 768px) {
+    .legal-page-shell--agent .pricing-usage-costs {
+        margin-bottom: 22px;
+        padding-inline: 2px;
+    }
+
     .legal-page-shell--agent .pricing-usage-costs__row {
-        gap: 3px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
         overflow: visible;
-        padding-block: 4px 2px;
+        padding-block: 2px;
+        direction: ltr;
     }
 
     .legal-page-shell--agent .pricing-usage-costs__item {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        width: 100%;
+        max-width: none;
+        min-height: 42px;
+        box-sizing: border-box;
+        white-space: normal;
+        text-align: start;
+        font-size: clamp(0.68rem, 3.1vw, 0.78rem);
+        padding: 8px 10px;
+        border-radius: 10px;
+        line-height: 1.3;
+    }
+
+    .legal-page-shell--agent .pricing-usage-costs__label {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 0.95em;
+        line-height: 1.25;
+        text-align: start;
+    }
+
+    .legal-page-shell--agent .pricing-usage-costs__eq {
         flex: 0 0 auto;
-        width: max-content;
-        font-size: clamp(0.62rem, 2.6vw, 0.74rem);
-        padding: 5px 5px;
-        border-radius: 8px;
+        opacity: 0.75;
+    }
+
+    .legal-page-shell--agent .pricing-usage-costs__value {
+        flex: 0 0 auto;
+        min-width: 1.4em;
+        justify-content: flex-end;
+    }
+
+    .legal-page-shell--agent .pricing-usage-costs__credits {
+        font-size: 1.15em;
+    }
+
+    /* Mobile: show credit number only — hide unit suffixes */
+    .legal-page-shell--agent .pricing-usage-costs__unit {
+        display: none;
     }
 }
 
@@ -16005,6 +16277,24 @@ button:focus {
     .legal-page-shell--agent .pricing-card {
         min-height: 0;
         padding: 22px 18px 18px;
+    }
+
+    /* Keep badge above the plan name — mobile padding was collapsing the featured top gap */
+    .legal-page-shell--agent .pricing-card--featured {
+        padding-top: 46px;
+    }
+
+    .legal-page-shell--agent .pricing-card__badge {
+        top: 10px;
+        inset-inline-start: 12px;
+        inset-inline-end: auto;
+        font-size: 0.62rem;
+        letter-spacing: 0.02em;
+        padding: 4px 10px;
+        max-width: calc(100% - 24px);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }
 
@@ -16435,7 +16725,10 @@ body.rtl-text .legal-page-shell--agent .legal-page-title {
     margin-inline: auto;
 }
 
-body.rtl-text .legal-page-shell--agent .pricing-usage-costs__row,
+body.rtl-text .legal-page-shell--agent .pricing-usage-costs__row {
+    direction: ltr;
+}
+
 body.rtl-text .legal-page-shell--agent .pricing-plans__grid {
     direction: rtl;
 }
@@ -17225,4 +17518,5 @@ html[lang="ku"] .avatar-showcase__partner {
         font-size: 0.875rem;
     }
 }
+
 

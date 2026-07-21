@@ -77,8 +77,12 @@ export default function PositionSuggestCombobox({
                 ?? (useRoleOnlyCatalog && o.roleKey
                     ? labelCatalog?.[`${o.roleKey}.mid`]
                       ?? labelCatalog?.[`${o.roleKey}.manager`]
+                      ?? labelCatalog?.[`${o.roleKey}.executive`]
+                      ?? labelCatalog?.[`${o.roleKey}.head`]
+                      ?? labelCatalog?.[`${o.roleKey}.senior`]
                     : undefined)
                 ?? labelCatalog?.[o.value]
+                ?? (o.label ? labelCatalog?.[o.label] : undefined)
                 ?? o.label
                 ?? (typeof o.value === 'string' ? o.value.replace(/_/g, ' ') : o.value),
         }));
@@ -319,8 +323,21 @@ export default function PositionSuggestCombobox({
                         const raw = e.target.value;
                         if (useOptionsMode) {
                             setText(raw);
-                            const stored = resolveStoredFromText(raw);
-                            emitChange(stored, optionByValue?.[stored]);
+                            const trimmed = raw.trim();
+                            // Commit only on exact catalog match or clear — never fuzzy-resolve while typing
+                            // (short tokens like "st"/"er" used to snap to unrelated titles e.g. Customer Success Specialist).
+                            if (!trimmed) {
+                                emitChange('', null);
+                            } else {
+                                const exact = effectiveSuggestionOptions.find(
+                                    (o) =>
+                                        String(o.label).toLowerCase() === trimmed.toLowerCase() ||
+                                        String(o.value).toLowerCase() === trimmed.toLowerCase()
+                                );
+                                if (exact) {
+                                    emitChange(exact.value, exact);
+                                }
+                            }
                         } else {
                             onChange?.(e);
                         }
@@ -337,8 +354,45 @@ export default function PositionSuggestCombobox({
                     onBlur={(e) => {
                         blurCloseTimer.current = setTimeout(() => setMenuOpen(false), 180);
                         if (useOptionsMode) {
-                            const stored = resolveStoredFromText(text);
-                            fireRoleResolved(stored, optionByValue?.[stored]);
+                            const trimmed = String(text ?? '').trim();
+                            if (!trimmed) {
+                                emitChange('', null);
+                            } else {
+                                const exact = effectiveSuggestionOptions.find(
+                                    (o) =>
+                                        String(o.label).toLowerCase() === trimmed.toLowerCase() ||
+                                        String(o.value).toLowerCase() === trimmed.toLowerCase()
+                                );
+                                if (exact) {
+                                    setText(exact.label);
+                                    emitChange(exact.value, exact);
+                                } else if (useRoleOnlyCatalog) {
+                                    // Role picker: incomplete typing does not invent a role — revert display
+                                    setText(displayFromStored(value));
+                                } else {
+                                    const stored = resolveStoredFromText(trimmed);
+                                    const opt = optionByValue?.[stored];
+                                    if (opt) {
+                                        setText(opt.label);
+                                        emitChange(opt.value, opt);
+                                    } else {
+                                        // Free text: resolve only confident catalog/alias hits (not weak fuzzy)
+                                        const resolved = resolveJobRole(trimmed);
+                                        const confident =
+                                            resolved.roleKey &&
+                                            (resolved.matchSource === 'exact_catalog' ||
+                                                resolved.matchSource === 'legacy_alias' ||
+                                                (resolved.matchSource === 'fuzzy' &&
+                                                    resolved.confidence >= 0.85 &&
+                                                    trimmed.length >= 4));
+                                        if (confident) {
+                                            fireRoleResolved(trimmed, null);
+                                        } else {
+                                            emitChange(trimmed, null);
+                                        }
+                                    }
+                                }
+                            }
                         }
                         onBlurProp?.(e);
                     }}

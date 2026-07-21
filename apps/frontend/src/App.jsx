@@ -67,6 +67,7 @@ import Interview from './pages/Interview';
 import PublicScreeningCall from './pages/PublicScreeningCall';
 import PublicVideoScreeningCall from './pages/PublicVideoScreeningCall';
 import Dashboard from './pages/Dashboard';
+import Onboarding from './pages/Onboarding';
 import Workflow from './pages/Workflow';
 import Candidates from './pages/Candidates';
 import AIHeadHunter from './pages/AIHeadHunter';
@@ -191,6 +192,7 @@ function App() {
                                 <Route path="/sso-callback" element={<SsoCallback />} />
 
                                 {/* Protected (require an authenticated session) */}
+                                <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
                                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                                 <Route path="/workflow" element={<ProtectedRoute><Workflow /></ProtectedRoute>} />
                                 <Route path="/candidates" element={<ProtectedRoute><Candidates /></ProtectedRoute>} />

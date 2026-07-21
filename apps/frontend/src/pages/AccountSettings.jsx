@@ -40,6 +40,7 @@ const AccountSettings = () => {
     const { currentLang, t } = useLanguage();
     const [fullName, setFullName] = useState('');
     const [company, setCompany] = useState('');
+    const [companyDescription, setCompanyDescription] = useState('');
     const [email, setEmail] = useState('');
     const [initialSnapshot, setInitialSnapshot] = useState(null);
     const [profileLoading, setProfileLoading] = useState(true);
@@ -59,20 +60,24 @@ const AccountSettings = () => {
             const snapshot = {
                 fullName: profile.fullName || '',
                 company: profile.companyName || '',
+                companyDescription: profile.companyDescription || '',
                 email: profile.email || user?.email || '',
             };
             setFullName(snapshot.fullName);
             setCompany(snapshot.company);
+            setCompanyDescription(snapshot.companyDescription);
             setEmail(snapshot.email);
             setInitialSnapshot(snapshot);
         } catch {
             const fallback = {
                 fullName: user?.name || '',
                 company: user?.companyName || '',
+                companyDescription: user?.companyDescription || '',
                 email: user?.email || '',
             };
             setFullName(fallback.fullName);
             setCompany(fallback.company);
+            setCompanyDescription(fallback.companyDescription);
             setEmail(fallback.email);
             setInitialSnapshot(fallback);
         } finally {
@@ -87,19 +92,25 @@ const AccountSettings = () => {
     const isDirty =
         initialSnapshot &&
         (fullName !== initialSnapshot.fullName ||
-            company !== initialSnapshot.company);
+            company !== initialSnapshot.company ||
+            companyDescription !== (initialSnapshot.companyDescription ?? ''));
 
     const handleSaveProfile = async () => {
         if (!isDirty || saving) return;
         setSaving(true);
         setSaveStatus(null);
         try {
-            await updateMyProfile({ fullName: fullName.trim(), companyName: company.trim() });
+            await updateMyProfile({
+                fullName: fullName.trim(),
+                companyName: company.trim(),
+                companyDescription: companyDescription.trim(),
+            });
             await authService.refreshCurrentUser();
             refreshSession();
             const snapshot = {
                 fullName: fullName.trim(),
                 company: company.trim(),
+                companyDescription: companyDescription.trim(),
                 email,
             };
             setInitialSnapshot(snapshot);
@@ -247,6 +258,21 @@ const AccountSettings = () => {
                                     onChange={(e) => setCompany(e.target.value)}
                                     autoComplete="organization"
                                     disabled={profileLoading || saving}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="settings-company-description" className="account-settings-label">
+                                    {t('account_settingsCompanyDescription')}
+                                </label>
+                                <textarea
+                                    id="settings-company-description"
+                                    className="account-settings-input"
+                                    value={companyDescription}
+                                    onChange={(e) => setCompanyDescription(e.target.value.slice(0, 2000))}
+                                    placeholder={t('account_settingsCompanyDescription_ph')}
+                                    rows={4}
+                                    disabled={profileLoading || saving}
+                                    style={{ resize: 'vertical', minHeight: 96, lineHeight: 1.6 }}
                                 />
                             </div>
                             <div>

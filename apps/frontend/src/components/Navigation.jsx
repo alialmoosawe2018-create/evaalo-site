@@ -10,6 +10,9 @@ import { isCandidateInterviewRoute } from '../utils/interviewShareLink.js';
 /** صفحة Design غير جاهزة للعامة؛ الإخفاء من الشريط فقط — المسار /design يبقى يعمل مباشرة */
 const SHOW_DESIGN_IN_NAV = false;
 
+/** شريحة رصيد الكردت؛ الإخفاء من الشريط فقط — الرصيد يبقى ظاهراً في بانر الباقة وصفحة الحساب */
+const SHOW_CREDITS_IN_NAV = false;
+
 const DropdownArrow = () => (
     <svg className="dropdown-arrow" width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
         <path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -62,8 +65,8 @@ const Navigation = () => {
     const showThemeToggle = isAppThemeRoute(location.pathname);
     // ويدجت الرصيد: يظهر على صفحات التطبيق فقط وعندما تكون الفوترة مهيأة ومحمّلة.
     const { creditsRemaining, configured: billingConfigured, isLoaded: billingLoaded } = useBilling();
-    const showCreditsChip = showThemeToggle && billingConfigured && billingLoaded;
-    const hideNavOnRoutes = ['/account/billing/portal', '/login', '/signup', '/forgot-password', '/form'];
+    const showCreditsChip = SHOW_CREDITS_IN_NAV && showThemeToggle && billingConfigured && billingLoaded;
+    const hideNavOnRoutes = ['/account/billing/portal', '/login', '/signup', '/forgot-password', '/form', '/onboarding'];
     const hideNav = hideNavOnRoutes.includes(location.pathname) || isCandidateInterviewRoute(location.pathname);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [desktopLangDropdownOpen, setDesktopLangDropdownOpen] = useState(false);
@@ -278,10 +281,10 @@ const Navigation = () => {
                 {t('features')}
             </Link>
             <Link to="/#features-2" className="nav-link" onClick={closeMobileMenu}>
-                <span className="nav-link-label">{wrapEvaaloInLabel(t('evaaloVisualLanguage'))}</span>
+                <span className="nav-link-label">{t('navWhyUsMobile')}</span>
             </Link>
             <Link to="/#process" className="nav-link" onClick={closeMobileMenu}>
-                <span className="nav-link-label">{wrapEvaaloInLabel(t('applicationProcess'))}</span>
+                <span className="nav-link-label">{t('navHowWorkMobile')}</span>
             </Link>
 
             {SHOW_DESIGN_IN_NAV && (

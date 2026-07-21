@@ -7,8 +7,46 @@ import { ACCOUNT_TEXT_MUTED_CLASS } from '../../utils/accountTypography';
 
 const cardPadding = { padding: '22px 24px', marginBottom: 16 };
 
+function UsageMetricBlock({
+    label,
+    remaining,
+    total,
+    used,
+    overallPct,
+    usedLabelKey,
+    fillClassName = '',
+    t,
+}) {
+    const fmt = (n) => (n ?? 0).toLocaleString('en-US');
+
+    return (
+        <div className="account-usage-metric">
+            <p className={`${ACCOUNT_TEXT_MUTED_CLASS} account-usage-metric__label`}>{label}</p>
+            <div dir="ltr" className="account-usage-metric__values">
+                <span className="account-usage-metric__remaining">{fmt(remaining)}</span>
+                <span className="account-usage-metric__of">
+                    {fillI18nTemplate(t('account_usageCreditsOfTotal'), { total: fmt(total) })}
+                </span>
+            </div>
+            <div className="account-usage-track account-usage-metric__track">
+                <div
+                    className={`account-usage-fill ${fillClassName}`.trim()}
+                    style={{
+                        width: `${total > 0 ? Math.max(used > 0 ? 4 : 0, overallPct) : 0}%`,
+                    }}
+                />
+            </div>
+            {used > 0 ? (
+                <p className={`${ACCOUNT_TEXT_MUTED_CLASS} account-usage-metric__used`}>
+                    {fillI18nTemplate(t(usedLabelKey), { used: fmt(used) })}
+                </p>
+            ) : null}
+        </div>
+    );
+}
+
 export default function AccountUsageMetricsCard({ className = '' }) {
-    const { t, currentLang } = useLanguage();
+    const { t } = useLanguage();
     const {
         currentPlanId,
         creditsRemaining,
@@ -18,8 +56,6 @@ export default function AccountUsageMetricsCard({ className = '' }) {
         includedVideoSeconds,
         purchasedVideoSeconds,
     } = useBilling();
-
-    const mainDir = currentLang === 'ar' || currentLang === 'ku' ? 'rtl' : 'ltr';
 
     const creditUsage = useMemo(() => {
         const plan = getPlanById(currentPlanId);
@@ -59,48 +95,28 @@ export default function AccountUsageMetricsCard({ className = '' }) {
             style={{ ...cardPadding, display: 'flex', flexDirection: 'column', minHeight: 200 }}
         >
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <h3 dir="ltr" className="account-usage-title" style={{ textAlign: mainDir === 'rtl' ? 'end' : 'start' }}>
-                    {fillI18nTemplate(t('account_usageRatioSample'), {
-                        used: (creditUsage.remaining ?? 0).toLocaleString('en-US'),
-                        cap: (creditUsage.total ?? 0).toLocaleString('en-US'),
-                    })}
-                </h3>
-                <p className={ACCOUNT_TEXT_MUTED_CLASS} style={{ margin: '14px 0 8px', fontSize: 13 }}>
-                    {t('billing_credits_label')}
-                </p>
-                <div className="account-usage-track">
-                    <div
-                        className="account-usage-fill"
-                        style={{
-                            width: `${creditUsage.total > 0 ? Math.max(creditUsage.used > 0 ? 4 : 0, creditUsage.overallPct) : 0}%`,
-                        }}
-                    />
-                </div>
+                <UsageMetricBlock
+                    label={t('billing_credits_label')}
+                    remaining={creditUsage.remaining}
+                    total={creditUsage.total}
+                    used={creditUsage.used}
+                    overallPct={creditUsage.overallPct}
+                    usedLabelKey="account_usageCreditsUsed"
+                    t={t}
+                />
             </div>
             {videoUsage ? (
                 <div className="account-usage-video-block">
-                    <p className={ACCOUNT_TEXT_MUTED_CLASS} style={{ margin: '14px 0 8px', fontSize: 13 }}>
-                        {t('billing_credit_video_label')}
-                    </p>
-                    <p
-                        dir="ltr"
-                        className="account-usage-video-ratio"
-                        style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 600 }}
-                    >
-                        {/* متبقٍ/إجمالي — بنفس دلالة سطر الكردت أعلاه، لا مستهلَك/إجمالي */}
-                        {fillI18nTemplate(t('account_usageRatioSample'), {
-                            used: videoUsage.remaining.toLocaleString('en-US'),
-                            cap: videoUsage.total.toLocaleString('en-US'),
-                        })}
-                    </p>
-                    <div className="account-usage-track">
-                        <div
-                            className="account-usage-fill account-usage-fill--video"
-                            style={{
-                                width: `${videoUsage.total > 0 ? Math.max(videoUsage.used > 0 ? 4 : 0, videoUsage.overallPct) : 0}%`,
-                            }}
-                        />
-                    </div>
+                    <UsageMetricBlock
+                        label={t('billing_credit_video_label')}
+                        remaining={videoUsage.remaining}
+                        total={videoUsage.total}
+                        used={videoUsage.used}
+                        overallPct={videoUsage.overallPct}
+                        usedLabelKey="account_usageVideoMinutesUsed"
+                        fillClassName="account-usage-fill--video"
+                        t={t}
+                    />
                 </div>
             ) : null}
         </div>

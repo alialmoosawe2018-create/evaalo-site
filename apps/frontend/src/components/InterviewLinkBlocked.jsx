@@ -3,6 +3,7 @@ import '../design-styles.css';
 
 /**
  * Shown when a candidate interview link was already used (single-use after a meaningful session).
+ * Light shell aligned with form intake.
  */
 export default function InterviewLinkBlocked({ title, message, dir = 'ltr' }) {
     return (
@@ -15,7 +16,6 @@ export default function InterviewLinkBlocked({ title, message, dir = 'ltr' }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '24px',
-                background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%)',
             }}
         >
             <div
@@ -24,17 +24,18 @@ export default function InterviewLinkBlocked({ title, message, dir = 'ltr' }) {
                     width: '100%',
                     padding: '32px 28px',
                     borderRadius: '16px',
-                    border: '1px solid rgba(34, 211, 238, 0.25)',
-                    background: 'rgba(15, 23, 42, 0.85)',
+                    border: '1px solid rgba(99, 102, 241, 0.25)',
+                    background: '#ffffff',
+                    boxShadow: '0 8px 28px rgba(99, 102, 241, 0.12)',
                     textAlign: 'center',
-                    color: '#e2e8f0',
+                    color: '#334155',
                 }}
             >
-                <div style={{ fontSize: '2.5rem', marginBottom: '16px' }} aria-hidden="true">
+                <div style={{ fontSize: '2.5rem', marginBottom: '16px', color: '#10b981' }} aria-hidden="true">
                     ✓
                 </div>
-                <h1 style={{ fontSize: '1.35rem', margin: '0 0 12px', color: '#f8fafc' }}>{title}</h1>
-                <p style={{ margin: 0, lineHeight: 1.6, color: '#94a3b8', fontSize: '0.95rem' }}>{message}</p>
+                <h1 style={{ fontSize: '1.35rem', margin: '0 0 12px', color: '#0f172a' }}>{title}</h1>
+                <p style={{ margin: 0, lineHeight: 1.6, color: '#64748b', fontSize: '0.95rem' }}>{message}</p>
             </div>
         </div>
     );

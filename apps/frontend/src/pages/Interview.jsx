@@ -6,6 +6,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
+import { apiClient } from '../services/apiClient';
 import useVoiceInterview from '../hooks/useVoiceInterview';
 import VoiceInterviewStage from '../components/VoiceInterviewStage';
 import VoiceInterviewPrepTips from '../components/VoiceInterviewPrepTips';
@@ -13,8 +15,6 @@ import InterviewLinkBlocked from '../components/InterviewLinkBlocked.jsx';
 import { isVoiceInterviewLinkConsumed } from '../utils/interviewLinkAccess.js';
 import { parseInterviewUrlLanguage } from '../utils/interviewShareLink.js';
 import '../design-styles.css';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const Interview = () => {
   const [searchParams] = useSearchParams();
@@ -25,6 +25,7 @@ const Interview = () => {
   const urlLang = parseInterviewUrlLanguage(searchParams.get('language'));
   const language = urlLang || 'ar';
 
+  const { isAuthenticated } = useAuth();
   const [candidate, setCandidate] = useState(null);
   const [resolvedPersonId, setResolvedPersonId] = useState(candidateIdParam);
   const [resolvedApplicationId, setResolvedApplicationId] = useState(applicationIdFromUrl);
@@ -52,11 +53,19 @@ const Interview = () => {
       setLoadingCandidate(false);
       return;
     }
+    // Candidate details are org-scoped (recruiter-only). Public candidates
+    // opening the shared link have no session, so this fetch would just 403/404
+    // noise — skip it. The interview only needs candidateIdParam, which is
+    // already the default resolvedPersonId, so starting the call is unaffected.
+    if (!isAuthenticated) {
+      setLoadingCandidate(false);
+      return;
+    }
     let cancelled = false;
     setLoadingCandidate(true);
     setCandidateError(null);
-    fetch(`${API_BASE}/api/candidates/${candidateIdParam}`)
-      .then((r) => r.json())
+    apiClient
+      .get(`/api/candidates/${candidateIdParam}`)
       .then((data) => {
         if (cancelled) return;
         const row = data?.data;
@@ -80,7 +89,7 @@ const Interview = () => {
     return () => {
       cancelled = true;
     };
-  }, [candidateIdParam, applicationIdFromUrl]);
+  }, [candidateIdParam, applicationIdFromUrl, isAuthenticated]);
 
   const displayName = candidate
     ? ((candidate.full_name || candidate.fullName) || '').trim() || candidate.email?.split('@')[0] || 'Candidate'

@@ -38,16 +38,17 @@ function resolveApiBaseUrl() {
 const DEFAULT_BASE_URL = resolveApiBaseUrl();
 
 /**
- * JWT template name used to fetch backend-bound tokens from Clerk (Phase 2).
- * Template must be configured in Clerk Dashboard with these claims:
- *   { userId, email, orgId, orgSlug, role, permissions }
- */
-const CLERK_JWT_TEMPLATE = 'evaalo-backend';
-
-/**
  * Resolves the auth token for outbound API requests. Order:
- *   1. If window.Clerk.session exists (Phase 1 complete), use Clerk token (with template).
+ *   1. If window.Clerk.session exists, use the DEFAULT Clerk session token.
  *   2. Otherwise fall back to authStorage (MOCK mode / Phase 1 pending).
+ *
+ * IMPORTANT: We deliberately use the DEFAULT session token, NOT the legacy
+ * `evaalo-backend` JWT template. The default token carries the active org as
+ * Clerk's compact `o` claim ({ id, rol, slg }), which the backend reads via
+ * getAuth(req). On the current Clerk instance the custom template's
+ * role/permissions claims are empty, so template tokens resolve to the default
+ * role (HR_MANAGER) and 403 on owner-only routes like billing. The default
+ * token resolves the real org role (admin → OWNER) correctly.
  */
 async function resolveClerkHeaders() {
     const extra = {};
@@ -70,15 +71,6 @@ async function resolveAuthToken() {
         const clerk = typeof window !== 'undefined' ? window.Clerk : undefined;
         const session = clerk?.session;
         if (session && typeof session.getToken === 'function') {
-            const token = await session.getToken({ template: CLERK_JWT_TEMPLATE }).catch(() => null);
-            if (token) return token;
-            if (import.meta.env.DEV) {
-                // eslint-disable-next-line no-console
-                console.warn(
-                    `[apiClient] JWT template "${CLERK_JWT_TEMPLATE}" unavailable — falling back to default session token. ` +
-                        'Configure the template in Clerk Dashboard (see backend env.example).'
-                );
-            }
             return await session.getToken().catch(() => null);
         }
     } catch {

@@ -6,13 +6,18 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import {
+    publicScreeningCreateErrorMessage,
+    resolvePublicScreeningCandidateId,
+} from '../utils/publicScreeningIntake.js';
 import useVoiceInterview from '../hooks/useVoiceInterview';
 import VoiceInterviewStage from '../components/VoiceInterviewStage';
 import VoiceInterviewPrepTips from '../components/VoiceInterviewPrepTips';
 import InterviewLinkBlocked from '../components/InterviewLinkBlocked.jsx';
+import { API_BASE_URL } from '../config/apiBase.js';
 import '../styles.css';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = API_BASE_URL;
 
 function parseUrlLanguage(raw) {
   const v = (raw || '').toLowerCase();
@@ -93,14 +98,9 @@ const PublicScreeningCall = () => {
         body: JSON.stringify(payload),
       });
       const result = await res.json().catch(() => ({}));
-      if (!res.ok || !result?.success || !result?.data) {
-        setFormError(result?.message || result?.error || t('publicScreening_genericError'));
-        return;
-      }
-      const rawId = result.data._id ?? result.data.id;
-      const newId = rawId != null ? String(rawId) : '';
+      const newId = resolvePublicScreeningCandidateId(res, result);
       if (!newId) {
-        setFormError(t('publicScreening_genericError'));
+        setFormError(publicScreeningCreateErrorMessage(res, result, t('publicScreening_genericError')));
         return;
       }
       setCandidateId(newId);

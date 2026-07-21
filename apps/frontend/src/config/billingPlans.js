@@ -46,6 +46,19 @@ const BUSINESS_FEATURES = Object.freeze([
 
 export const BILLING_PLANS = Object.freeze([
     Object.freeze({
+        // باقة تجريبية مجانية — تُمنح تلقائياً للحسابات الجديدة (150 كردت لمرة
+        // واحدة). مخفية من صفحات التسعير وقوائم الترقية.
+        id: 'free',
+        displayNameKey: 'billing_plan_free_name',
+        displayDescKey: 'billing_plan_free_desc',
+        price: Object.freeze({ monthly: 0, currency: 'USD' }),
+        seatLimit: SEAT_LIMIT_SINGLE,
+        monthlyCredits: 150,
+        includedVideoMinutes: 0,
+        features: STARTER_FEATURES,
+        flags: Object.freeze({ hidden: true }),
+    }),
+    Object.freeze({
         id: 'starter',
         displayNameKey: 'billing_plan_starter_name',
         displayDescKey: 'pricing_tagline_starter',
@@ -96,15 +109,14 @@ export const DEFAULT_PLAN_ID = 'starter';
 /**
  * Per-operation credit costs — mirror of backend PUBLIC_USAGE_COSTS
  * (apps/backend/src/config/billingCatalog.ts). Keep in sync manually.
- * يعرض ما يُحصَّل فعلاً فقط: صوت 15/دقيقة، بحث 6/مرشح، كشف جهة اتصال 1/حقل،
- * تقرير أفضل المرشحين بنموذجه الفعلي (1/مستلم إيميل + 2/مرشح مشمول)،
- * تحليل CV 2/عملية، وتوليد إعلان الوظيفة 1/توليد.
+ * يعرض ما يُحصَّل فعلاً فقط: صوت 15/دقيقة، بحث 6/مرشح، فرز مرشحين 2،
+ * تقرير أفضل المرشحين 2/مرشح، تحليل CV 2/عملية، وتوليد إعلان الوظيفة 1/توليد.
+ * (كشف بيانات التواصل وتكلفة إيميل التقرير مخفيان من شريط التسعير العام.)
  */
 export const USAGE_CREDIT_COSTS = Object.freeze([
     Object.freeze({ id: 'voice', credits: 15, labelKey: 'pricing_usage_voice', unitKey: 'pricing_usage_unit_per_minute' }),
     Object.freeze({ id: 'search', credits: 6, labelKey: 'pricing_usage_search', unitKey: 'pricing_usage_unit_per_candidate' }),
-    Object.freeze({ id: 'contact_reveal', credits: 1, labelKey: 'pricing_usage_contact_reveal', unitKey: 'pricing_usage_unit_per_field' }),
-    Object.freeze({ id: 'compare_email', credits: 1, labelKey: 'pricing_usage_compare_email', unitKey: 'pricing_usage_unit_per_email' }),
+    Object.freeze({ id: 'screening', credits: 2, labelKey: 'pricing_usage_screening', unitKey: 'pricing_usage_unit_per_action' }),
     Object.freeze({ id: 'compare_candidate', credits: 2, labelKey: 'pricing_usage_compare_candidate', unitKey: 'pricing_usage_unit_per_candidate' }),
     Object.freeze({ id: 'cv_analysis', credits: 2, labelKey: 'pricing_usage_cv_analysis', unitKey: 'pricing_usage_unit_per_action' }),
     Object.freeze({ id: 'job_ad', credits: 1, labelKey: 'pricing_usage_job_ad', unitKey: 'pricing_usage_unit_per_action' }),

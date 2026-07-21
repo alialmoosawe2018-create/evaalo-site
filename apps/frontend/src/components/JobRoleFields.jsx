@@ -75,13 +75,28 @@ export default function JobRoleFields({
 
     const handleRolePick = useCallback(
         (nextRoleKey, currentLevel) => {
-            const levelUi = toJobLevelUiValue(nextRoleKey, currentLevel || careerLevel);
-            let effectiveLevel = fromJobLevelUiValue(nextRoleKey, levelUi);
-            const levels = getLevelsForRoleUI(nextRoleKey);
+            const rk = String(nextRoleKey || '').trim();
+            if (!rk) {
+                emitResolution({
+                    roleKey: null,
+                    careerLevel: '',
+                    managementTrack: 'ic',
+                    displayTitle: '',
+                    confidence: 0,
+                    matchSource: 'unknown',
+                });
+                return;
+            }
+            if (!getRepresentativeEntry(rk)) {
+                return;
+            }
+            const levelUi = toJobLevelUiValue(rk, currentLevel || careerLevel);
+            let effectiveLevel = fromJobLevelUiValue(rk, levelUi);
+            const levels = getLevelsForRoleUI(rk);
             if (levels.length === 1) {
                 effectiveLevel = levels[0];
             }
-            const resolution = composeRoleResolution(nextRoleKey, effectiveLevel);
+            const resolution = composeRoleResolution(rk, effectiveLevel);
             emitResolution(resolution);
         },
         [careerLevel, emitResolution]

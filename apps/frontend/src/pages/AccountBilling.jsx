@@ -54,10 +54,15 @@ const AccountBilling = () => {
         remainingPurchasedVideoSeconds,
         refetch: refetchBillingContext,
         error: billingError,
+        isLoaded: billingLoaded,
         lifecycleState,
         pendingCheckoutPlanId,
         billingCycle,
     } = useBilling();
+    // Only show the plan name/price once billing is actually known. Before that,
+    // currentPlanId is a placeholder default (starter) — showing it would display
+    // a plan the user may not be on. Show a loading state instead.
+    const planReady = billingLoaded && !billingError;
     const mainDir = currentLang === 'ar' || currentLang === 'ku' ? 'rtl' : 'ltr';
     const locale = localeForBillingLang(currentLang);
     const [adjustPlanOpen, setAdjustPlanOpen] = useState(false);
@@ -220,18 +225,7 @@ const AccountBilling = () => {
                 <h1 className={ACCOUNT_PAGE_H1_CLASS} style={accountPageH1Style('0 0 22px')}>{t('account_billing_pageTitle')}</h1>
 
                 {billingError ? (
-                    <div
-                        role="alert"
-                        style={{
-                            padding: '10px 14px',
-                            marginBottom: 12,
-                            borderRadius: 8,
-                            background: 'rgba(127, 29, 29, 0.35)',
-                            border: '1px solid rgba(248, 113, 113, 0.45)',
-                            color: '#fecaca',
-                            fontSize: 13,
-                        }}
-                    >
+                    <div className="account-system-alert" role="alert">
                         {t('account_billing_load_error')}
                     </div>
                 ) : null}
@@ -348,10 +342,18 @@ const AccountBilling = () => {
                     >
                         <div style={{ flex: 1, minWidth: 260 }}>
                             <h2 style={{ margin: '0 0 12px', fontSize: 18, fontWeight: 700 }}>
-                                <span dir="ltr">{currentPlan ? t(currentPlan.displayNameKey) : ''}</span>{' '}
-                                <span dir="ltr" className="account-billing-plan-price">
-                                    {priceLabel}
-                                </span>
+                                {planReady ? (
+                                    <>
+                                        <span dir="ltr">{currentPlan ? t(currentPlan.displayNameKey) : ''}</span>{' '}
+                                        <span dir="ltr" className="account-billing-plan-price">
+                                            {priceLabel}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <span className={ACCOUNT_TEXT_MUTED_CLASS} style={{ fontWeight: 500 }}>
+                                        {t('account_billing_planLoading')}
+                                    </span>
+                                )}
                             </h2>
                             <p className={ACCOUNT_TEXT_MUTED_CLASS} style={{ margin: '0 0 12px', fontSize: 14, lineHeight: 1.55 }}>
                                 {t('account_billing_planBlurb')}
