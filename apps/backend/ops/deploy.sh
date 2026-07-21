@@ -60,14 +60,28 @@ health_ok() {
 git fetch origin "$BRANCH" -q 2>>"$LOG" || { log "fetch failed"; exit 1; }
 LOCAL="$(git rev-parse HEAD)"
 REMOTE="$(git rev-parse "origin/$BRANCH")"
-[ "$LOCAL" = "$REMOTE" ] && exit 0   # up to date — no-op (timer-friendly)
+DIRTY="$(git status --porcelain | grep -v '^??' || true)"
+
+# --- Continuous drift self-heal (runs EVERY tick, even when up to date) -------
+# Git is the ONLY source of truth: any out-of-band manual edit to a tracked file
+# on the VPS is reverted within one tick — it can never silently persist between
+# deploys. (Container-level drift, if any, is corrected on the next real deploy.)
+if [ "$LOCAL" = "$REMOTE" ]; then
+  if [ -n "$DIRTY" ]; then
+    log "DRIFT DETECTED: out-of-band edit while up to date -> reverting to origin/$BRANCH"
+    git stash push -q -m "drift-$(date -u +%FT%TZ)" || true
+    git reset --hard "origin/$BRANCH" -q
+    log "reverted; source matches origin/$BRANCH again"
+  fi
+  exit 0   # nothing new to deploy
+fi
 
 PREV="$LOCAL"
 log "=== deploy start: ${LOCAL:0:9} -> ${REMOTE:0:9} ==="
 
-# Drift gate: warn + stash any manual edits to tracked files (must not exist).
-if [ -n "$(git status --porcelain | grep -v '^??')" ]; then
-  log "WARN: tracked working tree was dirty (out-of-band manual edit) — stashing"
+# Stash any manual edits before pulling the new commit.
+if [ -n "$DIRTY" ]; then
+  log "WARN: tracked working tree was dirty (out-of-band manual edit) — stashing before pull"
   git stash push -q -m "auto-deploy-stash-$(date -u +%FT%TZ)" || true
 fi
 

@@ -57,17 +57,28 @@ SM="$(sig "$M/src")"; SD="$(sig "$D/src")"
 [ "$SM" = "$SD" ] || die "src signature mismatch (monorepo=$SM mirror=$SD)"
 say "  parity OK: $SM"
 
-# --- Gate 4: dependencies unchanged vs deploy package.json (warn only) --------
-say "Gate 4/5 — dependency parity check"
-DM="$(node -e "const d=require('$M/package.json');console.log(Object.keys({...d.dependencies,...d.devDependencies}).sort().join(','))" | md5sum | cut -c1-12)"
-DD="$(node -e "const d=require('$D/package.json');console.log(Object.keys({...d.dependencies,...d.devDependencies}).sort().join(','))" | md5sum | cut -c1-12)"
-if [ "$DM" != "$DD" ]; then
-  printf '\033[33m[deploy:backend] WARN:\033[0m dependencies differ (monorepo=%s deploy=%s). If the monorepo added a package, update the deploy package.json before deploying.\n' "$DM" "$DD"
-fi
+# --- Gate 4: auto-sync dependencies monorepo -> deploy package.json ----------
+# The monorepo is the source of truth for DEPENDENCIES; the deploy package.json
+# keeps its own name/scripts (standalone build). We copy deps in and hard-fail
+# if they don't match afterwards — no silent dependency drift.
+say "Gate 4/5 — sync dependencies into deploy package.json"
+node -e '
+  const fs = require("fs");
+  const mono = require(process.argv[1]);
+  const dp = process.argv[2];
+  const dep = JSON.parse(fs.readFileSync(dp, "utf8"));
+  dep.dependencies = mono.dependencies || {};
+  dep.devDependencies = mono.devDependencies || {};
+  fs.writeFileSync(dp, JSON.stringify(dep, null, 2) + "\n");
+' "$M/package.json" "$D/package.json"
+DM="$(node -e "const d=require('$M/package.json');console.log(JSON.stringify([d.dependencies,d.devDependencies]))" | md5sum)"
+DD="$(node -e "const d=require('$D/package.json');console.log(JSON.stringify([d.dependencies,d.devDependencies]))" | md5sum)"
+[ "$DM" = "$DD" ] || die "dependency sync failed — monorepo deps != deploy deps after sync"
+say "  dependencies in parity"
 
 # --- Commit + push mirror (only if changed) ----------------------------------
 cd "$D"
-git add -A src scripts ops Dockerfile .dockerignore tsconfig*.json 2>/dev/null || true
+git add -A src scripts ops Dockerfile .dockerignore tsconfig*.json package.json 2>/dev/null || true
 if git diff --cached --quiet; then
   say "Mirror already up to date — nothing to push."
   say "Current mirror HEAD: $(git rev-parse --short HEAD). VPS is already on it."

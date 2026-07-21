@@ -29,7 +29,8 @@ Monorepo → Commit → Push → (deploy command) → Git mirror → VPS git pul
 
 **Canonical file boundary (backend):**
 - **Synced from monorepo** (byte-for-byte, LF): `src/`, `scripts/`, `ops/`, `Dockerfile`, `.dockerignore`, `tsconfig*.json`.
-- **Deploy-owned, kept in `evaalo-backend`** (environment-specific — NOT overwritten from the monorepo): `package.json` (standalone build, no monorepo-only `sync-job-catalog`), `package-lock.json`, `docker-compose.yml` (VPS stack), `.gitignore`, `.gitattributes`, `.env.api` (secrets).
+- **Partly synced:** `package.json` — its **`dependencies`/`devDependencies` are auto-synced from the monorepo** by `deploy:backend` (monorepo is the source of truth for deps); its `name`/`scripts` are deploy-owned (standalone build, no monorepo-only `sync-job-catalog`).
+- **Deploy-owned, kept in `evaalo-backend`** (environment-specific — NOT overwritten from the monorepo): `docker-compose.yml` (VPS stack), `package-lock.json`, `.gitignore`, `.gitattributes`, `.env.api` (secrets).
 - **Never deployed:** `.env*`, `sendgrid.env`, `uploads/`, `docs/`, `*.csv`, `node_modules/`, `dist/`.
 
 Line endings: the monorepo may store CRLF (Windows); the mirror & VPS store **LF**
@@ -49,12 +50,12 @@ npm run deploy:backend
 1. `apps/backend` is committed (source of truth first).
 2. `tsc --noEmit` passes (skip with `SKIP_TSC=1`).
 3. `src` hash parity: monorepo == mirror (LF-normalized).
-4. Dependency parity vs the deploy `package.json` (warns if the monorepo added a package).
+4. Dependencies auto-synced from the monorepo into the deploy `package.json` (hard-fails if the sync doesn't achieve parity — no silent dependency drift).
 5. Commits + pushes the mirror to `evaalo-backend@main`.
 
 Then the **VPS auto-deployer** (systemd timer `evaalo-backend-deploy.timer`, every
 ~60 s) runs `/root/evaalo-backend/ops/deploy.sh`:
-- `git fetch`; if `origin/main` unchanged → no-op.
+- `git fetch`. **Continuous drift self-heal:** every tick, if the working tree has an out-of-band manual edit it is reverted to `origin/main` — a manual VPS change can never persist between deploys. If `origin/main` is unchanged and clean → no-op.
 - `git reset --hard origin/main` (pull).
 - `docker compose build api` — **build gate** (rollback on failure).
 - AppArmor-safe container replace (`update --restart=no` → `kill -9 PID` → `rm` → `compose up -d` → `rename`).
