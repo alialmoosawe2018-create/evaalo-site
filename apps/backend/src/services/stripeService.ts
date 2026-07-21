@@ -786,6 +786,70 @@ export async function retrieveSubscription(
     }
 }
 
+export type PortalPaymentMethodSummary = {
+    brand: string | null;
+    last4: string | null;
+    expMonth: number | null;
+    expYear: number | null;
+};
+
+function cardFromPaymentMethod(
+    pm: Stripe.PaymentMethod | string | null | undefined,
+): PortalPaymentMethodSummary | null {
+    if (!pm || typeof pm === 'string') return null;
+    const card = pm.card;
+    if (!card?.brand || !card?.last4) return null;
+    return {
+        brand: card.brand ?? null,
+        last4: card.last4 ?? null,
+        expMonth: card.exp_month ?? null,
+        expYear: card.exp_year ?? null,
+    };
+}
+
+async function retrievePaymentMethodCard(
+    pm: Stripe.PaymentMethod | string | null | undefined,
+): Promise<PortalPaymentMethodSummary | null> {
+    const inline = cardFromPaymentMethod(pm);
+    if (inline) return inline;
+    if (!pm || typeof pm !== 'string') return null;
+    const stripe = getStripeClient();
+    const retrieved = await stripe.paymentMethods.retrieve(pm);
+    return cardFromPaymentMethod(retrieved);
+}
+
+/**
+ * Resolve the card shown in the billing portal: subscription default first,
+ * then customer invoice default, then the newest saved card on the customer.
+ */
+export async function resolvePortalPaymentMethod(
+    stripeCustomerId: string | null | undefined,
+    stripeSub: Stripe.Subscription | null,
+): Promise<PortalPaymentMethodSummary | null> {
+    const fromSub = await retrievePaymentMethodCard(stripeSub?.default_payment_method);
+    if (fromSub) return fromSub;
+
+    if (!stripeCustomerId) return null;
+
+    const stripe = getStripeClient();
+    const customer = await stripe.customers.retrieve(stripeCustomerId, {
+        expand: ['invoice_settings.default_payment_method'],
+    });
+    if (customer.deleted) return null;
+
+    const fromCustomer = await retrievePaymentMethodCard(
+        customer.invoice_settings?.default_payment_method,
+    );
+    if (fromCustomer) return fromCustomer;
+
+    const listed = await stripe.paymentMethods.list({
+        customer: stripeCustomerId,
+        type: 'card',
+        limit: 1,
+    });
+    return cardFromPaymentMethod(listed.data[0]);
+}
+
 const PLAN_RANK: Record<BillingPlanId, number> = {
     free: -1,
     starter: 0,
@@ -999,6 +1063,17 @@ function billingPortalReturnUrl(suffix = ''): string {
     return suffix ? `${base}${suffix.startsWith('/') ? suffix : `/${suffix}`}` : `${base}/account/billing`;
 }
 
+function sanitizeBillingPortalReturnUrl(returnUrl?: string): string {
+    const fallback = billingPortalReturnUrl('/account/billing?stripe_return=1');
+    if (!returnUrl?.trim()) return fallback;
+    const normalized = returnUrl.trim();
+    const base = appPublicUrl();
+    if (normalized.startsWith(base + '/') || normalized === base) {
+        return normalized;
+    }
+    return fallback;
+}
+
 type PortalSessionCreateParams = Stripe.BillingPortal.SessionCreateParams;
 
 /**
@@ -1012,7 +1087,7 @@ export async function createBillingPortalSession(input: {
 }): Promise<{ url: string }> {
     const { organizationId, customerEmail, intent = 'manage' } = input;
     const customerId = await getOrCreateCustomer(organizationId, customerEmail);
-    const returnUrl = input.returnUrl || billingPortalReturnUrl('/account/billing?stripe_return=1');
+    const returnUrl = sanitizeBillingPortalReturnUrl(input.returnUrl);
     const portalConfigId = await ensureBillingPortalConfiguration();
     const stripe = getStripeClient();
 

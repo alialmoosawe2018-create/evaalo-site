@@ -19,6 +19,28 @@ import { fillI18nTemplate } from '../utils/i18nTemplate.js';
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const SESSIONS_API_KEY = import.meta.env.VITE_VIDEO_INTERVIEW_SESSIONS_API_KEY || '';
 const DAY_MS = 86400000;
+
+/** @param {string|Date|null|undefined} value */
+function daysUntilDate(value) {
+    if (!value) return null;
+    const end = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(end.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    return Math.max(0, Math.ceil((end.getTime() - today.getTime()) / DAY_MS));
+}
+
+/**
+ * @param {number|null} days
+ * @param {(k: string) => string} t
+ */
+function formatDaysUntilInvoice(days, t) {
+    if (days == null) return null;
+    if (days === 0) return t('account_nextInvoiceDaysLeftToday');
+    if (days === 1) return t('account_nextInvoiceDaysLeftOne');
+    return fillI18nTemplate(t('account_nextInvoiceDaysLeft'), { days: String(days) });
+}
 /**
  * @param {{ startedAt: string, interviewMode: string }[]} sessions
  * @param {'all'|'video'|'voice'|'screen'} modeFilter
@@ -246,17 +268,18 @@ const Account = () => {
         return `$${info.amount}${t('billing_price_per_month')}`;
     }, [billingLoaded, currentPlanId, activeBillingCycle, t]);
 
-    const nextInvoiceDateLine = useMemo(() => {
+    const nextInvoiceInfo = useMemo(() => {
         const endIso = portalSummary?.currentPeriodEnd || periodEnd;
         const endLabel = formatDateSafe(endIso, billingLocale);
         if (!endLabel) return null;
-        if (portalSummary?.cancelAtPeriodEnd || cancelAtPeriodEnd) {
-            return fillI18nTemplate(t('billing_status_active_until'), { date: endLabel });
-        }
-        if (portalSummary?.configured || configured) {
-            return fillI18nTemplate(t('account_nextInvoiceOnDate'), { date: endLabel });
-        }
-        return null;
+        const daysLeft = daysUntilDate(endIso);
+        const isCancel = Boolean(portalSummary?.cancelAtPeriodEnd || cancelAtPeriodEnd);
+        return {
+            label: isCancel ? t('account_billing_cancel_onLabel') : t('account_nextInvoiceLabel'),
+            dateLabel: endLabel,
+            daysLeftLabel: formatDaysUntilInvoice(daysLeft, t),
+            isCancel,
+        };
     }, [portalSummary, periodEnd, cancelAtPeriodEnd, configured, billingLocale, t]);
 
     const currentPlan = getPlanById(currentPlanId);
@@ -441,10 +464,18 @@ const Account = () => {
                                     <h2 className={ACCOUNT_GRADIENT_TEXT_CLASS} style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
                                         {currentPlan ? t(currentPlan.displayNameKey) : t('account_creditsTitle')}
                                     </h2>
-                                    {nextInvoiceDateLine ? (
-                                        <p className={ACCOUNT_TEXT_MUTED_CLASS} style={{ margin: '8px 0 0', fontSize: 13, lineHeight: 1.45 }}>
-                                            {nextInvoiceDateLine}
-                                        </p>
+                                    {nextInvoiceInfo && (portalSummary?.configured || configured || nextInvoiceInfo.isCancel) ? (
+                                        <div className="account-next-invoice">
+                                            <span className={`${ACCOUNT_TEXT_MUTED_CLASS} account-next-invoice__label`}>
+                                                {nextInvoiceInfo.label}
+                                            </span>
+                                            <div className="account-next-invoice__row">
+                                                <span className="account-next-invoice__date">{nextInvoiceInfo.dateLabel}</span>
+                                                {nextInvoiceInfo.daysLeftLabel ? (
+                                                    <span className="account-next-invoice__days">{nextInvoiceInfo.daysLeftLabel}</span>
+                                                ) : null}
+                                            </div>
+                                        </div>
                                     ) : null}
                                 </div>
                                 <div dir="ltr" className="account-credits-amount" style={{ textAlign: 'right' }}>

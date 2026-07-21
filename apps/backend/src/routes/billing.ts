@@ -50,6 +50,7 @@ import {
     listBillingReceipts,
     resumeSubscription,
     retrieveSubscription,
+    resolvePortalPaymentMethod,
     getSubscriptionPeriodBounds,
 } from '../services/stripeService.js';
 
@@ -402,10 +403,15 @@ router.post(
             intentRaw === 'add_payment_method' || intentRaw === 'cancel' ? intentRaw : 'manage';
 
         const authCtx = getAuthContext(req);
+        const returnUrl =
+            typeof body.returnUrl === 'string' && body.returnUrl.trim()
+                ? body.returnUrl.trim()
+                : undefined;
         const { url } = await createBillingPortalSession({
             organizationId: authCtx.orgId,
             customerEmail: authCtx.email,
             intent,
+            returnUrl,
         });
 
         res.json({ ok: true, url });
@@ -581,11 +587,10 @@ router.get('/portal/summary', conditionalRequireAuth(), requireBillingOrg, async
             });
         }
 
-        const defaultPmObj = stripeSub?.default_payment_method;
-        const pmCard =
-            defaultPmObj && typeof defaultPmObj === 'object' && 'card' in defaultPmObj
-                ? (defaultPmObj as { card?: { brand?: string; last4?: string; exp_month?: number; exp_year?: number } }).card
-                : null;
+        const paymentMethod = await resolvePortalPaymentMethod(
+            state.stripeCustomerId ?? null,
+            stripeSub,
+        );
 
         const nextInvoiceAmount = (() => {
             const li = stripeSub?.latest_invoice;
@@ -614,14 +619,7 @@ router.get('/portal/summary', conditionalRequireAuth(), requireBillingOrg, async
             stripeSubscriptionId: state.stripeSubscriptionId ?? null,
             stripeCustomerId: state.stripeCustomerId ?? null,
             nextInvoiceAmountCents: nextInvoiceAmount,
-            paymentMethod: pmCard
-                ? {
-                      brand: pmCard.brand ?? null,
-                      last4: pmCard.last4 ?? null,
-                      expMonth: pmCard.exp_month ?? null,
-                      expYear: pmCard.exp_year ?? null,
-                  }
-                : null,
+            paymentMethod,
         });
     } catch (err) {
         console.error('[billing/portal/summary]', err);

@@ -295,7 +295,8 @@ const AccountStripePortal = () => {
         setActionLoading(intent === 'manage' ? 'manage' : intent === 'cancel' ? 'cancel' : 'paymentMethod');
         setActionError(null);
         try {
-            await openStripeBillingPortal(intent);
+            const portalReturn = `${window.location.origin}/account/billing/portal?stripe_return=1`;
+            await openStripeBillingPortal(intent, portalReturn);
         } catch (err) {
             setActionError(err?.message || t('billing_portal_action_failed'));
             setActionLoading(null);

@@ -17385,6 +17385,60 @@ html[data-app-theme='light'] .dashboard-page--evaalo-visual.ai-cv-comparison-pag
     font-weight: 500;
 }
 
+.account-next-invoice {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.account-next-invoice__label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+
+.account-next-invoice__row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.account-next-invoice__date {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f8fafc;
+    line-height: 1.35;
+}
+
+.account-next-invoice__days {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.25;
+    color: #7dd3fc;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+html[data-app-theme='light'] .account-dashboard-page .account-next-invoice__date {
+    color: var(--app-text) !important;
+}
+
+html[data-app-theme='light'] .account-dashboard-page .account-next-invoice__days {
+    color: #0369a1 !important;
+    background: rgba(14, 165, 233, 0.1) !important;
+    border-color: rgba(14, 165, 233, 0.24) !important;
+}
+
 .account-dashboard-page .account-credits-card.dashboard-card {
     background-image:
         radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.06) 1px, transparent 0),
@@ -18628,6 +18682,32 @@ html[data-app-theme='light'] .account-dashboard-page .account-usage-segment .acc
 
 html[data-app-theme='light'] .account-dashboard-page .account-usage-segment .account-usage-pill--on.workflow-btn-primary::after {
     display: none !important;
+}
+
+html[data-app-theme='light'] .account-dashboard-page .account-usage-date.workflow-btn-primary {
+    animation: none !important;
+    background: #ffffff !important;
+    background-size: 100% 100% !important;
+    border: 1px solid var(--app-container-border) !important;
+    box-shadow: var(--app-shadow) !important;
+    color: var(--app-text) !important;
+    transform: none !important;
+}
+
+html[data-app-theme='light'] .account-dashboard-page .account-usage-date.workflow-btn-primary::after {
+    display: none !important;
+}
+
+html[data-app-theme='light'] .account-dashboard-page .account-usage-date.workflow-btn-primary:hover {
+    transform: none !important;
+    background: #ffffff !important;
+    border-color: var(--app-container-border-hover) !important;
+    box-shadow: var(--app-container-shadow-hover) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-app-theme='light'] .account-dashboard-page .account-usage-date.workflow-btn-primary svg {
+    opacity: 0.65;
 }
 
 html[data-app-theme='light'] .account-dashboard-page .account-progress-track {
