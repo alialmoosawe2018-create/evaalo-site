@@ -84,6 +84,17 @@ const VoiceInterview = () => {
     const { t, currentLang } = useLanguage();
     const na = t('stageEval_notApplicable');
     const skillOutTen = t('stageEval_skillOutOfTen');
+    /** ترجمة كلمات التقييم الإنجليزية القادمة من n8n (Excellent/Good/…) للعرض بلغة الواجهة. */
+    const localizeRating = (val) => {
+        if (val == null) return val;
+        const key = {
+            excellent: 'stageEval_rateExcellent',
+            good: 'stageEval_rateGood',
+            intermediate: 'stageEval_rateIntermediate',
+            bad: 'stageEval_rateBad',
+        }[String(val).trim().toLowerCase()];
+        return key ? t(key) : val;
+    };
 
     const translateRecLabel = (canonical) => {
         switch (canonical) {
@@ -923,7 +934,7 @@ const VoiceInterview = () => {
                                                     borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
                                                 }}>
                                                     <div className="stage-eval-cell-value">
-                                                        {formatVoiceSkill(evaluation?.communication, na, skillOutTen)}
+                                                        {localizeRating(formatVoiceSkill(evaluation?.communication, na, skillOutTen))}
                                                     </div>
                                                 </td>
 
@@ -935,7 +946,7 @@ const VoiceInterview = () => {
                                                     borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
                                                 }}>
                                                     <div className="stage-eval-cell-value">
-                                                        {displayVoiceText(evaluation?.language_fluency, na)}
+                                                        {localizeRating(displayVoiceText(evaluation?.language_fluency, na))}
                                                     </div>
                                                 </td>
 
@@ -947,7 +958,7 @@ const VoiceInterview = () => {
                                                     borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
                                                 }}>
                                                     <div className="stage-eval-cell-value">
-                                                        {displayVoiceText(evaluation?.confidence, na)}
+                                                        {localizeRating(displayVoiceText(evaluation?.confidence, na))}
                                                     </div>
                                                 </td>
 
@@ -959,7 +970,7 @@ const VoiceInterview = () => {
                                                     borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
                                                 }}>
                                                     <div className="stage-eval-cell-value">
-                                                        {formatVoiceSkill(evaluation?.problem_solving, na, skillOutTen)}
+                                                        {localizeRating(formatVoiceSkill(evaluation?.problem_solving, na, skillOutTen))}
                                                     </div>
                                                 </td>
 
@@ -971,7 +982,7 @@ const VoiceInterview = () => {
                                                     borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
                                                 }}>
                                                     <div className="stage-eval-cell-value">
-                                                        {displayVoiceText(evaluation?.digital_skills, na)}
+                                                        {localizeRating(displayVoiceText(evaluation?.digital_skills, na))}
                                                     </div>
                                                 </td>
 
