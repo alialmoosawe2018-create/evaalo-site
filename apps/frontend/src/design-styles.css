@@ -14619,14 +14619,22 @@ html[data-app-theme='light'] .stage-eval-recording__time {
     text-align: center;
 }
 
-/* Qualitative rating values (Excellent / Bad / Intermediate ...) are Latin
-   and come untranslated from the evaluator — keep them in the English font
-   even when the UI language is Arabic/Kurdish. */
-.stage-eval-cell-value,
-[lang="ar"] .stage-eval-cell-value,
-[lang="ku"] .stage-eval-cell-value,
-body.rtl-text .stage-eval-cell-value {
-    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+/* Rating labels: match dashboard UI font per language (headers use the same stack) */
+html[lang='ar'] .stage-eval-cell-value,
+body.rtl-text[lang='ar'] .stage-eval-cell-value {
+    font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+        sans-serif !important;
+}
+
+html[lang='ku'] .stage-eval-cell-value,
+body.rtl-text[lang='ku'] .stage-eval-cell-value {
+    font-family: 'Noto Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif !important;
+}
+
+html[lang='en'] .stage-eval-cell-value {
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+        Arial, sans-serif !important;
 }
 
 .stage-eval-loading {

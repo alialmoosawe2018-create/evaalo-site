@@ -202,9 +202,9 @@ export const translations = {
         dashboardShareNavigatorTextVideo: "Video interview (LiveKit) link for {name} ({position}){companyPart}:",
         dashboardShareNavigatorTextVoice: "Voice interview link for {name} ({position}){companyPart}:",
         dashboardShareClipboardVideo:
-            "🎥 Video interview (LiveKit)\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}📅 Date: {date}\n📊 Stage: {stage}\n📧 Email: {email}\n\n🔗 Open link to start session:\n{link}",
+            "🎥 Video interview link with evaalo\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}📅 Date: {date}\n📊 Stage: {stage}\n📧 Email: {email}\n\n🔗 Open link to start session:\n{link}",
         dashboardShareClipboardVoice:
-            "🎤 Voice interview\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}📅 Date: {date}\n📊 Stage: {stage}\n📧 Email: {email}\n\n🔗 Voice link:\n{link}",
+            "🎤 Voice interview link with evaalo\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}📅 Date: {date}\n📊 Stage: {stage}\n📧 Email: {email}\n\n🔗 Voice interview link:\n{link}",
         shareInterview_companyPart: " — {company}",
         shareInterview_companyLine: "🏢 Company: {company}\n",
         dashboardNavigatorShareTitleVideo: "Video interview — {name}",
@@ -949,7 +949,7 @@ export const translations = {
         aiCompareTop_costHint: "1 credit per recipient ({emailCredits} for {emailCount}) + 2 credits per compared candidate ({candidateCredits} for {candidateCount}) — total: {n} credits.",
         aiCompareTop_noCredits: "Not enough credits to send the report. Please top up your balance.",
         writtenInterview_shareBody:
-            "🎤 Voice interview link (AI agent)\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}\n🔗 Voice interview link:\n{link}\n\n---\n📋 Screening evaluation\n⭐ Score: {score}%\n🎯 Recommendation: {recommendation}\n📧 Email: {email}\n📱 Phone: {phone}",
+            "🎤 Voice interview link with evaalo\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}\n🔗 Voice interview link:\n{link}\n\n---\n📋 Screening evaluation\n⭐ Score: {score}%\n🎯 Recommendation: {recommendation}\n📧 Email: {email}\n📱 Phone: {phone}",
         writtenInterview_shareNavigatorTitle: "Voice interview link — {name}",
         writtenInterview_shareNavigatorText: "Voice interview link for {name} ({position}){companyPart}:",
         writtenInterview_shareCopyOk: "Voice interview link and candidate details copied to clipboard.",
@@ -966,7 +966,7 @@ export const translations = {
         voiceInterviewAwaitingEvalDetail: "Call evaluation has not been completed yet.",
         voiceInterviewHeading: "Call evaluations",
         voiceInterview_shareBody:
-            "🎥 Video interview link (LiveKit + agent)\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}\n🔗 Start the video session:\n{link}\n\n---\n📋 Voice evaluation (stage 2)\n⭐ Score: {score}%\n🎯 Recommendation: {recommendation}\n📧 Email: {email}\n📱 Phone: {phone}",
+            "🎥 Video interview link with evaalo\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}\n🔗 Start the video session:\n{link}\n\n---\n📋 Voice evaluation (stage 2)\n⭐ Score: {score}%\n🎯 Recommendation: {recommendation}\n📧 Email: {email}\n📱 Phone: {phone}",
         voiceInterview_shareNavigatorTitle: "Video interview — {name}",
         voiceInterview_shareNavigatorText: "Video interview link for {name} ({position}){companyPart}:",
         voiceInterview_shareCopyOk: "Video interview link and candidate details copied to clipboard.",
@@ -1681,9 +1681,9 @@ export const translations = {
         dashboardShareNavigatorTextVideo: "رابط مقابلة الفيديو (LiveKit) للمرشح {name} ({position}){companyPart}:",
         dashboardShareNavigatorTextVoice: "رابط المقابلة الصوتية للمرشح {name} ({position}){companyPart}:",
         dashboardShareClipboardVideo:
-            "🎥 رابط مقابلة الفيديو (LiveKit + وكيل)\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}📅 التاريخ: {date}\n📊 المرحلة: {stage}\n📧 البريد: {email}\n\n🔗 افتح الرابط لبدء جلسة الفيديو:\n{link}",
+            "🎥 رابط مقابلة الفيديو مع ایڤالو\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}📅 التاريخ: {date}\n📊 المرحلة: {stage}\n📧 البريد: {email}\n\n🔗 افتح الرابط لبدء جلسة الفيديو:\n{link}",
         dashboardShareClipboardVoice:
-            "🎤 رابط المقابلة الصوتية مع الإيجنت\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}📅 التاريخ: {date}\n📊 المرحلة: {stage}\n📧 البريد: {email}\n\n🔗 رابط المقابلة الصوتية:\n{link}",
+            "🎤 رابط المقابلة الصوتية مع ایڤالو\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}📅 التاريخ: {date}\n📊 المرحلة: {stage}\n📧 البريد: {email}\n\n🔗 رابط المقابلة الصوتية:\n{link}",
         shareInterview_companyPart: " — {company}",
         shareInterview_companyLine: "🏢 الشركة: {company}\n",
         dashboardNavigatorShareTitleVideo: "مقابلة فيديو — {name}",
@@ -2420,7 +2420,7 @@ export const translations = {
         aiCompareTop_costHint: "1 كريدت لكل مستلم ({emailCredits} لـ {emailCount}) + 2 كريدت لكل مرشح في المقارنة ({candidateCredits} لـ {candidateCount}) — الإجمالي: {n} كريدت.",
         aiCompareTop_noCredits: "لا يوجد رصيد كافٍ لإرسال التقرير. يُرجى شحن رصيدك.",
         writtenInterview_shareBody:
-            "🎤 رابط المقابلة الصوتية مع الوكيل\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}\n🔗 رابط المقابلة الصوتية:\n{link}\n\n---\n📋 تقرير تقييم الفرز\n⭐ الدرجة: {score}%\n🎯 التوصية: {recommendation}\n📧 البريد: {email}\n📱 الهاتف: {phone}",
+            "🎤 رابط المقابلة الصوتية مع ایڤالو\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}\n🔗 رابط المقابلة الصوتية:\n{link}\n\n---\n📋 تقرير تقييم الفرز\n⭐ الدرجة: {score}%\n🎯 التوصية: {recommendation}\n📧 البريد: {email}\n📱 الهاتف: {phone}",
         writtenInterview_shareNavigatorTitle: "رابط المقابلة الصوتية — {name}",
         writtenInterview_shareNavigatorText: "رابط المقابلة الصوتية للمرشح {name} ({position}){companyPart}:",
         writtenInterview_shareCopyOk: "تم نسخ رابط المقابلة الصوتية ومعلومات المرشح.",
@@ -2436,7 +2436,7 @@ export const translations = {
         voiceInterviewAwaitingEvalDetail: "لم يكتمل تقييم المكالمة بعد.",
         voiceInterviewHeading: "تقييمات المكالمة",
         voiceInterview_shareBody:
-            "🎥 رابط مقابلة الفيديو (LiveKit + وكيل)\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}\n🔗 ابدأ جلسة الفيديو:\n{link}\n\n---\n📋 تقييم الصوت (المرحلة 2)\n⭐ الدرجة: {score}%\n🎯 التوصية: {recommendation}\n📧 البريد: {email}\n📱 الهاتف: {phone}",
+            "🎥 رابط مقابلة الفيديو مع ایڤالو\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}\n🔗 ابدأ جلسة الفيديو:\n{link}\n\n---\n📋 تقييم الصوت (المرحلة 2)\n⭐ الدرجة: {score}%\n🎯 التوصية: {recommendation}\n📧 البريد: {email}\n📱 الهاتف: {phone}",
         voiceInterview_shareNavigatorTitle: "مقابلة فيديو — {name}",
         voiceInterview_shareNavigatorText: "رابط مقابلة الفيديو للمرشح {name} ({position}){companyPart}:",
         voiceInterview_shareCopyOk: "تم نسخ رابط مقابلة الفيديو ومعلومات المرشح.",
@@ -3148,9 +3148,9 @@ export const translations = {
         dashboardShareNavigatorTextVideo: "بەستەری چاوپێکەوتنی ڤیدیۆ (LiveKit) بۆ کاندید {name} ({position}){companyPart}:",
         dashboardShareNavigatorTextVoice: "بەستەری چاوپێکەوتنی دەنگی بۆ کاندید {name} ({position}){companyPart}:",
         dashboardShareClipboardVideo:
-            "🎥 چاوپێکەوتنی ڤیدیۆ (LiveKit)\n\n👤 کاندید: {name}\n💼 پلە: {position}\n{companyLine}📅 بەروار: {date}\n📊 قۆناغ: {stage}\n📧 ئیمەیڵ: {email}\n\n🔗 بەستەر بکرەوە بۆ دەستپێکردن:\n{link}",
+            "🎥 بەستەری چاوپێکەوتنی ڤیدیۆ لەگەڵ evaalo\n\n👤 کاندید: {name}\n💼 پلە: {position}\n{companyLine}📅 بەروار: {date}\n📊 قۆناغ: {stage}\n📧 ئیمەیڵ: {email}\n\n🔗 بەستەر بکرەوە بۆ دەستپێکردن:\n{link}",
         dashboardShareClipboardVoice:
-            "🎤 چاوپێکەوتنی دەنگی\n\n👤 کاندید: {name}\n💼 پلە: {position}\n{companyLine}📅 بەروار: {date}\n📊 قۆناغ: {stage}\n📧 ئیمەیڵ: {email}\n\n🔗 بەستەری دەنگی:\n{link}",
+            "🎤 بەستەری چاوپێکەوتنی دەنگی لەگەڵ evaalo\n\n👤 کاندید: {name}\n💼 پلە: {position}\n{companyLine}📅 بەروار: {date}\n📊 قۆناغ: {stage}\n📧 ئیمەیڵ: {email}\n\n🔗 بەستەری چاوپێکەوتنی دەنگ:\n{link}",
         shareInterview_companyPart: " — {company}",
         shareInterview_companyLine: "🏢 کۆمپانیا: {company}\n",
         dashboardNavigatorShareTitleVideo: "چاوپێکەوتنی ڤیدیۆ — {name}",
@@ -3890,7 +3890,7 @@ export const translations = {
         aiCompareTop_costHint: "١ کرێدیت بۆ هەر وەرگرێک ({emailCredits} بۆ {emailCount}) + ٢ کرێدیت بۆ هەر کاندیدێک لە بەراورد ({candidateCredits} بۆ {candidateCount}) — کۆی گشتی: {n} کرێدیت.",
         aiCompareTop_noCredits: "کرێدیتی پێویست نییە بۆ ناردنی ڕاپۆرتەکە. تکایە باڵانسەکەت پڕبکەرەوە.",
         writtenInterview_shareBody:
-            "🎤 بەستەری چاوپێکەوتنی دەنگ لەگەڵ دەستکرد\n\n👤 کاندید: {name}\n💼 پۆست: {position}\n{companyLine}\n🔗 بەستەری چاوپێکەوتنی دەنگ:\n{link}\n\n---\n📋 هەڵسەنگاندنی پاڵاوتن\n⭐ نمرە: {score}%\n🎯 پێشنیار: {recommendation}\n📧 ئیمەیڵ: {email}\n📱 مۆبایل: {phone}",
+            "🎤 بەستەری چاوپێکەوتنی دەنگی لەگەڵ evaalo\n\n👤 کاندید: {name}\n💼 پۆست: {position}\n{companyLine}\n🔗 بەستەری چاوپێکەوتنی دەنگ:\n{link}\n\n---\n📋 هەڵسەنگاندنی پاڵاوتن\n⭐ نمرە: {score}%\n🎯 پێشنیار: {recommendation}\n📧 ئیمەیڵ: {email}\n📱 مۆبایل: {phone}",
         writtenInterview_shareNavigatorTitle: "چاوپێکەوتنی دەنگ — {name}",
         writtenInterview_shareNavigatorText: "بەستەر بۆ چاوپێکەوتنی دەنگی {name} ({position}){companyPart}:",
         writtenInterview_shareCopyOk: "بەستەر و زانیاریی کاندید لەبەرکرا.",
@@ -3906,7 +3906,7 @@ export const translations = {
         voiceInterviewAwaitingEvalDetail: "هەڵسەنگاندنی پەیوەندی هێشتا تەواو نەبووە.",
         voiceInterviewHeading: "هەڵسەنگاندنەکانی پەیوەندی",
         voiceInterview_shareBody:
-            "🎥 بەستەری چاوپێکەوتنی ڤیدیۆ (LiveKit + دەستکرد)\n\n👤 کاندид: {name}\n💼 پۆست: {position}\n{companyLine}\n🔗 دەستپێکردنی دانیشتنەکە:\n{link}\n\n---\n📋 هەڵسەنجاندنی دەنگ (قۆناغی 2)\n⭐ نمرە: {score}%\n🎯 پێشنیار: {recommendation}\n📧 ئیمەیڵ: {email}\n📱 مۆبایل: {phone}",
+            "🎥 بەستەری چاوپێکەوتنی ڤیدیۆ لەگەڵ evaalo\n\n👤 کاندид: {name}\n💼 پۆست: {position}\n{companyLine}\n🔗 دەستپێکردنی دانیشتنەکە:\n{link}\n\n---\n📋 هەڵسەنجاندنی دەنگ (قۆناغی 2)\n⭐ نمرە: {score}%\n🎯 پێشنیار: {recommendation}\n📧 ئیمەیڵ: {email}\n📱 مۆبایل: {phone}",
         voiceInterview_shareNavigatorTitle: "چاوپێکەوتنی ڤیدیۆ — {name}",
         voiceInterview_shareNavigatorText: "بەستەری چاوپێکەوتنی ڤیدیۆ بۆ {name} ({position}){companyPart}:",
         voiceInterview_shareCopyOk: "بەستەر و زانیاریی کاندید لەبەرکرا.",
