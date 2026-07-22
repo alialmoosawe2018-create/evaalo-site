@@ -80,12 +80,16 @@ export default function HeadHunterCandidateCard({
     }, [candidate.id, candidate.photo_url]);
 
     /**
-     * Reveal the diagonal ribbon pseudo-elements only AFTER the results grid has
-     * stopped reflowing — otherwise the rotated green bar and clipped yellow
-     * triangle paint mid-layout and appear "crossed" for a moment (the flash the
-     * user reported). Strategy: reveal once the card's size has been quiet for a
-     * short window (ResizeObserver debounce), with a baseline floor to clear the
-     * entrance animation and a hard fallback so it always reveals.
+     * Reveal the diagonal ribbon pseudo-elements only after the card layout has
+     * truly settled, otherwise the rotated green bar and clipped yellow triangle
+     * paint mid-layout and appear "crossed" for a moment (the flash).
+     *
+     * The flash is RTL-only (Arabic/Kurdish) because those languages use the
+     * async Noto Naskh Arabic web font: when it swaps in it reflows the text and
+     * the card, shifting the absolutely-positioned ribbons. English uses an
+     * already-loaded system font, so it never reflows. So we gate the reveal on
+     * BOTH `document.fonts.ready` (the RTL cause) AND layout being quiet
+     * (ResizeObserver debounce), with a hard fallback so it always reveals.
      */
     useEffect(() => {
         const reduced =
@@ -97,27 +101,43 @@ export default function HeadHunterCandidateCard({
         }
         setTailDecorSettled(false);
         let done = false;
+        let fontsReady = false;
         let settleTimer = 0;
         const reveal = () => {
             if (done) return;
             done = true;
             setTailDecorSettled(true);
         };
+        // Only start counting down once the (web) fonts have loaded and reflowed.
         const schedule = (ms) => {
+            if (!fontsReady) return;
             window.clearTimeout(settleTimer);
             settleTimer = window.setTimeout(reveal, ms);
         };
-        // Baseline: reveal ~260ms after mount (clears the entrance/first reflow).
-        schedule(260);
+
+        const fontsPromise =
+            typeof document !== 'undefined' && document.fonts && document.fonts.ready
+                ? document.fonts.ready
+                : Promise.resolve();
+        fontsPromise
+            .then(() => {
+                fontsReady = true;
+                schedule(200);
+            })
+            .catch(() => {
+                fontsReady = true;
+                schedule(200);
+            });
+
         let ro;
         const el = articleRef.current;
         if (el && typeof ResizeObserver !== 'undefined') {
-            // Any resize pushes the reveal a little later, so we only show the
-            // ribbons once the layout has been stable for ~160ms.
+            // Any post-font reflow pushes the reveal ~160ms later.
             ro = new ResizeObserver(() => schedule(160));
             ro.observe(el);
         }
-        const hardFallback = window.setTimeout(reveal, 900);
+
+        const hardFallback = window.setTimeout(reveal, 1200);
         return () => {
             done = true;
             window.clearTimeout(settleTimer);
