@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
   base: '/',
   plugins: [react(), injectRuntimeConfig(apiBase)],
   server: {
-    port: 3000,
+    port: Number(process.env.PORT) || 3000,
     /** جميع واجهات الشبكة (الوصول من الأجهزة على نفس LAN) */
     host: '0.0.0.0',
     open: true,

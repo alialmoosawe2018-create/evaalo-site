@@ -567,6 +567,12 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
     // حالة المعايير المختارة
     const [selectedCriteria, setSelectedCriteria] = useState({});
     const [jobDetails, setJobDetails] = useState({});
+    // ── CV auto-fill (Specific audio/video): رفع سيرة ذاتية → استخراج → تعبئة ──
+    const cvFileInputRef = useRef(null);
+    const [cvParsing, setCvParsing] = useState(false);
+    const [cvParseError, setCvParseError] = useState('');
+    const [cvFilledCount, setCvFilledCount] = useState(0);
+    const [cvDetectedPosition, setCvDetectedPosition] = useState('');
     const [jobAdvertisement, setJobAdvertisement] = useState('');
     const [generatingAd, setGeneratingAd] = useState(false);
     const [isEditingJobAd, setIsEditingJobAd] = useState(false);
@@ -951,6 +957,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         setVideoInterviewLinkWithCandidate(null);
         setSelectedCriteria({});
         setJobDetails({});
+        setCvParsing(false);
+        setCvParseError('');
+        setCvFilledCount(0);
+        setCvDetectedPosition('');
         setJobAdvertisement('');
         setAdLanguage('English');
         setAdCurrentLanguage('English');
@@ -1089,6 +1099,100 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                 delete newErrors[field];
                 return newErrors;
             });
+        }
+    };
+
+    /**
+     * Mapper: normalize the LLM extraction JSON onto form state.
+     * نفصل شكل مخرجات الـ LLM عن jobDetails — نعبّئ فقط الحقول ذات القيم ونفعّل معاييرها.
+     * يُعيد عدد الحقول التي عُبّئت.
+     */
+    const applyCvExtractedFields = (fields) => {
+        if (!fields || typeof fields !== 'object') return 0;
+        const clean = (v) => (typeof v === 'string' ? v.trim() : '');
+        const toRows = (v) => {
+            const parts = clean(v).split(',').map((s) => s.trim()).filter(Boolean);
+            return parts.length ? parts : [''];
+        };
+
+        const TEXT_FIELDS = [
+            'full_name', 'email', 'phone', 'job_level',
+            'company_applied_to', 'current_company',
+            'highest_education_level', 'years_of_experience',
+        ];
+
+        const detailsPatch = {};
+        const selectPatch = {};
+        let filled = 0;
+
+        for (const id of TEXT_FIELDS) {
+            const val = clean(fields[id]);
+            if (val) {
+                detailsPatch[id] = val;
+                selectPatch[id] = true;
+                filled += 1;
+            }
+        }
+
+        // الحقول ذات الرقاقات (chips): نُخزّن السلسلة ونملأ الصفوف.
+        const chipSetters = {
+            skills: setSkillRows,
+            languages: setLanguageRows,
+            certifications: setCertificationRows,
+        };
+        for (const [id, setRows] of Object.entries(chipSetters)) {
+            const val = clean(fields[id]);
+            if (val) {
+                detailsPatch[id] = val;
+                selectPatch[id] = true;
+                setRows(toRows(val));
+                filled += 1;
+            }
+        }
+
+        // position: حقل مرتبط بكتالوج الأدوار (combobox) — لا نفرض roleKey تلقائياً؛
+        // نعرض القيمة المكتشفة للمستخدم ليختارها من القائمة.
+        setCvDetectedPosition(clean(fields.position_applied_for));
+
+        if (Object.keys(detailsPatch).length) {
+            setJobDetails((prev) => ({ ...prev, ...detailsPatch }));
+        }
+        if (Object.keys(selectPatch).length) {
+            setSelectedCriteria((prev) => ({ ...prev, ...selectPatch }));
+            setErrors((prev) => {
+                const n = { ...prev };
+                Object.keys(selectPatch).forEach((k) => delete n[k]);
+                delete n.general;
+                return n;
+            });
+        }
+        return filled;
+    };
+
+    /** رفع ملف السيرة الذاتية → استخراج الحقول عبر الـ backend → تعبئة النموذج. */
+    const handleCvFileSelected = async (event) => {
+        const file = event?.target?.files?.[0];
+        if (event?.target) event.target.value = ''; // اسمح بإعادة اختيار نفس الملف
+        if (!file) return;
+
+        setCvParseError('');
+        setCvFilledCount(0);
+        setCvDetectedPosition('');
+        setCvParsing(true);
+        try {
+            const formData = new FormData();
+            formData.append('cv', file);
+            const res = await apiClient.postForm('/api/cv/parse', formData);
+            if (!res?.ok || !res.fields) {
+                throw new Error(res?.message || 'parse_failed');
+            }
+            setCvFilledCount(applyCvExtractedFields(res.fields));
+        } catch (err) {
+            setCvParseError(
+                err?.data?.message || err?.message || t('newCampaign_cvUpload_error')
+            );
+        } finally {
+            setCvParsing(false);
         }
     };
 
@@ -2019,6 +2123,81 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                             <p style={{ margin: '0 0 16px', fontSize: '13px', color: NT.meta, lineHeight: 1.6 }}>
                                 {t('newCampaign_audioGeneralHint')}
                             </p>
+                        )}
+                        {/* CV auto-fill — Specific audio/video only: رفع سيرة ذاتية لتعبئة الحقول */}
+                        {isSpecificAudioOrVideo && (
+                            <div style={{ marginBottom: '18px' }}>
+                                <input
+                                    ref={cvFileInputRef}
+                                    type="file"
+                                    accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                                    onChange={handleCvFileSelected}
+                                    style={{ display: 'none' }}
+                                />
+                                <button
+                                    type="button"
+                                    className="ni-cv-upload-btn"
+                                    onClick={() => cvFileInputRef.current?.click()}
+                                    disabled={cvParsing}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '10px 16px',
+                                        borderRadius: NT.radius,
+                                        border: '1px solid rgba(34, 211, 238, 0.45)',
+                                        background: 'rgba(34, 211, 238, 0.10)',
+                                        color: NT.inputText,
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        cursor: cvParsing ? 'not-allowed' : 'pointer',
+                                        opacity: cvParsing ? 0.7 : 1,
+                                    }}
+                                >
+                                    <span style={{ fontSize: '16px' }}>{cvParsing ? '⏳' : '📄'}</span>
+                                    {cvParsing
+                                        ? t('newCampaign_cvUpload_parsing')
+                                        : t('newCampaign_cvUpload_button')}
+                                </button>
+                                <p style={{ margin: '8px 0 0', fontSize: '12px', color: NT.meta, lineHeight: 1.6 }}>
+                                    {t('newCampaign_cvUpload_hint')}
+                                </p>
+                                {cvParseError && (
+                                    <div
+                                        className="ni-feedback-banner ni-feedback-banner--error"
+                                        style={{
+                                            marginTop: '10px',
+                                            padding: '10px 14px',
+                                            background: NT.itemBg,
+                                            border: '1px solid rgba(239, 68, 68, 0.4)',
+                                            borderRadius: NT.radius,
+                                        }}
+                                    >
+                                        <span style={{ color: '#EF4444', fontSize: '12px', fontWeight: 600 }}>
+                                            {cvParseError}
+                                        </span>
+                                    </div>
+                                )}
+                                {!cvParseError && cvFilledCount > 0 && (
+                                    <div
+                                        className="ni-feedback-banner ni-feedback-banner--success"
+                                        style={{
+                                            marginTop: '10px',
+                                            padding: '10px 14px',
+                                            background: NT.itemBg,
+                                            border: '1px solid rgba(34, 197, 94, 0.4)',
+                                            borderRadius: NT.radius,
+                                        }}
+                                    >
+                                        <span style={{ color: '#22C55E', fontSize: '12px', fontWeight: 600 }}>
+                                            {t('newCampaign_cvUpload_success')}
+                                            {cvDetectedPosition
+                                                ? ` — ${t('newCampaign_ac_position_applied_for_label')}: ${cvDetectedPosition}`
+                                                : ''}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         )}
                         {/* Criteria List - Compact Grid Layout */}
                         <div
