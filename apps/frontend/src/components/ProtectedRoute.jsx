@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { userNeedsOnboarding } from '../services/authService';
 
 /**
  * Guard wrapper for pages that require an authenticated session.
@@ -44,8 +45,7 @@ const ProtectedRoute = ({ children }) => {
 
     // أول تسجيل دخول: بروفايل غير مكتمل أو بدون وصف شركة → صفحة Onboarding.
     // مقارنات صارمة (=== false / === '') حتى لا نزعج جلسات قديمة لا تحمل الحقول.
-    const needsOnboarding =
-        user?.profileComplete === false || user?.companyDescription === '';
+    const needsOnboarding = userNeedsOnboarding(user);
     if (needsOnboarding && location.pathname !== '/onboarding') {
         return <Navigate to="/onboarding" replace />;
     }

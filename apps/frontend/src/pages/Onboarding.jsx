@@ -12,6 +12,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getMyProfile, updateMyProfile } from '../services/profileService';
+import authService, { userNeedsOnboarding } from '../services/authService';
 import './onboarding-page.css';
 
 const Onboarding = () => {
@@ -49,7 +50,9 @@ const Onboarding = () => {
                 setCompany(profile.companyName || user?.companyName || '');
                 setCompanyDescription(profile.companyDescription || '');
                 setEmail(profile.email || user?.email || '');
-                if (profile.profileComplete && (profile.companyDescription || '').trim()) {
+                refreshSession();
+                const syncedUser = authService.getCurrentSession()?.user;
+                if (syncedUser && !userNeedsOnboarding(syncedUser)) {
                     navigate('/dashboard', { replace: true });
                 }
             } catch {

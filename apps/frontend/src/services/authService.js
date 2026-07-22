@@ -104,6 +104,45 @@ export function computeProfileComplete({ fullName, companyName, email } = {}) {
     return Boolean(mail && name.length >= 2 && company.length >= 2);
 }
 
+/** Gate used by ProtectedRoute + Onboarding — must stay in sync. */
+export function userNeedsOnboarding(user) {
+    if (!user) return false;
+    if (user.profileComplete === false) return true;
+    if (!String(user.companyDescription ?? '').trim()) return true;
+    return false;
+}
+
+/** Overlay Mongo/API profile fields saved via applyProfileToSession onto a Clerk-built session. */
+function mergeStoredProfileOverlay(session) {
+    if (!session?.user?.id) return session;
+    const stored = authStorage.getSession();
+    if (!stored?.user?.id || stored.user.id !== session.user.id) return session;
+
+    const su = stored.user;
+    const u = session.user;
+    const name = String(su.name ?? '').trim() || u.name;
+    const companyName = String(su.companyName ?? '').trim() || u.companyName;
+    const companyDescription = String(su.companyDescription ?? u.companyDescription ?? '').trim();
+    const email = String(su.email ?? '').trim() || u.email;
+    const profileComplete =
+        su.profileComplete === true ||
+        computeProfileComplete({ fullName: name, companyName, email });
+    const imageUrl = String(su.imageUrl ?? '').trim() || u.imageUrl;
+
+    return {
+        ...session,
+        user: {
+            ...u,
+            name,
+            companyName,
+            companyDescription,
+            email,
+            profileComplete,
+            imageUrl,
+        },
+    };
+}
+
 function clerkSessionToSession(clerk, { remember = true } = {}) {
     const session = clerk.session;
     const user = clerk.user;
@@ -137,8 +176,9 @@ function clerkSessionToSession(clerk, { remember = true } = {}) {
         expiresAt,
         loggedInAt: session.lastActiveAt ? new Date(session.lastActiveAt).getTime() : Date.now(),
     };
-    persistSession(out, { remember });
-    return out;
+    const merged = mergeStoredProfileOverlay(out);
+    persistSession(merged, { remember });
+    return merged;
 }
 
 // ─── Mock plumbing (fallback) ─────────────────────────────────────────────────
@@ -480,4 +520,5 @@ export default {
     refreshCurrentUser,
     computeProfileComplete,
     applyProfileToSession,
+    userNeedsOnboarding,
 };
