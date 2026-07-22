@@ -272,7 +272,17 @@ const Reception = () => {
 
         let cancelled = false;
         navigator.mediaDevices
-            .getUserMedia({ audio: { channelCount: 1, sampleRate: CAPTURE_SAMPLE_RATE } })
+            // Do NOT force a hard `sampleRate`: many mics are locked to 44100/48000 Hz
+            // and reject an exact 16 kHz request with NotReadableError ("Could not
+            // start audio source"). The 16 kHz AudioContext below resamples the mic.
+            .getUserMedia({
+                audio: {
+                    channelCount: { ideal: 1 },
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                },
+            })
             .then(async (stream) => {
                 if (cancelled) {
                     stream.getTracks().forEach((t) => t.stop());

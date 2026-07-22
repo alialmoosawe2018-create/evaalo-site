@@ -311,7 +311,19 @@ export default function useVoiceInterview(options = {}) {
     // Open mic when isListening === true
     let cancelled = false;
     navigator.mediaDevices
-      .getUserMedia({ audio: { channelCount: 1, sampleRate: CAPTURE_SAMPLE_RATE } })
+      // NOTE: do NOT force a hard `sampleRate` here. Most mic hardware is locked
+      // to 44100/48000 Hz, so demanding an exact rate makes many devices throw
+      // NotReadableError "Could not start audio source" (works on some devices,
+      // fails on others). The 16 kHz AudioContext below resamples the native mic
+      // stream to CAPTURE_SAMPLE_RATE automatically, so STT still gets 16 kHz.
+      .getUserMedia({
+        audio: {
+          channelCount: { ideal: 1 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      })
       .then(async (stream) => {
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
@@ -353,7 +365,20 @@ export default function useVoiceInterview(options = {}) {
         setMicActive(true);
       })
       .catch((err) => {
-        if (!cancelled) setLastError(err?.message || 'Microphone access denied');
+        if (cancelled) return;
+        const name = err?.name || '';
+        let msg;
+        if (name === 'NotAllowedError' || name === 'SecurityError') {
+          msg = 'Microphone permission was denied. Allow the microphone and reload the page.';
+        } else if (name === 'NotReadableError' || name === 'AbortError') {
+          msg =
+            'Could not start the microphone — it may be in use by another app or browser tab. Close it and reload.';
+        } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+          msg = 'No usable microphone was found on this device.';
+        } else {
+          msg = err?.message || 'Microphone access failed';
+        }
+        setLastError(msg);
       });
 
     return () => {
