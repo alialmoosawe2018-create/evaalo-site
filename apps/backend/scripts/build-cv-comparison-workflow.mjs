@@ -211,10 +211,11 @@ Return ONLY valid JSON (no markdown fences):
 }
 
 Rules:
+- LANGUAGE: Detect the language of the "Job requirements" input and write EVERY human-readable text field ("summary", "strengths", "weaknesses", "education", "recommendation", "comparisonSummary", "finalHrReport") in that SAME language. Arabic job requirements -> write these fields in Arabic; English -> English. Do NOT translate the JSON keys, the candidate "name", numeric values, or short skill tokens (e.g. Python, SQL) — keep those unchanged.
 - Only include real CVs/resumes in "candidates". Omit any document that is not a CV (forms, invoices, blank pages, random PDFs).
 - Never invent a candidate for a non-CV file.
 - "summary" = brief match overview for the results table (max ~2 sentences).
-- "finalHrReport" = complete Final HR Report paragraph per candidate: name, personal/profile context, years of experience, education, and evidence-based hiring assessment. Write in clear professional English unless the CV is Arabic-only (then Arabic is OK).
+- "finalHrReport" = complete Final HR Report paragraph per candidate: name, personal/profile context, years of experience, education, and evidence-based hiring assessment. Write it in the SAME language as the job requirements input (see the LANGUAGE rule above).
 - Score 0-100 based on fit for the role and location.
 - Be evidence-based; support Arabic and English CVs.
 - Do not invent facts not in the CV text.
