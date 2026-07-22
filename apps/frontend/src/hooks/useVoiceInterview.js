@@ -606,14 +606,27 @@ export default function useVoiceInterview(options = {}) {
             if (player?.getAudioElement) {
               try {
                 const audioEl = player.getAudioElement();
-                const agentCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const agentSrc = agentCtx.createMediaElementSource(audioEl);
-                const agentAnalyser = agentCtx.createAnalyser();
-                agentAnalyser.fftSize = 256;
-                agentAnalyser.smoothingTimeConstant = 0.8;
-                agentSrc.connect(agentAnalyser);
-                agentAnalyser.connect(agentCtx.destination);
-                agentAnalyserRef.current = { ctx: agentCtx, analyser: agentAnalyser };
+                const AC = window.AudioContext || window.webkitAudioContext;
+                const agentCtx = new AC();
+                // Mobile browsers start the AudioContext "suspended"; try to wake it.
+                agentCtx.resume?.().catch(() => {});
+                // CRITICAL (mobile audio): createMediaElementSource reroutes the
+                // <audio> element's output INTO the Web Audio graph. If the context
+                // is suspended (mobile autoplay policy), that graph outputs NO sound
+                // → the agent voice is silent (exactly the "ماكو صوت" report). Only
+                // reroute for the visualizer when the context is actually running;
+                // otherwise leave the element playing straight to the speakers.
+                if (agentCtx.state === 'running') {
+                  const agentSrc = agentCtx.createMediaElementSource(audioEl);
+                  const agentAnalyser = agentCtx.createAnalyser();
+                  agentAnalyser.fftSize = 256;
+                  agentAnalyser.smoothingTimeConstant = 0.8;
+                  agentSrc.connect(agentAnalyser);
+                  agentAnalyser.connect(agentCtx.destination);
+                  agentAnalyserRef.current = { ctx: agentCtx, analyser: agentAnalyser };
+                } else {
+                  agentCtx.close?.().catch(() => {});
+                }
               } catch (_) {}
             }
             if (player && audioChunkBufferRef.current.length > 0) {

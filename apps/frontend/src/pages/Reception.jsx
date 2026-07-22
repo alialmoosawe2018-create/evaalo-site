@@ -525,14 +525,23 @@ const Reception = () => {
                         if (player?.getAudioElement) {
                             try {
                                 const audioEl = player.getAudioElement();
-                                const agentCtx = new (window.AudioContext || window.webkitAudioContext)();
-                                const agentSrc = agentCtx.createMediaElementSource(audioEl);
-                                const agentAnalyser = agentCtx.createAnalyser();
-                                agentAnalyser.fftSize = 256;
-                                agentAnalyser.smoothingTimeConstant = 0.8;
-                                agentSrc.connect(agentAnalyser);
-                                agentAnalyser.connect(agentCtx.destination);
-                                agentAnalyserRef.current = { ctx: agentCtx, analyser: agentAnalyser };
+                                const AC = window.AudioContext || window.webkitAudioContext;
+                                const agentCtx = new AC();
+                                agentCtx.resume?.().catch(() => {});
+                                // Mobile: only reroute the element through Web Audio for
+                                // the visualizer when the context is running; a suspended
+                                // context would trap the output and silence the agent.
+                                if (agentCtx.state === 'running') {
+                                    const agentSrc = agentCtx.createMediaElementSource(audioEl);
+                                    const agentAnalyser = agentCtx.createAnalyser();
+                                    agentAnalyser.fftSize = 256;
+                                    agentAnalyser.smoothingTimeConstant = 0.8;
+                                    agentSrc.connect(agentAnalyser);
+                                    agentAnalyser.connect(agentCtx.destination);
+                                    agentAnalyserRef.current = { ctx: agentCtx, analyser: agentAnalyser };
+                                } else {
+                                    agentCtx.close?.().catch(() => {});
+                                }
                             } catch (_) {}
                         }
                         if (player && audioChunkBufferRef.current.length > 0) {
