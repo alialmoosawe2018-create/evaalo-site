@@ -42,6 +42,67 @@ const upload = multer({
     limits: { fileSize: 6 * 1024 * 1024 },
 });
 
+/**
+ * GET /api/public/interview-candidate?candidateId=&campaignId=
+ *
+ * Public (unauthenticated) DISPLAY lookup for the interview page. Returns ONLY
+ * the candidate's name + applied position, and ONLY when the (candidateId +
+ * campaignId) pair matches a real campaign–candidate association. That pair is
+ * the capability — both ids live in the shared interview link. It is NOT
+ * org-scoped, so the candidate (no session) and any recruiter can load their
+ * display name. No email/phone/scores/PII are ever returned.
+ */
+router.get('/interview-candidate', async (req: Request, res: Response) => {
+    try {
+        const candidateId = String(req.query.candidateId || '').trim();
+        const campaignId = String(req.query.campaignId || '').trim();
+        if (!campaignId) {
+            return res.status(400).json({ success: false, error: 'Missing campaignId' });
+        }
+        if (!mongoose.Types.ObjectId.isValid(candidateId) || candidateId.length !== 24) {
+            return res.status(400).json({ success: false, error: 'Invalid candidateId' });
+        }
+
+        const safe = (
+            person: { _id: unknown; full_name?: string; position_applied_for?: string },
+            applicationId?: string,
+        ) => ({
+            success: true,
+            data: {
+                candidateId: String(person._id),
+                applicationId: applicationId || undefined,
+                full_name: person.full_name || '',
+                position_applied_for: person.position_applied_for || '',
+            },
+        });
+
+        // 1) candidateId is a Candidate _id belonging to this campaign.
+        const person = await Candidate.findOne({ _id: candidateId, campaignId }).lean();
+        if (person) {
+            return res.json(safe(person as Record<string, unknown> as never));
+        }
+
+        // 2) candidateId is a CandidateApplication _id for this campaign → resolve person.
+        const app = await CandidateApplication.findOne({
+            _id: candidateId,
+            campaignId,
+            deletedAt: null,
+        }).lean();
+        if (app) {
+            const p = await Candidate.findById((app as { candidateId?: unknown }).candidateId).lean();
+            if (p) return res.json(safe(p as Record<string, unknown> as never, candidateId));
+        }
+
+        return res.status(404).json({ success: false, error: 'Candidate not found' });
+    } catch (error) {
+        console.error(
+            'Error in public interview-candidate lookup:',
+            error instanceof Error ? error.message : error,
+        );
+        return res.status(500).json({ success: false, error: 'Failed to load candidate' });
+    }
+});
+
 /** GET /api/public/campaigns/:pubToken/form-config */
 router.get('/campaigns/:pubToken/form-config', async (req: Request, res: Response) => {
     try {

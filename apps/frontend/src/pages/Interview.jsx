@@ -53,11 +53,12 @@ const Interview = () => {
       setLoadingCandidate(false);
       return;
     }
-    // Candidate details are org-scoped (recruiter-only). Public candidates
-    // opening the shared link have no session, so this fetch would just 403/404
-    // noise — skip it. The interview only needs candidateIdParam, which is
-    // already the default resolvedPersonId, so starting the call is unaffected.
-    if (!isAuthenticated) {
+    // Display name/position come from a PUBLIC, campaign-authorized lookup — the
+    // (candidateId + campaignId) pair from the link is the capability — so it
+    // works for the candidate (no session) AND any recruiter regardless of org,
+    // and returns only safe display fields. It's best-effort: if it fails, the
+    // interview still starts from candidateIdParam (no error surfaced).
+    if (!campaignId) {
       setLoadingCandidate(false);
       return;
     }
@@ -65,23 +66,23 @@ const Interview = () => {
     setLoadingCandidate(true);
     setCandidateError(null);
     apiClient
-      .get(`/api/candidates/${candidateIdParam}`)
+      .get(
+        `/api/public/interview-candidate?candidateId=${encodeURIComponent(
+          candidateIdParam,
+        )}&campaignId=${encodeURIComponent(campaignId)}`,
+      )
       .then((data) => {
         if (cancelled) return;
         const row = data?.data;
-        if (!data?.success || !row) {
-          setCandidateError(data?.message || 'Candidate not found');
-          setCandidate(null);
-          return;
-        }
+        if (!data?.success || !row) return;
         setCandidate(row);
-        const personId = row.candidateId ? String(row.candidateId) : String(row._id || candidateIdParam);
+        const personId = row.candidateId ? String(row.candidateId) : String(candidateIdParam);
         setResolvedPersonId(personId);
         if (row.applicationId) setResolvedApplicationId(String(row.applicationId));
         else if (applicationIdFromUrl) setResolvedApplicationId(applicationIdFromUrl);
       })
-      .catch((err) => {
-        if (!cancelled) setCandidateError(err?.message || 'Failed to load candidate');
+      .catch(() => {
+        /* best-effort display only — interview proceeds with candidateIdParam */
       })
       .finally(() => {
         if (!cancelled) setLoadingCandidate(false);
@@ -89,7 +90,7 @@ const Interview = () => {
     return () => {
       cancelled = true;
     };
-  }, [candidateIdParam, applicationIdFromUrl, isAuthenticated]);
+  }, [candidateIdParam, campaignId, applicationIdFromUrl]);
 
   const displayName = candidate
     ? ((candidate.full_name || candidate.fullName) || '').trim() || candidate.email?.split('@')[0] || 'Candidate'
