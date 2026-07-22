@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import apiClient from '../services/apiClient';
+import './org-chart-import-modal.css';
 
 /**
  * Import an org chart from a file (PDF/Word/Excel/CSV).
@@ -40,10 +41,15 @@ function TreeLines({ nodes, depth = 0 }) {
         <>
             {nodes.map((node, i) => (
                 <div key={node.id || i}>
-                    <div style={{ paddingInlineStart: depth * 16, fontSize: 13, color: '#E2E8F0', lineHeight: 1.9 }}>
+                    <div
+                        className="org-chart-import-modal__tree-line"
+                        style={{ '--oci-tree-depth': depth }}
+                    >
                         {depth > 0 ? '└ ' : ''}
                         <strong>{node.name || '—'}</strong>
-                        {node.position ? <span style={{ color: '#94A3B8' }}> · {node.position}</span> : null}
+                        {node.position ? (
+                            <span className="org-chart-import-modal__tree-role"> · {node.position}</span>
+                        ) : null}
                     </div>
                     <TreeLines nodes={node.subordinates} depth={depth + 1} />
                 </div>
@@ -141,139 +147,144 @@ export default function OrgChartImportModal({ open, onClose, onApply, t }) {
         close();
     };
 
-    const overlay = {
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(2,6,23,0.72)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 3000,
-        padding: 16,
-    };
-    const panel = {
-        width: 'min(560px, 100%)',
-        maxHeight: '86vh',
-        overflowY: 'auto',
-        background: 'rgba(15,23,42,0.98)',
-        border: '1px solid rgba(34,211,238,0.35)',
-        borderRadius: 14,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-        padding: 22,
-        color: '#E2E8F0',
-    };
-    const btn = (variant) => ({
-        padding: '9px 16px',
-        borderRadius: 8,
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: busy ? 'not-allowed' : 'pointer',
-        border: variant === 'ghost' ? '1px solid rgba(148,163,184,0.4)' : '1px solid rgba(34,211,238,0.5)',
-        background: variant === 'primary' ? 'rgba(34,211,238,0.16)' : 'transparent',
-        color: '#E2E8F0',
-        opacity: busy ? 0.6 : 1,
-    });
-    const selectStyle = {
-        width: '100%',
-        padding: '8px 10px',
-        borderRadius: 8,
-        background: 'rgba(2,6,23,0.9)',
-        color: '#E2E8F0',
-        border: '1px solid rgba(56,189,248,0.4)',
-        marginTop: 4,
-    };
-
     return (
-        <div style={overlay} onClick={close}>
-            <div style={panel} onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                    <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#fff' }}>{t('orgImport_title')}</h3>
-                    <button type="button" onClick={close} style={{ ...btn('ghost'), padding: '4px 10px' }}>✕</button>
+        <div className="org-chart-import-modal__overlay" onClick={close} role="presentation">
+            <div
+                className="org-chart-import-modal__panel"
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="org-chart-import-modal-title"
+            >
+                <div className="org-chart-import-modal__header">
+                    <h3 id="org-chart-import-modal-title" className="org-chart-import-modal__title">
+                        {t('orgImport_title')}
+                    </h3>
+                    <button type="button" className="org-chart-import-modal__close" onClick={close} aria-label="Close">
+                        ✕
+                    </button>
                 </div>
 
                 {error ? (
-                    <div style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', color: '#FCA5A5', fontSize: 12, marginBottom: 12 }}>
+                    <div className="org-chart-import-modal__error" role="alert">
                         {error}
                     </div>
                 ) : null}
 
                 {step === 'select' && (
                     <div>
-                        <p style={{ fontSize: 13, color: '#94A3B8', lineHeight: 1.7, marginTop: 0 }}>
-                            {t('orgImport_pickFile')}
-                        </p>
-                        <input ref={fileRef} type="file" accept={ACCEPT} onChange={onFileSelected} style={{ display: 'none' }} />
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
-                            <button type="button" style={btn('primary')} disabled={busy} onClick={() => fileRef.current?.click()}>
+                        <p className="org-chart-import-modal__lead">{t('orgImport_pickFile')}</p>
+                        <input ref={fileRef} type="file" accept={ACCEPT} onChange={onFileSelected} hidden />
+                        <div className="org-chart-import-modal__actions">
+                            <button
+                                type="button"
+                                className="org-chart-import-modal__btn org-chart-import-modal__btn--primary"
+                                disabled={busy}
+                                onClick={() => fileRef.current?.click()}
+                            >
                                 {busy ? t('orgImport_parsing') : `📄 ${t('orgImport_title')}`}
                             </button>
-                            <button type="button" style={btn('ghost')} disabled={busy} onClick={downloadTemplate}>
+                            <button
+                                type="button"
+                                className="org-chart-import-modal__btn org-chart-import-modal__btn--ghost"
+                                disabled={busy}
+                                onClick={downloadTemplate}
+                            >
                                 ⬇ {t('orgImport_template')}
                             </button>
                         </div>
-                        <p style={{ fontSize: 11, color: '#64748B', marginTop: 12, lineHeight: 1.6 }}>
-                            {t('orgImport_reviewNote')}
-                        </p>
+                        <p className="org-chart-import-modal__hint">{t('orgImport_reviewNote')}</p>
                     </div>
                 )}
 
                 {step === 'columns' && (
                     <div>
-                        <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 0 }}>{t('orgImport_mapTitle')}</p>
+                        <p className="org-chart-import-modal__lead">{t('orgImport_mapTitle')}</p>
                         {[
                             ['name', t('orgImport_colName'), true],
                             ['department', t('orgImport_colDepartment'), false],
                             ['title', t('orgImport_colTitle'), false],
                             ['manager', t('orgImport_colManager'), false],
                         ].map(([key, label, required]) => (
-                            <label key={key} style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 10 }}>
-                                {label}{required ? ' *' : ''}
+                            <label key={key} className="org-chart-import-modal__field">
+                                {label}
+                                {required ? ' *' : ''}
                                 <select
+                                    className="org-chart-import-modal__select"
                                     value={mapping[key]}
                                     onChange={(e) => setMapping((m) => ({ ...m, [key]: e.target.value }))}
-                                    style={selectStyle}
                                 >
                                     <option value="">{t('orgImport_colNone')}</option>
                                     {columns.map((c) => (
-                                        <option key={c} value={c}>{c}</option>
+                                        <option key={c} value={c}>
+                                            {c}
+                                        </option>
                                     ))}
                                 </select>
                             </label>
                         ))}
-                        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                            <button type="button" style={btn('primary')} disabled={busy} onClick={onConfirmColumns}>
+                        <div className="org-chart-import-modal__actions">
+                            <button
+                                type="button"
+                                className="org-chart-import-modal__btn org-chart-import-modal__btn--primary"
+                                disabled={busy}
+                                onClick={onConfirmColumns}
+                            >
                                 {busy ? t('orgImport_parsing') : t('orgImport_continue')}
                             </button>
-                            <button type="button" style={btn('ghost')} disabled={busy} onClick={() => setStep('select')}>✕</button>
+                            <button
+                                type="button"
+                                className="org-chart-import-modal__btn org-chart-import-modal__btn--ghost"
+                                disabled={busy}
+                                onClick={() => setStep('select')}
+                            >
+                                ✕
+                            </button>
                         </div>
                     </div>
                 )}
 
                 {step === 'preview' && (
                     <div>
-                        <p style={{ fontSize: 13, color: '#22D3EE', fontWeight: 600, marginTop: 0 }}>
+                        <p className="org-chart-import-modal__preview-badge">
                             {t('orgImport_previewTitle')} — {(departments || []).length} · {peopleCount}
                         </p>
-                        <div style={{ maxHeight: 260, overflowY: 'auto', padding: 12, borderRadius: 8, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(56,189,248,0.2)' }}>
+                        <div className="org-chart-import-modal__preview-box">
                             {(departments || []).map((d) => (
                                 <div key={d.id} style={{ marginBottom: 12 }}>
-                                    <div style={{ fontWeight: 700, color: '#67E8F9', fontSize: 13, marginBottom: 4 }}>🏢 {d.name}</div>
+                                    <div className="org-chart-import-modal__dept-name">🏢 {d.name}</div>
                                     <TreeLines nodes={d.positions} />
                                 </div>
                             ))}
                             {(departments || []).length === 0 && (
-                                <div style={{ fontSize: 12, color: '#94A3B8' }}>—</div>
+                                <div className="org-chart-import-modal__empty">—</div>
                             )}
                         </div>
-                        <p style={{ fontSize: 11, color: '#64748B', margin: '10px 0' }}>{t('orgImport_reviewNote')}</p>
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            <button type="button" style={btn('primary')} disabled={!departments.length} onClick={() => apply('merge')}>
+                        <p className="org-chart-import-modal__hint">{t('orgImport_reviewNote')}</p>
+                        <div className="org-chart-import-modal__actions">
+                            <button
+                                type="button"
+                                className="org-chart-import-modal__btn org-chart-import-modal__btn--primary"
+                                disabled={!departments.length}
+                                onClick={() => apply('merge')}
+                            >
                                 {t('orgImport_merge')}
                             </button>
-                            <button type="button" style={btn('ghost')} disabled={!departments.length} onClick={() => apply('replace')}>
+                            <button
+                                type="button"
+                                className="org-chart-import-modal__btn org-chart-import-modal__btn--ghost"
+                                disabled={!departments.length}
+                                onClick={() => apply('replace')}
+                            >
                                 {t('orgImport_replace')}
                             </button>
-                            <button type="button" style={btn('ghost')} onClick={() => setStep('select')}>✕</button>
+                            <button
+                                type="button"
+                                className="org-chart-import-modal__btn org-chart-import-modal__btn--ghost"
+                                onClick={() => setStep('select')}
+                            >
+                                ✕
+                            </button>
                         </div>
                     </div>
                 )}
