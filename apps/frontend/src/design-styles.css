@@ -11711,6 +11711,10 @@ html[data-app-theme='light'] .headhunter-campaign-snapshot-meta__value--accent {
     line-height: 1.4;
     min-height: 0;
     isolation: isolate;
+    /* Lock the ribbon column to LTR geometry so the green bar + yellow triangle
+       sit in the exact same place in every language (they don't shift when the
+       UI switches to Arabic/Kurdish). */
+    direction: ltr;
 }
 
 /* شريط أخضر مائل واضح في أعلى عمود الذيل (تواصل + مشاركة) */
