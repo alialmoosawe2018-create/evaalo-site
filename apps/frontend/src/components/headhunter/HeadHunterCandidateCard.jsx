@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { stripHtmlForDisplay } from '../../utils/headHunterNormalize.js';
 import { buildHeadHunterContactChannels } from '../../utils/headHunterContactChannels.js';
 import { countRevealPieces } from '../../utils/headHunterContactReveal.js';
@@ -68,6 +68,7 @@ export default function HeadHunterCandidateCard({
     const hasAboutColumn = hasAbout || matchPct != null;
     const isTopMatch = matchPct != null && matchPct >= TOP_MATCH_THRESHOLD;
 
+    const articleRef = useRef(null);
     const [photoBroken, setPhotoBroken] = useState(false);
     const [tailDecorSettled, setTailDecorSettled] = useState(() => {
         if (typeof window === 'undefined') return true;
@@ -78,24 +79,50 @@ export default function HeadHunterCandidateCard({
         setPhotoBroken(false);
     }, [candidate.id, candidate.photo_url]);
 
-    /** Wait for grid/compositor to settle before showing ribbon pseudo-elements (avoids green/yellow flash). */
+    /**
+     * Reveal the diagonal ribbon pseudo-elements only AFTER the results grid has
+     * stopped reflowing — otherwise the rotated green bar and clipped yellow
+     * triangle paint mid-layout and appear "crossed" for a moment (the flash the
+     * user reported). Strategy: reveal once the card's size has been quiet for a
+     * short window (ResizeObserver debounce), with a baseline floor to clear the
+     * entrance animation and a hard fallback so it always reveals.
+     */
     useEffect(() => {
-        if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const reduced =
+            typeof window !== 'undefined' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduced) {
             setTailDecorSettled(true);
             return undefined;
         }
         setTailDecorSettled(false);
-        let cancelled = false;
-        let raf2 = 0;
-        const raf1 = requestAnimationFrame(() => {
-            raf2 = requestAnimationFrame(() => {
-                if (!cancelled) setTailDecorSettled(true);
-            });
-        });
+        let done = false;
+        let settleTimer = 0;
+        const reveal = () => {
+            if (done) return;
+            done = true;
+            setTailDecorSettled(true);
+        };
+        const schedule = (ms) => {
+            window.clearTimeout(settleTimer);
+            settleTimer = window.setTimeout(reveal, ms);
+        };
+        // Baseline: reveal ~260ms after mount (clears the entrance/first reflow).
+        schedule(260);
+        let ro;
+        const el = articleRef.current;
+        if (el && typeof ResizeObserver !== 'undefined') {
+            // Any resize pushes the reveal a little later, so we only show the
+            // ribbons once the layout has been stable for ~160ms.
+            ro = new ResizeObserver(() => schedule(160));
+            ro.observe(el);
+        }
+        const hardFallback = window.setTimeout(reveal, 900);
         return () => {
-            cancelled = true;
-            cancelAnimationFrame(raf1);
-            if (raf2) cancelAnimationFrame(raf2);
+            done = true;
+            window.clearTimeout(settleTimer);
+            window.clearTimeout(hardFallback);
+            if (ro) ro.disconnect();
         };
     }, [candidate.id]);
 
@@ -109,6 +136,7 @@ export default function HeadHunterCandidateCard({
 
     return (
         <article
+            ref={articleRef}
             className={`headhunter-card ${selected ? 'headhunter-card--selected' : ''}`}
             data-candidate-id={candidate.id}
         >
