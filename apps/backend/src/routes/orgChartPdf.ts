@@ -41,15 +41,26 @@ router.post('/pdf', async (req: Request, res: Response) => {
         });
         const page = await browser.newPage();
         await page.setContent(safeHtml, {
-            // cast: بعض إصدارات أنواع Puppeteer لا تُدرج networkidle0 في union الـ waitUntil
-            // رغم دعمها له وقت التشغيل — يبني في المونوريبو ويفشل standalone بدونه.
-            waitUntil: 'networkidle0' as 'load',
-            timeout: Math.min(Number(process.env.ORG_CHART_PDF_TIMEOUT_MS) || 60000, 120000),
+            waitUntil: 'load',
+            timeout: Math.min(Number(process.env.ORG_CHART_PDF_TIMEOUT_MS) || 45000, 120000),
+        });
+        // Fonts are optional — don't block PDF on Google Fonts network.
+        await page.evaluate(async () => {
+            try {
+                // `document` is a browser global inside page.evaluate; the backend
+                // tsconfig lib is ES2022 (no DOM), so reach it via globalThis to
+                // keep the build tsc-safe without changing runtime behavior.
+                await (globalThis as unknown as { document?: { fonts?: { ready?: Promise<unknown> } } })
+                    .document?.fonts?.ready;
+            } catch {
+                /* ignore */
+            }
         });
 
         const pdfBuffer = await page.pdf({
             format: 'A4',
             printBackground: true,
+            preferCSSPageSize: false,
             margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
         });
 

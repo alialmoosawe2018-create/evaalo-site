@@ -30,6 +30,7 @@ import recruitmentCampaignRoutes, {
 } from './routes/recruitmentCampaigns.js';
 import healthRoutes from './routes/health.js';
 import orgChartPdfRoutes from './routes/orgChartPdf.js';
+import orgChartRoutes from './routes/orgChart.js';
 import videoInterviewRoutes from './routes/videoInterview.js';
 import interviewBlueprintRoutes from './routes/interviewBlueprints.js';
 import receptionDemoRoutes from './routes/receptionDemo.js';
@@ -284,6 +285,7 @@ app.post('/webhook/n8n/campaign-compare/stage3', (req, res) =>
     postCampaignCompareN8nInbound(req, res, 'stage3')
 );
 app.use('/api/health', healthRoutes);
+app.use('/api/org-chart', orgChartRoutes);
 app.use('/api/org-chart', orgChartPdfRoutes);
 
 // Skeleton: GET /health يرجع "OK" فقط (للتحقق من أن السيرفر واقف)
