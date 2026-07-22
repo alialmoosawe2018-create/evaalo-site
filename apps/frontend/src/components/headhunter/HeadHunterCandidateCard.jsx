@@ -80,16 +80,11 @@ export default function HeadHunterCandidateCard({
     }, [candidate.id, candidate.photo_url]);
 
     /**
-     * Reveal the diagonal ribbon pseudo-elements only after the card layout has
-     * truly settled, otherwise the rotated green bar and clipped yellow triangle
-     * paint mid-layout and appear "crossed" for a moment (the flash).
-     *
-     * The flash is RTL-only (Arabic/Kurdish) because those languages use the
-     * async Noto Naskh Arabic web font: when it swaps in it reflows the text and
-     * the card, shifting the absolutely-positioned ribbons. English uses an
-     * already-loaded system font, so it never reflows. So we gate the reveal on
-     * BOTH `document.fonts.ready` (the RTL cause) AND layout being quiet
-     * (ResizeObserver debounce), with a hard fallback so it always reveals.
+     * Light reveal guard for the ribbon pseudo-elements. The old "crossed/mirrored"
+     * look was a structural RTL bug (fixed in CSS — RTL now matches LTR), so the
+     * heavy settle-delay is no longer needed. We keep only a small guard: wait for
+     * web fonts to load (the Arabic font swap reflows the card's green bar, which
+     * is width:185%) then reveal on the next frame. A short fallback guarantees it.
      */
     useEffect(() => {
         const reduced =
@@ -101,50 +96,26 @@ export default function HeadHunterCandidateCard({
         }
         setTailDecorSettled(false);
         let done = false;
-        let fontsReady = false;
-        let settleTimer = 0;
+        let raf = 0;
         const reveal = () => {
             if (done) return;
             done = true;
             setTailDecorSettled(true);
         };
-        // Only start counting down once the (web) fonts have loaded and reflowed.
-        const schedule = (ms) => {
-            if (!fontsReady) return;
-            window.clearTimeout(settleTimer);
-            settleTimer = window.setTimeout(reveal, ms);
-        };
-
         const fontsPromise =
             typeof document !== 'undefined' && document.fonts && document.fonts.ready
                 ? document.fonts.ready
                 : Promise.resolve();
         fontsPromise
             .then(() => {
-                fontsReady = true;
-                schedule(500);
+                raf = requestAnimationFrame(() => requestAnimationFrame(reveal));
             })
-            .catch(() => {
-                fontsReady = true;
-                schedule(500);
-            });
-
-        let ro;
-        const el = articleRef.current;
-        if (el && typeof ResizeObserver !== 'undefined') {
-            // Any post-font reflow (RTL layout / Arabic font swap) pushes the
-            // reveal ~400ms later, so the ribbon only appears once the card size
-            // has been quiet — avoids the "mirrored ribbon" seen mid-reflow in RTL.
-            ro = new ResizeObserver(() => schedule(400));
-            ro.observe(el);
-        }
-
-        const hardFallback = window.setTimeout(reveal, 2500);
+            .catch(reveal);
+        const fallback = window.setTimeout(reveal, 800);
         return () => {
             done = true;
-            window.clearTimeout(settleTimer);
-            window.clearTimeout(hardFallback);
-            if (ro) ro.disconnect();
+            if (raf) cancelAnimationFrame(raf);
+            window.clearTimeout(fallback);
         };
     }, [candidate.id]);
 
