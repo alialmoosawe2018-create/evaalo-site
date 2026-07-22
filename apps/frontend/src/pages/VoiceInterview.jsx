@@ -100,9 +100,10 @@ const VoiceInterview = () => {
         const s = String(val).trim();
         const exact = RATE[s.toLowerCase()];
         if (exact) return t(exact);
-        // "Word (3/10)" / "Word - ..." → ترجم الكلمة الأولى واحتفظ بالباقي
-        const m = s.match(/^(excellent|good|intermediate|bad)\b(.*)$/i);
-        if (m) return t(RATE[m[1].toLowerCase()]) + (m[2] || '');
+        // "Word (3/10)" / "Word - ..." → اعرض الكلمة المعرّبة فقط (بلا الدرجة)،
+        // كباقي الحقول. (الأرقام الصِرفة مثل "8/10" لا تُطابَق وتبقى كما هي.)
+        const m = s.match(/^(excellent|good|intermediate|bad)\b/i);
+        if (m) return t(RATE[m[1].toLowerCase()]);
         return val;
     };
 
