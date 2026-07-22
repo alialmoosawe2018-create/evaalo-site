@@ -5121,6 +5121,160 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     overflow-y: auto;
 }
 
+/* CV auto-fill — بطاقة رفع السيرة الذاتية (New Interview sidebar) */
+.new-interview-modal .ni-cv-upload__input {
+    display: none;
+}
+
+.new-interview-modal .ni-cv-upload-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1.5px dashed rgba(56, 189, 248, 0.38);
+    background: linear-gradient(
+        180deg,
+        rgba(30, 41, 59, 0.55) 0%,
+        rgba(15, 23, 42, 0.72) 100%
+    );
+    color: #e2e8f0;
+    text-align: start;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition:
+        border-color 220ms ease,
+        background 220ms ease,
+        box-shadow 220ms ease,
+        transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.new-interview-modal .ni-cv-upload-btn:hover:not(:disabled) {
+    border-color: rgba(56, 189, 248, 0.72);
+    border-style: solid;
+    background: linear-gradient(
+        180deg,
+        rgba(30, 41, 59, 0.72) 0%,
+        rgba(15, 23, 42, 0.88) 100%
+    );
+    box-shadow:
+        0 4px 18px -8px rgba(56, 189, 248, 0.45),
+        inset 0 0 0 1px rgba(56, 189, 248, 0.12);
+    transform: translateY(-1px);
+}
+
+.new-interview-modal .ni-cv-upload-btn:focus-visible {
+    outline: none;
+    border-color: rgba(56, 189, 248, 0.85);
+    border-style: solid;
+    box-shadow:
+        0 0 0 3px rgba(56, 189, 248, 0.22),
+        0 4px 18px -8px rgba(56, 189, 248, 0.35);
+}
+
+.new-interview-modal .ni-cv-upload-btn:disabled {
+    opacity: 0.72;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.new-interview-modal .ni-cv-upload-btn--success:not(:disabled) {
+    border-color: rgba(34, 197, 94, 0.55);
+    border-style: solid;
+    background: linear-gradient(
+        180deg,
+        rgba(20, 83, 45, 0.22) 0%,
+        rgba(15, 23, 42, 0.78) 100%
+    );
+}
+
+.new-interview-modal .ni-cv-upload-btn--success .ni-cv-upload-btn__icon-wrap {
+    background: linear-gradient(135deg, #22c55e 0%, #14b8a6 100%);
+    box-shadow: 0 4px 14px -6px rgba(34, 197, 94, 0.55);
+}
+
+.new-interview-modal .ni-cv-upload-btn__icon-wrap {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #38bdf8 0%, #06b6d4 100%);
+    box-shadow: 0 4px 14px -6px rgba(56, 189, 248, 0.55);
+    color: #ffffff;
+}
+
+.new-interview-modal .ni-cv-upload-btn__doc-icon,
+.new-interview-modal .ni-cv-upload-btn__spinner {
+    width: 22px;
+    height: 22px;
+}
+
+.new-interview-modal .ni-cv-upload-btn__spinner {
+    animation: ni-cv-upload-spin 0.85s linear infinite;
+}
+
+@keyframes ni-cv-upload-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.new-interview-modal .ni-cv-upload-btn__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.new-interview-modal .ni-cv-upload-btn__title {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #f8fafc;
+}
+
+.new-interview-modal .ni-cv-upload-btn__hint {
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 1.45;
+    color: rgba(148, 163, 184, 0.95);
+}
+
+.new-interview-modal .ni-cv-upload-btn__action {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    color: rgba(125, 211, 252, 0.95);
+    transition: background 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+
+.new-interview-modal .ni-cv-upload-btn__action svg {
+    width: 18px;
+    height: 18px;
+}
+
+.new-interview-modal .ni-cv-upload-btn:hover:not(:disabled) .ni-cv-upload-btn__action {
+    background: rgba(56, 189, 248, 0.22);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #ffffff;
+}
+
+body.rtl-text .new-interview-modal .ni-cv-upload-btn__action svg,
+[dir='rtl'] .new-interview-modal .ni-cv-upload-btn__action svg {
+    transform: scaleX(-1);
+}
+
 .new-interview-modal .ni-direct-video-panel {
     background: rgba(15, 23, 42, 0.72);
     border: 1px solid rgba(34, 211, 238, 0.25);
@@ -6119,17 +6273,20 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
 
     .voice-interview-prep__actions {
         margin-top: auto;
-        padding-top: 8px;
+        padding-top: 12px;
+        width: 100%;
     }
 
     .voice-interview-prep__continue {
-        width: auto;
-        max-width: min(280px, 78vw);
-        min-height: 42px;
-        padding: 10px 22px;
-        font-size: 0.92rem;
-        gap: 8px;
+        width: 100%;
+        max-width: none;
+        min-height: 52px;
+        padding: 16px 24px;
+        font-size: 1.08rem;
+        gap: 10px;
         border-radius: 12px;
+        box-sizing: border-box;
+        touch-action: manipulation;
     }
 }
 
@@ -10149,6 +10306,88 @@ body.rtl-text .recent-interviews-card .dashboard-card-title {
     margin-top: 16px;
 }
 
+/* Live video interview — End Interview control (VideoInterviewCall + ReceptionDemoCall) */
+.vi-interview-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: 16px;
+    margin-top: 30px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 0 4px;
+}
+
+.vi-end-interview-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    min-height: 52px;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.3;
+    text-align: center;
+    white-space: normal;
+    word-break: break-word;
+    hyphens: auto;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.vi-end-interview-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(239, 68, 68, 0.5);
+}
+
+.vi-end-interview-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.vi-end-interview-btn:disabled {
+    background: linear-gradient(135deg, #64748b, #475569);
+    cursor: not-allowed;
+    opacity: 0.75;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 639px) {
+    .vi-interview-controls {
+        margin-top: 20px;
+        padding: 0 8px max(8px, env(safe-area-inset-bottom));
+    }
+
+    .vi-end-interview-btn {
+        min-height: 48px;
+        padding: 12px 14px;
+        font-size: 14px;
+        border-radius: 10px;
+    }
+}
+
+@media (min-width: 640px) {
+    .vi-end-interview-btn {
+        width: auto;
+        min-width: 220px;
+        max-width: 420px;
+        padding: 16px 32px;
+        font-size: 18px;
+    }
+}
+
 /* Head Hunter campaign history — staggered list entrance */
 @keyframes headhunter-campaign-history-row-enter {
     from {
@@ -11471,6 +11710,7 @@ html[data-app-theme='light'] .headhunter-campaign-snapshot-meta__value--accent {
     font-size: 0.8rem;
     line-height: 1.4;
     min-height: 0;
+    isolation: isolate;
 }
 
 /* شريط أخضر مائل واضح في أعلى عمود الذيل (تواصل + مشاركة) */
@@ -11484,13 +11724,21 @@ html[data-app-theme='light'] .headhunter-campaign-snapshot-meta__value--accent {
     height: 28px;
     background: linear-gradient(260deg, #047857 0%, #10b981 40%, #34d399 75%, #059669 100%);
     /* ميل من اليسار — نرفع الشريط قليلاً بعيداً عن أيقونات التواصل */
-    transform: rotate(30deg) translateY(-22px);
+    transform: rotate(30deg) translateY(-22px) translateZ(0);
     transform-origin: left top;
     z-index: 2;
     pointer-events: none;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    opacity: 0;
     box-shadow:
         0 3px 10px rgba(5, 150, 105, 0.55),
         0 0 0 1px rgba(16, 185, 129, 0.35);
+}
+
+.ai-head-hunter-page .headhunter-card__tail--decor-settled::before {
+    opacity: 1;
+    transition: opacity 0.12s ease;
 }
 
 /*
@@ -11506,8 +11754,16 @@ html[data-app-theme='light'] .headhunter-campaign-snapshot-meta__value--accent {
     z-index: 5;
     pointer-events: none;
     box-sizing: border-box;
-    transform: rotate(30deg) translateY(-22px);
+    transform: rotate(30deg) translateY(-22px) translateZ(0);
     transform-origin: left top;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    opacity: 0;
+}
+
+.ai-head-hunter-page .headhunter-card__tail--decor-settled .headhunter-card__top-badge {
+    opacity: 1;
+    transition: opacity 0.12s ease;
 }
 
 .ai-head-hunter-page .headhunter-card__top-badge-text {
@@ -12108,9 +12364,18 @@ html[data-app-theme='light'] .ai-head-hunter-page .headhunter-card__video-popove
     pointer-events: none;
     background: linear-gradient(155deg, #fef3c7 0%, #fcd34d 38%, #f59e0b 72%, #b45309 100%);
     clip-path: polygon(100% 0, 100% calc(100% + 10px), 0 0);
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    opacity: 0;
     box-shadow:
         inset -2px 2px 10px rgba(255, 255, 255, 0.65),
         inset 1px -4px 12px rgba(120, 53, 15, 0.28);
+}
+
+.ai-head-hunter-page .headhunter-card__tail--contact-locked.headhunter-card__tail--decor-settled::after {
+    opacity: 1;
+    transition: opacity 0.12s ease;
 }
 
 .ai-head-hunter-page .headhunter-card__tail--contact-locked:has(.headhunter-reveal-lock--corner:hover:not(:disabled))::after {
@@ -12135,7 +12400,23 @@ html[data-app-theme='light'] .ai-head-hunter-page .headhunter-card__video-popove
     display: flex;
     align-items: flex-start;
     justify-content: flex-end;
-    transition: transform 0.18s ease;
+    transform: translateZ(0);
+    opacity: 0;
+    transition: transform 0.18s ease, opacity 0.12s ease;
+}
+
+.ai-head-hunter-page .headhunter-card__tail--decor-settled .headhunter-reveal-lock--corner {
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ai-head-hunter-page .headhunter-card__tail::before,
+    .ai-head-hunter-page .headhunter-card__tail--contact-locked::after,
+    .ai-head-hunter-page .headhunter-card__top-badge,
+    .ai-head-hunter-page .headhunter-reveal-lock--corner {
+        opacity: 1 !important;
+        transition: none !important;
+    }
 }
 
 .ai-head-hunter-page .headhunter-reveal-lock--corner:hover:not(:disabled) {
@@ -17434,9 +17715,9 @@ html[data-app-theme='light'] .account-dashboard-page .account-next-invoice__date
 }
 
 html[data-app-theme='light'] .account-dashboard-page .account-next-invoice__days {
-    color: #0369a1 !important;
-    background: rgba(14, 165, 233, 0.1) !important;
-    border-color: rgba(14, 165, 233, 0.24) !important;
+    color: #4338ca !important;
+    background: rgba(99, 102, 241, 0.1) !important;
+    border-color: rgba(99, 102, 241, 0.22) !important;
 }
 
 .account-dashboard-page .account-credits-card.dashboard-card {
@@ -20973,6 +21254,50 @@ html[data-app-theme='light'] .new-interview-modal .ni-campaign-option-row__title
 
 html[data-app-theme='light'] .new-interview-modal .ni-campaign-option-row__desc {
     color: var(--app-text-muted) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-cv-upload-btn {
+    background: #ffffff !important;
+    border-color: rgba(99, 102, 241, 0.32) !important;
+    color: var(--app-text) !important;
+    box-shadow: 0 2px 10px rgba(99, 102, 241, 0.06) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-cv-upload-btn:hover:not(:disabled) {
+    border-color: rgba(99, 102, 241, 0.52) !important;
+    background: #ffffff !important;
+    box-shadow:
+        0 4px 16px rgba(99, 102, 241, 0.1),
+        inset 0 0 0 1px rgba(99, 102, 241, 0.08) !important;
+    transform: none !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-cv-upload-btn__title {
+    color: var(--app-text) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-cv-upload-btn__hint {
+    color: var(--app-text-muted) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-cv-upload-btn__icon-wrap {
+    background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%) !important;
+    box-shadow: 0 4px 12px -4px rgba(99, 102, 241, 0.45) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-cv-upload-btn__action {
+    background: rgba(99, 102, 241, 0.08) !important;
+    border-color: rgba(99, 102, 241, 0.22) !important;
+    color: #6366f1 !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-cv-upload-btn--success:not(:disabled) {
+    border-color: rgba(34, 197, 94, 0.45) !important;
+    background: rgba(240, 253, 244, 0.85) !important;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-cv-upload-btn--success .ni-cv-upload-btn__icon-wrap {
+    background: linear-gradient(135deg, #22c55e 0%, #14b8a6 100%) !important;
 }
 
 html[data-app-theme='light'] .new-interview-modal .ni-campaign-option-chevron {

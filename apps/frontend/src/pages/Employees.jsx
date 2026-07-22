@@ -17,6 +17,8 @@ import {
 } from '../utils/chartCandidatePool.js';
 import { candidatePhotoUrl } from '../utils/candidateAssets.jsx';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
+import apiClient from '../services/apiClient';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const ORG_CHART_KEY = 'evaalo-org-chart';
@@ -40,32 +42,200 @@ const saveOrgChart = (structure) => {
     } catch (_) {}
 };
 
-/** مستند HTML كامل لتوليد PDF على السيرفر (Chromium) — خطوط عربية من Google + عدم كسر الإنجليزي داخل .org-chart-pdf-ar-ltr */
-function buildOrgChartServerPdfHtml(exportRootEl) {
+/** Styles bundled into server PDF + html2canvas clone (scoped to #evaalo-org-chart-export, theme-aware). */
+const ORG_CHART_PDF_EXPORT_BASE_CSS = `
+*,*::before,*::after{box-sizing:border-box;}
+html,body{margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+body{padding:28px 20px;display:flex;flex-direction:column;align-items:center;min-height:100vh;}
+#evaalo-org-chart-export{display:inline-flex;flex-direction:column;align-items:center;transform:none!important;transition:none!important;}
+#evaalo-org-chart-export [data-org-pdf-hide]{display:none!important;}
+#evaalo-org-chart-export .org-chart-pdf-ar,
+#evaalo-org-chart-export .org-chart-pdf-ar-rtl{font-family:'Cairo','Noto Sans Arabic',system-ui,sans-serif;direction:rtl;unicode-bidi:isolate;}
+#evaalo-org-chart-export .org-chart-pdf-ar-ltr{font-family:system-ui,'Segoe UI',sans-serif;direction:ltr!important;unicode-bidi:isolate!important;}
+`;
+
+const ORG_CHART_PDF_EXPORT_THEME_CSS = {
+    dark: `
+html,body{background:#0f172a;color:#e2e8f0;}
+#evaalo-org-chart-export .org-chart-org-badge{display:inline-flex;align-items:center;gap:8px;margin-bottom:12px;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.08em;color:#67e8f9;background:rgba(6,182,212,.12);border:1px solid rgba(103,232,249,.25);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
+#evaalo-org-chart-export .org-chart-dept-bar{background:linear-gradient(145deg,rgba(8,47,73,.65) 0%,rgba(6,78,106,.35) 45%,rgba(15,23,42,.9) 100%);border:1px solid rgba(34,211,238,.4);box-shadow:0 8px 32px -8px rgba(6,182,212,.2),0 4px 16px -4px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06);}
+#evaalo-org-chart-export .org-chart-dept-name,
+#evaalo-org-chart-export .org-chart-pos-name{color:#f8fafc;}
+#evaalo-org-chart-export .org-chart-pos-role{color:#a5f3fc;background:linear-gradient(180deg,rgba(6,182,212,.2) 0%,rgba(8,145,178,.12) 100%);border:1px solid rgba(103,232,249,.28);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
+#evaalo-org-chart-export .org-chart-employee-node{background:linear-gradient(155deg,rgba(51,65,85,.55) 0%,rgba(30,41,59,.92) 38%,rgba(15,23,42,.96) 100%);border:1px solid rgba(6,182,212,.45);box-shadow:0 12px 28px -8px rgba(0,0,0,.45),0 4px 12px -4px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.08);}
+#evaalo-org-chart-export .org-chart-connector-line{background:rgba(6,182,212,.9)!important;box-shadow:0 0 6px rgba(6,182,212,.4)!important;border-radius:2px;}
+#evaalo-org-chart-export .org-chart-edit-input{color:#f8fafc;background:rgba(15,23,42,.85);border:1px solid rgba(34,211,238,.55);}
+`,
+    light: `
+html,body{background:#f8fafc;color:#0f172a;}
+#evaalo-org-chart-export .org-chart-org-badge{display:inline-flex;align-items:center;gap:8px;margin-bottom:12px;padding:6px 14px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.08em;color:#0369a1;background:rgba(56,189,248,.14);border:1px solid rgba(56,189,248,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.85);}
+#evaalo-org-chart-export .org-chart-dept-bar{background:linear-gradient(148deg,rgba(186,230,253,.55) 0%,rgba(255,255,255,.98) 50%,rgba(238,242,255,.94) 100%);border:1px solid rgba(56,189,248,.4);box-shadow:0 4px 16px rgba(15,23,42,.08);}
+#evaalo-org-chart-export .org-chart-dept-name,
+#evaalo-org-chart-export .org-chart-pos-name{color:#0f172a;}
+#evaalo-org-chart-export .org-chart-pos-role{color:#0369a1;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);}
+#evaalo-org-chart-export .org-chart-employee-node{background:linear-gradient(155deg,rgba(255,255,255,.98) 0%,rgba(240,249,255,.95) 45%,rgba(238,242,255,.92) 100%);border:1px solid rgba(56,189,248,.38);box-shadow:0 4px 16px rgba(15,23,42,.08);}
+#evaalo-org-chart-export .org-chart-connector-line{background:rgba(99,102,241,.52)!important;box-shadow:0 0 6px rgba(99,102,241,.22)!important;border-radius:2px;}
+#evaalo-org-chart-export .org-chart-edit-input{color:#0f172a;background:rgba(255,255,255,.95);border:1px solid rgba(56,189,248,.45);}
+`,
+};
+
+const ORG_CHART_CONNECTOR_BY_THEME = {
+    dark: { background: 'rgba(6, 182, 212, 0.9)', boxShadow: '0 0 6px rgba(6, 182, 212, 0.4)' },
+    light: { background: 'rgba(99, 102, 241, 0.52)', boxShadow: '0 0 6px rgba(99, 102, 241, 0.22)' },
+};
+
+function getOrgChartExportTheme() {
+    if (typeof document === 'undefined') return 'dark';
+    return document.documentElement.getAttribute('data-app-theme') === 'light' ? 'light' : 'dark';
+}
+
+function buildOrgChartPdfExportCss(theme = getOrgChartExportTheme()) {
+    const key = theme === 'light' ? 'light' : 'dark';
+    return ORG_CHART_PDF_EXPORT_BASE_CSS + ORG_CHART_PDF_EXPORT_THEME_CSS[key];
+}
+
+function getOrgChartExportChartThemeCss(theme = getOrgChartExportTheme()) {
+    const key = theme === 'light' ? 'light' : 'dark';
+    return ORG_CHART_PDF_EXPORT_THEME_CSS[key].replace(/^html,body\{[^}]+\}\s*/m, '');
+}
+
+function buildOrgChartPrintMediaCss(theme = getOrgChartExportTheme()) {
+    const bg = getOrgChartExportBackground(theme);
+    const textColor = theme === 'light' ? '#0f172a' : '#e2e8f0';
+    const chartThemeCss = getOrgChartExportChartThemeCss(theme);
+    return `
+@media print {
+    @page {
+        margin: 10mm;
+        size: auto;
+    }
+    html, body {
+        height: auto !important;
+        overflow: visible !important;
+        background: ${bg} !important;
+        color: ${textColor} !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    #root,
+    .dashboard-page,
+    .dashboard-page > div,
+    .employees-org-chart-wrap,
+    .employees-org-chart-card,
+    .dashboard-card {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        min-height: 0 !important;
+    }
+    body * { visibility: hidden !important; }
+    #evaalo-org-chart-export,
+    #evaalo-org-chart-export * {
+        visibility: visible !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    .org-chart-viewport {
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        display: block !important;
+        cursor: auto !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: ${bg} !important;
+    }
+    #evaalo-org-chart-export {
+        position: relative !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+        transform: none !important;
+        margin: 0 !important;
+        padding: 16px !important;
+        background: ${bg} !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    #evaalo-org-chart-export [data-org-pdf-hide] { display: none !important; }
+    ${chartThemeCss}
+}`;
+}
+
+function getOrgChartConnectorStyle(theme = getOrgChartExportTheme()) {
+    const key = theme === 'light' ? 'light' : 'dark';
+    const connector = ORG_CHART_CONNECTOR_BY_THEME[key];
+    return {
+        borderRadius: '2px',
+        background: connector.background,
+        boxShadow: connector.boxShadow,
+    };
+}
+
+function getOrgChartExportBackground(theme = getOrgChartExportTheme()) {
+    return theme === 'light' ? '#f8fafc' : '#0f172a';
+}
+
+function getOrgChartExportBackgroundRgb(theme = getOrgChartExportTheme()) {
+    return theme === 'light' ? { r: 248, g: 250, b: 252 } : { r: 15, g: 23, b: 42 };
+}
+
+const MIN_ORG_CHART_PDF_BYTES = 1800;
+
+function normalizeOrgChartExportRoot(el) {
+    if (!el) return null;
+    const saved = {
+        transform: el.style.transform,
+        transition: el.style.transition,
+    };
+    el.style.transform = 'none';
+    el.style.transition = 'none';
+    return saved;
+}
+
+function restoreOrgChartExportRoot(el, saved) {
+    if (!el || !saved) return;
+    el.style.transform = saved.transform;
+    el.style.transition = saved.transition;
+}
+
+function isCanvasMostlyBlank(canvas, backgroundRgb = { r: 15, g: 23, b: 42 }) {
+    if (!canvas?.width || !canvas?.height) return true;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return true;
+    const w = Math.min(canvas.width, 96);
+    const h = Math.min(canvas.height, 96);
+    const { data } = ctx.getImageData(0, 0, w, h);
+    let nonBg = 0;
+    const total = w * h;
+    for (let i = 0; i < data.length; i += 4) {
+        const dr = Math.abs(data[i] - backgroundRgb.r);
+        const dg = Math.abs(data[i + 1] - backgroundRgb.g);
+        const db = Math.abs(data[i + 2] - backgroundRgb.b);
+        const da = data[i + 3];
+        if (da > 16 && (dr > 18 || dg > 18 || db > 18)) nonBg += 1;
+    }
+    return nonBg / total < 0.008;
+}
+
+/** مستند HTML كامل لتوليد PDF على السيرفر (Chromium) — CSS مضمّن + خطوط عربية + ثيم حالي */
+function buildOrgChartServerPdfHtml(exportRootEl, theme = getOrgChartExportTheme()) {
     if (!exportRootEl) return '';
     const bodyInner = exportRootEl.outerHTML;
     return `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-app-theme="${theme}">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Noto+Sans+Arabic:wght@400;700&display=swap" rel="stylesheet"/>
-<style>
-*,*::before,*::after{box-sizing:border-box;}
-html,body{margin:0;padding:0;background:#0f172a;color:#e2e8f0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-body{padding:28px 20px;display:flex;flex-direction:column;align-items:center;min-height:100vh;}
-#evaalo-org-chart-export .org-chart-pdf-ar,
-#evaalo-org-chart-export .org-chart-pdf-ar-rtl{
-  font-family:'Cairo','Noto Sans Arabic',system-ui,sans-serif;
-}
-#evaalo-org-chart-export .org-chart-pdf-ar-ltr{
-  font-family:system-ui,'Segoe UI',sans-serif;
-  direction:ltr!important;
-  unicode-bidi:isolate!important;
-}
-</style>
+<style>${buildOrgChartPdfExportCss(theme)}</style>
 </head>
 <body>${bodyInner}</body>
 </html>`;
@@ -199,9 +369,8 @@ function applyOrgChartPdfClone(clonedDoc) {
 
     const css = clonedDoc.createElement('style');
     css.setAttribute('data-evaalo-org-pdf', '1');
-    css.textContent = `
-#evaalo-org-chart-export [data-org-pdf-hide] { display: none !important; }
-/* After convertArabic→Presentation-Forms-B, force RTL embedding + explicit Noto coverage */
+    const exportTheme = getOrgChartExportTheme();
+    css.textContent = `${buildOrgChartPdfExportCss(exportTheme)}
 #evaalo-org-chart-export .org-chart-pdf-ar,
 #evaalo-org-chart-export .org-chart-pdf-ar-rtl {
   font-family: "Noto Naskh Arabic", serif !important;
@@ -212,12 +381,15 @@ function applyOrgChartPdfClone(clonedDoc) {
   font-family: system-ui, Segoe UI, sans-serif !important;
   direction: ltr !important;
   unicode-bidi: isolate !important;
-}
-`;
+}`;
     clonedDoc.head.appendChild(css);
 
     const exportRoot = clonedDoc.getElementById('evaalo-org-chart-export');
-    if (exportRoot) reshapeArabicTextInCloneSubtree(exportRoot);
+    if (exportRoot) {
+        exportRoot.style.setProperty('transform', 'none', 'important');
+        exportRoot.style.setProperty('transition', 'none', 'important');
+        reshapeArabicTextInCloneSubtree(exportRoot);
+    }
 
     clonedDoc.querySelectorAll('.org-chart-viewport').forEach((vp) => {
         vp.style.setProperty('backdrop-filter', 'none', 'important');
@@ -245,6 +417,7 @@ const PositionNode = ({
     suppressExportChrome = false,
 }) => {
     const { t } = useLanguage();
+    const { theme } = useTheme();
     const [editingField, setEditingField] = useState(null);
     const [draft, setDraft] = useState('');
     const [layoutDragging, setLayoutDragging] = useState(false);
@@ -264,9 +437,7 @@ const PositionNode = ({
         addCandidateTarget?.deptId === deptId &&
         addCandidateTarget?.underPositionId === parentPositionId &&
         addCandidateTarget?.insertAfter === pos.id;
-    const lineStyle = {
-        borderRadius: '2px',
-    };
+    const lineStyle = getOrgChartConnectorStyle(theme);
     useEffect(() => {
         if (editingField && editInputRef.current) {
             editInputRef.current.focus();
@@ -750,6 +921,8 @@ const PositionNode = ({
 
 const Employees = () => {
     const { t } = useLanguage();
+    const { theme } = useTheme();
+    const orgChartConnectorStyle = useMemo(() => getOrgChartConnectorStyle(theme), [theme]);
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [orgStructure, setOrgStructure] = useState(loadOrgChart);
@@ -769,6 +942,49 @@ const Employees = () => {
     const [deptNameEditing, setDeptNameEditing] = useState(false);
     const [deptNameDraft, setDeptNameDraft] = useState('');
     const deptNameInputRef = useRef(null);
+    /** true once the org chart has been hydrated from the backend (gates persistence). */
+    const chartHydratedRef = useRef(false);
+
+    // Hydrate the org chart from the backend (source of truth). One-time migration:
+    // if the org has no server chart yet but a local one exists, push it up.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await apiClient.get('/api/org-chart');
+                const serverDepts = Array.isArray(res?.departments) ? res.departments : [];
+                if (cancelled) return;
+                if (serverDepts.length) {
+                    const next = { departments: serverDepts };
+                    setOrgStructure(next);
+                    saveOrgChart(next);
+                } else {
+                    const local = loadOrgChart();
+                    if (local.departments?.length) {
+                        await apiClient.put('/api/org-chart', { departments: local.departments });
+                    }
+                }
+            } catch (_) {
+                /* offline / unauthenticated — keep the localStorage cache */
+            } finally {
+                if (!cancelled) chartHydratedRef.current = true;
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    // Persist chart changes to the backend (debounced), after hydration.
+    useEffect(() => {
+        if (!chartHydratedRef.current) return undefined;
+        const id = setTimeout(() => {
+            apiClient
+                .put('/api/org-chart', { departments: orgStructure.departments || [] })
+                .catch(() => {});
+        }, 800);
+        return () => clearTimeout(id);
+    }, [orgStructure]);
 
     /** عرض الصورة في قائمة «اختر مرشحاً» (بكسل CSS) — أبعاد width/height على <img> وفق DPR لتحسين الوضوح على الشاشات عالية الكثافة */
     const EMPLOYEE_SIDEBAR_AVATAR_CSS_PX = 52;
@@ -898,11 +1114,15 @@ const Employees = () => {
             /* ignore */
         }
 
+        const exportStyleSaved = normalizeOrgChartExportRoot(el);
+        const exportTheme = theme;
+        const exportBackground = getOrgChartExportBackground(exportTheme);
+
         try {
             const safeName = (selectedDept?.name || 'org-chart').replace(/[/\\?%*:|"<>]/g, '-');
             let usedServerPdf = false;
             try {
-                const htmlDoc = buildOrgChartServerPdfHtml(el);
+                const htmlDoc = buildOrgChartServerPdfHtml(el, exportTheme);
                 const res = await fetch(`${API_BASE}/api/org-chart/pdf`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', Accept: 'application/pdf' },
@@ -911,16 +1131,20 @@ const Employees = () => {
                 const ct = res.headers.get('content-type') || '';
                 if (res.ok && ct.includes('application/pdf')) {
                     const blob = await res.blob();
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${safeName}-org-chart.pdf`;
-                    a.rel = 'noopener';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
-                    usedServerPdf = true;
+                    if (blob.size >= MIN_ORG_CHART_PDF_BYTES) {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${safeName}-org-chart.pdf`;
+                        a.rel = 'noopener';
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(url);
+                        usedServerPdf = true;
+                    } else {
+                        console.warn('Server PDF too small (likely blank), using client fallback', blob.size);
+                    }
                 }
             } catch (srvErr) {
                 console.warn('Server Puppeteer PDF unavailable, using client fallback', srvErr);
@@ -928,19 +1152,27 @@ const Employees = () => {
 
             if (usedServerPdf) return;
 
+            const captureW = Math.max(el.scrollWidth, el.offsetWidth, 320);
+            const captureH = Math.max(el.scrollHeight, el.offsetHeight, 240);
+
             let imgData;
             let imgW;
             let imgH;
             /** Prefer html2canvas + onclone once chrome is stripped from DOM (better Arabic shaping). */
-        try {
-            const canvas = await html2canvas(el, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: '#0f172a',
-                logging: false,
-                    foreignObjectRendering: true,
+            try {
+                const canvas = await html2canvas(el, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: exportBackground,
+                    logging: false,
+                    width: captureW,
+                    height: captureH,
+                    foreignObjectRendering: false,
                     onclone: applyOrgChartPdfClone,
                 });
+                if (isCanvasMostlyBlank(canvas, getOrgChartExportBackgroundRgb(exportTheme))) {
+                    throw new Error('html2canvas produced blank capture');
+                }
                 imgData = canvas.toDataURL('image/png');
                 imgW = canvas.width;
                 imgH = canvas.height;
@@ -949,8 +1181,12 @@ const Employees = () => {
                 const { toPng } = await import('html-to-image');
                 imgData = await toPng(el, {
                     pixelRatio: 2,
-                    backgroundColor: '#0f172a',
+                    backgroundColor: exportBackground,
                     cacheBust: true,
+                    width: captureW,
+                    height: captureH,
+                    style: { transform: 'none', transition: 'none' },
+                    filter: (node) => !(node instanceof Element && node.hasAttribute?.('data-org-pdf-hide')),
                 });
                 const dims = await new Promise((resolveDimensions, rejectDimensions) => {
                     const i = new Image();
@@ -960,6 +1196,10 @@ const Employees = () => {
                 });
                 imgW = dims.w;
                 imgH = dims.h;
+            }
+
+            if (!imgW || !imgH) {
+                throw new Error('PDF export capture has zero dimensions');
             }
 
             const pdf = new jsPDF({
@@ -980,30 +1220,35 @@ const Employees = () => {
         } catch (e) {
             console.error('PDF export failed', e);
         } finally {
+            restoreOrgChartExportRoot(el, exportStyleSaved);
             setChartPan(prevPan);
             setChartZoom(prevZoom);
             setChartExporting(false);
         }
-    }, [chartPan, chartZoom, chartExporting, selectedDept?.name]);
+    }, [chartPan, chartZoom, chartExporting, selectedDept?.name, theme]);
 
     const printOrgChart = useCallback(async () => {
         const el = chartContentRef.current;
-        if (!el) return;
+        if (!el || chartExporting) return;
         const prevPan = { ...chartPan };
         const prevZoom = chartZoom;
         flushSync(() => {
+            setChartExporting(true);
             setChartPan({ x: 0, y: 0 });
             setChartZoom(1);
         });
-        await waitForChartPaint();
+        await waitForOrgChartExportPaint();
+        const exportStyleSaved = normalizeOrgChartExportRoot(el);
         const onAfterPrint = () => {
+            restoreOrgChartExportRoot(el, exportStyleSaved);
             setChartPan(prevPan);
             setChartZoom(prevZoom);
+            setChartExporting(false);
             window.removeEventListener('afterprint', onAfterPrint);
         };
         window.addEventListener('afterprint', onAfterPrint);
         window.print();
-    }, [chartPan, chartZoom]);
+    }, [chartPan, chartZoom, chartExporting]);
 
     useEffect(() => {
         if (!lastAddedPositionId || !chartContainerRef.current) return;
@@ -1710,61 +1955,7 @@ const Employees = () => {
                                 </div>
                             ) : selectedDept ? (
                                 <>
-                                <style>{`
-                                    @media print {
-                                        @page {
-                                            margin: 10mm;
-                                            size: auto;
-                                        }
-                                        html, body {
-                                            height: auto !important;
-                                            overflow: visible !important;
-                                            background: #0f172a !important;
-                                        }
-                                        #root,
-                                        .dashboard-page,
-                                        .dashboard-page > div,
-                                        .employees-org-chart-wrap,
-                                        .employees-org-chart-card,
-                                        .dashboard-card {
-                                            overflow: visible !important;
-                                            height: auto !important;
-                                            max-height: none !important;
-                                            min-height: 0 !important;
-                                        }
-                                        body * { visibility: hidden !important; }
-                                        #evaalo-org-chart-export,
-                                        #evaalo-org-chart-export * {
-                                            visibility: visible !important;
-                                        }
-                                        .org-chart-viewport {
-                                            overflow: visible !important;
-                                            height: auto !important;
-                                            min-height: 0 !important;
-                                            max-height: none !important;
-                                            display: block !important;
-                                            cursor: auto !important;
-                                            box-shadow: none !important;
-                                            backdrop-filter: none !important;
-                                            -webkit-backdrop-filter: none !important;
-                                        }
-                                        #evaalo-org-chart-export {
-                                            position: relative !important;
-                                            left: auto !important;
-                                            top: auto !important;
-                                            width: 100% !important;
-                                            max-width: 100% !important;
-                                            height: auto !important;
-                                            min-height: auto !important;
-                                            transform: none !important;
-                                            margin: 0 !important;
-                                            padding: 16px !important;
-                                            background: #0f172a !important;
-                                            -webkit-print-color-adjust: exact !important;
-                                            print-color-adjust: exact !important;
-                                        }
-                                    }
-                                `}</style>
+                                <style>{buildOrgChartPrintMediaCss(theme)}</style>
                                 <div
                                     data-no-pan
                                     className="header-actions org-chart-toolbar"
@@ -1989,15 +2180,15 @@ const Employees = () => {
                                             width: '2px',
                                             height: '24px',
                                             margin: '4px 0 0 0',
-                                            borderRadius: '2px',
+                                            ...orgChartConnectorStyle,
                                         }} />
                                         {/* Horizontal connector for root level - connects directly to vertical drops */}
                                         {(selectedDept.positions || []).length > 0 && (
                                             <div className="org-chart-connector-line" style={{
                                                 alignSelf: 'stretch',
                                                 height: '2px',
-                                                borderRadius: '2px',
                                                 marginBottom: 0,
+                                                ...orgChartConnectorStyle,
                                             }} />
                                         )}
                                         {/* Root level: رؤساء القسم - with vertical connectors from horizontal line (pyramid spacing) */}
@@ -2016,7 +2207,7 @@ const Employees = () => {
                                                         width: '2px',
                                                         height: Number.isFinite(pos?.layout?.lineLength) ? pos.layout.lineLength : 22,
                                                         marginBottom: '-1px',
-                                                        borderRadius: '2px',
+                                                        ...orgChartConnectorStyle,
                                                     }} />
                                                     <PositionNode
                                                         pos={{ ...pos, subordinates: pos.subordinates || [] }}

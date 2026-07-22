@@ -3595,11 +3595,7 @@ const VideoInterviewCall = () => {
 
                 {/* Interview Controls */}
                 {isReady && (
-                    <div style={{
-                        display: 'flex',
-                        gap: '16px',
-                        marginTop: '30px'
-                    }}>
+                    <div className="vi-interview-controls">
                         {!isInterviewActive ? (
                             <button
                                 type="button"
@@ -3619,6 +3615,9 @@ const VideoInterviewCall = () => {
                                     cursor:
                                         effectiveCandidateId && !countdownActive ? 'pointer' : 'not-allowed',
                                     opacity: effectiveCandidateId && !countdownActive ? 1 : 0.6,
+                                    width: '100%',
+                                    maxWidth: '420px',
+                                    boxSizing: 'border-box',
                                 }}
                             >
                                 <span style={{ fontSize: '1.25rem' }}>▶</span>
@@ -3627,6 +3626,7 @@ const VideoInterviewCall = () => {
                         ) : (
                             <button
                                 type="button"
+                                className="vi-end-interview-btn"
                                 disabled={!endInterviewButtonEnabled || isEndingInterview}
                                 title={
                                     isEndingInterview
@@ -3641,35 +3641,6 @@ const VideoInterviewCall = () => {
                                     if (!endInterviewButtonEnabled || isEndingInterview) return;
                                     endInterview({ force: false });
                                 }}
-                                style={{
-                                    padding: '16px 32px',
-                                    fontSize: '18px',
-                                    fontWeight: 700,
-                                    background:
-                                        isEndingInterview || !endInterviewButtonEnabled
-                                            ? 'linear-gradient(135deg, #64748b, #475569)'
-                                            : 'linear-gradient(135deg, #EF4444, #DC2626)',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '12px',
-                                    cursor: endInterviewButtonEnabled && !isEndingInterview ? 'pointer' : 'not-allowed',
-                                    opacity: endInterviewButtonEnabled && !isEndingInterview ? 1 : 0.75,
-                                    boxShadow:
-                                        endInterviewButtonEnabled && !isEndingInterview
-                                            ? '0 8px 24px rgba(239, 68, 68, 0.4)'
-                                            : '0 4px 12px rgba(0,0,0,0.2)',
-                                    transition: 'all 0.3s ease'
-                                }}
-                                onMouseEnter={(e) => {
-                                    if (!endInterviewButtonEnabled || isEndingInterview) return;
-                                    e.currentTarget.style.transform = 'translateY(-2px)';
-                                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(239, 68, 68, 0.5)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    if (!endInterviewButtonEnabled || isEndingInterview) return;
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(239, 68, 68, 0.4)';
-                                }}
                             >
                                 {isEndingInterview
                                     ? `⏳ ${t('videoInterview_endingTitle')}`
@@ -3678,30 +3649,6 @@ const VideoInterviewCall = () => {
                                       : `⏳ ${t('videoInterview_endTitle')}`}
                             </button>
                         )}
-                        
-                        {isConnected && sessionId && (
-                            <div style={{
-                                padding: '16px 32px',
-                                background: 'rgba(34, 211, 238, 0.1)',
-                                border: '1px solid rgba(34, 211, 238, 0.3)',
-                                borderRadius: '12px',
-                                color: '#22d3ee',
-                                fontSize: '16px',
-                                fontWeight: 600,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}>
-                                <div style={{
-                                    width: '12px',
-                                    height: '12px',
-                                    borderRadius: '50%',
-                                    background: '#10B981',
-                                    animation: 'pulse 2s infinite'
-                                }}></div>
-                                {t('videoInterview_connected')}
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
@@ -3709,12 +3656,8 @@ const VideoInterviewCall = () => {
             {/* Voice/video handled via backend + LiveKit */}
             {/* Frontend only displays video/audio received from Backend */}
 
-            {/* CSS Animation for pulse */}
+            {/* CSS Animation for avatar loading */}
             <style>{`
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.5; }
-                }
                 @keyframes niAvatarLoadSpin {
                     to { transform: rotate(360deg); }
                 }

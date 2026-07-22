@@ -69,9 +69,35 @@ export default function HeadHunterCandidateCard({
     const isTopMatch = matchPct != null && matchPct >= TOP_MATCH_THRESHOLD;
 
     const [photoBroken, setPhotoBroken] = useState(false);
+    const [tailDecorSettled, setTailDecorSettled] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    });
+
     useEffect(() => {
         setPhotoBroken(false);
     }, [candidate.id, candidate.photo_url]);
+
+    /** Wait for grid/compositor to settle before showing ribbon pseudo-elements (avoids green/yellow flash). */
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            setTailDecorSettled(true);
+            return undefined;
+        }
+        setTailDecorSettled(false);
+        let cancelled = false;
+        let raf2 = 0;
+        const raf1 = requestAnimationFrame(() => {
+            raf2 = requestAnimationFrame(() => {
+                if (!cancelled) setTailDecorSettled(true);
+            });
+        });
+        return () => {
+            cancelled = true;
+            cancelAnimationFrame(raf1);
+            if (raf2) cancelAnimationFrame(raf2);
+        };
+    }, [candidate.id]);
 
     const showPhoto = Boolean(candidate.photo_url) && !photoBroken;
 
@@ -137,11 +163,14 @@ export default function HeadHunterCandidateCard({
                     </aside>
                 ) : null}
                 <div
-                    className={
-                        'headhunter-card__tail headhunter-card__pane' +
-                        (contactLocked ? ' headhunter-card__tail--contact-locked' : '') +
-                        (isTopMatch ? ' headhunter-card__tail--top' : '')
-                    }
+                    className={[
+                        'headhunter-card__tail headhunter-card__pane',
+                        contactLocked ? 'headhunter-card__tail--contact-locked' : '',
+                        isTopMatch ? 'headhunter-card__tail--top' : '',
+                        tailDecorSettled ? 'headhunter-card__tail--decor-settled' : '',
+                    ]
+                        .filter(Boolean)
+                        .join(' ')}
                     role="group"
                     aria-label={t('aiHeadHunterCardContactInfo')}
                     tabIndex={-1}

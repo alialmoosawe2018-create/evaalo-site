@@ -2126,42 +2126,69 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                         )}
                         {/* CV auto-fill — Specific audio/video only: رفع سيرة ذاتية لتعبئة الحقول */}
                         {isSpecificAudioOrVideo && (
-                            <div style={{ marginBottom: '18px' }}>
+                            <div className="ni-cv-upload" style={{ marginBottom: '18px' }}>
                                 <input
                                     ref={cvFileInputRef}
                                     type="file"
                                     accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
                                     onChange={handleCvFileSelected}
-                                    style={{ display: 'none' }}
+                                    className="ni-cv-upload__input"
                                 />
                                 <button
                                     type="button"
-                                    className="ni-cv-upload-btn"
+                                    className={[
+                                        'ni-cv-upload-btn',
+                                        cvParsing && 'ni-cv-upload-btn--loading',
+                                        !cvParseError && cvFilledCount > 0 && 'ni-cv-upload-btn--success',
+                                    ].filter(Boolean).join(' ')}
                                     onClick={() => cvFileInputRef.current?.click()}
                                     disabled={cvParsing}
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        padding: '10px 16px',
-                                        borderRadius: NT.radius,
-                                        border: '1px solid rgba(34, 211, 238, 0.45)',
-                                        background: 'rgba(34, 211, 238, 0.10)',
-                                        color: NT.inputText,
-                                        fontSize: '13px',
-                                        fontWeight: 600,
-                                        cursor: cvParsing ? 'not-allowed' : 'pointer',
-                                        opacity: cvParsing ? 0.7 : 1,
-                                    }}
+                                    aria-busy={cvParsing || undefined}
                                 >
-                                    <span style={{ fontSize: '16px' }}>{cvParsing ? '⏳' : '📄'}</span>
-                                    {cvParsing
-                                        ? t('newCampaign_cvUpload_parsing')
-                                        : t('newCampaign_cvUpload_button')}
+                                    <span className="ni-cv-upload-btn__icon-wrap" aria-hidden="true">
+                                        {cvParsing ? (
+                                            <svg className="ni-cv-upload-btn__spinner" viewBox="0 0 24 24" fill="none">
+                                                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
+                                                <path d="M12 3a9 9 0 019 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                            </svg>
+                                        ) : (
+                                            <svg className="ni-cv-upload-btn__doc-icon" viewBox="0 0 24 24" fill="none">
+                                                <path
+                                                    d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
+                                                    stroke="currentColor"
+                                                    strokeWidth="1.75"
+                                                    strokeLinejoin="round"
+                                                />
+                                                <path d="M14 2v6h6M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                                            </svg>
+                                        )}
+                                    </span>
+                                    <span className="ni-cv-upload-btn__body">
+                                        <span className="ni-cv-upload-btn__title">
+                                            {cvParsing
+                                                ? t('newCampaign_cvUpload_parsing')
+                                                : t('newCampaign_cvUpload_button')}
+                                        </span>
+                                        {!cvParsing && (
+                                            <span className="ni-cv-upload-btn__hint">
+                                                {t('newCampaign_cvUpload_hint')}
+                                            </span>
+                                        )}
+                                    </span>
+                                    {!cvParsing && (
+                                        <span className="ni-cv-upload-btn__action" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none">
+                                                <path
+                                                    d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"
+                                                    stroke="currentColor"
+                                                    strokeWidth="1.75"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                />
+                                            </svg>
+                                        </span>
+                                    )}
                                 </button>
-                                <p style={{ margin: '8px 0 0', fontSize: '12px', color: NT.meta, lineHeight: 1.6 }}>
-                                    {t('newCampaign_cvUpload_hint')}
-                                </p>
                                 {cvParseError && (
                                     <div
                                         className="ni-feedback-banner ni-feedback-banner--error"
