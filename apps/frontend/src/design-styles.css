@@ -12481,18 +12481,15 @@ html[data-app-theme='light'] .ai-head-hunter-page .headhunter-card__video-popove
     animation: hhRevealSpin 0.7s linear infinite;
 }
 
-/* RTL: ينتقل الركن إلى الزاوية العلوية اليسرى */
+/* RTL: keep the SAME ribbon orientation as LTR (top-right corner) so the green
+   bar and the yellow triangle never point in opposite directions (متعاكسان). */
 body.rtl-text .ai-head-hunter-page .headhunter-reveal-lock--corner {
-    clip-path: polygon(0 0, 0 calc(100% + 10px), 100% 0);
-    justify-content: flex-start;
-}
-
-body.rtl-text .ai-head-hunter-page .headhunter-reveal-lock--corner .headhunter-reveal-lock__badge {
-    margin: 7px 0 0 8px;
+    clip-path: polygon(100% 0, 100% calc(100% + 10px), 0 0);
+    justify-content: flex-end;
 }
 
 body.rtl-text .ai-head-hunter-page .headhunter-card__tail--contact-locked::after {
-    clip-path: polygon(0 0, 0 calc(100% + 10px), 100% 0);
+    clip-path: polygon(100% 0, 100% calc(100% + 10px), 0 0);
 }
 
 /* زر القفل الداخلي (يُستعمل في اللوحة الجانبية حيث لا يوجد ركن) */
