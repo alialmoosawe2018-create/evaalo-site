@@ -122,22 +122,24 @@ export default function HeadHunterCandidateCard({
         fontsPromise
             .then(() => {
                 fontsReady = true;
-                schedule(200);
+                schedule(500);
             })
             .catch(() => {
                 fontsReady = true;
-                schedule(200);
+                schedule(500);
             });
 
         let ro;
         const el = articleRef.current;
         if (el && typeof ResizeObserver !== 'undefined') {
-            // Any post-font reflow pushes the reveal ~160ms later.
-            ro = new ResizeObserver(() => schedule(160));
+            // Any post-font reflow (RTL layout / Arabic font swap) pushes the
+            // reveal ~400ms later, so the ribbon only appears once the card size
+            // has been quiet — avoids the "mirrored ribbon" seen mid-reflow in RTL.
+            ro = new ResizeObserver(() => schedule(400));
             ro.observe(el);
         }
 
-        const hardFallback = window.setTimeout(reveal, 1200);
+        const hardFallback = window.setTimeout(reveal, 2500);
         return () => {
             done = true;
             window.clearTimeout(settleTimer);
