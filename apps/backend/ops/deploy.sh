@@ -38,6 +38,10 @@ replace_container() {
     sleep 2
     docker rm -f "$name" >/dev/null 2>&1 || true
   fi
+  # Bind-mounted runtime dirs must be writable by the container's app user (uid 997);
+  # a rebuild can leave them root-owned -> EACCES on candidate uploads (500). Self-heal.
+  mkdir -p "$REPO/uploads" "$REPO/logs" 2>/dev/null || true
+  chown -R 997:997 "$REPO/uploads" "$REPO/logs" 2>/dev/null || true
   docker compose up -d --no-deps "$SVC" >>"$LOG" 2>&1
   local new
   new="$(docker ps -a --format '{{.Names}}' | grep -E 'evaalo-api$' | head -1)"
