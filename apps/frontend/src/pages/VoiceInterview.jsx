@@ -84,16 +84,26 @@ const VoiceInterview = () => {
     const { t, currentLang } = useLanguage();
     const na = t('stageEval_notApplicable');
     const skillOutTen = t('stageEval_skillOutOfTen');
-    /** ترجمة كلمات التقييم الإنجليزية القادمة من n8n (Excellent/Good/…) للعرض بلغة الواجهة. */
+    /**
+     * ترجمة كلمات التقييم الإنجليزية القادمة من n8n للعرض بلغة الواجهة.
+     * يعالج الكلمة المفردة ("Intermediate") وأيضًا صيغة "الكلمة (٣/١٠)" التي
+     * يُخرجها التقييم أحيانًا للمقاييس المحسوبة مسبقًا — فيترجم الكلمة ويُبقي الدرجة.
+     */
     const localizeRating = (val) => {
         if (val == null) return val;
-        const key = {
+        const RATE = {
             excellent: 'stageEval_rateExcellent',
             good: 'stageEval_rateGood',
             intermediate: 'stageEval_rateIntermediate',
             bad: 'stageEval_rateBad',
-        }[String(val).trim().toLowerCase()];
-        return key ? t(key) : val;
+        };
+        const s = String(val).trim();
+        const exact = RATE[s.toLowerCase()];
+        if (exact) return t(exact);
+        // "Word (3/10)" / "Word - ..." → ترجم الكلمة الأولى واحتفظ بالباقي
+        const m = s.match(/^(excellent|good|intermediate|bad)\b(.*)$/i);
+        if (m) return t(RATE[m[1].toLowerCase()]) + (m[2] || '');
+        return val;
     };
 
     const translateRecLabel = (canonical) => {
