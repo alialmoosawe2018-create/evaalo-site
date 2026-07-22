@@ -619,6 +619,21 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             } catch (statusErr) {
                 console.warn('⚠️ Campaign status check failed (allowing submission):', statusErr);
             }
+            // SECURITY (multi-tenant): a submission that names a campaign MUST be
+            // attributed to THAT campaign's organization — never to the submitter's
+            // session org. Otherwise, when the applicant's browser is signed into a
+            // different Evaalo account, the application would be misrouted to that
+            // other org (data leak). If the campaign can't be resolved to an org,
+            // reject instead of falling back to orgScopedDefaults(req).
+            if (!campaignOrganizationId) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Campaign not found',
+                    code: 'CAMPAIGN_NOT_FOUND',
+                    message:
+                        'This application link is invalid or the campaign no longer exists.',
+                });
+            }
         } else {
             delete candidateData.campaignId;
         }
