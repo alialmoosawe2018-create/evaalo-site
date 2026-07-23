@@ -24,6 +24,7 @@ import {
     CampaignCompareDispatchError,
 } from './campaignCompareN8nOutbound.js';
 import {
+    CampaignCompareConfigurationError,
     getCampaignCompareStageWebhookUrl,
     type CampaignCompareStage,
 } from './campaignCompareCallbackAuth.js';
@@ -257,6 +258,15 @@ export async function triggerCompareTopV2(
             res.status(502).json({
                 success: false,
                 error: err.code,
+                requestId,
+                message: err.message,
+            });
+            return;
+        }
+        if (err instanceof CampaignCompareConfigurationError) {
+            res.status(503).json({
+                success: false,
+                error: 'COMPARE_NOT_CONFIGURED',
                 requestId,
                 message: err.message,
             });

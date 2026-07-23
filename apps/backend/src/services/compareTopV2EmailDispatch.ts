@@ -33,7 +33,7 @@ function legacyWebhookUrl(uiStage: CompareUiStage): string {
     const defaults: Record<CompareUiStage, string> = {
         screening: 'https://n8n.evaalo.com/webhook/9391209e-26c0-48f9-858e-8136e62ab787',
         voice: 'https://n8n.evaalo.com/webhook/cceec6bc-9ffc-42ee-bd57-845c7ee04eb0',
-        video: 'https://n8n.evaalo.com/webhook/c0de9126-4c40-484f-afa3-ba8708b67965',
+        video: 'https://n8n.evaalo.com/webhook/b1a5a3ea-b9be-4d81-b613-48212d0b0be7',
     };
     return defaults[uiStage];
 }

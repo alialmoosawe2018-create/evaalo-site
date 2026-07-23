@@ -433,14 +433,14 @@ const AI_COMPARE_STAGES: Record<
     voice: {
         field: 'voiceAiCompareTopResult',
         envKey: 'N8N_VOICE_AI_COMPARE_WEBHOOK_URL',
-        defaultUrl: 'https://n8n.evaalo.com/webhook/a7b9b932-43e6-4666-b107-9bc664542392',
+        defaultUrl: 'https://n8n.evaalo.com/webhook/cceec6bc-9ffc-42ee-bd57-845c7ee04eb0',
         source: 'voice-ai-compare-top',
         wbSource: 'n8n-voice-ai-compare',
     },
     video: {
         field: 'videoAiCompareTopResult',
         envKey: 'N8N_VIDEO_AI_COMPARE_WEBHOOK_URL',
-        defaultUrl: 'https://n8n.evaalo.com/webhook/c0de9126-4c40-484f-afa3-ba8708b67965',
+        defaultUrl: 'https://n8n.evaalo.com/webhook/b1a5a3ea-b9be-4d81-b613-48212d0b0be7',
         source: 'video-ai-compare-top',
         wbSource: 'n8n-video-ai-compare',
     },
