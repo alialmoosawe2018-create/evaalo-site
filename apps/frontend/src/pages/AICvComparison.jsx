@@ -288,6 +288,9 @@ export default function AICvComparison() {
             const criteria = {
                 position: displayPosition,
                 location: loc,
+                // UI locale drives the AI output language: an Arabic UI must yield an Arabic
+                // analysis even when the job title and the CVs themselves are English.
+                language: currentLang,
                 ...roleResolutionCriteriaFields(roleCatalog),
                 ...(yearsExperience ? { yearsOfExperience: yearsExperience } : {}),
                 ...(ageRange ? { ageRange } : {}),

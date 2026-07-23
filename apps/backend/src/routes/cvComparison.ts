@@ -411,6 +411,13 @@ router.post(
                 parseBool(criteria.availableEmployeesOnly) ||
                 parseBool(criteria.employeesWithoutPositionsOnly);
             const arabicTranslation = parseBool(criteria.arabicTranslation);
+            // UI locale (ar | en | ku). Forwarded to n8n, where it takes absolute priority over
+            // content-based detection: an Arabic UI must produce an Arabic analysis even when the
+            // position, location and the CVs are all English. Sanitized — it reaches an LLM prompt.
+            const language =
+                typeof criteria.language === 'string'
+                    ? criteria.language.trim().toLowerCase().replace(/[^a-z-]/g, '').slice(0, 8)
+                    : '';
 
             const rawYears =
                 typeof criteria.yearsOfExperience === 'string'
@@ -558,6 +565,7 @@ router.post(
                 availableEmployeesOnly,
                 employeesWithoutPositionsOnly: availableEmployeesOnly,
                 arabicTranslation,
+                ...(language ? { language } : {}),
                 ...optionalCriteria,
                 optionsPhrases,
                 optionsSummaryEn: optionsSummaryEn || '',
@@ -593,6 +601,7 @@ router.post(
                 formData.append('aiCompareTop', aiCompareTop ? 'true' : 'false');
                 formData.append('availableEmployeesOnly', availableEmployeesOnly ? 'true' : 'false');
                 formData.append('arabicTranslation', arabicTranslation ? 'true' : 'false');
+                if (language) formData.append('language', language);
                 formData.append('source', 'ai-cv-comparison');
                 formData.append('submittedAt', submittedAt);
 
