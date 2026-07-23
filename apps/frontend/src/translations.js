@@ -412,7 +412,8 @@ export const translations = {
         cvComparisonDetailYears: "years",
         cvComparisonDetailSkills: "Skills",
         cvComparisonDetailStrengths: "Strengths",
-        cvComparisonDetailWeaknesses: "Gaps / weaknesses",
+        cvComparisonDetailWeaknesses: "Weaknesses",
+        cvComparisonDetailFinalHrReport: "Final HR Report",
         cvComparisonErrPdfOnly: "Please upload PDF files only.",
         cvComparisonErrScannedPdf:
             "All CVs must be real text-based PDF files. Scanned photos, camera images, or image-only PDFs are not supported. Export or save each CV as a proper PDF with selectable text.",
@@ -1900,7 +1901,8 @@ export const translations = {
         cvComparisonDetailYears: "سنة",
         cvComparisonDetailSkills: "المهارات",
         cvComparisonDetailStrengths: "نقاط القوة",
-        cvComparisonDetailWeaknesses: "الفجوات / نقاط الضعف",
+        cvComparisonDetailWeaknesses: "نقاط الضعف",
+        cvComparisonDetailFinalHrReport: "التقرير النهائي للموارد البشرية",
         cvComparisonErrPdfOnly: "يُرجى رفع ملفات PDF فقط.",
         cvComparisonErrScannedPdf:
             "يجب أن تكون جميع السير الذاتية بصيغة PDF حقيقية تحتوي على نص قابل للقراءة. لا يُقبل رفع صور مُصوَّرة بالكاميرا أو ملفات PDF ممسوحة ضوئياً (صورة فقط). احفظ كل سيرة كملف PDF نصي وليس كصورة.",
@@ -3381,8 +3383,9 @@ export const translations = {
         cvComparisonDetailExperience: "ئەزموون",
         cvComparisonDetailYears: "ساڵ",
         cvComparisonDetailSkills: "لێهاتوویی",
-        cvComparisonDetailStrengths: "خاڵی بەهێز",
-        cvComparisonDetailWeaknesses: "کەموکوڕی",
+        cvComparisonDetailStrengths: "خاڵە بەهێزەکان",
+        cvComparisonDetailWeaknesses: "خاڵە لاوازەکان",
+        cvComparisonDetailFinalHrReport: "ڕاپۆرتی کۆتایی سەرچاوەی مرۆیی",
         cvComparisonErrPdfOnly: "تەنها فایلی PDF بار بکە.",
         cvComparisonErrScannedPdf:
             "هەموو CVیەکان دەبێت PDFی دەقی ڕاستەقینە بن. وێنەی سکانکراو یان PDFی تەنها وێنە پشتگیری ناکرێت. هەر CVێک وەک PDFی دەق پاشەکەوت بکە، نەک وەک وێنە.",

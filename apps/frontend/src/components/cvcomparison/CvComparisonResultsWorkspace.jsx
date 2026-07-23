@@ -201,7 +201,7 @@ function CvComparisonDetailsPanel({ row, t }) {
         <div className="cv-comparison-details-panel">
             <div className="cv-comparison-details-panel__grid">
                 <div className="stage-eval-detail-card">
-                    <h4 className="stage-eval-detail-card__title">Final HR Report</h4>
+                    <h4 className="stage-eval-detail-card__title">{t('cvComparisonDetailFinalHrReport')}</h4>
                     {row.finalHrReport ? (
                         <p className="stage-eval-detail-card__body">{row.finalHrReport}</p>
                     ) : null}
@@ -226,7 +226,7 @@ function CvComparisonDetailsPanel({ row, t }) {
                 </div>
 
                 <div className="stage-eval-detail-card">
-                    <h4 className="stage-eval-detail-card__title">Strengths</h4>
+                    <h4 className="stage-eval-detail-card__title">{t('cvComparisonDetailStrengths')}</h4>
                     {row.strengths.length > 0 ? (
                         <ul className="stage-eval-detail-card__list">
                             {row.strengths.map((item) => (
@@ -239,7 +239,7 @@ function CvComparisonDetailsPanel({ row, t }) {
                 </div>
 
                 <div className="stage-eval-detail-card">
-                    <h4 className="stage-eval-detail-card__title">Skills</h4>
+                    <h4 className="stage-eval-detail-card__title">{t('cvComparisonDetailSkills')}</h4>
                     {row.skills.length > 0 ? (
                         <ul className="cv-comparison-skill-tags">
                             {row.skills.map((skill) => (
@@ -254,7 +254,7 @@ function CvComparisonDetailsPanel({ row, t }) {
                 </div>
 
                 <div className="stage-eval-detail-card">
-                    <h4 className="stage-eval-detail-card__title">Weaknesses</h4>
+                    <h4 className="stage-eval-detail-card__title">{t('cvComparisonDetailWeaknesses')}</h4>
                     {row.weaknesses.length > 0 ? (
                         <ul className="stage-eval-detail-card__list">
                             {row.weaknesses.map((item) => (
