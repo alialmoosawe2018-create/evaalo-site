@@ -45,7 +45,7 @@ const workflow = {
     active: false,
     nodes: [
         {
-            parameters: { httpMethod: 'POST', path: WEBHOOK_PATH, responseMode: 'onReceived', options: {} },
+            parameters: { httpMethod: 'POST', path: WEBHOOK_PATH, responseMode: 'responseNode', options: {} },
             type: 'n8n-nodes-base.webhook',
             typeVersion: 2.1,
             position: [0, 0],
