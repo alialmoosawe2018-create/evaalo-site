@@ -2175,19 +2175,6 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                             </span>
                                         )}
                                     </span>
-                                    {!cvParsing && (
-                                        <span className="ni-cv-upload-btn__action" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" fill="none">
-                                                <path
-                                                    d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16"
-                                                    stroke="currentColor"
-                                                    strokeWidth="1.75"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                />
-                                            </svg>
-                                        </span>
-                                    )}
                                 </button>
                                 {cvParseError && (
                                     <div

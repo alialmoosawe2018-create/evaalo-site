@@ -172,7 +172,9 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
                                 const risks = toList(row.risks ?? row.weaknesses);
                                 const rank = row.rank ?? i + 1;
                                 const isLast = i === ranking.length - 1;
-                                const recommendation = (row.overallRecommendation || '').trim();
+                                const recommendationLabel = (
+                                    row.overallRecommendation || row.recommendation || ''
+                                ).trim();
                                 const executiveComment = (row.executiveComment || '').trim();
                                 const hasConfidence =
                                     row.confidence != null && Number.isFinite(Number(row.confidence));
@@ -197,13 +199,13 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
                                                 ) : null}
                                             </div>
                                             <div className="screening-ai-compare-card__badges">
-                                                {recommendation ? (
+                                                {recommendationLabel ? (
                                                     <span
                                                         className={`screening-ai-compare-badge screening-ai-compare-badge--rec screening-ai-compare-badge--rec-${recommendationTone(
                                                             row.recommendation
                                                         )}`}
                                                     >
-                                                        {recommendation}
+                                                        {recommendationLabel}
                                                     </span>
                                                 ) : null}
                                                 {hasConfidence ? (

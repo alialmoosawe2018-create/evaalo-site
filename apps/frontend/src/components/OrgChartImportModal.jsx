@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import apiClient from '../services/apiClient';
 import './org-chart-import-modal.css';
 
@@ -147,7 +148,7 @@ export default function OrgChartImportModal({ open, onClose, onApply, t }) {
         close();
     };
 
-    return (
+    return createPortal(
         <div className="org-chart-import-modal__overlay" onClick={close} role="presentation">
             <div
                 className="org-chart-import-modal__panel"
@@ -289,6 +290,7 @@ export default function OrgChartImportModal({ open, onClose, onApply, t }) {
                     </div>
                 )}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

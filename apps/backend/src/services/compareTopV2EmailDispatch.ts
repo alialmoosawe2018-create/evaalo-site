@@ -7,6 +7,10 @@ import type { ICampaignCompareRequest } from '../models/CampaignCompareRequest.j
 import type { CompareUiStage } from '../models/CampaignCompareRequest.js';
 import type { IAiCompareTopResult } from '../models/RecruitmentCampaign.js';
 import { mapV2RecordToUiResult } from './compareTopV2Adapter.js';
+import {
+    getCampaignCompareStageWebhookUrl,
+    type CampaignCompareStage,
+} from './campaignCompareCallbackAuth.js';
 
 const EMAIL_DISPATCH_TIMEOUT_MS = 15_000;
 
@@ -16,16 +20,30 @@ const LEGACY_EMAIL_WEBHOOK_ENV: Record<CompareUiStage, string> = {
     video: 'N8N_VIDEO_AI_COMPARE_WEBHOOK_URL',
 };
 
+const UI_TO_COMPARE_STAGE: Record<CompareUiStage, CampaignCompareStage> = {
+    screening: 'stage1',
+    voice: 'stage2',
+    video: 'stage3',
+};
+
 function legacyWebhookUrl(uiStage: CompareUiStage): string {
     const envKey = LEGACY_EMAIL_WEBHOOK_ENV[uiStage];
     const fromEnv = (process.env[envKey] || '').trim();
     if (fromEnv) return fromEnv;
     const defaults: Record<CompareUiStage, string> = {
         screening: 'https://n8n.evaalo.com/webhook/9391209e-26c0-48f9-858e-8136e62ab787',
-        voice: 'https://n8n.evaalo.com/webhook/a7b9b932-43e6-4666-b107-9bc664542392',
+        voice: 'https://n8n.evaalo.com/webhook/cceec6bc-9ffc-42ee-bd57-845c7ee04eb0',
         video: 'https://n8n.evaalo.com/webhook/c0de9126-4c40-484f-afa3-ba8708b67965',
     };
     return defaults[uiStage];
+}
+
+function compareEmailWebhookUrl(uiStage: CompareUiStage): string {
+    if ((process.env.CAMPAIGN_COMPARE_V2_ENABLED || '').trim().toLowerCase() === 'true') {
+        const v2 = getCampaignCompareStageWebhookUrl(UI_TO_COMPARE_STAGE[uiStage]);
+        if (v2) return v2;
+    }
+    return legacyWebhookUrl(uiStage);
 }
 
 /**
@@ -61,8 +79,13 @@ function composeEmailPayload(
         organizationId: record.organizationId,
         requestId: record.requestId,
         emails: record.emails ?? [],
-        // Executive Summary (Phase 1) — يبدأ الإيميل بهذه ثم البطاقات.
+        // Executive Summary (Phase 1 / 1.5) — يبدأ الإيميل بهذه ثم البطاقات.
         decisionSummary: uiResult.decisionSummary,
+        contextualIntroduction: uiResult.contextualIntroduction,
+        comparativeInsights: uiResult.comparativeInsights,
+        whyTopCandidateWins: uiResult.whyTopCandidateWins,
+        finalRecommendation: uiResult.finalRecommendation,
+        interviewFocus: record.result?.interviewFocus,
         executiveStats: buildExecutiveStats(uiResult),
         summary: uiResult.summary,
         ranking: uiResult.ranking,
@@ -81,7 +104,7 @@ export async function dispatchCompareTopV2Emails(record: ICampaignCompareRequest
         submittedAt: new Date().toISOString(),
     };
 
-    const url = legacyWebhookUrl(record.uiStage);
+    const url = compareEmailWebhookUrl(record.uiStage);
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), EMAIL_DISPATCH_TIMEOUT_MS);
     try {
@@ -91,13 +114,32 @@ export async function dispatchCompareTopV2Emails(record: ICampaignCompareRequest
             body: JSON.stringify(payload),
             signal: ctrl.signal,
         });
+        const text = await res.text().catch(() => '');
         if (!res.ok) {
-            const text = await res.text().catch(() => '');
             console.warn(
                 `[campaign-compare-v2] email dispatch non-OK stage=${record.uiStage} status=${res.status} body=${text.slice(0, 200)}`
             );
             return;
         }
+
+        let parsed: unknown;
+        try {
+            parsed = text ? JSON.parse(text) : null;
+        } catch {
+            parsed = null;
+        }
+        const emailSent =
+            parsed &&
+            typeof parsed === 'object' &&
+            !Array.isArray(parsed) &&
+            (parsed as Record<string, unknown>).emailSent === true;
+        if (!emailSent) {
+            console.warn(
+                `[campaign-compare-v2] email dispatch no confirmation stage=${record.uiStage} request=${record.requestId} body=${text.slice(0, 200)}`
+            );
+            return;
+        }
+
         record.emailDispatchedAt = new Date();
         await record.save();
     } catch (err) {

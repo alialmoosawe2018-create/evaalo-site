@@ -1,6 +1,6 @@
 [
   {
-    "id": "kzMPEsBAGnbeteTB",
+    "id": "zM4Hez3Wiuq4VnO4",
     "name": "Campaign Compare — Stage 1 (Secure Draft)",
     "description": "Secure Campaign Compare Stage 1: backend-owned candidatePool, inbound secret validation, signed callback with candidateSnapshotHash. Inactive — do not publish. Zero MongoDB nodes.",
     "active": false,
@@ -8,7 +8,7 @@
       {
         "parameters": {
           "httpMethod": "POST",
-          "path": "65aef6c8-4a13-417d-9f05-70ca6f7f8b13",
+          "path": "c9e17b50-eaf0-42a0-b27c-9a9e97d8132d",
           "responseMode": "onReceived",
           "options": {}
         },
@@ -18,13 +18,13 @@
           0,
           0
         ],
-        "id": "9e41a647-e6aa-4556-90c1-947cf06ad76f",
+        "id": "8ce6f6b0-58fd-4e9d-bd74-2fc91022fa28",
         "name": "Webhook",
-        "webhookId": "65aef6c8-4a13-417d-9f05-70ca6f7f8b13"
+        "webhookId": "c9e17b50-eaf0-42a0-b27c-9a9e97d8132d"
       },
       {
         "parameters": {
-          "jsCode": "const crypto = require('crypto');\nconst body = $input.first().json.body || {};\nconst expected = String($env.N8N_CAMPAIGN_COMPARE_INBOUND_SECRET || '').trim();\nconst received = String(body.inboundSecret ?? '').trim();\n\nif (!expected) throw new Error('CCMP_INBOUND_SECRET_UNCONFIGURED');\nif (!received || received.length !== expected.length) throw new Error('CCMP_INBOUND_SECRET_REJECTED');\nif (!crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected))) {\n  throw new Error('CCMP_INBOUND_SECRET_REJECTED');\n}\n\nconst required = [\n  'requestId','campaignId','organizationId','compareStage','topN',\n  'criteria','candidatePool','candidateSnapshotHash','callbackUrl','inboundSecret',\n];\nfor (const key of required) {\n  const val = body[key];\n  if (val === undefined || val === null || val === '') {\n    throw new Error('CCMP_MISSING_FIELD:' + key);\n  }\n}\nif (body.compareStage !== 'stage1') throw new Error('CCMP_STAGE_MISMATCH');\nif (!Array.isArray(body.candidatePool) || body.candidatePool.length === 0) {\n  throw new Error('CCMP_EMPTY_POOL');\n}\n\nconst topN = Math.min(Math.max(Number(body.topN) || body.candidatePool.length, 1), 10);\nconst candidates = body.candidatePool.slice(0, topN);\n\nreturn [{\n  json: {\n    requestId: String(body.requestId),\n    campaignId: String(body.campaignId),\n    organizationId: String(body.organizationId),\n    compareStage: 'stage1',\n    topN,\n    criteria: body.criteria,\n    candidateSnapshotHash: String(body.candidateSnapshotHash),\n    callbackUrl: String(body.callbackUrl),\n    candidates_pool: candidates,\n    pool_size: candidates.length,\n  },\n}];"
+          "jsCode": "const body = $input.first().json.body || {};\nconst expected = String($env.N8N_CAMPAIGN_COMPARE_INBOUND_SECRET || '').trim();\nconst received = String(body.inboundSecret ?? '').trim();\n\nif (!expected) throw new Error('CCMP_INBOUND_SECRET_UNCONFIGURED');\nif (!received || received.length !== expected.length) throw new Error('CCMP_INBOUND_SECRET_REJECTED');\nif (received !== expected) throw new Error('CCMP_INBOUND_SECRET_REJECTED');\n\nconst required = [\n  'requestId','campaignId','organizationId','compareStage','topN',\n  'criteria','candidatePool','candidateSnapshotHash','callbackUrl','inboundSecret',\n];\nfor (const key of required) {\n  const val = body[key];\n  if (val === undefined || val === null || val === '') {\n    throw new Error('CCMP_MISSING_FIELD:' + key);\n  }\n}\nif (body.compareStage !== 'stage1') throw new Error('CCMP_STAGE_MISMATCH');\nif (!Array.isArray(body.candidatePool) || body.candidatePool.length === 0) {\n  throw new Error('CCMP_EMPTY_POOL');\n}\n\nconst topN = Math.min(Math.max(Number(body.topN) || body.candidatePool.length, 1), 10);\nconst candidates = body.candidatePool.slice(0, topN);\n\nreturn [{\n  json: {\n    requestId: String(body.requestId),\n    campaignId: String(body.campaignId),\n    organizationId: String(body.organizationId),\n    compareStage: 'stage1',\n    topN,\n    criteria: body.criteria,\n    candidateSnapshotHash: String(body.candidateSnapshotHash),\n    callbackUrl: String(body.callbackUrl),\n    candidates_pool: candidates,\n    pool_size: candidates.length,\n  },\n}];"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -32,7 +32,7 @@
           240,
           0
         ],
-        "id": "609e0b20-4c5b-429f-98d0-39ccb28c20c3",
+        "id": "21385bb5-b5d4-4a88-ba9c-d520e86a3f3a",
         "name": "Validate Inbound Secret"
       },
       {
@@ -42,7 +42,7 @@
           "messages": {
             "messageValues": [
               {
-                "message": "Role & Task:\nYou are a Senior Talent Selection Panel AI. Compare already-evaluated Stage 1 candidates supplied in candidatePool only. Rank from best (#1) to worst. Recommend who should proceed to the voice interview.\n\nRules:\n- Use candidateId and candidateName exactly from the supplied pool. Do not invent IDs.\n- Weigh overallScore and written evaluation depth (summary, strengths, weaknesses, fitForRole, finalHrEvaluation).\n- recommendation per row must be one of: Hire, Consider, Reject (when present).\n- Respond in Arabic if evaluations are primarily Arabic; otherwise English.\n- Return ONLY a single JSON object (no markdown, no code fences).\n\nREQUIRED top-level keys (camelCase, all mandatory):\n- comparativeSummary (string)\n- candidateRanking (array, sorted best to worst)\n- topRecommendation (string, full name of rank #1)\n- interviewFocus (string)\n\nEach candidateRanking item MUST include:\n- rank (integer starting at 1, unique)\n- candidateId (from pool)\n- candidateName (from pool)\n- stageScore (number or string; use pool overallScore when appropriate)\n- competitiveAdvantage (string)\n- recommendation (optional: Hire | Consider | Reject)\n\nOptional:\n- wildcard: { candidateId, candidateName, reason } for a notable non-top pick"
+                "message": "Role & Task:\nYou are a Senior Talent Selection Panel AI (executive decision-support report). Compare already-evaluated Stage 1 candidates from candidatePool only. Rank from best (#1) to worst. Produce a structured Arabic report (unless evaluations are clearly English-only).\n\nRules:\n- Use candidateId and candidateName exactly from the supplied pool. Do not invent IDs.\n- Weigh overallScore and written evaluation depth (summary, strengths, weaknesses, fitForRole, finalHrEvaluation).\n- recommendation per row MUST be one of: Hire | Consider | Reject\n- Be decisive but fair: mention real gaps (age, domain fit, experience) when they affect ranking.\n- Return ONLY a single JSON object (no markdown, no code fences).\n\nREQUIRED top-level keys (camelCase):\n- contextualIntroduction (string, 2–4 sentences: scenario + what is being compared)\n- decisionSummary (string, 1–3 sentences: decisive executive headline — who leads and why)\n- comparativeSummary (string, detailed narrative comparison paragraph)\n- comparativeInsights (object with 3–6 string keys = dimension labels, values = who wins that dimension and why, e.g. {\"الخبرة التخصصية\":\"المرشح الأول...\"})\n- candidateRanking (array, sorted best to worst)\n- whyTopCandidateWins (string: why #1 beats #2 despite #2 strengths)\n- finalRecommendation (string: clear hire/proceed guidance + who NOT to prioritize)\n- topRecommendation (string, full name of rank #1)\n- interviewFocus (string: what to probe in next-stage interview)\n\nEach candidateRanking item MUST include:\n- rank (integer starting at 1, unique)\n- candidateId (from pool)\n- candidateName (from pool)\n- stageScore (number or string; use pool overallScore when appropriate)\n- competitiveAdvantage (string, one-line edge summary)\n- recommendation (Hire | Consider | Reject)\n- overallRecommendation (short label, e.g. \"Consider with training\")\n- executiveComment (string, 1–2 sentence executive take)\n- confidence (integer 0–100, how confident in this rank vs peers)\n- confidence_rationale (string, explains the confidence number)\n- reasons (array of 2–4 strings: why ranked here)\n- strengths (array of 2–4 strings)\n- risks (array of 1–3 strings: real hiring risks)\n- watchOut (string, optional advisory — onboarding/monitoring note, not duplicate of risks)\n- differenceFromNext (string, for every row except the last: why ranked above the next candidate)\n\nOptional top-level:\n- wildcard: { candidateId, candidateName, reason } for a notable non-top pick"
               }
             ]
           },
@@ -54,7 +54,7 @@
           720,
           0
         ],
-        "id": "4b96f3f0-135b-4d03-8702-791de4e38193",
+        "id": "9f97fab8-86ea-4861-a490-0a068b6c91a5",
         "name": "Compare Stage 1 LLM"
       },
       {
@@ -74,7 +74,7 @@
           720,
           180
         ],
-        "id": "48faf9f0-25ac-4af6-8867-d7132ede5d61",
+        "id": "017d20bf-f0b8-4066-bd97-371ca10557e9",
         "name": "OpenAI Chat Model",
         "credentials": {
           "openAiApi": {
@@ -85,7 +85,7 @@
       },
       {
         "parameters": {
-          "jsCode": "const item = $input.first().json;\nconst ctx = $('Validate Inbound Secret').first().json;\nconst allowed = new Set((ctx.candidates_pool || []).map((c) => String(c.candidateId)));\n\nfunction stripMarkdownFence(s) {\n  return String(s || '').replace(/^\\`\\`\\`(?:json)?\\s*/i, '').replace(/\\s*\\`\\`\\`$/i, '').trim();\n}\n\nfunction parseLlmJson(raw) {\n  if (!raw) return {};\n  if (typeof raw === 'object' && !Array.isArray(raw)) {\n    if (raw.comparativeSummary || raw.candidateRanking || raw.comparative_summary || raw.candidate_ranking) return raw;\n    if (raw.output && typeof raw.output === 'object') return raw.output;\n  }\n  const text = stripMarkdownFence(typeof raw === 'string' ? raw : (raw.text || raw.output || ''));\n  if (!text) return {};\n  try { return JSON.parse(text); } catch {\n    const match = text.match(/\\{[\\s\\S]*\\}/);\n    if (match) { try { return JSON.parse(match[0]); } catch { return {}; } }\n    return {};\n  }\n}\n\nconst parsed = parseLlmJson(item);\nconst rawRanking = Array.isArray(parsed.candidateRanking)\n  ? parsed.candidateRanking\n  : (Array.isArray(parsed.candidate_ranking) ? parsed.candidate_ranking : []);\n\nconst candidateRanking = rawRanking.map((row, idx) => {\n  const r = row && typeof row === 'object' ? row : {};\n  const candidateId = String(r.candidateId || r.candidate_id || r.CandidateID || '').trim();\n  const rank = Number(r.rank ?? idx + 1);\n  return {\n    rank,\n    candidateId,\n    candidateName: String(r.candidateName || r.candidate_name || r.ApplicantName || '').trim(),\n    stageScore: r.stageScore ?? r.initial_screening_score ?? r.OverallScore ?? r.overallScore ?? '',\n    competitiveAdvantage: String(r.competitiveAdvantage || r.competitive_advantage || '').trim(),\n    recommendation: r.recommendation || r.Recommendation,\n  };\n}).filter((row) => row.candidateId && allowed.has(row.candidateId));\n\nif (candidateRanking.length === 0) {\n  throw new Error('CCMP_EMPTY_RANKING');\n}\n\nlet wildcard = parsed.wildcard ?? null;\nif (wildcard && typeof wildcard === 'object') {\n  wildcard = {\n    candidateId: String(wildcard.candidateId || '').trim(),\n    candidateName: String(wildcard.candidateName || '').trim(),\n    reason: String(wildcard.reason || '').trim(),\n  };\n  if (!wildcard.candidateId) wildcard = null;\n}\n\nreturn [{\n  json: {\n    requestId: ctx.requestId,\n    compareStage: 'stage1',\n    candidateSnapshotHash: ctx.candidateSnapshotHash,\n    comparativeSummary: String(parsed.comparativeSummary || parsed.comparative_summary || '').trim(),\n    candidateRanking,\n    topRecommendation: String(parsed.topRecommendation || parsed.top_recommendation || '').trim(),\n    interviewFocus: String(parsed.interviewFocus || parsed.voice_interview_focus || parsed.next_stage_focus || '').trim(),\n    wildcard,\n    callbackUrl: ctx.callbackUrl,\n  },\n}];"
+          "jsCode": "const item = $input.first().json;\nconst ctx = $('Validate Inbound Secret').first().json;\nconst allowed = new Set((ctx.candidates_pool || []).map((c) => String(c.candidateId)));\n\nfunction stripMarkdownFence(s) {\n  return String(s || '').replace(/^\\`\\`\\`(?:json)?\\s*/i, '').replace(/\\s*\\`\\`\\`$/i, '').trim();\n}\n\nfunction parseLlmJson(raw) {\n  if (!raw) return {};\n  if (typeof raw === 'object' && !Array.isArray(raw)) {\n    if (raw.comparativeSummary || raw.candidateRanking || raw.comparative_summary || raw.candidate_ranking) return raw;\n    if (raw.output && typeof raw.output === 'object') return raw.output;\n  }\n  const text = stripMarkdownFence(typeof raw === 'string' ? raw : (raw.text || raw.output || ''));\n  if (!text) return {};\n  try { return JSON.parse(text); } catch {\n    const match = text.match(/\\{[\\s\\S]*\\}/);\n    if (match) { try { return JSON.parse(match[0]); } catch { return {}; } }\n    return {};\n  }\n}\n\nfunction trimStr(v, max) {\n  const s = v == null ? '' : String(v).trim();\n  if (!s) return '';\n  return s.length > max ? s.slice(0, max) : s;\n}\n\nfunction trimList(v, maxItems, maxLen) {\n  if (!Array.isArray(v)) return undefined;\n  const out = v.map((x) => trimStr(x, maxLen)).filter(Boolean).slice(0, maxItems);\n  return out.length ? out : undefined;\n}\n\nfunction clampConf(v) {\n  if (v === undefined || v === null || v === '') return undefined;\n  const n = Number(v);\n  if (!Number.isFinite(n)) return undefined;\n  return Math.min(100, Math.max(0, Math.round(n)));\n}\n\nfunction normalizeInsights(v) {\n  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;\n  const out = {};\n  let count = 0;\n  for (const [k, val] of Object.entries(v)) {\n    if (count >= 8) break;\n    const key = trimStr(k, 100);\n    const value = trimStr(val, 2000);\n    if (!key || !value) continue;\n    out[key] = value;\n    count += 1;\n  }\n  return count ? out : undefined;\n}\n\nconst parsed = parseLlmJson(item);\nconst rawRanking = Array.isArray(parsed.candidateRanking)\n  ? parsed.candidateRanking\n  : (Array.isArray(parsed.candidate_ranking) ? parsed.candidate_ranking : []);\n\nconst candidateRanking = rawRanking.map((row, idx) => {\n  const r = row && typeof row === 'object' ? row : {};\n  const candidateId = String(r.candidateId || r.candidate_id || r.CandidateID || '').trim();\n  const rank = Number(r.rank ?? idx + 1);\n  const rec = String(r.recommendation || r.Recommendation || '').trim();\n  const recommendation = rec === 'Hire' || rec === 'Consider' || rec === 'Reject' ? rec : undefined;\n  return {\n    rank,\n    candidateId,\n    candidateName: trimStr(r.candidateName || r.candidate_name || r.ApplicantName, 300),\n    stageScore: r.stageScore ?? r.initial_screening_score ?? r.OverallScore ?? r.overallScore ?? '',\n    competitiveAdvantage: trimStr(r.competitiveAdvantage || r.competitive_advantage, 2000),\n    recommendation,\n    overallRecommendation: trimStr(r.overallRecommendation || r.overall_recommendation, 300) || undefined,\n    executiveComment: trimStr(r.executiveComment || r.executive_comment, 2000) || undefined,\n    confidence: clampConf(r.confidence),\n    confidence_rationale: trimStr(r.confidence_rationale || r.confidenceRationale, 2000) || undefined,\n    reasons: trimList(r.reasons, 6, 2000),\n    strengths: trimList(r.strengths, 6, 2000),\n    risks: trimList(r.risks, 6, 2000),\n    watchOut: trimStr(r.watchOut || r.watch_out, 2000) || undefined,\n    differenceFromNext: trimStr(r.differenceFromNext || r.difference_from_next, 2000) || undefined,\n  };\n}).filter((row) => row.candidateId && allowed.has(row.candidateId));\n\nif (candidateRanking.length === 0) {\n  throw new Error('CCMP_EMPTY_RANKING');\n}\n\nlet wildcard = parsed.wildcard ?? null;\nif (wildcard && typeof wildcard === 'object') {\n  wildcard = {\n    candidateId: String(wildcard.candidateId || '').trim(),\n    candidateName: trimStr(wildcard.candidateName, 300),\n    reason: trimStr(wildcard.reason, 2000),\n  };\n  if (!wildcard.candidateId) wildcard = null;\n}\n\nreturn [{\n  json: {\n    requestId: ctx.requestId,\n    compareStage: 'stage1',\n    candidateSnapshotHash: ctx.candidateSnapshotHash,\n    contextualIntroduction: trimStr(parsed.contextualIntroduction || parsed.contextual_introduction, 8000),\n    decisionSummary: trimStr(parsed.decisionSummary || parsed.decision_summary, 8000),\n    comparativeSummary: trimStr(parsed.comparativeSummary || parsed.comparative_summary, 8000),\n    comparativeInsights: normalizeInsights(parsed.comparativeInsights || parsed.comparative_insights),\n    whyTopCandidateWins: trimStr(parsed.whyTopCandidateWins || parsed.why_top_candidate_wins, 8000),\n    finalRecommendation: trimStr(parsed.finalRecommendation || parsed.final_recommendation, 8000),\n    candidateRanking,\n    topRecommendation: trimStr(parsed.topRecommendation || parsed.top_recommendation, 300),\n    interviewFocus: trimStr(parsed.interviewFocus || parsed.voice_interview_focus || parsed.next_stage_focus, 4000),\n    wildcard,\n    callbackUrl: ctx.callbackUrl,\n  },\n}];"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -93,7 +93,7 @@
           960,
           0
         ],
-        "id": "5c70d63c-61bb-4e5c-9b5d-9e3a0ec81ca1",
+        "id": "6fb88b15-27a1-465d-b198-811dca5a2f1d",
         "name": "Build Callback Body"
       },
       {
@@ -115,7 +115,7 @@
           },
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ requestId: $json.requestId, compareStage: $json.compareStage, candidateSnapshotHash: $json.candidateSnapshotHash, comparativeSummary: $json.comparativeSummary, candidateRanking: $json.candidateRanking, topRecommendation: $json.topRecommendation, interviewFocus: $json.interviewFocus, wildcard: $json.wildcard ?? null }) }}",
+          "jsonBody": "={{ JSON.stringify({ requestId: $json.requestId, compareStage: $json.compareStage, candidateSnapshotHash: $json.candidateSnapshotHash, comparativeSummary: $json.comparativeSummary, decisionSummary: $json.decisionSummary, contextualIntroduction: $json.contextualIntroduction, comparativeInsights: $json.comparativeInsights, whyTopCandidateWins: $json.whyTopCandidateWins, finalRecommendation: $json.finalRecommendation, candidateRanking: $json.candidateRanking, topRecommendation: $json.topRecommendation, interviewFocus: $json.interviewFocus, wildcard: $json.wildcard ?? null }) }}",
           "options": {}
         },
         "type": "n8n-nodes-base.httpRequest",
@@ -124,7 +124,7 @@
           1200,
           0
         ],
-        "id": "3cfda64a-d587-40c7-8e4b-9a9c1ec52f85",
+        "id": "a98dbfe3-e6b0-47c5-a18f-feb4f14e3db1",
         "name": "Callback to Backend",
         "retryOnFail": true,
         "maxTries": 3,

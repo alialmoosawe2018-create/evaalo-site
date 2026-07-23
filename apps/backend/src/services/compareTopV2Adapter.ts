@@ -140,14 +140,12 @@ export async function mirrorCompareTopV2ToCampaign(record: ICampaignCompareReque
 async function loadLatestRequest(
     campaignId: string,
     compareStage: CampaignCompareStage,
-    organizationId: string,
-    requestedBy: string
+    organizationId: string
 ): Promise<ICampaignCompareRequest | null> {
     return CampaignCompareRequest.findOne({
         campaignId,
         compareStage,
         organizationId,
-        requestedBy,
     })
         .sort({ createdAt: -1 })
         .exec();
@@ -301,7 +299,6 @@ export async function getCompareTopV2Result(
 ): Promise<void> {
     const compareStage = mapUiStageToCompareStage(uiStage);
     const organizationId = getOrgId(req);
-    const requestedBy = getClerkUserId(req);
 
     const campaign = await RecruitmentCampaign.findOne(
         orgScopedQuery(req, { campaignId })
@@ -312,7 +309,7 @@ export async function getCompareTopV2Result(
         return;
     }
 
-    const record = await loadLatestRequest(campaignId, compareStage, organizationId, requestedBy);
+    const record = await loadLatestRequest(campaignId, compareStage, organizationId);
     if (!record) {
         const field = mapUiStageToCampaignField(uiStage);
         res.json({

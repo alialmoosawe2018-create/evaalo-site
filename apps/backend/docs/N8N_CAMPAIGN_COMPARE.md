@@ -37,6 +37,8 @@ npm run build:campaign-compare-stage3-draft
 | Variable | Where |
 |----------|--------|
 | `N8N_CAMPAIGN_COMPARE_INBOUND_SECRET` | Backend `.env` **and** n8n `$env` |
+| `N8N_BLOCK_ENV_ACCESS_IN_NODE` | n8n Docker: set `false` so Code nodes and callback headers can read `$env` |
+| `N8N_EXPRESSIONS_ALLOWED_ENV_VARS` | n8n Docker: `N8N_CAMPAIGN_COMPARE_INBOUND_SECRET` (optional allowlist) |
 | `N8N_CAMPAIGN_COMPARE_STAGE1\|2\|3_WEBHOOK_URL` | Backend `.env` — full URL **after** n8n import |
 | `CAMPAIGN_COMPARE_CALLBACK_SIGNING_SECRET` | Backend (HMAC on `callbackUrl`) |
 | `CAMPAIGN_COMPARE_CALLBACK_ALLOWLIST` | Backend (`PUBLIC_API_URL` origin) |
@@ -78,12 +80,25 @@ Headers:
 
 Body (**`candidateSnapshotHash` required on all stages**):
 
+Stage 1 production uses **Phase 1.5** (decision-support report aligned with `ScreeningAiComparePanel.jsx`). Regenerate/patch:
+
+```bash
+npm run build:campaign-compare-stage1-draft
+# live n8n SQLite (VPS):
+node scripts/patch-n8n-stage1-phase15.mjs /root/n8n-data-old/database.sqlite
+```
+
 ```json
 {
   "requestId": "…",
   "compareStage": "stage1 | stage2 | stage3",
   "candidateSnapshotHash": "sha256-hex",
+  "contextualIntroduction": "…",
+  "decisionSummary": "…",
   "comparativeSummary": "…",
+  "comparativeInsights": { "dimension label": "who wins and why" },
+  "whyTopCandidateWins": "…",
+  "finalRecommendation": "…",
   "candidateRanking": [
     {
       "rank": 1,
@@ -91,7 +106,16 @@ Body (**`candidateSnapshotHash` required on all stages**):
       "candidateName": "…",
       "stageScore": 88,
       "competitiveAdvantage": "…",
-      "recommendation": "Hire"
+      "recommendation": "Hire",
+      "overallRecommendation": "Strong Consider",
+      "executiveComment": "…",
+      "confidence": 82,
+      "confidence_rationale": "…",
+      "reasons": ["…"],
+      "strengths": ["…"],
+      "risks": ["…"],
+      "watchOut": "…",
+      "differenceFromNext": "…"
     }
   ],
   "topRecommendation": "…",
@@ -99,6 +123,8 @@ Body (**`candidateSnapshotHash` required on all stages**):
   "wildcard": null
 }
 ```
+
+Stages 2–3 use the same Phase 1.5 schema and `Build Callback Body` parser as Stage 1 (`extractLlmText` handles chainLlm `response`, `candidatePool` allow-list). Patch scripts: `patch-n8n-stage2-stage3-phase15.py` (requires `patch-payload-stage23.json` from local `node` export).
 
 Backend (`campaignCompareN8nInbound.ts`) rejects:
 
@@ -143,3 +169,18 @@ Negative test: callback without hash or wrong hash → request stays non-complet
 1. Activate drafts; update prod/staging webhook URLs
 2. Do **not** enable NoOp or legacy Mongo ranking workflows
 3. Rollback: unpublish drafts (502 on dispatch) — do not revert to legacy paths
+
+## Production n8n requirements
+
+Code nodes in secure drafts must **not** use `require('crypto')` (n8n task runner blocks it). Use plain `received !== expected` for inbound secret checks.
+
+Docker must expose the compare secret to nodes:
+
+```yaml
+environment:
+  - N8N_CAMPAIGN_COMPARE_INBOUND_SECRET=…
+  - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+  - N8N_EXPRESSIONS_ALLOWED_ENV_VARS=N8N_CAMPAIGN_COMPARE_INBOUND_SECRET
+```
+
+After editing workflows in the DB, restart n8n — runtime uses `workflow_history` (`activeVersionId`), not only `workflow_entity.nodes`.

@@ -110,6 +110,42 @@ const WrittenInterview = () => {
 
     const selectedCampaignId = selectedGroup?.campaignId ?? null;
 
+    const applyAiCompareFromResult = (r) => {
+        if (!r) return;
+        setAiCompareResult(r);
+        setAiCompareRequestId(r.requestId || null);
+        if (r.status === 'completed') {
+            setAiCompareStatus('completed');
+            setAiComparePanelOpen(true);
+        } else if (r.status === 'failed' || r.status === 'refunded' || r.status === 'expired') {
+            setAiCompareStatus('failed');
+            setAiComparePanelOpen(true);
+        } else if (r.status === 'pending' || r.status === 'processing') {
+            setAiCompareStatus('pending');
+            setAiComparePanelOpen(true);
+        }
+    };
+
+    const fetchAiCompareState = async () => {
+        if (!selectedCampaignId) return null;
+        const json = await apiClient.get(
+            `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top`
+        );
+        if (json?.success && json.result) {
+            applyAiCompareFromResult(json.result);
+            return json.result;
+        }
+        return null;
+    };
+
+    const handleViewLastAiCompare = async () => {
+        try {
+            await fetchAiCompareState();
+        } catch (err) {
+            console.warn('⚠️ AI compare view-last failed:', err);
+        }
+    };
+
     const handleOpenAiCompare = () => {
         if (campaignCandidates.length < 2) {
             setAiCompareNeedTwoOpen(true);
@@ -139,19 +175,7 @@ const WrittenInterview = () => {
                     `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top`
                 );
                 if (cancelled || !json?.success || !json.result) return;
-                const r = json.result;
-                setAiCompareResult(r);
-                setAiCompareRequestId(r.requestId || null);
-                if (r.status === 'completed') {
-                    setAiCompareStatus('completed');
-                    setAiComparePanelOpen(true);
-                } else if (r.status === 'failed' || r.status === 'refunded' || r.status === 'expired') {
-                    setAiCompareStatus('failed');
-                    setAiComparePanelOpen(true);
-                } else if (r.status === 'pending' || r.status === 'processing') {
-                    setAiCompareStatus('pending');
-                    setAiComparePanelOpen(true);
-                }
+                applyAiCompareFromResult(json.result);
             } catch (err) {
                 console.warn('⚠️ AI compare hydrate failed:', err);
             }
@@ -192,6 +216,7 @@ const WrittenInterview = () => {
                     if (!stopped) {
                         setAiCompareResult(r);
                         setAiCompareStatus(terminal);
+                        setAiComparePanelOpen(true);
                     }
                 }
             } catch (err) {
@@ -203,6 +228,18 @@ const WrittenInterview = () => {
             clearInterval(interval);
         };
     }, [aiCompareStatus, selectedCampaignId, aiCompareRequestId]);
+
+    // إعادة جلب النتيجة عند العودة للتبويب (مثلاً بعد timeout أو إغلاق اللوحة)
+    useEffect(() => {
+        if (!selectedCampaignId) return undefined;
+        const onVisible = () => {
+            if (document.visibilityState !== 'visible') return;
+            if (aiCompareStatus === 'pending') return;
+            fetchAiCompareState().catch(() => undefined);
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [selectedCampaignId, aiCompareStatus]);
 
     useEffect(() => {
         const previous = document.title;
@@ -573,6 +610,15 @@ const WrittenInterview = () => {
                                     <span className="btn-text btn-text--full">{t('aiCompareTop_button')}</span>
                                     <span className="btn-text btn-text--short">{t('aiCompareTop_buttonShort')}</span>
                                 </span>
+                            </button>
+                        ) : null}
+                        {selectedCampaignId && aiCompareResult?.status === 'completed' && !aiComparePanelOpen ? (
+                            <button
+                                type="button"
+                                className="workflow-btn-secondary ai-compare-top-view-btn"
+                                onClick={handleViewLastAiCompare}
+                            >
+                                {t('aiCompareTop_viewLast')}
                             </button>
                         ) : null}
                     </div>
