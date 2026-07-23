@@ -111,6 +111,14 @@ const PORT = Number(process.env.PORT) || 5000;
 const LISTEN_HOST = (process.env.LISTEN_HOST || '0.0.0.0').trim() || '0.0.0.0';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const APP_PUBLIC_URL = (process.env.APP_PUBLIC_URL || '').trim();
+/**
+ * Extra browser origins allowed through CORS, comma-separated
+ * (e.g. `https://staging.evaalo.com`). This is deliberately SEPARATE from
+ * FRONTEND_URL / APP_PUBLIC_URL: those two also build the public links we send
+ * to candidates and the Stripe return URLs, so they must always stay pointed at
+ * production. Use this variable — never those — to admit a test environment.
+ */
+const CORS_EXTRA_ORIGINS = (process.env.CORS_EXTRA_ORIGINS || '').trim();
 
 function buildCorsAllowedOrigins(): string[] {
     const origins = new Set<string>([
@@ -129,6 +137,18 @@ function buildCorsAllowedOrigins(): string[] {
             origins.add(new URL(raw).origin);
         } catch {
             origins.add(raw.replace(/\/$/, ''));
+        }
+    }
+    // Exact origins only — no suffix or wildcard matching. A loose `.pages.dev`
+    // style rule would let anyone register a matching host and, with
+    // `credentials: true`, read authenticated responses.
+    for (const raw of CORS_EXTRA_ORIGINS.split(',')) {
+        const entry = raw.trim();
+        if (!entry) continue;
+        try {
+            origins.add(new URL(entry).origin);
+        } catch {
+            console.warn(`⚠️  CORS_EXTRA_ORIGINS: تم تجاهل قيمة غير صالحة "${entry}" (المتوقع origin كامل مثل https://staging.evaalo.com)`);
         }
     }
     return [...origins];

@@ -25,7 +25,8 @@ Monorepo → Commit → Push → (deploy command) → Git mirror → VPS git pul
 | **Local mirror clone** | `cursor-react/.deploy-tmp/evaalo-backend` | Working clone the deploy command syncs & pushes |
 | **Production (backend)** | VPS `/root/evaalo-backend` (git clone of `evaalo-backend@main`) | Pulled by the auto-deployer; builds the Docker image |
 | **Running backend** | Docker container `evaalo-api` (compose service `api`) | `api.evaalo.com` ← cloudflared tunnel |
-| **Production (frontend)** | GitHub Pages (`evaalo-site` gh-pages) → `www.evaalo.com` | Built from `apps/frontend`, deployed via gh-pages |
+| **Production (frontend)** | GitHub Pages (`evaalo-site` branch `main`, dist-only) → `www.evaalo.com` | Built from `apps/frontend`, deployed via `gh-pages`. **Being migrated to Cloudflare Pages — see §2.1.** |
+| **Staging (frontend)** | Cloudflare Pages (`evaalo-site` branch `staging`) → `staging.evaalo.com` | Auto-built on push. Talks to the **production** API |
 
 **Canonical file boundary (backend):**
 - **Synced from monorepo** (byte-for-byte, LF): `src/`, `scripts/`, `ops/`, `Dockerfile`, `.dockerignore`, `tsconfig*.json`.
@@ -70,6 +71,54 @@ Then the **VPS auto-deployer** (systemd timer `evaalo-backend-deploy.timer`, eve
 ```bash
 npm run deploy:frontend   # builds apps/frontend and publishes to gh-pages (www.evaalo.com)
 ```
+
+---
+
+## 2.1 Frontend hosting: migration to Cloudflare Pages
+
+`www.evaalo.com` is moving off GitHub Pages onto Cloudflare Pages. Until the
+cutover, `npm run deploy:frontend` remains the live path and this section
+describes the target state.
+
+**Cloudflare Pages project settings** (these are not inferrable — get them right):
+
+| Setting | Value | Why |
+|---|---|---|
+| Production branch | **`master`** | `main` holds only the old built `dist`. Cloudflare defaults to `main` — it must be changed |
+| Root directory | *(empty — monorepo root)* | Vite aliases `@evaalo/job-catalog` to `apps/shared/jobCatalog`, which lives outside `apps/frontend` |
+| Build command | `npm ci && npm run build:frontend` | |
+| Output directory | `apps/frontend/dist` | |
+| Preview deployments | **disabled** | Clerk runs a production instance on `clerk.evaalo.com`; its cookies are scoped to `.evaalo.com`, so auth can never work on a `*.pages.dev` host |
+| `NODE_VERSION` | `20` | |
+| `PUPPETEER_SKIP_DOWNLOAD` | `1` | `npm ci` at the root installs the `apps/backend` workspace too, and `puppeteer` would otherwise download Chromium on every build |
+
+No `VITE_*` variables are needed in the dashboard — `apps/frontend/.env.production`
+is committed and Vite reads it at build time. (Dashboard variables still win if
+set, since Vite gives `process.env` precedence.)
+
+**Files that make this work** (all in `apps/frontend/public/`):
+- `_redirects` — `/* /index.html 200`, the SPA fallback. Replaces the GitHub
+  Pages `404.html` trick, which is removed at cutover **in the same commit**.
+- `_headers` — HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy` (camera/mic allowed — the interview flows need them), and
+  immutable caching for `/assets/*`.
+- `robots.txt` / `sitemap.xml` — candidate session routes are `Disallow`ed.
+
+**Staging.** `staging.evaalo.com` is served from branch `staging` and points at
+the **production** API. Do NOT repoint the backend at it — see the rule below.
+
+> ### ⛔ Never set `FRONTEND_URL` or `APP_PUBLIC_URL` to a test environment
+> They are not just CORS. They build the public links emailed/WhatsApp'd to
+> candidates (`services/messaging/messagingService.ts`), the Stripe checkout
+> return URLs (`services/stripeService.ts`), and integration links
+> (`routes/integrations.ts`). Pointing them at staging sends real candidates
+> staging links and returns real payments to staging.
+>
+> To admit another origin, use **`CORS_EXTRA_ORIGINS`** in `.env.api` —
+> a comma-separated list of exact origins, consumed by
+> `buildCorsAllowedOrigins()` in `src/server.ts`. Exact match only; no wildcard
+> or suffix rules (a loose `.pages.dev` rule plus `credentials: true` would let
+> anyone register a matching host and read authenticated responses).
 
 ---
 

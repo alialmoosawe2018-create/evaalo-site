@@ -44,7 +44,8 @@ export default defineConfig(({ mode }) => {
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    /** Sourcemaps only outside production — they expose the full source publicly. */
+    sourcemap: mode !== 'production'
   },
   define: {
     global: 'globalThis',
