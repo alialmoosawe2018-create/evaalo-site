@@ -615,12 +615,12 @@ const WrittenInterview = () => {
                         {selectedCampaignId && aiCompareResult?.status === 'completed' && !aiComparePanelOpen ? (
                             <button
                                 type="button"
-                                className="btn btn-secondary btn-icon-only ai-compare-top-view-btn"
+                                className="ai-compare-top-view-btn"
                                 onClick={handleViewLastAiCompare}
                                 title={t('aiCompareTop_viewLastTitle')}
                                 aria-label={t('aiCompareTop_viewLastTitle')}
                             >
-                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                <svg width="22" height="22" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                                     <path
                                         d="M1 10s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"
                                         stroke="currentColor"
