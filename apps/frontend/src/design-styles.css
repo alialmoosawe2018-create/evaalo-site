@@ -10558,17 +10558,16 @@ body.rtl-text .recent-interviews-card .dashboard-card-title {
 }
 
 .headhunter-campaign-history-page .design-header .header-actions > .ai-compare-top-view-btn {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: 0;
-    min-height: 32px;
-    height: 32px;
-    padding: 0 9px !important;
-    gap: 5px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    border-radius: 8px;
+    flex: 0 0 40px;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    min-height: 40px;
+    height: 40px;
+    padding: 0 !important;
+    gap: 0;
+    justify-content: center;
+    border-radius: 10px;
     text-decoration: none !important;
     background: rgba(15, 23, 42, 0.88) !important;
     border: 1px solid rgba(34, 211, 238, 0.32) !important;
@@ -10585,17 +10584,10 @@ body.rtl-text .recent-interviews-card .dashboard-card-title {
 }
 
 .headhunter-campaign-history-page .design-header .header-actions > .ai-compare-top-view-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
     color: rgba(34, 211, 238, 0.85);
-}
-
-.headhunter-campaign-history-page .design-header .header-actions > .ai-compare-top-view-btn .btn-text {
-    font-size: 11px;
-    line-height: 1;
-    white-space: nowrap;
-    text-decoration: none !important;
 }
 
 .headhunter-campaign-history-page .design-header .header-actions > .ai-compare-top-view-btn:hover svg {
@@ -11010,23 +11002,19 @@ body.rtl-text .recent-interviews-card .dashboard-card-title {
     }
 
     .headhunter-campaign-history-page .design-header .header-actions > .ai-compare-top-view-btn {
-        flex: 0 0 auto !important;
-        width: auto;
-        min-height: 32px;
-        height: 32px;
-        padding: 0 9px !important;
+        flex: 0 0 40px !important;
+        width: 40px !important;
+        min-width: 40px !important;
+        max-width: 40px !important;
+        min-height: 40px !important;
+        height: 40px !important;
+        padding: 0 !important;
         margin-inline-start: 0 !important;
     }
 
-    .headhunter-campaign-history-page .design-header .header-actions > .ai-compare-top-view-btn .btn-text {
-        position: static;
-        width: auto;
-        height: auto;
-        margin: 0;
-        overflow: visible;
-        clip: auto;
-        white-space: nowrap;
-        font-size: 11px;
+    .headhunter-campaign-history-page .design-header .header-actions > .ai-compare-top-view-btn svg {
+        width: 20px !important;
+        height: 20px !important;
     }
 
     .headhunter-campaign-history-page .design-header .header-actions > .head-hunter-submit-btn:not(.ai-compare-top-btn) {
