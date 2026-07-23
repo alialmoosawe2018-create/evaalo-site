@@ -190,6 +190,42 @@ const VoiceInterview = () => {
 
     const selectedCampaignId = selectedGroup?.campaignId ?? null;
 
+    const applyAiCompareFromResult = (r) => {
+        if (!r) return;
+        setAiCompareResult(r);
+        setAiCompareRequestId(r.requestId || null);
+        if (r.status === 'completed') {
+            setAiCompareStatus('completed');
+            setAiComparePanelOpen(true);
+        } else if (r.status === 'failed' || r.status === 'refunded' || r.status === 'expired') {
+            setAiCompareStatus('failed');
+            setAiComparePanelOpen(true);
+        } else if (r.status === 'pending' || r.status === 'processing') {
+            setAiCompareStatus('pending');
+            setAiComparePanelOpen(true);
+        }
+    };
+
+    const fetchAiCompareState = async () => {
+        if (!selectedCampaignId) return null;
+        const json = await apiClient.get(
+            `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top?stage=${AI_COMPARE_STAGE}`
+        );
+        if (json?.success && json.result) {
+            applyAiCompareFromResult(json.result);
+            return json.result;
+        }
+        return null;
+    };
+
+    const handleViewLastAiCompare = async () => {
+        try {
+            await fetchAiCompareState();
+        } catch (err) {
+            console.warn('⚠️ AI compare view-last failed:', err);
+        }
+    };
+
     const handleOpenAiCompare = () => {
         if (campaignCandidates.length < 2) {
             setAiCompareNeedTwoOpen(true);
@@ -303,19 +339,7 @@ const VoiceInterview = () => {
                     `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top?stage=${AI_COMPARE_STAGE}`
                 );
                 if (cancelled || !json?.success || !json.result) return;
-                const r = json.result;
-                setAiCompareResult(r);
-                setAiCompareRequestId(r.requestId || null);
-                if (r.status === 'completed') {
-                    setAiCompareStatus('completed');
-                    setAiComparePanelOpen(true);
-                } else if (r.status === 'failed' || r.status === 'refunded' || r.status === 'expired') {
-                    setAiCompareStatus('failed');
-                    setAiComparePanelOpen(true);
-                } else if (r.status === 'pending' || r.status === 'processing') {
-                    setAiCompareStatus('pending');
-                    setAiComparePanelOpen(true);
-                }
+                applyAiCompareFromResult(json.result);
             } catch (err) {
                 console.warn('⚠️ AI compare hydrate failed:', err);
             }
@@ -633,6 +657,26 @@ const VoiceInterview = () => {
                                     <span className="btn-text btn-text--full">{t('aiCompareTop_button')}</span>
                                     <span className="btn-text btn-text--short">{t('aiCompareTop_buttonShort')}</span>
                                 </span>
+                            </button>
+                        ) : null}
+                        {selectedCampaignId && aiCompareResult?.status === 'completed' && !aiComparePanelOpen ? (
+                            <button
+                                type="button"
+                                className="ai-compare-top-view-btn"
+                                onClick={handleViewLastAiCompare}
+                                title={t('aiCompareTop_viewLastTitle')}
+                                aria-label={t('aiCompareTop_viewLastTitle')}
+                            >
+                                <svg width="22" height="22" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                    <path
+                                        d="M1 10s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"
+                                        stroke="currentColor"
+                                        strokeWidth="1.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                    <circle cx="10" cy="10" r="2.75" stroke="currentColor" strokeWidth="1.5" />
+                                </svg>
                             </button>
                         ) : null}
                     </div>
