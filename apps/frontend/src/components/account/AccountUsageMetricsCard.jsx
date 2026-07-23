@@ -14,7 +14,6 @@ function UsageMetricBlock({
     used,
     overallPct,
     usedLabelKey,
-    fillClassName = '',
     t,
 }) {
     const fmt = (n) => (n ?? 0).toLocaleString('en-US');
@@ -30,7 +29,7 @@ function UsageMetricBlock({
             </div>
             <div className="account-usage-track account-usage-metric__track">
                 <div
-                    className={`account-usage-fill ${fillClassName}`.trim()}
+                    className="account-usage-fill"
                     style={{
                         width: `${total > 0 ? Math.max(used > 0 ? 4 : 0, overallPct) : 0}%`,
                     }}
@@ -114,7 +113,6 @@ export default function AccountUsageMetricsCard({ className = '' }) {
                         used={videoUsage.used}
                         overallPct={videoUsage.overallPct}
                         usedLabelKey="account_usageVideoMinutesUsed"
-                        fillClassName="account-usage-fill--video"
                         t={t}
                     />
                 </div>

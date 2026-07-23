@@ -41,3 +41,7 @@ Thumbs.db
 coverage/
 .nyc_output/
 
+# n8n patch temp artifacts (never deploy)
+scripts/_b64*
+scripts/_encode-*
+scripts/_gen_b64email.py

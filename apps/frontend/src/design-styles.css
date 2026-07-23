@@ -17940,10 +17940,6 @@ html[data-app-theme='light'] .dashboard-page--evaalo-visual.ai-cv-comparison-pag
     background: linear-gradient(90deg, #60a5fa, #3b82f6);
 }
 
-.account-dashboard-page .account-usage-fill--video {
-    background: linear-gradient(90deg, #a78bfa, #8b5cf6);
-}
-
 .account-plan-card--usage .account-usage-video-block {
     margin-top: auto;
     padding-top: 4px;
@@ -19514,23 +19510,12 @@ html[data-app-theme='light'] .account-dashboard-page .account-plan-card--usage .
     border: 1px solid #cbd5e1 !important;
 }
 
-html[data-app-theme='light'] .account-dashboard-page .account-plan-card--usage .account-usage-fill:not(.account-usage-fill--video) {
+html[data-app-theme='light'] .account-dashboard-page .account-plan-card--usage .account-usage-fill {
     background: linear-gradient(90deg, #60a5fa, #3b82f6) !important;
-}
-
-html[data-app-theme='light'] .account-dashboard-page .account-plan-card--usage .account-usage-fill--video {
-    background: linear-gradient(90deg, #a78bfa, #8b5cf6) !important;
 }
 
 html[data-app-theme='light'] .account-dashboard-page .account-usage-fill {
     background: linear-gradient(90deg, #818cf8, #6366f1) !important;
-}
-
-html[data-app-theme='light'] .account-dashboard-page .account-usage-video-block .account-usage-metric__remaining {
-    background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
 }
 
 html[data-app-theme='light'] .account-dashboard-page .account-credits-card.dashboard-card {
