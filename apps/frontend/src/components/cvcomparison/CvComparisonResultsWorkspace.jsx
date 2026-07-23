@@ -207,11 +207,11 @@ function CvComparisonDetailsPanel({ row, t }) {
                     ) : null}
                     <dl className="cv-comparison-summary-facts">
                         <div className="cv-comparison-summary-facts__row">
-                            <dt>Name</dt>
+                            <dt>{t('cvComparisonDetailName')}</dt>
                             <dd>{row.fileName}</dd>
                         </div>
                         <div className="cv-comparison-summary-facts__row">
-                            <dt>Experience</dt>
+                            <dt>{t('cvComparisonDetailExperience')}</dt>
                             <dd>
                                 {row.experienceYears != null
                                     ? `${row.experienceYears} ${t('cvComparisonDetailYears')}`
@@ -219,7 +219,7 @@ function CvComparisonDetailsPanel({ row, t }) {
                             </dd>
                         </div>
                         <div className="cv-comparison-summary-facts__row">
-                            <dt>Education</dt>
+                            <dt>{t('cvComparisonDetailEducation')}</dt>
                             <dd>{row.education || '—'}</dd>
                         </div>
                     </dl>
