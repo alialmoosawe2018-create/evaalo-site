@@ -55,7 +55,10 @@ function portalFeaturePatch(
         subscription_update: {
             enabled: true,
             default_allowed_updates: ['price'],
-            proration_behavior: 'create_prorations',
+            // always_invoice: bill the proration immediately on any plan change, so
+            // an upgrade produces an immediate invoice/receipt (matching new-sub
+            // Checkout behavior) instead of deferring the charge to the next cycle.
+            proration_behavior: 'always_invoice',
             products,
         },
         subscription_cancel: {
