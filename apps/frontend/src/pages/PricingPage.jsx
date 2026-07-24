@@ -87,8 +87,8 @@ function PricingPlanCta({ tier, featured, t }) {
         }
     };
 
-    // Subscriber viewing their current plan: link to billing management, not a
-    // dead "Subscribe" button.
+    // Subscriber viewing their current plan: a disabled "Your current plan"
+    // button with a badge, matching the dashboard AdjustPlanModal.
     if (isCurrent) {
         return (
             <>
@@ -107,14 +107,15 @@ function PricingPlanCta({ tier, featured, t }) {
                 >
                     {t('adjust_plan_badgeCurrent')}
                 </span>
-                <Link
-                    to="/account/billing"
+                <button
+                    type="button"
+                    disabled
                     className={
                         featured ? 'pricing-card__cta btn btn-primary btn-large' : 'pricing-card__cta'
                     }
                 >
-                    {t('pricing_cta_manage')}
-                </Link>
+                    {t('adjust_plan_btnCurrent')}
+                </button>
             </>
         );
     }
