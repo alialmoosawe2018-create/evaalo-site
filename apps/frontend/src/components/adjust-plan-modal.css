@@ -383,6 +383,13 @@
     line-height: 1.5;
 }
 
+.adjust-plan-modal__note {
+    margin: 0;
+    font-size: 13px;
+    color: var(--apm-text-muted, #6b7280);
+    line-height: 1.5;
+}
+
 .adjust-plan-modal__error-action {
     margin-top: 12px;
     padding: 10px 18px;

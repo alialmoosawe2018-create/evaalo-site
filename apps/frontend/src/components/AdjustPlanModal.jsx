@@ -60,6 +60,7 @@ export function AdjustPlanModal({
     const [pendingPlanId, setPendingPlanId] = useState(null);
     const [checkoutError, setCheckoutError] = useState(null);
     const [paymentFailedReason, setPaymentFailedReason] = useState(null);
+    const [alreadyOnPlanNote, setAlreadyOnPlanNote] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
 
     /** Always redirect to Stripe — Checkout (new sub) or Portal confirm (plan change). */
@@ -73,6 +74,15 @@ export function AdjustPlanModal({
             cycle: 'monthly',
             requestId,
         });
+        // Org is already on this plan (e.g. it was changed outside the app, so the
+        // cached plan looked different). Don't fake a success redirect — say so
+        // plainly and refresh billing so the card is marked as current.
+        if (res?.kind === 'already_active') {
+            setAlreadyOnPlanNote(true);
+            setPendingPlanId(null);
+            billingCtx.refetch?.();
+            return true;
+        }
         if (navigateFromCheckoutResponse(res, planId)) {
             return true;
         }
@@ -83,6 +93,7 @@ export function AdjustPlanModal({
         if (pendingPlanId) return;
         setCheckoutError(null);
         setPaymentFailedReason(null);
+        setAlreadyOnPlanNote(false);
         setPendingPlanId(planId);
         try {
             await startPlanCheckout(planId);
@@ -279,6 +290,14 @@ export function AdjustPlanModal({
                     );
                 })}
             </div>
+
+            {alreadyOnPlanNote ? (
+                <div className="adjust-plan-modal__error-wrap">
+                    <p role="status" className="adjust-plan-modal__note">
+                        {t('adjust_plan_alreadyOnPlan')}
+                    </p>
+                </div>
+            ) : null}
 
             {checkoutError ? (
                 <div className="adjust-plan-modal__error-wrap">
