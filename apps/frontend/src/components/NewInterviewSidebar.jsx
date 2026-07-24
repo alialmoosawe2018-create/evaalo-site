@@ -569,6 +569,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
     const [jobDetails, setJobDetails] = useState({});
     // ── CV auto-fill (Specific audio/video): رفع سيرة ذاتية → استخراج → تعبئة ──
     const cvFileInputRef = useRef(null);
+    // Keep the uploaded CV File so it can be attached to POST /api/candidates —
+    // parsing only auto-fills the fields; the campaign form still requires the file.
+    const cvFileRef = useRef(null);
     const [cvParsing, setCvParsing] = useState(false);
     const [cvParseError, setCvParseError] = useState('');
     const [cvFilledCount, setCvFilledCount] = useState(0);
@@ -1174,6 +1177,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         const file = event?.target?.files?.[0];
         if (event?.target) event.target.value = ''; // اسمح بإعادة اختيار نفس الملف
         if (!file) return;
+        // Retain the file for the final submit regardless of parse outcome.
+        cvFileRef.current = file;
 
         setCvParseError('');
         setCvFilledCount(0);
@@ -1682,7 +1687,24 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
 
                     if (selectedInterviewType === 'audio' || selectedInterviewType === 'video') {
                         const candBody = buildAudioCandidatePayload(result.campaignId);
-                        const candResult = await apiClient.post('/api/candidates', candBody);
+                        // If a CV was uploaded (for auto-fill), attach the file too so
+                        // the campaign form's required-CV validation passes and the CV
+                        // is stored on the candidate. Otherwise fall back to JSON.
+                        const cvFile = cvFileRef.current;
+                        const candResult = cvFile
+                            ? await apiClient.postForm(
+                                  '/api/candidates',
+                                  (() => {
+                                      const fd = new FormData();
+                                      Object.entries(candBody).forEach(([k, v]) => {
+                                          if (v === undefined || v === null) return;
+                                          fd.append(k, Array.isArray(v) ? JSON.stringify(v) : String(v));
+                                      });
+                                      fd.append('cv', cvFile);
+                                      return fd;
+                                  })(),
+                              )
+                            : await apiClient.post('/api/candidates', candBody);
                         if (!candResult.success || !candResult.data) {
                             const msg =
                                 candResult.message ||
