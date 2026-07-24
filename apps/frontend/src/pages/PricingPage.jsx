@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import LegalPageShell from '../components/LegalPageShell';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useBilling } from '../contexts/BillingContext';
 import { PRICING_FAQ_ITEMS } from '../config/pricingFaq';
 import { getPriceDisplay, getPlanById, listUsageCreditCosts } from '../utils/billingDisplay';
 import PlanCardContents from '../components/PlanCardContents';
@@ -43,13 +44,21 @@ const PRICING_TIERS = [
 
 function PricingPlanCta({ tier, featured, t }) {
     const { isAuthenticated } = useAuth();
+    const billing = useBilling();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [alreadyOnPlan, setAlreadyOnPlan] = useState(false);
+
+    // Only trust the current plan once billing has loaded, so a placeholder
+    // default never marks the wrong card as "current".
+    const isCurrent =
+        isAuthenticated && billing.isLoaded && tier.planId === billing.currentPlanId;
 
     const startCheckout = async () => {
         if (loading) return;
         setLoading(true);
         setError(null);
+        setAlreadyOnPlan(false);
         try {
             const requestId =
                 typeof crypto !== 'undefined' && crypto.randomUUID
@@ -60,6 +69,14 @@ function PricingPlanCta({ tier, featured, t }) {
                 cycle: 'monthly',
                 requestId,
             });
+            // Already on this plan (e.g. cached plan looked different) — say so
+            // plainly instead of the misleading success redirect, and refresh.
+            if (res?.kind === 'already_active') {
+                setAlreadyOnPlan(true);
+                setLoading(false);
+                billing.refetch?.();
+                return;
+            }
             if (navigateFromCheckoutResponse(res, tier.planId)) {
                 return;
             }
@@ -69,6 +86,38 @@ function PricingPlanCta({ tier, featured, t }) {
             setLoading(false);
         }
     };
+
+    // Subscriber viewing their current plan: link to billing management, not a
+    // dead "Subscribe" button.
+    if (isCurrent) {
+        return (
+            <>
+                <span
+                    className="pricing-card__current-badge"
+                    style={{
+                        display: 'inline-block',
+                        marginBottom: 8,
+                        padding: '4px 10px',
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        color: '#10b981',
+                    }}
+                >
+                    {t('adjust_plan_badgeCurrent')}
+                </span>
+                <Link
+                    to="/account/billing"
+                    className={
+                        featured ? 'pricing-card__cta btn btn-primary btn-large' : 'pricing-card__cta'
+                    }
+                >
+                    {t('pricing_cta_manage')}
+                </Link>
+            </>
+        );
+    }
 
     if (isAuthenticated) {
         return (
@@ -85,6 +134,11 @@ function PricingPlanCta({ tier, featured, t }) {
                 >
                     {loading ? '…' : t('pricing_cta_subscribe')}
                 </button>
+                {alreadyOnPlan ? (
+                    <p className="pricing-card__cta-note" style={{ marginTop: 8, fontSize: 12, color: '#9ca3af' }}>
+                        {t('adjust_plan_alreadyOnPlan')}
+                    </p>
+                ) : null}
                 {error ? (
                     <p className="pricing-card__cta-error" style={{ marginTop: 8, fontSize: 12, color: '#f87171' }}>
                         {error}
