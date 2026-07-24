@@ -413,7 +413,18 @@ const VideoInterviewCall = () => {
         let cancelled = false;
         setLoadingCandidate(true);
         setCandidateError(null);
-        fetch(`${API_BASE}/api/candidates/${urlOrManualId}`)
+        // Candidate-facing display lookup. When the shared link carries both
+        // candidateId + campaignId, use the public capability endpoint — it works
+        // for any candidate of that campaign (incl. manually-added ones) and
+        // returns only name + position (no PII). Fall back to the legacy
+        // per-id endpoint for the manual-test path (no campaignId).
+        const displayUrl =
+            candidateId && campaignId
+                ? `${API_BASE}/api/public/interview-candidate?candidateId=${encodeURIComponent(
+                      candidateId,
+                  )}&campaignId=${encodeURIComponent(campaignId)}`
+                : `${API_BASE}/api/candidates/${urlOrManualId}`;
+        fetch(displayUrl)
             .then((res) => {
                 if (!res.ok) throw new Error('Candidate not found');
                 return res.json();
@@ -442,7 +453,7 @@ const VideoInterviewCall = () => {
         return () => {
             cancelled = true;
         };
-    }, [urlOrManualId, applicationIdFromUrl]);
+    }, [urlOrManualId, applicationIdFromUrl, candidateId, campaignId]);
 
     /**
      * Pre-warm: ينشئ غرفة LiveKit + dispatch الوكيل + Beyond مبكرًا فور توفر candidateId،
