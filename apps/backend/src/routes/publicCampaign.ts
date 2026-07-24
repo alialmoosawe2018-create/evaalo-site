@@ -64,7 +64,14 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
         }
 
         const safe = (
-            person: { _id: unknown; full_name?: string; position_applied_for?: string },
+            person: {
+                _id: unknown;
+                full_name?: string;
+                position_applied_for?: string;
+                entryStage?: string;
+                voiceInterviewLinkConsumedAt?: Date | null;
+                videoInterviewLinkConsumedAt?: Date | null;
+            },
             applicationId?: string,
         ) => ({
             success: true,
@@ -73,6 +80,11 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
                 applicationId: applicationId || undefined,
                 full_name: person.full_name || '',
                 position_applied_for: person.position_applied_for || '',
+                entryStage: person.entryStage,
+                // Consumed timestamps keep the single-use link block working on the
+                // candidate page. Not PII — safe to expose to the link holder.
+                voiceInterviewLinkConsumedAt: person.voiceInterviewLinkConsumedAt ?? null,
+                videoInterviewLinkConsumedAt: person.videoInterviewLinkConsumedAt ?? null,
             },
         });
 
