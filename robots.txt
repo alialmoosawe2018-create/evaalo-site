@@ -1,0 +1,49 @@
+User-agent: *
+Allow: /$
+Allow: /about
+Allow: /contact
+Allow: /pricing
+Allow: /privacy
+Allow: /terms
+Allow: /data-security
+Allow: /head-hunter
+
+# Authenticated app routes — nothing here is useful to a crawler.
+Disallow: /dashboard
+Disallow: /onboarding
+Disallow: /workflow
+Disallow: /candidates
+Disallow: /employees
+Disallow: /notifications
+Disallow: /account
+Disallow: /ai-head-hunter
+Disallow: /ai-cv-comparison
+Disallow: /interview-templates
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password
+Disallow: /verify-email
+Disallow: /sso-callback
+
+# Candidate-facing session links — one-time, tokenised, must never be indexed.
+Disallow: /screening
+Disallow: /screening-call
+Disallow: /video-screening-call
+Disallow: /written-interview
+Disallow: /voice-interview
+Disallow: /video-interview
+Disallow: /video-interview-call
+Disallow: /call-evaluation
+Disallow: /video-evaluation
+Disallow: /reception
+Disallow: /form
+Disallow: /interview
+
+# Internal design/preview routes.
+Disallow: /design
+Disallow: /form-preview
+Disallow: /interview-design
+Disallow: /demo
+Disallow: /overview
+
+Sitemap: https://www.evaalo.com/sitemap.xml
