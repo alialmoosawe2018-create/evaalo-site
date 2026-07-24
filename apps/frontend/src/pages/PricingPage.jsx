@@ -87,36 +87,18 @@ function PricingPlanCta({ tier, featured, t }) {
         }
     };
 
-    // Subscriber viewing their current plan: a disabled "Your current plan"
-    // button with a badge, matching the dashboard AdjustPlanModal.
+    // Subscriber viewing their current plan: disabled CTA only (no duplicate badge).
     if (isCurrent) {
         return (
-            <>
-                <span
-                    className="pricing-card__current-badge"
-                    style={{
-                        display: 'inline-block',
-                        marginBottom: 8,
-                        padding: '4px 10px',
-                        borderRadius: 999,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background: 'rgba(16, 185, 129, 0.15)',
-                        color: '#10b981',
-                    }}
-                >
-                    {t('adjust_plan_badgeCurrent')}
-                </span>
-                <button
-                    type="button"
-                    disabled
-                    className={
-                        featured ? 'pricing-card__cta btn btn-primary btn-large' : 'pricing-card__cta'
-                    }
-                >
-                    {t('adjust_plan_btnCurrent')}
-                </button>
-            </>
+            <button
+                type="button"
+                disabled
+                className={
+                    featured ? 'pricing-card__cta btn btn-primary btn-large' : 'pricing-card__cta'
+                }
+            >
+                {t('adjust_plan_btnCurrent')}
+            </button>
         );
     }
 
