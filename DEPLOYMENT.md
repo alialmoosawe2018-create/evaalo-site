@@ -86,15 +86,24 @@ describes the target state.
 |---|---|---|
 | Production branch | **`master`** | `main` holds only the old built `dist`. Cloudflare defaults to `main` — it must be changed |
 | Root directory | *(empty — monorepo root)* | Vite aliases `@evaalo/job-catalog` to `apps/shared/jobCatalog`, which lives outside `apps/frontend` |
-| Build command | `npm ci && npm run build:frontend` | |
+| Build command | `npm install && npm run build:frontend` | `npm ci` also works now — see the rollup note below |
 | Output directory | `apps/frontend/dist` | |
 | Preview deployments | **disabled** | Clerk runs a production instance on `clerk.evaalo.com`; its cookies are scoped to `.evaalo.com`, so auth can never work on a `*.pages.dev` host |
 | `NODE_VERSION` | `20` | |
-| `PUPPETEER_SKIP_DOWNLOAD` | `1` | `npm ci` at the root installs the `apps/backend` workspace too, and `puppeteer` would otherwise download Chromium on every build |
+| `PUPPETEER_SKIP_DOWNLOAD` | `1` | the root install pulls in the `apps/backend` workspace too, and `puppeteer` would otherwise download Chromium on every build |
 
 No `VITE_*` variables are needed in the dashboard — `apps/frontend/.env.production`
 is committed and Vite reads it at build time. (Dashboard variables still win if
 set, since Vite gives `process.env` precedence.)
+
+> **rollup native binary (do not delete).** `apps/frontend/package.json` pins
+> `@rollup/rollup-linux-x64-gnu` under `optionalDependencies`. The lockfile is
+> generated on Windows, so without this it records no installable entry for any
+> Linux rollup binary, and the Cloudflare (Linux) build dies with
+> `Cannot find module @rollup/rollup-linux-x64-gnu` (npm/cli#4828). Declaring it
+> as a direct optional dep forces the entry into `package-lock.json`; it is
+> `os`-gated to linux so Windows/macOS installs skip it silently. Keep it in sync
+> with the `rollup` version vite resolves (currently `4.53.3`).
 
 **Files that make this work** (all in `apps/frontend/public/`):
 - `_redirects` — `/* /index.html 200`, the SPA fallback. Replaces the GitHub
