@@ -47,9 +47,6 @@ router.post('/pdf', async (req: Request, res: Response) => {
         // Fonts are optional — don't block PDF on Google Fonts network.
         await page.evaluate(async () => {
             try {
-                // `document` is a browser global inside page.evaluate; the backend
-                // tsconfig lib is ES2022 (no DOM), so reach it via globalThis to
-                // keep the build tsc-safe without changing runtime behavior.
                 await (globalThis as unknown as { document?: { fonts?: { ready?: Promise<unknown> } } })
                     .document?.fonts?.ready;
             } catch {
@@ -57,8 +54,47 @@ router.post('/pdf', async (req: Request, res: Response) => {
             }
         });
 
+        const contentSize = await page.evaluate(() => {
+            const doc = (globalThis as unknown as { document?: {
+                documentElement: { scrollWidth: number; style: { overflow: string } };
+                body: { scrollWidth: number; scrollHeight: number; style: { overflow: string; width: string } };
+                getElementById(id: string): {
+                    scrollWidth: number;
+                    scrollHeight: number;
+                    offsetWidth: number;
+                    offsetHeight: number;
+                } | null;
+            } }).document;
+            if (!doc) return { width: 794, height: 1123 };
+            doc.documentElement.style.overflow = 'visible';
+            doc.body.style.overflow = 'visible';
+            doc.body.style.width = 'max-content';
+            const root = doc.getElementById('evaalo-org-chart-export');
+            const width = Math.max(
+                doc.documentElement.scrollWidth,
+                doc.body.scrollWidth,
+                root?.scrollWidth ?? 0,
+                root?.offsetWidth ?? 0,
+                320
+            );
+            const height = Math.max(
+                doc.documentElement.scrollHeight,
+                doc.body.scrollHeight,
+                root?.scrollHeight ?? 0,
+                root?.offsetHeight ?? 0,
+                240
+            );
+            return { width: Math.ceil(width + 64), height: Math.ceil(height + 64) };
+        });
+
+        const pdfWidth = Math.min(Math.max(contentSize.width, 320), 6000);
+        const pdfHeight = Math.min(Math.max(contentSize.height, 240), 12000);
+
+        await page.setViewport({ width: pdfWidth, height: pdfHeight, deviceScaleFactor: 1 });
+
         const pdfBuffer = await page.pdf({
-            format: 'A4',
+            width: `${pdfWidth}px`,
+            height: `${pdfHeight}px`,
             printBackground: true,
             preferCSSPageSize: false,
             margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
