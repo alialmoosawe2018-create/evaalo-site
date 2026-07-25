@@ -16,6 +16,7 @@ import comboSkillLabelsKu from '../constants/comboSkillLabels.ku.json';
 
 const EDU_OPT_KEY = {
     'high-school': 'newCampaign_combo_edu_high_school',
+    diploma: 'newCampaign_combo_edu_diploma',
     bachelor: 'newCampaign_combo_edu_bachelor',
     master: 'newCampaign_combo_edu_master',
     phd: 'newCampaign_combo_edu_phd',

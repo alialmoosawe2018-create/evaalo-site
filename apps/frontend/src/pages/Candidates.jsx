@@ -319,7 +319,9 @@ const Candidates = () => {
                 label:
                     o.value === 'high-school'
                         ? t('candidates_eduHighSchool')
-                        : o.value === 'bachelor'
+                        : o.value === 'diploma'
+                          ? t('candidates_eduDiploma')
+                          : o.value === 'bachelor'
                           ? t('candidates_eduBachelor')
                           : o.value === 'master'
                             ? t('candidates_eduMaster')

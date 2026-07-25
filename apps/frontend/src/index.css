@@ -10608,20 +10608,6 @@ body.rtl-text .account-dashboard-page aside.account-sidebar .account-sidebar-mor
     transform-origin: top left;
 }
 
-.account-dashboard-page aside.account-sidebar .account-sidebar-more-menu::before {
-    content: '';
-    position: absolute;
-    top: -5px;
-    inset-inline-end: 12px;
-    width: 10px;
-    height: 10px;
-    background: rgba(30, 41, 59, 0.97);
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-    border-inline-start: 1px solid rgba(255, 255, 255, 0.12);
-    transform: rotate(45deg);
-    pointer-events: none;
-}
-
 .account-dashboard-page aside.account-sidebar .account-sidebar-more-menu-divider {
     height: 1px;
     margin: 2px 6px;
