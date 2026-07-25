@@ -2533,15 +2533,15 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
     }
 }
 
-/* iPad / tablet: compact flex nav between logo and Dashboard (no overlap) */
+/* iPad / tablet: professional flex nav between logo and Dashboard (no overlap) */
 @media (min-width: 769px) and (max-width: 1400px) {
     .nav-container {
         display: flex !important;
         align-items: center !important;
         justify-content: flex-start !important;
-        gap: 2px !important;
-        padding: 0 10px 0 12px !important;
-        height: 58px !important;
+        gap: 8px !important;
+        padding: 0 18px 0 20px !important;
+        height: 64px !important;
     }
 
     .nav-logo-img {
@@ -2549,16 +2549,16 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         margin-inline-end: 0 !important;
         margin-inline-start: 0 !important;
         margin-right: 0 !important;
-        gap: 5px !important;
+        gap: 8px !important;
         z-index: 3 !important;
     }
 
     .logo-text {
-        font-size: 18px !important;
+        font-size: 21px !important;
     }
 
     .logo-image {
-        height: 30px !important;
+        height: 36px !important;
     }
 
     .nav-links-desktop {
@@ -2570,34 +2570,37 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         min-width: 0 !important;
         max-width: none !important;
         justify-content: center !important;
-        gap: 0 !important;
+        gap: clamp(3px, 0.5vw, 8px) !important;
         margin: 0 !important;
-        padding: 0 2px !important;
+        padding: 0 6px !important;
         overflow: visible !important;
         flex-wrap: nowrap !important;
     }
 
     .nav-links-desktop .nav-link,
     .nav-links-desktop .nav-link-dropdown {
-        padding: 4px 4px !important;
-        font-size: 10.5px !important;
-        border-radius: 6px !important;
-        letter-spacing: 0 !important;
+        padding: 7px clamp(6px, 0.85vw, 11px) !important;
+        font-size: clamp(12.5px, 1.15vw, 13.5px) !important;
+        font-weight: 500 !important;
+        border-radius: 8px !important;
+        letter-spacing: 0.01em !important;
         white-space: nowrap !important;
         flex-shrink: 0 !important;
         min-width: 0 !important;
+        line-height: 1.4 !important;
     }
 
     .nav-links-desktop .nav-link:hover,
     .nav-links-desktop .nav-link-dropdown:hover {
-        padding-left: 4px !important;
-        transform: none !important;
+        padding-left: clamp(6px, 0.85vw, 11px) !important;
+        transform: translateY(-1px) !important;
+        background: rgba(99, 102, 241, 0.15) !important;
     }
 
     .nav-links-desktop .nav-link-dropdown .dropdown-arrow {
-        width: 8px;
-        height: 5px;
-        margin-inline-start: 1px;
+        width: 10px;
+        height: 6px;
+        margin-inline-start: 3px;
     }
 
     .nav-link-label--long {
@@ -2610,15 +2613,15 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
 
     .nav-actions {
         flex: 0 0 auto !important;
-        gap: 4px !important;
+        gap: 8px !important;
         z-index: 3 !important;
         margin-left: 0 !important;
     }
 
     .nav-dashboard-link {
-        padding: 6px 10px !important;
-        font-size: 0.7rem !important;
-        border-radius: 9px !important;
+        padding: 10px 20px !important;
+        font-size: 0.875rem !important;
+        border-radius: 10px !important;
         white-space: nowrap !important;
     }
 
@@ -2627,8 +2630,8 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
     }
 
     #navLanguageItemDesktop {
-        padding: 4px 3px !important;
-        font-size: 10px !important;
+        padding: 7px 9px !important;
+        font-size: 12.5px !important;
     }
 }
 
