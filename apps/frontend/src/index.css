@@ -1981,13 +1981,48 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
     }
 }
 
-.nav-link-label--short {
-    display: none;
-}
-
-@media (min-width: 769px) and (max-width: 1180px) {
-    #navLanguageItemDesktop {
+/* Tablet (iPad): desktop nav links overflow — use compact slide-out menu */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .nav-links-desktop {
         display: none !important;
+    }
+
+    .nav-menu-wrapper {
+        display: block !important;
+        flex-shrink: 0;
+        margin-inline-start: auto;
+    }
+
+    .nav-actions .nav-dashboard-link {
+        display: none !important;
+    }
+
+    .nav-container {
+        padding: 0 clamp(20px, 3vw, 32px) !important;
+        height: 64px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .main-nav {
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: clip !important;
+    }
+
+    .nav-logo-img {
+        gap: 8px !important;
+        margin-inline-end: auto !important;
+    }
+
+    .logo-text {
+        display: block !important;
+        font-size: 22px !important;
+    }
+
+    .logo-image {
+        height: 38px !important;
     }
 }
 
@@ -2448,191 +2483,89 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
     }
 }
 
-/* Large desktop: centered absolute nav */
-@media (min-width: 1401px) {
-    .nav-links-desktop {
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 16px !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        position: absolute !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        width: auto !important;
-        height: auto !important;
-        min-width: auto !important;
-        max-width: calc(100% - 400px) !important;
-        background: transparent !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        overflow: visible !important;
-        pointer-events: auto !important;
-        flex-wrap: nowrap !important;
-    }
-
-    .nav-links-desktop .nav-link {
-        opacity: 1 !important;
-        visibility: visible !important;
-        pointer-events: auto !important;
-        color: rgba(255, 255, 255, 0.9) !important;
-        display: block !important;
-        position: relative !important;
-        transform: none !important;
-        padding: 8px 12px !important;
-        border-left: none !important;
-        background: transparent !important;
-        font-size: 14px !important;
-        font-weight: 500 !important;
-        letter-spacing: normal !important;
-        border-radius: 8px !important;
-        transition: all 0.2s ease !important;
-    }
-
-    .nav-links-desktop .nav-link::after {
-        content: '' !important;
-        position: absolute !important;
-        bottom: 0 !important;
-        left: 50% !important;
-        transform: translateX(-50%) scaleX(0) !important;
-        width: 72% !important;
-        max-width: 100% !important;
-        height: 2px !important;
-        background: linear-gradient(90deg, transparent 0%, #38bdf8 50%, transparent 100%) !important;
-        box-shadow: 0 0 6px rgba(56, 189, 248, 0.45), 0 0 12px rgba(56, 189, 248, 0.25) !important;
-        transition: transform 0.3s ease !important;
-        z-index: 2 !important;
-    }
-
-    .nav-links-desktop .nav-link:hover {
-        background: rgba(99, 102, 241, 0.15) !important;
-        transform: translateY(-1px) !important;
-        padding-left: 12px !important;
-        border-left: none !important;
-        color: #ffffff !important;
-    }
-
-    .nav-links-desktop .nav-link:hover::after {
-        transform: translateX(-50%) scaleX(1) !important;
-    }
-
-    .nav-links-desktop .nav-link.active {
-        background: rgba(99, 102, 241, 0.2) !important;
-        color: #ffffff !important;
-    }
-
-    .nav-links-desktop .nav-link.active::after {
-        transform: translateX(-50%) scaleX(1) !important;
-        background: linear-gradient(90deg, transparent 0%, #22d3ee 50%, transparent 100%) !important;
-        box-shadow: 0 0 6px rgba(34, 211, 238, 0.55), 0 0 12px rgba(34, 211, 238, 0.3) !important;
-    }
+/* Desktop Navigation - Always visible and functional */
+.nav-links-desktop {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: absolute !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+    height: auto !important;
+    min-width: auto !important;
+    max-width: calc(100% - 400px) !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    pointer-events: auto !important;
+    flex-wrap: nowrap !important;
 }
 
-/* iPad / tablet: professional flex nav between logo and Dashboard (no overlap) */
-@media (min-width: 769px) and (max-width: 1400px) {
-    .nav-container {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 8px !important;
-        padding: 0 18px 0 20px !important;
-        height: 64px !important;
-    }
+/* Desktop navigation links - ensure they work properly and are not affected by mobile styles */
+.nav-links-desktop .nav-link {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    display: block !important;
+    /* relative حتى يُحسب ::after (خط التمييز) بعرض الرابط وليس الشريط بالكامل */
+    position: relative !important;
+    transform: none !important;
+    padding: 8px 12px !important;
+    border-left: none !important;
+    background: transparent !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    letter-spacing: normal !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
 
-    .nav-logo-img {
-        flex: 0 0 auto !important;
-        margin-inline-end: 0 !important;
-        margin-inline-start: 0 !important;
-        margin-right: 0 !important;
-        gap: 8px !important;
-        z-index: 3 !important;
-    }
+.nav-links-desktop .nav-link::after {
+    content: '' !important;
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 50% !important;
+    transform: translateX(-50%) scaleX(0) !important;
+    width: 72% !important;
+    max-width: 100% !important;
+    height: 2px !important;
+    background: linear-gradient(90deg, transparent 0%, #38bdf8 50%, transparent 100%) !important;
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.45), 0 0 12px rgba(56, 189, 248, 0.25) !important;
+    transition: transform 0.3s ease !important;
+    z-index: 2 !important;
+}
 
-    .logo-text {
-        font-size: 21px !important;
-    }
+.nav-links-desktop .nav-link:hover {
+    background: rgba(99, 102, 241, 0.15) !important;
+    transform: translateY(-1px) !important;
+    padding-left: 12px !important;
+    border-left: none !important;
+    color: #ffffff !important;
+}
 
-    .logo-image {
-        height: 36px !important;
-    }
+.nav-links-desktop .nav-link:hover::after {
+    transform: translateX(-50%) scaleX(1) !important;
+}
 
-    .nav-links-desktop {
-        display: flex !important;
-        position: static !important;
-        left: auto !important;
-        transform: none !important;
-        flex: 1 1 auto !important;
-        min-width: 0 !important;
-        max-width: none !important;
-        justify-content: center !important;
-        gap: clamp(3px, 0.5vw, 8px) !important;
-        margin: 0 !important;
-        padding: 0 6px !important;
-        overflow: visible !important;
-        flex-wrap: nowrap !important;
-    }
+.nav-links-desktop .nav-link.active {
+    background: rgba(99, 102, 241, 0.2) !important;
+    color: #ffffff !important;
+}
 
-    .nav-links-desktop .nav-link,
-    .nav-links-desktop .nav-link-dropdown {
-        padding: 7px clamp(6px, 0.85vw, 11px) !important;
-        font-size: clamp(12.5px, 1.15vw, 13.5px) !important;
-        font-weight: 500 !important;
-        border-radius: 8px !important;
-        letter-spacing: 0.01em !important;
-        white-space: nowrap !important;
-        flex-shrink: 0 !important;
-        min-width: 0 !important;
-        line-height: 1.4 !important;
-    }
-
-    .nav-links-desktop .nav-link:hover,
-    .nav-links-desktop .nav-link-dropdown:hover {
-        padding-left: clamp(6px, 0.85vw, 11px) !important;
-        transform: translateY(-1px) !important;
-        background: rgba(99, 102, 241, 0.15) !important;
-    }
-
-    .nav-links-desktop .nav-link-dropdown .dropdown-arrow {
-        width: 10px;
-        height: 6px;
-        margin-inline-start: 3px;
-    }
-
-    .nav-link-label--long {
-        display: none !important;
-    }
-
-    .nav-link-label--short {
-        display: inline !important;
-    }
-
-    .nav-actions {
-        flex: 0 0 auto !important;
-        gap: 8px !important;
-        z-index: 3 !important;
-        margin-left: 0 !important;
-    }
-
-    .nav-dashboard-link {
-        padding: 10px 20px !important;
-        font-size: 0.875rem !important;
-        border-radius: 10px !important;
-        white-space: nowrap !important;
-    }
-
-    .nav-menu-wrapper {
-        display: none !important;
-    }
-
-    #navLanguageItemDesktop {
-        padding: 7px 9px !important;
-        font-size: 12.5px !important;
-    }
+.nav-links-desktop .nav-link.active::after {
+    transform: translateX(-50%) scaleX(1) !important;
+    background: linear-gradient(90deg, transparent 0%, #22d3ee 50%, transparent 100%) !important;
+    box-shadow: 0 0 6px rgba(34, 211, 238, 0.55), 0 0 12px rgba(34, 211, 238, 0.3) !important;
 }
 
 /* Mobile: Modern Smart Sidebar - Slides from right */

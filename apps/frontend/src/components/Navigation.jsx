@@ -413,12 +413,10 @@ const Navigation = () => {
                         {location.pathname === '/' && (
                             <>
                                 <a href="#features-2" className="nav-link">
-                                    <span className="nav-link-label nav-link-label--long">{wrapEvaaloInLabel(t('evaaloVisualLanguage'))}</span>
-                                    <span className="nav-link-label nav-link-label--short">{t('navWhyUsMobile')}</span>
+                                    <span className="nav-link-label">{wrapEvaaloInLabel(t('evaaloVisualLanguage'))}</span>
                                 </a>
                                 <a href="#process" className="nav-link">
-                                    <span className="nav-link-label nav-link-label--long">{wrapEvaaloInLabel(t('applicationProcess'))}</span>
-                                    <span className="nav-link-label nav-link-label--short">{t('navHowWorkMobile')}</span>
+                                    <span className="nav-link-label">{wrapEvaaloInLabel(t('applicationProcess'))}</span>
                                 </a>
                             </>
                         )}
