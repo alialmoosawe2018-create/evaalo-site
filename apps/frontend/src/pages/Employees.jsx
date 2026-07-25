@@ -129,6 +129,14 @@ function buildOrgChartPrintMediaCss(theme = getOrgChartExportTheme()) {
         max-height: none !important;
         min-height: 0 !important;
     }
+    body {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
     body * { visibility: hidden !important; }
     #evaalo-org-chart-export,
     #evaalo-org-chart-export * {
@@ -136,12 +144,19 @@ function buildOrgChartPrintMediaCss(theme = getOrgChartExportTheme()) {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
+    .employees-org-chart-wrap,
+    .employees-org-chart-card,
     .org-chart-viewport {
         overflow: visible !important;
         height: auto !important;
         min-height: 0 !important;
         max-height: none !important;
-        display: block !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        width: 100% !important;
+        padding: 0 !important;
         cursor: auto !important;
         box-shadow: none !important;
         backdrop-filter: none !important;
@@ -149,15 +164,15 @@ function buildOrgChartPrintMediaCss(theme = getOrgChartExportTheme()) {
         background: ${bg} !important;
     }
     #evaalo-org-chart-export {
-        position: relative !important;
+        position: static !important;
         left: auto !important;
         top: auto !important;
-        width: 100% !important;
+        width: fit-content !important;
         max-width: 100% !important;
         height: auto !important;
         min-height: auto !important;
         transform: none !important;
-        margin: 0 !important;
+        margin: 0 auto !important;
         padding: 16px !important;
         background: ${bg} !important;
         -webkit-print-color-adjust: exact !important;
@@ -205,6 +220,65 @@ function restoreOrgChartExportRoot(el, saved) {
     el.style.transition = saved.transition;
 }
 
+function saveAndResetOrgChartViewport(container) {
+    if (!container) return null;
+    const saved = {
+        scrollLeft: container.scrollLeft,
+        scrollTop: container.scrollTop,
+    };
+    container.scrollLeft = 0;
+    container.scrollTop = 0;
+    return saved;
+}
+
+function restoreOrgChartViewport(container, saved) {
+    if (!container || !saved) return;
+    container.scrollLeft = saved.scrollLeft;
+    container.scrollTop = saved.scrollTop;
+}
+
+/** Tight crop around visible chart nodes — avoids asymmetric whitespace from pan/scroll/offsetX. */
+function getOrgChartCaptureBounds(root) {
+    if (!root) return null;
+    const rootRect = root.getBoundingClientRect();
+    const nodes = root.querySelectorAll(
+        '.org-chart-dept-bar, .org-chart-employee-node, .org-chart-org-badge, .org-chart-connector-line'
+    );
+    const fallbackW = Math.max(root.scrollWidth, root.offsetWidth, 320);
+    const fallbackH = Math.max(root.scrollHeight, root.offsetHeight, 240);
+    if (!nodes.length) {
+        return { x: 0, y: 0, width: fallbackW, height: fallbackH };
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    nodes.forEach((node) => {
+        const r = node.getBoundingClientRect();
+        minX = Math.min(minX, r.left);
+        minY = Math.min(minY, r.top);
+        maxX = Math.max(maxX, r.right);
+        maxY = Math.max(maxY, r.bottom);
+    });
+    const pad = 28;
+    const x = Math.max(0, Math.floor(minX - rootRect.left - pad));
+    const y = Math.max(0, Math.floor(minY - rootRect.top - pad));
+    const width = Math.min(
+        fallbackW - x,
+        Math.ceil(maxX - minX + pad * 2)
+    );
+    const height = Math.min(
+        fallbackH - y,
+        Math.ceil(maxY - minY + pad * 2)
+    );
+    return {
+        x,
+        y,
+        width: Math.max(width, 320),
+        height: Math.max(height, 240),
+    };
+}
+
 function isCanvasMostlyBlank(canvas, backgroundRgb = { r: 15, g: 23, b: 42 }) {
     if (!canvas?.width || !canvas?.height) return true;
     const ctx = canvas.getContext('2d');
@@ -229,7 +303,7 @@ function buildOrgChartServerPdfHtml(exportRootEl, theme = getOrgChartExportTheme
     if (!exportRootEl) return '';
     const bodyInner = exportRootEl.outerHTML;
     return `<!DOCTYPE html>
-<html lang="ar" dir="rtl" data-app-theme="${theme}">
+<html lang="ar" dir="ltr" data-app-theme="${theme}">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -1116,7 +1190,9 @@ const Employees = () => {
             /* ignore */
         }
 
+        const viewportSaved = saveAndResetOrgChartViewport(chartContainerRef.current);
         const exportStyleSaved = normalizeOrgChartExportRoot(el);
+        await waitForChartPaint();
         const exportTheme = theme;
         const exportBackground = getOrgChartExportBackground(exportTheme);
 
@@ -1154,8 +1230,11 @@ const Employees = () => {
 
             if (usedServerPdf) return;
 
-            const captureW = Math.max(el.scrollWidth, el.offsetWidth, 320);
-            const captureH = Math.max(el.scrollHeight, el.offsetHeight, 240);
+            const captureBounds = getOrgChartCaptureBounds(el);
+            const captureW = captureBounds?.width ?? Math.max(el.scrollWidth, el.offsetWidth, 320);
+            const captureH = captureBounds?.height ?? Math.max(el.scrollHeight, el.offsetHeight, 240);
+            const captureX = captureBounds?.x ?? 0;
+            const captureY = captureBounds?.y ?? 0;
 
             let imgData;
             let imgW;
@@ -1167,6 +1246,8 @@ const Employees = () => {
                     useCORS: true,
                     backgroundColor: exportBackground,
                     logging: false,
+                    x: captureX,
+                    y: captureY,
                     width: captureW,
                     height: captureH,
                     foreignObjectRendering: false,
@@ -1187,7 +1268,12 @@ const Employees = () => {
                     cacheBust: true,
                     width: captureW,
                     height: captureH,
-                    style: { transform: 'none', transition: 'none' },
+                    style: {
+                        transform: 'none',
+                        transition: 'none',
+                        marginLeft: `-${captureX}px`,
+                        marginTop: `-${captureY}px`,
+                    },
                     filter: (node) => !(node instanceof Element && node.hasAttribute?.('data-org-pdf-hide')),
                 });
                 const dims = await new Promise((resolveDimensions, rejectDimensions) => {
@@ -1223,6 +1309,7 @@ const Employees = () => {
             console.error('PDF export failed', e);
         } finally {
             restoreOrgChartExportRoot(el, exportStyleSaved);
+            restoreOrgChartViewport(chartContainerRef.current, viewportSaved);
             setChartPan(prevPan);
             setChartZoom(prevZoom);
             setChartExporting(false);
@@ -1240,9 +1327,12 @@ const Employees = () => {
             setChartZoom(1);
         });
         await waitForOrgChartExportPaint();
+        const viewportSaved = saveAndResetOrgChartViewport(chartContainerRef.current);
         const exportStyleSaved = normalizeOrgChartExportRoot(el);
+        await waitForChartPaint();
         const onAfterPrint = () => {
             restoreOrgChartExportRoot(el, exportStyleSaved);
+            restoreOrgChartViewport(chartContainerRef.current, viewportSaved);
             setChartPan(prevPan);
             setChartZoom(prevZoom);
             setChartExporting(false);
