@@ -12,7 +12,12 @@
   Permissions-Policy: camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=()
   Cross-Origin-Opener-Policy: same-origin-allow-popups
 
-# Vite emits content-hashed filenames here. Omit "immutable" so a brief deploy
-# window cannot cache index.html as a stylesheet/script for a year.
+/index.html
+  Cache-Control: no-cache, must-revalidate
+
+/
+  Cache-Control: no-cache, must-revalidate
+
+# Hashed Vite assets — allow revalidation so a deploy race cannot stick HTML as CSS.
 /assets/*
-  Cache-Control: public, max-age=31536000
+  Cache-Control: public, max-age=86400, must-revalidate
