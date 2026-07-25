@@ -1,4 +1,5 @@
 # Cloudflare Pages — SPA fallback.
-# Every non-asset path is served index.html with a 200 so React Router can
-# resolve it client-side. Replaces the old GitHub Pages 404.html trick.
-/*    /index.html   200
+# Asset paths must come first so /assets/* is not rewritten to index.html
+# (which would return text/html and break CSS/JS MIME types).
+/assets/*  /assets/:splat  200
+/*        /index.html     200
