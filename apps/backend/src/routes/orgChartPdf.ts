@@ -56,7 +56,7 @@ router.post('/pdf', async (req: Request, res: Response) => {
 
         const contentSize = await page.evaluate(() => {
             const doc = (globalThis as unknown as { document?: {
-                documentElement: { scrollWidth: number; style: { overflow: string } };
+                documentElement: { scrollWidth: number; scrollHeight: number; style: { overflow: string } };
                 body: { scrollWidth: number; scrollHeight: number; style: { overflow: string; width: string } };
                 getElementById(id: string): {
                     scrollWidth: number;
