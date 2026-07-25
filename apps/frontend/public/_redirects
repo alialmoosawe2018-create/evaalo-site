@@ -1,0 +1,3 @@
+# SPA routes — asset paths first so missing *.css is not rewritten to index.html.
+/assets/*  /assets/:splat  200
+/*        /index.html     200

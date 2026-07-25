@@ -1,5 +1,6 @@
 /* ====================================
    Landing Page - Modern Professional Design
+   deploy: 2026-07-25
    ==================================== */
 
 /* Reset and Base Styles */
@@ -655,6 +656,7 @@ body.rtl-text .step-number {
     --transition-fast: 0.15s ease;
     --transition-base: 0.3s ease;
     --transition-slow: 0.5s ease;
+    --evaalo-deploy-rev: 20260725b;
 }
 
 html {
