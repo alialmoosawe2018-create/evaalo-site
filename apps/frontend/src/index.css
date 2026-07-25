@@ -1076,8 +1076,8 @@ h3.section-title .evaalo-text-en,
     }
 
     .nav-mobile-menu-footer {
-        margin-top: auto;
-        padding: 18px 4px 10px;
+        margin-top: 16px;
+        padding: 8px 4px 8px;
         width: 100%;
         display: flex;
         justify-content: center;
@@ -1086,17 +1086,21 @@ h3.section-title .evaalo-text-en,
     }
 
     .nav-links-mobile .nav-dashboard-link--mobile-menu {
-        display: flex !important;
+        display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
         text-align: center !important;
-        width: 100%;
+        width: auto;
+        min-width: 0;
+        max-width: 100%;
         margin-top: 0;
-        padding: 15px 22px !important;
+        padding: 14px 26px !important;
+        min-height: 50px;
         box-sizing: border-box;
         border-left: none !important;
         border-radius: 14px !important;
-        font-weight: 600 !important;
+        font-size: 1.05rem !important;
+        font-weight: 700 !important;
         letter-spacing: 0.02em;
     }
 
@@ -2540,7 +2544,7 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         align-items: center !important;
         justify-content: flex-start !important;
         gap: 8px !important;
-        padding: 0 16px 0 20px !important;
+        padding: 0 35px 0 20px !important;
         height: 64px !important;
     }
 
@@ -2549,16 +2553,7 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         margin-inline-end: 0 !important;
         margin-inline-start: 0 !important;
         margin-right: 0 !important;
-        gap: 8px !important;
         z-index: 3 !important;
-    }
-
-    .logo-text {
-        font-size: 21px !important;
-    }
-
-    .logo-image {
-        height: 36px !important;
     }
 
     .nav-links-desktop {
@@ -2570,7 +2565,7 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         min-width: 0 !important;
         max-width: none !important;
         justify-content: center !important;
-        gap: clamp(4px, 0.55vw, 8px) !important;
+        gap: 8px !important;
         margin: 0 !important;
         padding: 0 6px !important;
         overflow: visible !important;
@@ -2579,26 +2574,28 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
 
     .nav-links-desktop .nav-link,
     .nav-links-desktop .nav-link-dropdown {
-        padding: 7px clamp(6px, 0.85vw, 10px) !important;
-        font-size: clamp(12.5px, 1.15vw, 13.5px) !important;
+        padding: 8px 12px !important;
+        font-size: 13px !important;
         font-weight: 500 !important;
         border-radius: 8px !important;
-        letter-spacing: 0.01em !important;
+        letter-spacing: normal !important;
         white-space: nowrap !important;
         flex-shrink: 0 !important;
     }
 
+    .nav-links-desktop .nav-link-dropdown {
+        padding: 8px 16px !important;
+    }
+
     .nav-links-desktop .nav-link:hover,
     .nav-links-desktop .nav-link-dropdown:hover {
-        padding-left: clamp(6px, 0.85vw, 10px) !important;
+        padding-left: 12px !important;
         transform: translateY(-1px) !important;
         background: rgba(99, 102, 241, 0.15) !important;
     }
 
-    .nav-links-desktop .nav-link-dropdown .dropdown-arrow {
-        width: 10px;
-        height: 6px;
-        margin-inline-start: 3px;
+    .nav-links-desktop .nav-link-dropdown:hover {
+        padding-left: 16px !important;
     }
 
     .nav-link-label--long {
@@ -2611,24 +2608,12 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
 
     .nav-actions {
         flex: 0 0 auto !important;
-        gap: 8px !important;
+        gap: 10px !important;
         z-index: 3 !important;
-    }
-
-    .nav-dashboard-link {
-        padding: 10px 18px !important;
-        font-size: 0.875rem !important;
-        border-radius: 10px !important;
-        white-space: nowrap !important;
     }
 
     .nav-menu-wrapper {
         display: none !important;
-    }
-
-    #navLanguageItemDesktop {
-        padding: 7px 9px !important;
-        font-size: 12.5px !important;
     }
 }
 
