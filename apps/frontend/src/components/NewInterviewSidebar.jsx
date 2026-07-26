@@ -586,6 +586,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
     const [showAdLangMenu, setShowAdLangMenu] = useState(false);
     const jobAdTextareaRef = useRef(null);
     const adLangPickerRef = useRef(null);
+    const modalScrollRef = useRef(null);
+    const jobAdPreviewRef = useRef(null);
+    const jobAdHadContentRef = useRef(false);
     /** What to include when sharing or copying (at least one must stay on when both exist). */
     const [includeAdWhenSharing, setIncludeAdWhenSharing] = useState(true);
     const [includeLinkWhenSharing, setIncludeLinkWhenSharing] = useState(true);
@@ -925,6 +928,30 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         if (!jobAdvertisement?.trim()) {
             setIncludeLinkWhenSharing(true);
         }
+    }, [jobAdvertisement]);
+
+    /** After first ad generation, scroll the preview into view inside the modal body (one scroll layer). */
+    useEffect(() => {
+        const hasAd = Boolean(jobAdvertisement?.trim());
+        if (!hasAd) {
+            jobAdHadContentRef.current = false;
+            return;
+        }
+        const wasEmpty = !jobAdHadContentRef.current;
+        jobAdHadContentRef.current = true;
+        if (!wasEmpty || !jobAdPreviewRef.current) return;
+        const scrollEl = modalScrollRef.current;
+        const target = jobAdPreviewRef.current;
+        requestAnimationFrame(() => {
+            if (scrollEl && target) {
+                const scrollRect = scrollEl.getBoundingClientRect();
+                const targetRect = target.getBoundingClientRect();
+                const top = targetRect.top - scrollRect.top + scrollEl.scrollTop - 12;
+                scrollEl.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            } else {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
     }, [jobAdvertisement]);
 
     useEffect(() => {
@@ -2117,7 +2144,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                 {/* Job Details Form - Dynamic Criteria Selection */}
                 {showJobDetailsForm ? (
                     <div className="ni-job-details-shell">
-                        <div className="ni-modal-scroll">
+                        <div className="ni-modal-scroll" ref={modalScrollRef}>
                         {/* General Error */}
                         {errors.general && (
                             <div
@@ -3259,7 +3286,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                                             )}
                                                         </button>
                             {jobAdvertisement && (
-                                <div className="ni-job-ad-preview">
+                                <div className="ni-job-ad-preview" ref={jobAdPreviewRef}>
                                     <div className="ni-job-ad-preview__toolbar">
                                         <button
                                             type="button"

@@ -5338,6 +5338,19 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     scrollbar-color: rgba(56, 189, 248, 0.35) rgba(15, 23, 42, 0.5);
 }
 
+/* Job criteria modal — one scroll layer: preview grows inside ni-modal-scroll */
+.new-interview-modal .ni-job-details-shell .ni-job-ad-preview__body {
+    max-height: none;
+    overflow: visible;
+}
+
+.new-interview-modal .ni-job-details-shell .ni-job-ad-preview__textarea {
+    resize: vertical;
+    min-height: 220px;
+    max-height: none;
+    overflow: hidden;
+}
+
 .new-interview-modal .ni-job-ad-preview__body::-webkit-scrollbar {
     width: 6px;
 }
