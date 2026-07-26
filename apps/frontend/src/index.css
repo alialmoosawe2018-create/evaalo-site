@@ -1991,12 +1991,6 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
     display: none;
 }
 
-@media (min-width: 769px) and (max-width: 1180px) {
-    #navLanguageItemDesktop {
-        display: none !important;
-    }
-}
-
 /* Desktop: Show nav links horizontally in header */
 @media (min-width: 769px) {
     /* Hide language selector in top-right corner on desktop (use nav menu instead) */
@@ -2545,7 +2539,7 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         display: flex !important;
         align-items: center !important;
         justify-content: flex-start !important;
-        gap: 8px !important;
+        gap: 6px !important;
         padding: 0 35px 0 20px !important;
         height: 64px !important;
     }
@@ -2567,16 +2561,16 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         min-width: 0 !important;
         max-width: none !important;
         justify-content: center !important;
-        gap: 8px !important;
+        gap: 6px !important;
         margin: 0 !important;
-        padding: 0 6px !important;
+        padding: 0 4px !important;
         overflow: visible !important;
         flex-wrap: nowrap !important;
     }
 
     .nav-links-desktop .nav-link,
     .nav-links-desktop .nav-link-dropdown {
-        padding: 8px 12px !important;
+        padding: 8px 10px !important;
         font-size: 13px !important;
         font-weight: 500 !important;
         border-radius: 8px !important;
@@ -2586,18 +2580,18 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
     }
 
     .nav-links-desktop .nav-link-dropdown {
-        padding: 8px 16px !important;
+        padding: 8px 13px !important;
     }
 
     .nav-links-desktop .nav-link:hover,
     .nav-links-desktop .nav-link-dropdown:hover {
-        padding-left: 12px !important;
+        padding-left: 10px !important;
         transform: translateY(-1px) !important;
         background: rgba(99, 102, 241, 0.15) !important;
     }
 
     .nav-links-desktop .nav-link-dropdown:hover {
-        padding-left: 16px !important;
+        padding-left: 13px !important;
     }
 
     .nav-link-label--long {
@@ -2608,9 +2602,18 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         display: inline !important;
     }
 
+    /* iPad/tablet: drop Features to make room for language switcher */
+    .nav-links-desktop .nav-link--features {
+        display: none !important;
+    }
+
+    #navLanguageItemDesktop {
+        display: flex !important;
+    }
+
     .nav-actions {
         flex: 0 0 auto !important;
-        gap: 10px !important;
+        gap: 8px !important;
         z-index: 3 !important;
     }
 

@@ -406,7 +406,7 @@ const Navigation = () => {
                         </Link>
 
                         {(location.pathname === '/' || location.pathname === '/overview' || location.pathname === '/demo') && (
-                            <a href="#features" className="nav-link">
+                            <a href="#features" className="nav-link nav-link--features">
                                 {t('features')}
                             </a>
                         )}
