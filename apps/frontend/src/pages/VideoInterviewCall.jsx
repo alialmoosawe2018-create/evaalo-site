@@ -3614,24 +3614,9 @@ const VideoInterviewCall = () => {
                                 disabled={!effectiveCandidateId || countdownActive}
                                 aria-label={t('videoInterview_startAria')}
                                 title={t('videoInterview_startAria')}
-                                className="workflow-btn-primary ni-continue-btn"
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '10px',
-                                    padding: '14px 28px',
-                                    fontSize: '1.05rem',
-                                    fontWeight: '600',
-                                    cursor:
-                                        effectiveCandidateId && !countdownActive ? 'pointer' : 'not-allowed',
-                                    opacity: effectiveCandidateId && !countdownActive ? 1 : 0.6,
-                                    width: '100%',
-                                    maxWidth: '420px',
-                                    boxSizing: 'border-box',
-                                }}
+                                className="workflow-btn-primary ni-continue-btn vi-interview-start-btn"
                             >
-                                <span style={{ fontSize: '1.25rem' }}>▶</span>
+                                <span className="vi-interview-start-btn__icon" aria-hidden>▶</span>
                                 <span>{t('videoInterview_start')}</span>
                             </button>
                         ) : (

@@ -293,22 +293,11 @@ const VoiceInterviewStage = ({
           {connectionStatus !== 'connected' ? (
             <button
               type="button"
-              className="workflow-btn-primary ni-continue-btn"
+              className="workflow-btn-primary ni-continue-btn vi-interview-start-btn"
               onClick={connect}
               disabled={!canStart || connectionStatus === 'connecting'}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px',
-                padding: '14px 28px',
-                fontSize: '1.05rem',
-                fontWeight: '600',
-                cursor: canStart && connectionStatus !== 'connecting' ? 'pointer' : 'not-allowed',
-                opacity: canStart && connectionStatus !== 'connecting' ? 1 : 0.6,
-              }}
             >
-              <span style={{ fontSize: '1.25rem' }}>▶</span>
+              <span className="vi-interview-start-btn__icon" aria-hidden>▶</span>
               <span>{connectionStatus === 'connecting' ? 'Starting...' : 'Start'}</span>
             </button>
           ) : (

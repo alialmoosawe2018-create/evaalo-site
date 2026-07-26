@@ -231,7 +231,7 @@ export default function ScreeningCampaignList({
         (viewMode === 'cards' ? ' headhunter-campaign-history-list--cards' : '');
 
     return (
-        <>
+        <div className="screening-campaign-list-shell">
             <div className="dashboard-card-header">
                 <h2 className="dashboard-card-title">{t(titleKey)}</h2>
                 <div className="header-actions">
@@ -370,6 +370,6 @@ export default function ScreeningCampaignList({
                 confirmVariant="primary"
                 icon="lock"
             />
-        </>
+        </div>
     );
 }

@@ -6246,14 +6246,16 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
         margin-top: auto;
         padding-top: 12px;
         width: 100%;
+        display: flex;
+        justify-content: center;
     }
 
     .voice-interview-prep__continue {
-        width: 100%;
-        max-width: none;
-        min-height: 52px;
-        padding: 16px 24px;
-        font-size: 1.08rem;
+        width: auto;
+        max-width: min(100%, 280px);
+        min-height: 48px;
+        padding: 14px 28px;
+        font-size: 1rem;
         gap: 10px;
         border-radius: 12px;
         box-sizing: border-box;
@@ -10291,6 +10293,36 @@ body.rtl-text .recent-interviews-card .dashboard-card-title {
     padding: 0 4px;
 }
 
+/* Start — content width on desktop (not full 420px bar); same cap as prep Continue on mobile */
+.vi-interview-controls .vi-interview-start-btn,
+.voice-interview-stage__actions .vi-interview-start-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: auto;
+    max-width: min(100%, 280px);
+    min-height: 52px;
+    padding: 14px 28px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    box-sizing: border-box;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.vi-interview-controls .vi-interview-start-btn:disabled,
+.voice-interview-stage__actions .vi-interview-start-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.vi-interview-controls .vi-interview-start-btn__icon,
+.voice-interview-stage__actions .vi-interview-start-btn__icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
 .vi-end-interview-btn {
     display: inline-flex;
     align-items: center;
@@ -11137,6 +11169,13 @@ body.rtl-text .recent-interviews-card .dashboard-card-title {
 }
 
 /* Stage 1 Screening — campaign list (extends Head Hunter history rows) */
+.screening-campaign-list-shell {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .screening-campaign-section-title {
     margin: 0 0 12px;
     font-size: 0.8rem;
@@ -21249,6 +21288,21 @@ html[data-app-theme='light'] .headhunter-campaign-history-empty {
 
 html[data-app-theme='light'] .screening-campaign-section-title {
     color: var(--app-text-secondary);
+}
+
+/* Screening campaigns — cream panel behind cards (light mode only) */
+html[data-app-theme='light']
+    .dashboard-page--evaalo-visual.headhunter-campaign-history-page
+    .platform-features-card:has(.screening-campaign-list-shell) {
+    background: #fdf8f0;
+}
+
+html[data-app-theme='light']
+    .dashboard-page--evaalo-visual.headhunter-campaign-history-page
+    .platform-features-card:has(.screening-campaign-list-shell)
+    .screening-campaign-list-shell
+    .dashboard-card-body {
+    background: #fdf8f0 !important;
 }
 
 html[data-app-theme='light'] .screening-campaign-section-divider {
