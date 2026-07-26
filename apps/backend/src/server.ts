@@ -427,6 +427,8 @@ function pickLooseFromSources(sources: unknown[], aliases: string[]): unknown {
 /** أسماء شائعة لدرجة 0–100 من n8n / LLM (غير `overall_score` فقط) */
 const OVERALL_SCORE_ALIASES = [
     'overall_score',
+    'Overall_score',
+    'Overall-score',
     'Overall Score',
     'overallScore',
     'score',
