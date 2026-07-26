@@ -51,6 +51,29 @@ function isValidStage3MeaningfulText(raw: unknown): boolean {
     return true;
 }
 
+function parseStage3OverallScore(raw: unknown): number | undefined {
+    if (raw === undefined || raw === null || raw === '') return undefined;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        return Math.max(0, Math.min(100, raw));
+    }
+    if (typeof raw === 'string') {
+        const s = raw.trim();
+        const frac = s.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+        if (frac) {
+            const num = parseFloat(frac[1]);
+            const den = parseFloat(frac[2]);
+            if (den > 0 && Number.isFinite(num)) {
+                if (den <= 10) return Math.max(0, Math.min(100, num * 10));
+                return Math.max(0, Math.min(100, num));
+            }
+            return undefined;
+        }
+        const n = parseFloat(s.replace(/,/g, ''));
+        if (Number.isFinite(n)) return Math.max(0, Math.min(100, n));
+    }
+    return undefined;
+}
+
 function isValidStage3CompetencyScore(raw: unknown): boolean {
     if (raw === undefined || raw === null) return false;
     const n = typeof raw === 'number' ? raw : Number(raw);
@@ -77,9 +100,8 @@ export function getStage3VideoPatchIssues(patch: Record<string, unknown>): strin
 
     if (!isValidStage3MeaningfulText(patch.summary)) issues.push('summary');
 
-    const score = patch.overall_score;
-    const scoreOk =
-        typeof score === 'number' && Number.isFinite(score) && score >= 0 && score <= 100;
+    const parsedScore = parseStage3OverallScore(patch.overall_score);
+    const scoreOk = parsedScore !== undefined;
     if (!scoreOk) issues.push('overall_score');
 
     const rec = patch.recommendation;

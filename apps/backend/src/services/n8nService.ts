@@ -683,11 +683,9 @@ export const sendVideoTranscriptToN8N = async (payload: {
         const candidateId = payload.candidateId?.trim() || '';
         const campaignId =
             payload.campaignId?.trim() || (await resolveCandidateCampaignId(candidateId));
-        // مثل Stage 1: لغة رابط المشاركة/الجلسة (اختيار الموظف) لها الأولوية، ثم كشف
-        // لغة النص كخيار احتياطي، وأخيراً 'auto' ليكتشفها n8n من الترانسكريبت.
+        // Stage 3: share-link language only (same as Stage 1/2 — no transcript auto-detect / auto).
         const shareLanguage = normalizeShareEvaluationLanguage(payload.language);
-        const detectedLanguage = detectTranscriptLanguage(payload.conversationHistory);
-        const effectiveLanguage = shareLanguage || detectedLanguage || 'auto';
+        const effectiveLanguage = shareLanguage ?? 'ar';
         const body: Record<string, unknown> = {
             event: 'video_interview_transcript',
             evaluationSource: 'video' as const,
