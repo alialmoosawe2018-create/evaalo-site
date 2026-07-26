@@ -1014,6 +1014,32 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         setCustomLabelDraft('');
     }, [isOpen]);
 
+    /** Lock page scroll while modal is open — prevents background rubber-band when hitting scroll edges. */
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        const html = document.documentElement;
+        const body = document.body;
+        const prevHtmlOverflow = html.style.overflow;
+        const prevBodyOverflow = body.style.overflow;
+        html.style.overflow = 'hidden';
+        body.style.overflow = 'hidden';
+        return () => {
+            html.style.overflow = prevHtmlOverflow;
+            body.style.overflow = prevBodyOverflow;
+        };
+    }, [isOpen]);
+
+    const clampModalScrollWheel = useCallback((e) => {
+        const el = modalScrollRef.current;
+        if (!el) return;
+        const { scrollTop, scrollHeight, clientHeight } = el;
+        const atTop = scrollTop <= 0;
+        const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+        if ((atTop && e.deltaY < 0) || (atBottom && e.deltaY > 0)) {
+            e.preventDefault();
+        }
+    }, []);
+
     /** Hydrate roleKey/careerLevel when only legacy position title exists. */
     useEffect(() => {
         if (!isOpen) return;
@@ -1904,6 +1930,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
             <div
                 className="modal-overlay new-interview-modal-overlay"
                 onClick={onClose}
+                onWheel={(e) => e.preventDefault()}
                 style={{
                     position: 'fixed',
                     top: 0,
@@ -2144,7 +2171,11 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                 {/* Job Details Form - Dynamic Criteria Selection */}
                 {showJobDetailsForm ? (
                     <div className="ni-job-details-shell">
-                        <div className="ni-modal-scroll" ref={modalScrollRef}>
+                        <div
+                            className="ni-modal-scroll"
+                            ref={modalScrollRef}
+                            onWheel={showJobDetailsForm ? clampModalScrollWheel : undefined}
+                        >
                         {/* General Error */}
                         {errors.general && (
                             <div
