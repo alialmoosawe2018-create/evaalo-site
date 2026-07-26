@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
@@ -119,6 +119,18 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
     const [clearingRecent, setClearingRecent] = useState(false);
     const [clearRecentError, setClearRecentError] = useState(null);
     const clearedAtRef = useRef(null);
+    const scrollRef = useRef(null);
+
+    const clampRecentInterviewsScrollWheel = useCallback((e) => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const { scrollTop, scrollHeight, clientHeight } = el;
+        const atTop = scrollTop <= 0;
+        const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+        if ((atTop && e.deltaY < 0) || (atBottom && e.deltaY > 0)) {
+            e.preventDefault();
+        }
+    }, []);
 
     const mockRecentInterviews = useMemo(() => buildMockRecentInterviews(t), [t]);
     const mockRecentInterviewsRef = useRef(mockRecentInterviews);
@@ -380,7 +392,11 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
                     {clearRecentError}
                 </p>
             ) : null}
-            <div className="dashboard-card-body recent-interviews-scroll">
+            <div
+                ref={scrollRef}
+                className="dashboard-card-body recent-interviews-scroll"
+                onWheel={clampRecentInterviewsScrollWheel}
+            >
                 {loadingInterviews ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
                         {t('dashboardLoadingInterviews')}
