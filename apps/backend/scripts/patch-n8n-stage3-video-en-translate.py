@@ -128,33 +128,32 @@ return items.map((item) => {
 });"""
 
 APPLY_LOCALIZATION_TEMPLATE = r"""const items = $input.all();
-const VALIDATE_NODE = '%VALIDATE%';
 
-function parseJsonLoose(raw) {{
+function parseJsonLoose(raw) {
   if (raw == null) return null;
   if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
   if (typeof raw !== 'string') return null;
   let s = raw.trim();
   s = s.replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/i, '').trim();
-  try {{ return JSON.parse(s); }} catch {{ return null; }}
-}}
+  try { return JSON.parse(s); } catch { return null; }
+}
 
-function targetLang() {{
+function targetLang() {
   const raw = String($('Webhook').first().json.body?.language || 'ar').trim().toLowerCase();
   if (raw === 'en' || raw.startsWith('en-')) return 'en';
   return 'ar';
-}}
+}
 
-return items.map((item) => {{
-  const original = $(VALIDATE_NODE).first().json.output ?? {{}};
-  if (targetLang() === 'en') {{
-    return {{ json: {{ output: original }}, binary: item.binary }};
-  }}
+return items.map((item) => {
+  const original = $('%VALIDATE%').first().json.output ?? {};
+  if (targetLang() === 'en') {
+    return { json: { output: original }, binary: item.binary };
+  }
   let o = parseJsonLoose(item.json.output ?? item.json.text ?? item.json);
   if (o && o.output && typeof o.output === 'object') o = o.output;
-  const merged = {{ ...original, ...(o && typeof o === 'object' ? o : {{}}) }};
-  return {{ json: {{ output: merged }}, binary: item.binary }};
-}});"""
+  const merged = { ...original, ...(o && typeof o === 'object' ? o : {}) };
+  return { json: { output: merged }, binary: item.binary };
+});"""
 
 
 def new_id() -> str:
