@@ -1913,8 +1913,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                     boxShadow: NT.shellShadow,
                     zIndex: 10002,
                     padding: '28px',
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
+                    overflow: 'hidden',
                     animation: 'modalFadeIn 0.3s ease',
                     display: 'flex',
                     flexDirection: 'column'
@@ -2117,14 +2116,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
 
                 {/* Job Details Form - Dynamic Criteria Selection */}
                 {showJobDetailsForm ? (
-                    <div style={{ 
-                        flex: 1, 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        minHeight: 0,
-                        overflowY: 'auto',
-                        overflowX: 'hidden'
-                    }}>
+                    <div className="ni-job-details-shell">
+                        <div className="ni-modal-scroll">
                         {/* General Error */}
                         {errors.general && (
                             <div
@@ -3321,7 +3314,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                             </div>
                         )}
 
-                        {/* Continue — شريط لاصق أسفل منطقة التمرير + تدرج في ni-continue-btn (design-styles) */}
+                        </div>
+
+                        {/* Continue — ثابت أسفل المودال؛ المحتوى يمرّر في ni-modal-scroll */}
                         {/* مسار «عام»: الزر يُنشئ الحملة ويولّد رابطاً عاماً بدل المتابعة لإنشاء مرشح */}
                         <div className="ni-continue-footer">
                             <button
@@ -4011,9 +4006,19 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                     height: 0;
                 }
 
+                .new-interview-modal .ni-modal-scroll::-webkit-scrollbar {
+                    display: block;
+                    width: 6px;
+                }
+
                 .new-interview-modal * {
                     scrollbar-width: none;
                     -ms-overflow-style: none;
+                }
+
+                .new-interview-modal .ni-modal-scroll {
+                    scrollbar-width: thin;
+                    scrollbar-color: rgba(148, 163, 184, 0.42) transparent;
                 }
 
                 .new-interview-modal .workflow-btn-primary:not(.ni-continue-btn):not(.ni-generate-ad-btn) {

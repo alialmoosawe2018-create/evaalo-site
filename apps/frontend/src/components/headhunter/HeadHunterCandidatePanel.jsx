@@ -251,6 +251,7 @@ export default function HeadHunterCandidatePanel({
                 ) : null}
             </div>
 
+            <div className="headhunter-panel__scroll">
             <div className="headhunter-panel__header">
                 <div className="headhunter-panel__dual">
                     <div className="headhunter-panel__dual-col headhunter-panel__dual-col--cv">
@@ -436,6 +437,7 @@ export default function HeadHunterCandidatePanel({
                     ) : null}
                 </div>
 
+            </div>
             </div>
 
         </aside>
