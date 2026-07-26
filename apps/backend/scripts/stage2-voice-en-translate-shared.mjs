@@ -6,8 +6,9 @@ export const STAGE2_EN_RULE =
     '**Language rule (evaluation output):** Write the ENTIRE evaluation report in English only. ' +
     'The interview transcript may be Arabic, English, or mixed (including an English proficiency test) — ' +
     'use all transcript content as evidence only. All narrative text (Executive Summary, Strengths, ' +
-    'Weaknesses, Professional Attitude, Justification) must be in English. ' +
-    'Keep Recommendation as Hire / Consider / Reject and skill ratings as Excellent / Good / Intermediate / Bad.';
+    'Weaknesses, Professional Attitude, Justification, Rating Rationale inside Final HR Evaluation) must be in English. ' +
+    'Keep Recommendation as Hire / Consider / Reject. Competency fields (Communication, English Fluency, Confidence, ' +
+    'Problem Solving, Computer Skills) are EXACTLY one rating word: Excellent / Good / Intermediate / Bad — no phrases.';
 
 export const STAGE2_CHAIN_TEXT = '= full transcript of the interview: {{ $json.body.fullTranscript }}';
 
