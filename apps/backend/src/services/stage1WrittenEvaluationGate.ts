@@ -1,11 +1,16 @@
 export const STAGE1_INCOMPLETE_EVALUATION_ERROR = 'STAGE1_INCOMPLETE_EVALUATION' as const;
 
 export const STAGE1_INCOMPLETE_EVALUATION_MESSAGE =
-    'Stage 1 evaluation must include a valid score, recommendation, and final HR evaluation report.';
+    'Stage 1 evaluation must include overall_score, recommendation, final_hr_evaluation, fit_for_role, summary, strengths, and weaknesses.';
 
 export type Stage1WrittenEvaluationValidationResult =
     | { ok: true }
-    | { ok: false; error: typeof STAGE1_INCOMPLETE_EVALUATION_ERROR; message: string };
+    | {
+          ok: false;
+          error: typeof STAGE1_INCOMPLETE_EVALUATION_ERROR;
+          message: string;
+          issues: string[];
+      };
 
 function normalizeToken(raw: unknown): string {
     if (raw === undefined || raw === null) return '';
@@ -51,24 +56,47 @@ export function isStage1WrittenSuccessEvaluationAttempt(
 
 const INVALID_STAGE1_TEXT_TOKENS = new Set(['undefined', 'null', 'nan', '']);
 
-function isValidStage1FinalHrText(raw: unknown): boolean {
+function isValidStage1MeaningfulText(raw: unknown): boolean {
     if (raw === undefined || raw === null) return false;
     const s = String(raw).trim();
     if (!s || INVALID_STAGE1_TEXT_TOKENS.has(s.toLowerCase())) return false;
     return true;
 }
 
-export function isCompleteStage1WrittenPatch(patch: Record<string, unknown>): boolean {
+function isNonEmptyStringArray(raw: unknown): boolean {
+    if (!Array.isArray(raw) || raw.length === 0) return false;
+    return raw.some((item) => isValidStage1MeaningfulText(item));
+}
+
+export function getStage1WrittenPatchIssues(patch: Record<string, unknown>): string[] {
+    const issues: string[] = [];
+
     const score = patch.overall_score;
     const scoreOk =
         typeof score === 'number' && Number.isFinite(score) && score >= 0 && score <= 100;
+    if (!scoreOk) issues.push('overall_score');
 
     const rec = patch.recommendation;
     const recOk = rec === 'Hire' || rec === 'Consider' || rec === 'Reject';
+    if (!recOk) issues.push('recommendation');
 
-    const finalHrOk = isValidStage1FinalHrText(patch.final_hr_evaluation);
+    if (!isValidStage1MeaningfulText(patch.final_hr_evaluation)) {
+        issues.push('final_hr_evaluation');
+    }
+    if (!isValidStage1MeaningfulText(patch.fit_for_role)) {
+        issues.push('fit_for_role');
+    }
+    if (!isValidStage1MeaningfulText(patch.summary)) {
+        issues.push('summary');
+    }
+    if (!isNonEmptyStringArray(patch.strengths)) issues.push('strengths');
+    if (!isNonEmptyStringArray(patch.weaknesses)) issues.push('weaknesses');
 
-    return scoreOk && recOk && finalHrOk;
+    return issues;
+}
+
+export function isCompleteStage1WrittenPatch(patch: Record<string, unknown>): boolean {
+    return getStage1WrittenPatchIssues(patch).length === 0;
 }
 
 export function validateStage1WrittenEvaluationPersistence(
@@ -79,7 +107,8 @@ export function validateStage1WrittenEvaluationPersistence(
         return { ok: true };
     }
 
-    if (isCompleteStage1WrittenPatch(patch)) {
+    const issues = getStage1WrittenPatchIssues(patch);
+    if (issues.length === 0) {
         return { ok: true };
     }
 
@@ -87,5 +116,6 @@ export function validateStage1WrittenEvaluationPersistence(
         ok: false,
         error: STAGE1_INCOMPLETE_EVALUATION_ERROR,
         message: STAGE1_INCOMPLETE_EVALUATION_MESSAGE,
+        issues,
     };
 }

@@ -1,7 +1,7 @@
 export const STAGE2_INCOMPLETE_EVALUATION_ERROR = 'STAGE2_INCOMPLETE_EVALUATION' as const;
 
 export const STAGE2_INCOMPLETE_EVALUATION_MESSAGE =
-    'Stage 2 evaluation must include all voice competency fields, summary, strengths, weaknesses, final HR evaluation, score, and recommendation.';
+    'Stage 2 evaluation must include all voice competency rating fields (Excellent/Good/Intermediate/Bad), a professional-attitude paragraph, summary, strengths, weaknesses, final HR evaluation, score, and recommendation.';
 
 export type Stage2EvaluationGateMode = 'observe' | 'enforce';
 
@@ -13,6 +13,18 @@ export type Stage2VoiceEvaluationValidationResult =
           message: string;
           issues: string[];
       };
+
+/** Allowed single-word competency ratings (English tokens from n8n). */
+export const STAGE2_COMPETENCY_RATING_TOKENS = [
+    'Excellent',
+    'Good',
+    'Intermediate',
+    'Bad',
+] as const;
+
+const STAGE2_COMPETENCY_RATING_SET = new Set(
+    STAGE2_COMPETENCY_RATING_TOKENS.map((t) => t.toLowerCase())
+);
 
 function normalizeToken(raw: unknown): string {
     if (raw === undefined || raw === null) return '';
@@ -29,7 +41,7 @@ function pickLoose(obj: unknown, aliases: string[]): unknown {
     return undefined;
 }
 
-const INVALID_STAGE2_TEXT_TOKENS = new Set(['undefined', 'null', 'nan', '']);
+const INVALID_STAGE2_TEXT_TOKENS = new Set(['undefined', 'null', 'nan', 'n/a', '']);
 
 function isValidStage2MeaningfulText(raw: unknown): boolean {
     if (raw === undefined || raw === null) return false;
@@ -38,37 +50,49 @@ function isValidStage2MeaningfulText(raw: unknown): boolean {
     return true;
 }
 
-function isValidStage2NumericOrText(raw: unknown): boolean {
-    if (raw === undefined || raw === null) return false;
-    if (typeof raw === 'number' && Number.isFinite(raw)) return true;
-    return isValidStage2MeaningfulText(raw);
-}
-
 function isNonEmptyStringArray(raw: unknown): boolean {
     if (!Array.isArray(raw) || raw.length === 0) return false;
     return raw.some((item) => isValidStage2MeaningfulText(item));
 }
 
-/** Default observe until the n8n 12-field contract is proven reliable in production. */
+/** Exactly one of Excellent | Good | Intermediate | Bad — no numbers, no phrases. */
+export function isValidStage2CompetencyRating(raw: unknown): boolean {
+    if (raw === undefined || raw === null) return false;
+    if (typeof raw === 'number') return false;
+    const s = String(raw).trim();
+    if (!s || /\s/.test(s)) return false;
+    return STAGE2_COMPETENCY_RATING_SET.has(s.toLowerCase());
+}
+
+/** Narrative paragraph — not a single competency rating word. */
+export function isValidStage2ProfessionalAttitude(raw: unknown): boolean {
+    if (!isValidStage2MeaningfulText(raw)) return false;
+    const s = String(raw).trim();
+    if (STAGE2_COMPETENCY_RATING_SET.has(s.toLowerCase())) return false;
+    const words = s.split(/\s+/).filter(Boolean);
+    return words.length >= 2 || s.length >= 30;
+}
+
+/** Default enforce — n8n + backend share the same strict contract. */
 export function getStage2EvaluationGateMode(): Stage2EvaluationGateMode {
     const raw = process.env.STAGE2_EVALUATION_GATE_MODE;
     if (raw === undefined || raw === null || String(raw).trim() === '') {
-        return 'observe';
+        return 'enforce';
     }
     const mode = String(raw).trim().toLowerCase();
-    if (mode === 'enforce') return 'enforce';
-    return 'observe';
+    if (mode === 'observe') return 'observe';
+    return 'enforce';
 }
 
 export function getStage2VoicePatchIssues(patch: Record<string, unknown>): string[] {
     const issues: string[] = [];
 
-    if (!isValidStage2NumericOrText(patch.communication)) issues.push('communication');
-    if (!isValidStage2MeaningfulText(patch.language_fluency)) issues.push('language_fluency');
-    if (!isValidStage2MeaningfulText(patch.confidence)) issues.push('confidence');
-    if (!isValidStage2NumericOrText(patch.problem_solving)) issues.push('problem_solving');
-    if (!isValidStage2MeaningfulText(patch.digital_skills)) issues.push('digital_skills');
-    if (!isValidStage2MeaningfulText(patch.professional_attitude)) {
+    if (!isValidStage2CompetencyRating(patch.communication)) issues.push('communication');
+    if (!isValidStage2CompetencyRating(patch.language_fluency)) issues.push('language_fluency');
+    if (!isValidStage2CompetencyRating(patch.confidence)) issues.push('confidence');
+    if (!isValidStage2CompetencyRating(patch.problem_solving)) issues.push('problem_solving');
+    if (!isValidStage2CompetencyRating(patch.digital_skills)) issues.push('digital_skills');
+    if (!isValidStage2ProfessionalAttitude(patch.professional_attitude)) {
         issues.push('professional_attitude');
     }
     if (!isValidStage2MeaningfulText(patch.summary)) issues.push('summary');

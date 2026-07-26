@@ -27,12 +27,13 @@ function mockOrgReq(orgId: string): Request {
 
 function completeVoicePatch(): Record<string, unknown> {
     return {
-        communication: 8,
-        language_fluency: 'Fluent',
-        confidence: 'Clear delivery',
-        problem_solving: 7,
-        digital_skills: 'CRM proficient',
-        professional_attitude: 'Professional',
+        communication: 'Good',
+        language_fluency: 'Intermediate',
+        confidence: 'Good',
+        problem_solving: 'Good',
+        digital_skills: 'Excellent',
+        professional_attitude:
+            'The candidate remained polite and engaged throughout the voice interview session.',
         summary: 'Strong voice candidate.',
         strengths: ['Communication'],
         weaknesses: ['Depth'],

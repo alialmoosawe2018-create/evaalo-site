@@ -150,6 +150,12 @@ async function stage1ProcessWithEvalGate(
     if (dataRec.overall_score !== undefined) patch.overall_score = dataRec.overall_score;
     if (dataRec.recommendation !== undefined) patch.recommendation = dataRec.recommendation;
     if (dataRec.summary !== undefined) patch.summary = dataRec.summary;
+    const fitForRole =
+        dataRec.fit_for_role ??
+        dataRec.fitForRole ??
+        dataRec['Fit for the role'] ??
+        dataRec['Fit for Role'];
+    if (fitForRole !== undefined) patch.fit_for_role = fitForRole;
     const finalHr =
         dataRec.final_hr_evaluation ??
         dataRec.finalHrEvaluation ??
@@ -180,6 +186,8 @@ async function testRequiredValidSecureAccepted(): Promise<void> {
             recommendation: 'Consider',
             final_hr_evaluation:
                 'Recommend proceeding to voice screening; confirm HR certification and stakeholder management examples.',
+            summary: 'Experienced candidate with relevant background for the role.',
+            fit_for_role: 'Good fit for the target position based on experience and skills.',
             strengths: ['Clear communication'],
             weaknesses: ['Limited depth'],
         };
@@ -338,6 +346,7 @@ async function testCompleteEvaluationAccepted(): Promise<void> {
             recommendation: 'Consider',
             final_hr_evaluation:
                 'Move to Stage 2; validate HR BP depth and English fluency during voice interview.',
+            fit_for_role: 'Strong alignment with the campaign role requirements.',
             strengths: ['Strong fit'],
             weaknesses: ['Needs mentoring'],
             summary: 'Solid overall.',
@@ -388,6 +397,8 @@ async function testOptionalLegacyBehavior(): Promise<void> {
             overall_score: 65,
             recommendation: 'Hire',
             final_hr_evaluation: 'Strong written-screen fit; proceed to scheduling.',
+            summary: 'Solid written application with relevant experience.',
+            fit_for_role: 'Meets core role requirements.',
             strengths: ['A'],
             weaknesses: ['B'],
         };

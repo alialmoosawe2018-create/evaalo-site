@@ -986,12 +986,13 @@ async function handleN8nWebhook(req: StageN8nIngressRequest, res: Response, mode
             const stage1EvalCheck = validateStage1WrittenEvaluationPersistence(dataRec, patch);
             if (!stage1EvalCheck.ok) {
                 console.log(
-                    `[stage_ingress] stage1_incomplete_evaluation candidateRef=${candidateCorrelationRef(candidateId)}`
+                    `[stage_ingress] stage1_incomplete_evaluation candidateRef=${candidateCorrelationRef(candidateId)} issues=${stage1EvalCheck.issues?.join(',') ?? ''}`
                 );
                 return res.status(400).json({
                     success: false,
                     error: stage1EvalCheck.error,
                     message: stage1EvalCheck.message,
+                    issues: stage1EvalCheck.issues,
                 });
             }
             const updateData: Record<string, unknown> = {};
@@ -1044,6 +1045,7 @@ async function handleN8nWebhook(req: StageN8nIngressRequest, res: Response, mode
                         success: false,
                         error: stage2EvalCheck.error,
                         message: stage2EvalCheck.message,
+                        issues: stage2EvalCheck.issues,
                     });
                 }
             }

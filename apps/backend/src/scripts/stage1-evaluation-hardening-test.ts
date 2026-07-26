@@ -101,6 +101,7 @@ function testCompleteEvaluationAccepted(): void {
         recommendation: 'Consider',
         final_hr_evaluation:
             'Recommend moving to Stage 2 voice interview; verify HR certification and English fluency in follow-up.',
+        fit_for_role: 'Strong alignment with HR business partner responsibilities.',
         strengths: ['Strong fit'],
         weaknesses: ['Needs mentoring'],
         summary: 'Solid candidate overall.',
@@ -110,12 +111,63 @@ function testCompleteEvaluationAccepted(): void {
     assert.equal(result.ok, true);
 }
 
+function testMissingFitForRoleRejected(): void {
+    const data = { evaluationSource: 'written', ingress: 'stage1' };
+    const patch = {
+        overall_score: 78,
+        recommendation: 'Consider',
+        final_hr_evaluation: 'Final HR report.',
+        strengths: ['Strong fit'],
+        weaknesses: ['Needs mentoring'],
+        summary: 'Solid candidate overall.',
+    };
+    assert.equal(isCompleteStage1WrittenPatch(patch), false);
+    const result = validateStage1WrittenEvaluationPersistence(data, patch);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.ok(result.issues.includes('fit_for_role'));
+}
+
+function testMissingSummaryRejected(): void {
+    const data = { evaluationSource: 'written', ingress: 'stage1' };
+    const patch = {
+        overall_score: 78,
+        recommendation: 'Consider',
+        final_hr_evaluation: 'Final HR report.',
+        fit_for_role: 'Good fit.',
+        strengths: ['Strong fit'],
+        weaknesses: ['Needs mentoring'],
+    };
+    assert.equal(isCompleteStage1WrittenPatch(patch), false);
+    const result = validateStage1WrittenEvaluationPersistence(data, patch);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.ok(result.issues.includes('summary'));
+}
+
+function testMissingStrengthsRejected(): void {
+    const data = { evaluationSource: 'written', ingress: 'stage1' };
+    const patch = {
+        overall_score: 78,
+        recommendation: 'Consider',
+        final_hr_evaluation: 'Final HR report.',
+        fit_for_role: 'Good fit.',
+        summary: 'Solid candidate overall.',
+        weaknesses: ['Needs mentoring'],
+    };
+    const result = validateStage1WrittenEvaluationPersistence(data, patch);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.ok(result.issues.includes('strengths'));
+}
+
 function testValidRecommendationsAccepted(): void {
     for (const recommendation of ['Hire', 'Consider', 'Reject'] as const) {
         const patch = {
             overall_score: 50,
             recommendation,
             final_hr_evaluation: `Final HR report for ${recommendation} recommendation.`,
+            fit_for_role: 'Role fit assessment.',
+            summary: 'Brief summary.',
+            strengths: ['Strength A'],
+            weaknesses: ['Weakness B'],
         };
         assert.equal(isCompleteStage1WrittenPatch(patch), true);
     }
@@ -188,6 +240,9 @@ function main(): void {
     testScoreOutOfRangeRejected();
     testUnknownRecommendationRejected();
     testCompleteEvaluationAccepted();
+    testMissingFitForRoleRejected();
+    testMissingSummaryRejected();
+    testMissingStrengthsRejected();
     testValidRecommendationsAccepted();
     testStage1RejectPathUnaffected();
     testStage1SpamRejectCodeUnaffected();
