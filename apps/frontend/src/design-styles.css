@@ -11168,8 +11168,9 @@ body.rtl-text .recent-interviews-card .dashboard-card-title {
     font-size: 0.95rem;
 }
 
-/* Stage 1 Screening — campaign list (extends Head Hunter history rows) */
-.screening-campaign-list-shell {
+/* Stage 1 Screening + Head Hunter search history — campaign list shells */
+.screening-campaign-list-shell,
+.headhunter-search-history-shell {
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
@@ -21290,10 +21291,13 @@ html[data-app-theme='light'] .screening-campaign-section-title {
     color: var(--app-text-secondary);
 }
 
-/* Screening campaigns — cream panel behind cards (light mode only) */
+/* Screening + Head Hunter search history — cream panel behind cards (light mode only) */
 html[data-app-theme='light']
     .dashboard-page--evaalo-visual.headhunter-campaign-history-page
-    .platform-features-card:has(.screening-campaign-list-shell) {
+    .platform-features-card:has(.screening-campaign-list-shell),
+html[data-app-theme='light']
+    .dashboard-page--evaalo-visual.headhunter-campaign-history-page
+    .platform-features-card:has(.headhunter-search-history-shell) {
     background: #fdf8f0;
 }
 
@@ -21301,6 +21305,11 @@ html[data-app-theme='light']
     .dashboard-page--evaalo-visual.headhunter-campaign-history-page
     .platform-features-card:has(.screening-campaign-list-shell)
     .screening-campaign-list-shell
+    .dashboard-card-body,
+html[data-app-theme='light']
+    .dashboard-page--evaalo-visual.headhunter-campaign-history-page
+    .platform-features-card:has(.headhunter-search-history-shell)
+    .headhunter-search-history-shell
     .dashboard-card-body {
     background: #fdf8f0 !important;
 }

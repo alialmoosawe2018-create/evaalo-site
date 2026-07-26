@@ -80,6 +80,7 @@ export default function HeadHunterSearchHistory() {
             <div className="container dashboard-visual-container">
                 <div className="dashboard-grid">
                     <div className="dashboard-card dashboard-card--page-active platform-features-card">
+                        <div className="headhunter-search-history-shell">
                         <div className="dashboard-card-header">
                             <h2 className="dashboard-card-title">{t('aiHeadHunterSearchHistoryTitle')}</h2>
                             {rows.length > 0 ? (
@@ -195,6 +196,7 @@ export default function HeadHunterSearchHistory() {
                                     ))}
                                 </ul>
                             )}
+                        </div>
                         </div>
                     </div>
                 </div>
