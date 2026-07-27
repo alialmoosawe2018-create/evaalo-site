@@ -2295,15 +2295,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                             </div>
                         )}
                         {/* Criteria List - Compact Grid Layout */}
-                        <div
-                            className="ni-criteria-grid"
-                            style={{ 
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                            gap: '12px',
-                            flex: '0 0 auto',
-                            paddingBottom: '16px'
-                        }}>
+                        <div className="ni-criteria-grid">
                             {(isScreeningFlow
                                 ? activeJobCriteria.filter((c) => addedOrder.includes(c.id))
                                 : activeJobCriteria

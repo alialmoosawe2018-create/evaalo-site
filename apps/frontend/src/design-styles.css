@@ -5765,6 +5765,14 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     border-radius: 999px;
 }
 
+.new-interview-modal .ni-criteria-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    flex: 0 0 auto;
+    padding-bottom: 16px;
+}
+
 @media (max-width: 640px) {
     .new-interview-modal .ni-criteria-grid {
         grid-template-columns: 1fr !important;
