@@ -6260,9 +6260,9 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(129, 140, 248, 0.22));
-    border: 1px solid rgba(99, 102, 241, 0.35);
-    color: #4f46e5;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(5, 150, 105, 0.22));
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    color: #059669;
     font-size: 0.85rem;
     font-weight: 700;
 }
@@ -6503,6 +6503,24 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
         rgba(167, 139, 250, 0.48) 82%,
         rgba(192, 132, 252, 0.45) 100%
     ) !important;
+}
+
+/* Voice interview prep — softer Continue shadow on light card */
+.voice-interview-prep .voice-interview-prep__continue.workflow-btn-primary.ni-continue-btn {
+    box-shadow:
+        0 4px 14px rgba(99, 102, 241, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+.voice-interview-prep .voice-interview-prep__continue.workflow-btn-primary.ni-continue-btn::after {
+    display: none !important;
+}
+
+.voice-interview-prep .voice-interview-prep__continue.workflow-btn-primary.ni-continue-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+        0 6px 18px rgba(99, 102, 241, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
 
 /* Campaign row — Share: 44×44 أيقونة فقط */
