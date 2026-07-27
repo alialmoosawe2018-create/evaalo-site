@@ -92,8 +92,7 @@ const Hero = () => {
                         </span>
                         <span className="hero-title__wrap hero-title__wrap--mobile">
                             <span className="hero-title__mobile-line hero-title__mobile-line--1">
-                                <span className="hero-subtitle">{t('heroTitleMain')}</span>{' '}
-                                <span className="hero-title__mobile-line-rest">{t('heroTitleMobileL1Rest')}</span>
+                                <span className="hero-subtitle">{t('heroTitleMain')}</span>
                             </span>
                             <span className="hero-title__mobile-line hero-title__mobile-line--2">
                                 {t('heroTitleMobileL2')}
