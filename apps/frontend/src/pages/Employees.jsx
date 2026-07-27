@@ -108,7 +108,7 @@ function buildOrgChartPrintMediaCss(theme = getOrgChartExportTheme()) {
 @media print {
     @page {
         margin: 8mm;
-        size: landscape;
+        size: auto;
     }
     html, body {
         height: auto !important;
@@ -171,7 +171,7 @@ function buildOrgChartPrintMediaCss(theme = getOrgChartExportTheme()) {
         max-width: none !important;
         height: auto !important;
         min-height: auto !important;
-        transform: scale(var(--org-chart-print-scale, 1)) !important;
+        transform: none !important;
         transform-origin: top center !important;
         margin: 0 auto !important;
         padding: 16px !important;
@@ -240,40 +240,93 @@ function restoreOrgChartViewport(container, saved) {
 
 function getOrgChartFullCaptureSize(root) {
     if (!root) return { width: 320, height: 240 };
+
+    const rootRect = root.getBoundingClientRect();
+    let minLeft = 0;
+    let minTop = 0;
+    let maxRight = rootRect.width;
+    let maxBottom = rootRect.height;
+
+    root.querySelectorAll('*').forEach((node) => {
+        if (!(node instanceof HTMLElement)) return;
+        const style = window.getComputedStyle(node);
+        if (style.display === 'none' || style.visibility === 'hidden') return;
+        const r = node.getBoundingClientRect();
+        if (r.width <= 0 && r.height <= 0) return;
+        const left = r.left - rootRect.left;
+        const top = r.top - rootRect.top;
+        minLeft = Math.min(minLeft, left);
+        minTop = Math.min(minTop, top);
+        maxRight = Math.max(maxRight, left + r.width);
+        maxBottom = Math.max(maxBottom, top + r.height);
+    });
+
     return {
-        width: Math.max(root.scrollWidth, root.offsetWidth, 320),
-        height: Math.max(root.scrollHeight, root.offsetHeight, 240),
+        width: Math.ceil(Math.max(maxRight - minLeft, root.scrollWidth, root.offsetWidth, 320)),
+        height: Math.ceil(Math.max(maxBottom - minTop, root.scrollHeight, root.offsetHeight, 240)),
     };
 }
 
-const ORG_CHART_PRINT_SCALE_STYLE_ID = 'evaalo-org-chart-print-scale';
+const ORG_CHART_PRINT_LAYOUT_STYLE_ID = 'evaalo-org-chart-print-layout';
 
-/** Scale wide charts to fit printable page width (landscape). */
-function applyOrgChartPrintScale(exportEl) {
+/** px → mm at 96 CSS px/in (for custom @page size). */
+function orgChartPxToMm(px) {
+    return Math.ceil((px * 25.4) / 96);
+}
+
+/** One print page sized to the full chart (no viewport scale / clipping). */
+function applyOrgChartPrintLayout(exportEl) {
     if (!exportEl) return;
-    const { width: chartW } = getOrgChartFullCaptureSize(exportEl);
-    const margin = 72;
-    const pageW = Math.max(window.innerWidth - margin, 960);
-    const pageH = Math.max(window.innerHeight - margin, 640);
-    const scale = Math.min(1, pageW / chartW, pageH / Math.max(exportEl.scrollHeight, 240));
-    let styleEl = document.getElementById(ORG_CHART_PRINT_SCALE_STYLE_ID);
+    const { width, height } = getOrgChartFullCaptureSize(exportEl);
+    const pad = 48;
+    const pageWmm = orgChartPxToMm(width + pad);
+    const pageHmm = orgChartPxToMm(height + pad);
+    let styleEl = document.getElementById(ORG_CHART_PRINT_LAYOUT_STYLE_ID);
     if (!styleEl) {
         styleEl = document.createElement('style');
-        styleEl.id = ORG_CHART_PRINT_SCALE_STYLE_ID;
+        styleEl.id = ORG_CHART_PRINT_LAYOUT_STYLE_ID;
         document.head.appendChild(styleEl);
     }
     styleEl.textContent = `@media print {
+  @page {
+    margin: 8mm;
+    size: ${pageWmm}mm ${pageHmm}mm;
+  }
   #evaalo-org-chart-export {
-    transform: scale(${scale}) !important;
+    transform: none !important;
     transform-origin: top center !important;
   }
 }`;
-    exportEl.style.setProperty('--org-chart-print-scale', String(scale));
 }
 
-function clearOrgChartPrintScale(exportEl) {
-    document.getElementById(ORG_CHART_PRINT_SCALE_STYLE_ID)?.remove();
-    exportEl?.style.removeProperty('--org-chart-print-scale');
+function clearOrgChartPrintLayout() {
+    document.getElementById(ORG_CHART_PRINT_LAYOUT_STYLE_ID)?.remove();
+}
+
+function withOrgChartCaptureOverflowVisible(exportEl, fn) {
+    const saved = [];
+    let node = exportEl;
+    while (node && node !== document.documentElement) {
+        if (node instanceof HTMLElement) {
+            saved.push({
+                el: node,
+                overflow: node.style.overflow,
+                overflowX: node.style.overflowX,
+                overflowY: node.style.overflowY,
+            });
+            node.style.setProperty('overflow', 'visible', 'important');
+            node.style.setProperty('overflow-x', 'visible', 'important');
+            node.style.setProperty('overflow-y', 'visible', 'important');
+        }
+        node = node.parentElement;
+    }
+    return Promise.resolve(fn()).finally(() => {
+        saved.forEach(({ el, overflow, overflowX, overflowY }) => {
+            el.style.overflow = overflow;
+            el.style.overflowX = overflowX;
+            el.style.overflowY = overflowY;
+        });
+    });
 }
 
 function isCanvasMostlyBlank(canvas, backgroundRgb = { r: 15, g: 23, b: 42 }) {
@@ -1233,6 +1286,7 @@ const Employees = () => {
             let imgW;
             let imgH;
             /** Prefer html2canvas + onclone once chrome is stripped from DOM (better Arabic shaping). */
+            await withOrgChartCaptureOverflowVisible(el, async () => {
             try {
                 const canvas = await html2canvas(el, {
                     scale: 2,
@@ -1241,6 +1295,8 @@ const Employees = () => {
                     logging: false,
                     width: captureW,
                     height: captureH,
+                    scrollX: 0,
+                    scrollY: -window.scrollY,
                     foreignObjectRendering: false,
                     onclone: applyOrgChartPdfClone,
                 });
@@ -1271,25 +1327,22 @@ const Employees = () => {
                 imgW = dims.w;
                 imgH = dims.h;
             }
+            });
 
             if (!imgW || !imgH) {
                 throw new Error('PDF export capture has zero dimensions');
             }
 
+            const margin = 48;
+            const pageW = imgW + margin * 2;
+            const pageH = imgH + margin * 2;
             const pdf = new jsPDF({
-                orientation: imgW > imgH ? 'landscape' : 'portrait',
-                unit: 'pt',
-                format: 'a4',
+                orientation: pageW > pageH ? 'landscape' : 'portrait',
+                unit: 'px',
+                format: [pageW, pageH],
+                hotfixes: ['px_scaling'],
             });
-            const pageW = pdf.internal.pageSize.getWidth();
-            const pageH = pdf.internal.pageSize.getHeight();
-            const margin = 24;
-            const maxW = pageW - margin * 2;
-            const maxH = pageH - margin * 2;
-            const ratio = Math.min(maxW / imgW, maxH / imgH);
-            const w = imgW * ratio;
-            const h = imgH * ratio;
-            pdf.addImage(imgData, 'PNG', (pageW - w) / 2, (pageH - h) / 2, w, h);
+            pdf.addImage(imgData, 'PNG', margin, margin, imgW, imgH);
             pdf.save(`${safeName}-org-chart.pdf`);
         } catch (e) {
             console.error('PDF export failed', e);
@@ -1316,9 +1369,9 @@ const Employees = () => {
         const viewportSaved = saveAndResetOrgChartViewport(chartContainerRef.current);
         const exportStyleSaved = normalizeOrgChartExportRoot(el);
         await waitForChartPaint();
-        applyOrgChartPrintScale(el);
+        applyOrgChartPrintLayout(el);
         const onAfterPrint = () => {
-            clearOrgChartPrintScale(el);
+            clearOrgChartPrintLayout();
             restoreOrgChartExportRoot(el, exportStyleSaved);
             restoreOrgChartViewport(chartContainerRef.current, viewportSaved);
             setChartPan(prevPan);

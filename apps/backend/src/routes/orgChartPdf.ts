@@ -58,33 +58,44 @@ router.post('/pdf', async (req: Request, res: Response) => {
             const doc = (globalThis as unknown as { document?: {
                 documentElement: { scrollWidth: number; scrollHeight: number; style: { overflow: string } };
                 body: { scrollWidth: number; scrollHeight: number; style: { overflow: string; width: string } };
-                getElementById(id: string): {
-                    scrollWidth: number;
-                    scrollHeight: number;
-                    offsetWidth: number;
-                    offsetHeight: number;
-                } | null;
+                getElementById(id: string): HTMLElement | null;
             } }).document;
             if (!doc) return { width: 794, height: 1123 };
             doc.documentElement.style.overflow = 'visible';
             doc.body.style.overflow = 'visible';
             doc.body.style.width = 'max-content';
             const root = doc.getElementById('evaalo-org-chart-export');
-            const width = Math.max(
-                doc.documentElement.scrollWidth,
-                doc.body.scrollWidth,
-                root?.scrollWidth ?? 0,
-                root?.offsetWidth ?? 0,
-                320
+            if (!root) {
+                return {
+                    width: Math.max(doc.documentElement.scrollWidth, doc.body.scrollWidth, 320),
+                    height: Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight, 240),
+                };
+            }
+            const rootRect = root.getBoundingClientRect();
+            let minLeft = 0;
+            let minTop = 0;
+            let maxRight = rootRect.width;
+            let maxBottom = rootRect.height;
+            root.querySelectorAll('*').forEach((node) => {
+                if (!(node instanceof HTMLElement)) return;
+                const style = getComputedStyle(node);
+                if (style.display === 'none' || style.visibility === 'hidden') return;
+                const r = node.getBoundingClientRect();
+                if (r.width <= 0 && r.height <= 0) return;
+                const left = r.left - rootRect.left;
+                const top = r.top - rootRect.top;
+                minLeft = Math.min(minLeft, left);
+                minTop = Math.min(minTop, top);
+                maxRight = Math.max(maxRight, left + r.width);
+                maxBottom = Math.max(maxBottom, top + r.height);
+            });
+            const width = Math.ceil(
+                Math.max(maxRight - minLeft, root.scrollWidth, root.offsetWidth, doc.body.scrollWidth, 320)
             );
-            const height = Math.max(
-                doc.documentElement.scrollHeight,
-                doc.body.scrollHeight,
-                root?.scrollHeight ?? 0,
-                root?.offsetHeight ?? 0,
-                240
+            const height = Math.ceil(
+                Math.max(maxBottom - minTop, root.scrollHeight, root.offsetHeight, doc.body.scrollHeight, 240)
             );
-            return { width: Math.ceil(width + 64), height: Math.ceil(height + 64) };
+            return { width: width + 64, height: height + 64 };
         });
 
         const pdfWidth = Math.min(Math.max(contentSize.width, 320), 6000);
