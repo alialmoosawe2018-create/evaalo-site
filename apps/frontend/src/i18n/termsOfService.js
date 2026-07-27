@@ -8,7 +8,7 @@ export const termsOfServiceByLocale = {
         updated: 'Last updated: May 2026',
         opening: {
             paragraphs: [
-                'These Terms of Service ("Terms") govern your access to and use of the evaalo website, platform, software, recruitment tools, interview tools, and related services operated by Evaalo, LLC ("evaalo," "we," "us," or "our").',
+                'These Terms of Service ("Terms") govern your access to and use of the evaalo website, platform, software, recruitment tools, interview tools, and related services operated by evaalo, LLC ("evaalo," "we," "us," or "our").',
                 'By accessing or using evaalo, you agree to these Terms. If you do not agree to these Terms, you must not use the evaalo platform or services.',
             ],
         },
@@ -277,14 +277,14 @@ export const termsOfServiceByLocale = {
         s19: {
             title: '19. Governing Law',
             paragraphs: [
-                'These Terms are governed by the laws of the jurisdiction in which Evaalo, LLC is organized, without regard to conflict-of-law principles.',
+                'These Terms are governed by the laws of the jurisdiction in which evaalo, LLC is organized, without regard to conflict-of-law principles.',
                 'Any dispute arising from or related to these Terms or the evaalo services will be handled in the courts or legal forums that have jurisdiction under applicable law.',
             ],
         },
         contact: {
             title: '20. Contact Us',
             intro: 'For questions about these Terms of Service, contact:',
-            company: 'Evaalo, LLC',
+            company: 'evaalo, LLC',
         },
     },
     ar: termsOfServiceAr,

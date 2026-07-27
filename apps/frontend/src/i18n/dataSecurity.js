@@ -8,7 +8,7 @@ export const dataSecurityByLocale = {
         updated: 'Last updated: May 2026',
         opening: {
             paragraphs: [
-                'Evaalo, LLC is committed to protecting the security, confidentiality, and integrity of information processed through the evaalo platform.',
+                'evaalo, LLC is committed to protecting the security, confidentiality, and integrity of information processed through the evaalo platform.',
                 'This page explains the security practices and safeguards used to help protect user, organization, candidate, and recruitment data.',
             ],
             contactLine: 'For security-related questions or reports, contact:',
@@ -168,7 +168,7 @@ export const dataSecurityByLocale = {
         contact: {
             title: '12. Contact Us',
             intro: 'For security-related questions, reports, or concerns, contact:',
-            company: 'Evaalo, LLC',
+            company: 'evaalo, LLC',
         },
     },
     ar: dataSecurityAr,

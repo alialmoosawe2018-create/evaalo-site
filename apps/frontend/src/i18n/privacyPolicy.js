@@ -8,7 +8,7 @@ export const privacyPolicyByLocale = {
         updated: 'Last updated: May 2026',
         opening: {
             paragraphs: [
-                'Evaalo, LLC ("evaalo," "we," "us," or "our") operates the evaalo platform and related services, including AI-assisted recruitment, candidate screening, interview management, and recruitment workflow tools.',
+                'evaalo, LLC ("evaalo," "we," "us," or "our") operates the evaalo platform and related services, including AI-assisted recruitment, candidate screening, interview management, and recruitment workflow tools.',
                 'We respect your privacy and are committed to handling personal data responsibly. This Privacy Policy explains what information we collect, how we use it, when we may share it, and the choices available to users.',
             ],
             contactLine: 'For privacy-related questions or requests, contact us at:',
@@ -258,7 +258,7 @@ export const privacyPolicyByLocale = {
         contact: {
             title: '15. Contact Us',
             intro: 'For questions, requests, or concerns regarding this Privacy Policy or evaalo\'s privacy practices, contact us at:',
-            company: 'Evaalo, LLC',
+            company: 'evaalo, LLC',
         },
     },
     ar: privacyPolicyAr,
