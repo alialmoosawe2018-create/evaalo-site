@@ -1977,6 +1977,10 @@ html[data-app-theme='light'] .dashboard-page--evaalo-visual.ai-head-hunter-page 
     color: #c2410c;
 }
 
+.ai-head-hunter-page .dashboard-card.dashboard-card--headhunter-results {
+    scroll-margin-top: 16px;
+}
+
 .ai-head-hunter-page .head-hunter-actions {
     display: flex;
     flex-wrap: wrap;
@@ -5751,6 +5755,9 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     -webkit-overflow-scrolling: auto;
     scroll-behavior: auto;
     padding-bottom: 4px;
+    margin-inline-end: -20px;
+    padding-inline-end: 14px;
+    scrollbar-gutter: stable;
     scrollbar-width: thin;
     scrollbar-color: rgba(148, 163, 184, 0.42) transparent;
 }
@@ -5760,14 +5767,26 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     display: block;
 }
 
+.new-interview-modal .ni-modal-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    margin-block: 2px;
+}
+
 .new-interview-modal .ni-modal-scroll::-webkit-scrollbar-thumb {
     background: rgba(148, 163, 184, 0.42);
     border-radius: 999px;
 }
 
+@media (max-width: 768px) {
+    .new-interview-modal .ni-modal-scroll {
+        margin-inline-end: -6px;
+        padding-inline-end: 10px;
+    }
+}
+
 .new-interview-modal .ni-criteria-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
     flex: 0 0 auto;
     padding-bottom: 16px;

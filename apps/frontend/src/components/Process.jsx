@@ -149,6 +149,14 @@ const MOBILE_PROCESS_STAGE_SLIDE_INDEX = { 1: 9, 2: 10, 3: 11 };
 function scrollToProcessSection(behavior = 'smooth') {
     const section = document.getElementById('process');
     if (!section) return;
+    const flipShell = section.querySelector('.process-flip-shell');
+    const anchor = flipShell || section;
+    const rect = anchor.getBoundingClientRect();
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const flipVisible =
+        rect.top < viewportHeight * 0.88 && rect.bottom > PROCESS_NAV_OFFSET + 24;
+    if (flipVisible) return;
+
     const top = section.getBoundingClientRect().top + window.scrollY - PROCESS_NAV_OFFSET;
     window.scrollTo({ top: Math.max(0, top), behavior });
 }
@@ -462,29 +470,8 @@ const Process = () => {
     ], [t]);
 
     const handlePrev = () => {
-        if (currentPage === 5) {
-            setCurrentPage(4);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
-            return;
-        }
-        if (currentPage === 4) {
-            setCurrentPage(3);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
-            return;
-        }
-        if (currentPage === 3) {
-            setCurrentPage(2);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
-            return;
-        }
-        if (currentPage === 2) {
-            setCurrentPage(1);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
-            return;
-        }
-        if (currentPage === 1) {
-                setCurrentPage(0);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
+        if (currentPage > 0) {
+            setCurrentPage(currentPage - 1);
             return;
         }
         if (swiperRef.current) {
@@ -493,29 +480,8 @@ const Process = () => {
     };
 
     const handleNext = () => {
-        if (currentPage === 4 && !isMobile) {
-            setCurrentPage(5);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
-            return;
-        }
-        if (currentPage === 3 && !isMobile) {
-            setCurrentPage(4);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
-            return;
-        }
-        if (currentPage === 2 && !isMobile) {
-            setCurrentPage(3);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
-            return;
-        }
-        if (currentPage === 1 && !isMobile) {
-            setCurrentPage(2);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
-            return;
-        }
-        if (currentPage === 0 && !isMobile) {
-                setCurrentPage(1);
-            window.requestAnimationFrame(() => scrollToProcessSection('auto'));
+        if (!isMobile && currentPage < 5) {
+            setCurrentPage(currentPage + 1);
             return;
         }
         if (swiperRef.current) {

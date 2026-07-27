@@ -99,6 +99,7 @@ export default function AIHeadHunter() {
     const { upsertBySearchId: upsertCampaignBySearchId } = useHeadHunterSearchHistory();
     const pollTimerRef = useRef(null);
     const activeSearchIdRef = useRef(null);
+    const resultsCardRef = useRef(null);
     /** يبقي زر البحث بحالة التحميل/المؤثرات حتى ينتهي استطلاع النتيجة وليس فقط حتى انتهاء طلب الويب هوك */
     const [awaitingPollResult, setAwaitingPollResult] = useState(false);
 
@@ -302,6 +303,13 @@ export default function AIHeadHunter() {
             awaitingPollResult);
 
     const submitBusy = loading || awaitingPollResult;
+
+    useEffect(() => {
+        if (!searchId || !awaitingPollResult) return;
+        requestAnimationFrame(() => {
+            resultsCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, [searchId, awaitingPollResult]);
 
     const handleRoleResolved = useCallback((resolution) => {
         setRoleCatalog((prev) => mergeRoleResolution(prev, resolution));
@@ -824,7 +832,10 @@ export default function AIHeadHunter() {
                     </div>
 
                     {showHeadHunterResultsCard ? (
-                        <div className="dashboard-card dashboard-card--page-active platform-features-card dashboard-card--headhunter-results">
+                        <div
+                            ref={resultsCardRef}
+                            className="dashboard-card dashboard-card--page-active platform-features-card dashboard-card--headhunter-results"
+                        >
                             <div className="dashboard-card-header">
                                 <h2 className="dashboard-card-title">{t('aiHeadHunterResultsRegion')}</h2>
                             </div>
