@@ -55,10 +55,18 @@ router.post('/pdf', async (req: Request, res: Response) => {
         });
 
         const contentSize = await page.evaluate(() => {
+            type DomEl = {
+                scrollWidth: number;
+                scrollHeight: number;
+                offsetWidth: number;
+                offsetHeight: number;
+                getBoundingClientRect(): { left: number; top: number; width: number; height: number };
+                querySelectorAll(selector: string): { forEach(cb: (node: unknown) => void): void };
+            };
             const doc = (globalThis as unknown as { document?: {
                 documentElement: { scrollWidth: number; scrollHeight: number; style: { overflow: string } };
                 body: { scrollWidth: number; scrollHeight: number; style: { overflow: string; width: string } };
-                getElementById(id: string): HTMLElement | null;
+                getElementById(id: string): DomEl | null;
             } }).document;
             if (!doc) return { width: 794, height: 1123 };
             doc.documentElement.style.overflow = 'visible';
@@ -77,10 +85,11 @@ router.post('/pdf', async (req: Request, res: Response) => {
             let maxRight = rootRect.width;
             let maxBottom = rootRect.height;
             root.querySelectorAll('*').forEach((node) => {
-                if (!(node instanceof HTMLElement)) return;
-                const style = getComputedStyle(node);
-                if (style.display === 'none' || style.visibility === 'hidden') return;
-                const r = node.getBoundingClientRect();
+                const el = node as {
+                    getBoundingClientRect?: () => { left: number; top: number; width: number; height: number };
+                };
+                if (!el.getBoundingClientRect) return;
+                const r = el.getBoundingClientRect();
                 if (r.width <= 0 && r.height <= 0) return;
                 const left = r.left - rootRect.left;
                 const top = r.top - rootRect.top;
