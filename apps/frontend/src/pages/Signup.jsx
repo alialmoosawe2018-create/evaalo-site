@@ -18,7 +18,6 @@ const Signup = () => {
     const { signup, isAuthenticated, loading, error, clearError, refreshSession } = useAuth();
 
     const [name, setName] = useState('');
-    const [company, setCompany] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -37,7 +36,6 @@ const Signup = () => {
             case 'invalid_email': return t('errInvalidEmail');
             case 'invalid_password': return t('errInvalidPassword');
             case 'invalid_name': return t('errInvalidName');
-            case 'invalid_company': return t('errInvalidCompany');
             case 'email_taken': return t('errEmailTaken');
             case 'rate_limited': return t('errClerkRateLimit');
             default: return t('errGeneric');
@@ -47,7 +45,6 @@ const Signup = () => {
     const validate = () => {
         const errs = {};
         if (!name || name.trim().length < 2) errs.name = t('errInvalidName');
-        if (!company || company.trim().length < 2) errs.company = t('errInvalidCompany');
         if (!EMAIL_RX.test(email.trim())) errs.email = t('errInvalidEmail');
         if (!password || password.length < 6) errs.password = t('errPasswordShort');
         if (confirmPassword !== password) errs.confirmPassword = t('errPasswordMismatch');
@@ -60,10 +57,9 @@ const Signup = () => {
         clearError();
         if (!validate()) return;
         try {
-            await signup({ name: name.trim(), company: company.trim(), email: email.trim(), password, remember });
+            await signup({ name: name.trim(), email: email.trim(), password, remember });
             await syncProfileAfterSignup({
                 fullName: name.trim(),
-                companyName: company.trim(),
             });
             refreshSession();
         } catch (err) {
@@ -74,7 +70,7 @@ const Signup = () => {
                 } catch {
                     /* sessionStorage unavailable — VerifyEmail handles empty target */
                 }
-                storePendingSignupProfile({ name: name.trim(), company: company.trim() });
+                storePendingSignupProfile({ name: name.trim() });
                 clearError();
                 navigate('/verify-email', { state: { email: email.trim() }, replace: true });
                 return;
@@ -112,20 +108,6 @@ const Signup = () => {
                         disabled={loading}
                     />
                     {fieldErrors.name && <span className="auth-field__error">{fieldErrors.name}</span>}
-                </label>
-
-                <label className="auth-field">
-                    <span className="auth-field__label">{t('account_settingsCompany')}</span>
-                    <input
-                        type="text"
-                        autoComplete="organization"
-                        value={company}
-                        onChange={(e) => setCompany(e.target.value)}
-                        placeholder={t('account_settingsCompany_ph')}
-                        className={`auth-input ${fieldErrors.company ? 'auth-input--error' : ''}`}
-                        disabled={loading}
-                    />
-                    {fieldErrors.company && <span className="auth-field__error">{fieldErrors.company}</span>}
                 </label>
 
                 <label className="auth-field">

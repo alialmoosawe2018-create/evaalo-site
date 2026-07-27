@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
+import { fillI18nTemplate } from '../utils/i18nTemplate';
 import {
     isAccountTabActive,
     isNotificationsTabActive,
@@ -63,7 +64,7 @@ const BRANDED_NAV_KEYS = new Set(['services', 'notifications', 'settings', 'acco
 const AppBottomNav = () => {
     const { pathname } = useLocation();
     const { t } = useLanguage();
-    const hasUnreadNotifications = useUnreadNotifications();
+    const unreadNotificationCount = useUnreadNotifications();
     const visible = shouldShowAppBottomNav(pathname);
 
     useEffect(() => {
@@ -120,15 +121,19 @@ const AppBottomNav = () => {
                             .join(' ')}
                         aria-current={active ? 'page' : undefined}
                         aria-label={
-                            key === 'notifications' && hasUnreadNotifications && !active
-                                ? t('appBottomNavNotificationsUnread')
+                            key === 'notifications' && unreadNotificationCount > 0 && !active
+                                ? fillI18nTemplate(t('appBottomNavNotificationsUnread'), {
+                                      count: String(unreadNotificationCount),
+                                  })
                                 : undefined
                         }
                     >
                         <span className="app-bottom-nav__icon">
                             <Icon />
-                            {key === 'notifications' && hasUnreadNotifications && !active ? (
-                                <span className="app-bottom-nav__badge" aria-hidden="true" />
+                            {key === 'notifications' && unreadNotificationCount > 0 && !active ? (
+                                <span className="app-bottom-nav__badge" aria-hidden="true">
+                                    {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                                </span>
                             ) : null}
                         </span>
                         <span className="app-bottom-nav__label">{label}</span>

@@ -179,18 +179,14 @@ export async function clearDashboardRecentInterviews() {
 
 /** After email signup / verify — persist name + company to Clerk/Mongo. */
 export async function syncProfileAfterSignup({ fullName, companyName }) {
-    if (!fullName?.trim() || !companyName?.trim()) return null;
+    if (!fullName?.trim()) return null;
+    const payload = { fullName: fullName.trim() };
+    if (companyName?.trim()) payload.companyName = companyName.trim();
     try {
-        return await updateMyProfile({
-            fullName: fullName.trim(),
-            companyName: companyName.trim(),
-        });
+        return await updateMyProfile(payload);
     } catch (err) {
         if (isMockMode()) {
-            return mockUpdateProfile({
-                fullName: fullName.trim(),
-                companyName: companyName.trim(),
-            });
+            return mockUpdateProfile(payload);
         }
         console.warn('[profileService] syncProfileAfterSignup failed:', err);
         return null;

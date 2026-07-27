@@ -60,7 +60,7 @@ const VerifyEmail = () => {
                     window.sessionStorage.removeItem('evaalo:pendingVerifyEmail');
                 }
                 const pending = consumePendingSignupProfile();
-                if (pending.fullName && pending.companyName) {
+                if (pending.fullName) {
                     await syncProfileAfterSignup(pending);
                     refreshSession();
                 }

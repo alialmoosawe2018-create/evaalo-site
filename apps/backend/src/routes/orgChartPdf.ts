@@ -60,35 +60,44 @@ router.post('/pdf', async (req: Request, res: Response) => {
                 scrollHeight: number;
                 offsetWidth: number;
                 offsetHeight: number;
+                hasAttribute(name: string): boolean;
                 getBoundingClientRect(): { left: number; top: number; width: number; height: number };
                 querySelectorAll(selector: string): { forEach(cb: (node: unknown) => void): void };
             };
             const doc = (globalThis as unknown as { document?: {
                 documentElement: { scrollWidth: number; scrollHeight: number; style: { overflow: string } };
-                body: { scrollWidth: number; scrollHeight: number; style: { overflow: string; width: string } };
+                body: { scrollWidth: number; scrollHeight: number; style: { overflow: string; width: string; height: string } };
                 getElementById(id: string): DomEl | null;
             } }).document;
+            const CAPTURE_PAD = 48;
             if (!doc) return { width: 794, height: 1123 };
             doc.documentElement.style.overflow = 'visible';
             doc.body.style.overflow = 'visible';
             doc.body.style.width = 'max-content';
+            doc.body.style.height = 'max-content';
             const root = doc.getElementById('evaalo-org-chart-export');
             if (!root) {
-                return {
-                    width: Math.max(doc.documentElement.scrollWidth, doc.body.scrollWidth, 320),
-                    height: Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight, 240),
-                };
+                return { width: 320, height: 240 };
             }
             const rootRect = root.getBoundingClientRect();
-            let minLeft = 0;
-            let minTop = 0;
-            let maxRight = rootRect.width;
-            let maxBottom = rootRect.height;
+            let minLeft = Number.POSITIVE_INFINITY;
+            let minTop = Number.POSITIVE_INFINITY;
+            let maxRight = Number.NEGATIVE_INFINITY;
+            let maxBottom = Number.NEGATIVE_INFINITY;
+            let found = false;
+            const isVisible = (node: unknown) => {
+                const el = node as { hasAttribute?: (n: string) => boolean; getBoundingClientRect?: () => { width: number; height: number } };
+                if (!el.getBoundingClientRect) return false;
+                if (el.hasAttribute?.('data-org-pdf-hide')) return false;
+                return true;
+            };
+            const nodes: unknown[] = [root];
             root.querySelectorAll('*').forEach((node) => {
-                const el = node as {
-                    getBoundingClientRect?: () => { left: number; top: number; width: number; height: number };
-                };
-                if (!el.getBoundingClientRect) return;
+                nodes.push(node);
+            });
+            nodes.forEach((node) => {
+                if (!isVisible(node)) return;
+                const el = node as { getBoundingClientRect: () => { left: number; top: number; width: number; height: number } };
                 const r = el.getBoundingClientRect();
                 if (r.width <= 0 && r.height <= 0) return;
                 const left = r.left - rootRect.left;
@@ -97,27 +106,35 @@ router.post('/pdf', async (req: Request, res: Response) => {
                 minTop = Math.min(minTop, top);
                 maxRight = Math.max(maxRight, left + r.width);
                 maxBottom = Math.max(maxBottom, top + r.height);
+                found = true;
             });
-            const width = Math.ceil(
-                Math.max(maxRight - minLeft, root.scrollWidth, root.offsetWidth, doc.body.scrollWidth, 320)
-            );
-            const height = Math.ceil(
-                Math.max(maxBottom - minTop, root.scrollHeight, root.offsetHeight, doc.body.scrollHeight, 240)
-            );
-            return { width: width + 64, height: height + 64 };
+            if (!found) {
+                return {
+                    width: Math.ceil(Math.max(rootRect.width, 320)),
+                    height: Math.ceil(Math.max(rootRect.height, 240)),
+                };
+            }
+            return {
+                width: Math.ceil(maxRight - minLeft + CAPTURE_PAD * 2),
+                height: Math.ceil(maxBottom - minTop + CAPTURE_PAD * 2),
+            };
         });
 
         const pdfWidth = Math.min(Math.max(contentSize.width, 320), 6000);
         const pdfHeight = Math.min(Math.max(contentSize.height, 240), 12000);
+        const deviceScaleFactor = Math.min(
+            3,
+            Math.max(2, Math.floor(16384 / Math.max(pdfWidth, pdfHeight, 1)))
+        );
 
-        await page.setViewport({ width: pdfWidth, height: pdfHeight, deviceScaleFactor: 1 });
+        await page.setViewport({ width: pdfWidth, height: pdfHeight, deviceScaleFactor });
 
         const pdfBuffer = await page.pdf({
             width: `${pdfWidth}px`,
             height: `${pdfHeight}px`,
             printBackground: true,
             preferCSSPageSize: false,
-            margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
+            margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' },
         });
 
         res.setHeader('Content-Type', 'application/pdf');

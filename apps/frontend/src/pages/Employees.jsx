@@ -203,6 +203,94 @@ function getOrgChartExportBackgroundRgb(theme = getOrgChartExportTheme()) {
 }
 
 const MIN_ORG_CHART_PDF_BYTES = 1800;
+const ORG_CHART_CAPTURE_PAD = 48;
+const ORG_CHART_CAPTURE_SCALE_DEFAULT = 3;
+const ORG_CHART_CAPTURE_SCALE_MIN = 2;
+const ORG_CHART_MAX_CANVAS_PX = 16384;
+
+function isOrgChartExportVisibleNode(node) {
+    if (!(node instanceof HTMLElement)) return false;
+    if (node.hasAttribute('data-org-pdf-hide')) return false;
+    const style = window.getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    if (Number.parseFloat(style.opacity || '1') === 0) return false;
+    return true;
+}
+
+/** Tight content bounds — no scrollHeight inflation (fixes large white margins on wide trees). */
+function getOrgChartContentBounds(root) {
+    if (!root) {
+        return { x: 0, y: 0, width: 320, height: 240, shiftX: 0, shiftY: 0 };
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    let minLeft = Infinity;
+    let minTop = Infinity;
+    let maxRight = -Infinity;
+    let maxBottom = -Infinity;
+    let found = false;
+
+    [root, ...root.querySelectorAll('*')].forEach((node) => {
+        if (!isOrgChartExportVisibleNode(node)) return;
+        const r = node.getBoundingClientRect();
+        if (r.width <= 0 && r.height <= 0) return;
+        const left = r.left - rootRect.left;
+        const top = r.top - rootRect.top;
+        minLeft = Math.min(minLeft, left);
+        minTop = Math.min(minTop, top);
+        maxRight = Math.max(maxRight, left + r.width);
+        maxBottom = Math.max(maxBottom, top + r.height);
+        found = true;
+    });
+
+    if (!found) {
+        const width = Math.ceil(Math.max(rootRect.width, 320));
+        const height = Math.ceil(Math.max(rootRect.height, 240));
+        return { x: 0, y: 0, width, height, shiftX: 0, shiftY: 0 };
+    }
+
+    const pad = ORG_CHART_CAPTURE_PAD;
+    const rawX = minLeft - pad;
+    const rawY = minTop - pad;
+    const shiftX = rawX < 0 ? -rawX : 0;
+    const shiftY = rawY < 0 ? -rawY : 0;
+
+    return {
+        x: Math.max(0, rawX),
+        y: Math.max(0, rawY),
+        width: Math.ceil(maxRight - minLeft + pad * 2),
+        height: Math.ceil(maxBottom - minTop + pad * 2),
+        shiftX,
+        shiftY,
+    };
+}
+
+function getOrgChartFullCaptureSize(root) {
+    const { width, height } = getOrgChartContentBounds(root);
+    return { width, height };
+}
+
+function getOrgChartCaptureScale(contentW, contentH) {
+    let scale = ORG_CHART_CAPTURE_SCALE_DEFAULT;
+    const maxDim = Math.max(contentW, contentH, 1);
+    while (scale > ORG_CHART_CAPTURE_SCALE_MIN && maxDim * scale > ORG_CHART_MAX_CANVAS_PX) {
+        scale -= 0.5;
+    }
+    return scale;
+}
+
+function applyOrgChartCaptureShift(root, bounds) {
+    if (!root || !bounds) return null;
+    const saved = {
+        transform: root.style.transform,
+        transition: root.style.transition,
+    };
+    const tx = bounds.shiftX || 0;
+    const ty = bounds.shiftY || 0;
+    root.style.transform = tx || ty ? `translate(${tx}px, ${ty}px)` : 'none';
+    root.style.transition = 'none';
+    return saved;
+}
 
 function normalizeOrgChartExportRoot(el) {
     if (!el) return null;
@@ -238,35 +326,6 @@ function restoreOrgChartViewport(container, saved) {
     container.scrollTop = saved.scrollTop;
 }
 
-function getOrgChartFullCaptureSize(root) {
-    if (!root) return { width: 320, height: 240 };
-
-    const rootRect = root.getBoundingClientRect();
-    let minLeft = 0;
-    let minTop = 0;
-    let maxRight = rootRect.width;
-    let maxBottom = rootRect.height;
-
-    root.querySelectorAll('*').forEach((node) => {
-        if (!(node instanceof HTMLElement)) return;
-        const style = window.getComputedStyle(node);
-        if (style.display === 'none' || style.visibility === 'hidden') return;
-        const r = node.getBoundingClientRect();
-        if (r.width <= 0 && r.height <= 0) return;
-        const left = r.left - rootRect.left;
-        const top = r.top - rootRect.top;
-        minLeft = Math.min(minLeft, left);
-        minTop = Math.min(minTop, top);
-        maxRight = Math.max(maxRight, left + r.width);
-        maxBottom = Math.max(maxBottom, top + r.height);
-    });
-
-    return {
-        width: Math.ceil(Math.max(maxRight - minLeft, root.scrollWidth, root.offsetWidth, 320)),
-        height: Math.ceil(Math.max(maxBottom - minTop, root.scrollHeight, root.offsetHeight, 240)),
-    };
-}
-
 const ORG_CHART_PRINT_LAYOUT_STYLE_ID = 'evaalo-org-chart-print-layout';
 
 /** px → mm at 96 CSS px/in (for custom @page size). */
@@ -277,10 +336,9 @@ function orgChartPxToMm(px) {
 /** One print page sized to the full chart (no viewport scale / clipping). */
 function applyOrgChartPrintLayout(exportEl) {
     if (!exportEl) return;
-    const { width, height } = getOrgChartFullCaptureSize(exportEl);
-    const pad = 48;
-    const pageWmm = orgChartPxToMm(width + pad);
-    const pageHmm = orgChartPxToMm(height + pad);
+    const { width, height } = getOrgChartContentBounds(exportEl);
+    const pageWmm = orgChartPxToMm(width);
+    const pageHmm = orgChartPxToMm(height);
     let styleEl = document.getElementById(ORG_CHART_PRINT_LAYOUT_STYLE_ID);
     if (!styleEl) {
         styleEl = document.createElement('style');
@@ -360,7 +418,8 @@ function buildOrgChartServerPdfHtml(exportRootEl, theme = getOrgChartExportTheme
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Noto+Sans+Arabic:wght@400;700&display=swap" rel="stylesheet"/>
-<style>${buildOrgChartPdfExportCss(theme)}</style>
+<style>${buildOrgChartPdfExportCss(theme)}
+html,body{width:max-content;height:max-content;overflow:visible;}</style>
 </head>
 <body>${bodyInner}</body>
 </html>`;
@@ -1280,7 +1339,11 @@ const Employees = () => {
 
             if (usedServerPdf) return;
 
-            const { width: captureW, height: captureH } = getOrgChartFullCaptureSize(el);
+            const bounds = getOrgChartContentBounds(el);
+            applyOrgChartCaptureShift(el, bounds);
+            await waitForChartPaint();
+            const captureBounds = getOrgChartContentBounds(el);
+            const captureScale = getOrgChartCaptureScale(captureBounds.width, captureBounds.height);
 
             let imgData;
             let imgW;
@@ -1289,12 +1352,14 @@ const Employees = () => {
             await withOrgChartCaptureOverflowVisible(el, async () => {
             try {
                 const canvas = await html2canvas(el, {
-                    scale: 2,
+                    scale: captureScale,
                     useCORS: true,
                     backgroundColor: exportBackground,
                     logging: false,
-                    width: captureW,
-                    height: captureH,
+                    x: captureBounds.x,
+                    y: captureBounds.y,
+                    width: captureBounds.width,
+                    height: captureBounds.height,
                     scrollX: 0,
                     scrollY: -window.scrollY,
                     foreignObjectRendering: false,
@@ -1310,12 +1375,15 @@ const Employees = () => {
                 console.warn('html2canvas failed, falling back to html-to-image', h2cErr);
                 const { toPng } = await import('html-to-image');
                 imgData = await toPng(el, {
-                    pixelRatio: 2,
+                    pixelRatio: captureScale,
                     backgroundColor: exportBackground,
                     cacheBust: true,
-                    width: captureW,
-                    height: captureH,
-                    style: { transform: 'none', transition: 'none' },
+                    width: captureBounds.width,
+                    height: captureBounds.height,
+                    style: {
+                        transform: el.style.transform || 'none',
+                        transition: 'none',
+                    },
                     filter: (node) => !(node instanceof Element && node.hasAttribute?.('data-org-pdf-hide')),
                 });
                 const dims = await new Promise((resolveDimensions, rejectDimensions) => {
@@ -1333,7 +1401,7 @@ const Employees = () => {
                 throw new Error('PDF export capture has zero dimensions');
             }
 
-            const margin = 48;
+            const margin = 0;
             const pageW = imgW + margin * 2;
             const pageH = imgH + margin * 2;
             const pdf = new jsPDF({

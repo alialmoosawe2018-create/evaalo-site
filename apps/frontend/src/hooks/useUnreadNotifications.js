@@ -11,11 +11,11 @@ import {
 
 export function useUnreadNotifications() {
     const { pathname } = useLocation();
-    const [hasUnread, setHasUnread] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
 
     const refresh = useCallback(async () => {
         if (isNotificationsTabActive(pathname)) {
-            setHasUnread(false);
+            setUnreadCount(0);
             return;
         }
 
@@ -32,25 +32,25 @@ export function useUnreadNotifications() {
                     ? candidatesResult.data
                     : [];
 
-            setHasUnread(
-                countUnreadNotifications(candidates, clearedAtIso, lastViewedIso) > 0
+            setUnreadCount(
+                countUnreadNotifications(candidates, clearedAtIso, lastViewedIso)
             );
         } catch {
-            setHasUnread(false);
+            setUnreadCount(0);
         }
     }, [pathname]);
 
     useEffect(() => {
         if (!isNotificationsTabActive(pathname)) return;
         markNotificationsViewedAt();
-        setHasUnread(false);
+        setUnreadCount(0);
     }, [pathname]);
 
     useEffect(() => {
         refresh();
 
         const onFocus = () => refresh();
-        const onViewed = () => setHasUnread(false);
+        const onViewed = () => setUnreadCount(0);
         const onCleared = () => refresh();
 
         window.addEventListener('focus', onFocus);
@@ -69,5 +69,5 @@ export function useUnreadNotifications() {
         };
     }, [refresh]);
 
-    return hasUnread;
+    return unreadCount;
 }

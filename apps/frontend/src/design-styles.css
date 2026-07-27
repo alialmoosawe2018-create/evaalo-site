@@ -6523,6 +6523,24 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
         inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
 
+/* Voice interview stage — softer Start shadow on light card */
+.voice-interview-stage .vi-interview-start-btn.workflow-btn-primary.ni-continue-btn {
+    box-shadow:
+        0 4px 14px rgba(99, 102, 241, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+.voice-interview-stage .vi-interview-start-btn.workflow-btn-primary.ni-continue-btn::after {
+    display: none !important;
+}
+
+.voice-interview-stage .vi-interview-start-btn.workflow-btn-primary.ni-continue-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+        0 6px 18px rgba(99, 102, 241, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
 /* Campaign row — Share: 44×44 أيقونة فقط */
 .new-interview-modal .campaign-action-buttons .workflow-btn-primary.ni-continue-btn.ni-campaign-share-icon-btn {
     display: inline-flex !important;
@@ -22959,15 +22977,26 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
 
     .app-bottom-nav__badge {
         position: absolute;
-        top: -1px;
-        right: -1px;
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
+        top: -5px;
+        right: -7px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         background: #ef4444;
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em;
         border: 2px solid rgba(8, 12, 24, 0.98);
-        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.45), 0 0 8px rgba(239, 68, 68, 0.55);
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.28);
         pointer-events: none;
+        box-sizing: border-box;
     }
 
     .app-bottom-nav__item--account .app-bottom-nav__icon {
@@ -23491,6 +23520,7 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
 
     html[data-app-theme='light'] .app-bottom-nav__badge {
         border-color: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.18);
     }
 
     html[data-app-theme='light'] .app-bottom-nav__item {

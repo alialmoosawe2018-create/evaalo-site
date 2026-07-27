@@ -3,11 +3,12 @@
 import { dataSecurityAr } from './dataSecurity.ar.js';
 import { dataSecurityKu } from './dataSecurity.ku.js';
 
-export const dataSecurityByLocale = {    en: {
+export const dataSecurityByLocale = {
+    en: {
         updated: 'Last updated: May 2026',
         opening: {
             paragraphs: [
-                'Evaalo, LLC is committed to protecting the security, confidentiality, and integrity of information processed through the Evaalo platform.',
+                'Evaalo, LLC is committed to protecting the security, confidentiality, and integrity of information processed through the evaalo platform.',
                 'This page explains the security practices and safeguards used to help protect user, organization, candidate, and recruitment data.',
             ],
             contactLine: 'For security-related questions or reports, contact:',
@@ -15,15 +16,15 @@ export const dataSecurityByLocale = {    en: {
         s1: {
             title: '1. Security Approach',
             paragraphs: [
-                'Evaalo uses reasonable administrative, technical, and organizational measures designed to protect information from unauthorized access, misuse, loss, alteration, or disclosure.',
-                'Security practices are regularly reviewed and may evolve as Evaalo develops its services, infrastructure, and operational controls.',
-                'No online service can guarantee absolute security. However, Evaalo works to reduce security risks and respond appropriately when issues are identified.',
+                'evaalo uses reasonable administrative, technical, and organizational measures designed to protect information from unauthorized access, misuse, loss, alteration, or disclosure.',
+                'Security practices are regularly reviewed and may evolve as evaalo develops its services, infrastructure, and operational controls.',
+                'No online service can guarantee absolute security. However, evaalo works to reduce security risks and respond appropriately when issues are identified.',
             ],
         },
         s2: {
             title: '2. Data Protection Measures',
             intro:
-                'Evaalo uses safeguards designed to protect data during transmission, storage, and access.',
+                'evaalo uses safeguards designed to protect data during transmission, storage, and access.',
             measuresIntro: 'These measures may include:',
             bullets: [
                 'Encryption in transit using HTTPS',
@@ -39,7 +40,7 @@ export const dataSecurityByLocale = {    en: {
         s3: {
             title: '3. Data Storage and Infrastructure',
             paragraphs: [
-                'Evaalo may use trusted cloud infrastructure and service providers to host, store, process, and deliver platform functionality.',
+                'evaalo may use trusted cloud infrastructure and service providers to host, store, process, and deliver platform functionality.',
             ],
             servicesIntro:
                 'Depending on the services used, data may be processed through secure infrastructure supporting:',
@@ -55,13 +56,13 @@ export const dataSecurityByLocale = {    en: {
                 'Monitoring and technical support',
             ],
             foot:
-                'Where applicable, Evaalo uses organization-level controls intended to help separate data between different customer organizations and users.',
+                'Where applicable, evaalo uses organization-level controls intended to help separate data between different customer organizations and users.',
         },
         s4: {
             title: '4. Access Control',
             intro:
-                'Access to Evaalo systems and data is limited to authorized individuals and services that require access for legitimate operational purposes.',
-            controlsIntro: 'Evaalo applies access controls designed to ensure that:',
+                'Access to evaalo systems and data is limited to authorized individuals and services that require access for legitimate operational purposes.',
+            controlsIntro: 'evaalo applies access controls designed to ensure that:',
             bullets: [
                 'Users can access only the information permitted by their role and organization',
                 'Sensitive administrative actions are restricted',
@@ -75,15 +76,15 @@ export const dataSecurityByLocale = {    en: {
         s5: {
             title: '5. Audio, Video, and Interview Data',
             paragraphs: [
-                'Evaalo may process candidate information submitted through recruitment workflows, including resumes, application responses, voice interview responses, video interview responses, transcripts, and AI-assisted evaluation outputs.',
+                'evaalo may process candidate information submitted through recruitment workflows, including resumes, application responses, voice interview responses, video interview responses, transcripts, and AI-assisted evaluation outputs.',
                 'Where voice or video interviews are used, recordings and related interview data may be processed to provide interview functionality, generate transcripts, create summaries, support recruitment evaluation, and operate the platform.',
-                'Organizations using Evaalo remain responsible for ensuring that candidates are properly informed about recording, processing, and AI-assisted interview analysis where required by applicable law.',
+                'Organizations using evaalo remain responsible for ensuring that candidates are properly informed about recording, processing, and AI-assisted interview analysis where required by applicable law.',
             ],
         },
         s6: {
             title: '6. Third-Party Service Providers',
             intro:
-                'Evaalo may rely on carefully selected third-party providers to support platform operations.',
+                'evaalo may rely on carefully selected third-party providers to support platform operations.',
             providersIntro: 'These providers may include services for:',
             bullets: [
                 'Cloud hosting and infrastructure',
@@ -98,14 +99,14 @@ export const dataSecurityByLocale = {    en: {
                 'Analytics, logging, and monitoring',
             ],
             footParagraphs: [
-                'Third-party providers may process data only as necessary to provide services that support Evaalo\'s operation, security, and functionality.',
+                'Third-party providers may process data only as necessary to provide services that support evaalo\'s operation, security, and functionality.',
                 'Each third-party provider may operate under its own terms, security practices, and privacy policies.',
             ],
         },
         s7: {
             title: '7. Security Incident Response',
             intro:
-                'If Evaalo becomes aware of a suspected security incident, we may take steps appropriate to the nature of the incident, including:',
+                'If evaalo becomes aware of a suspected security incident, we may take steps appropriate to the nature of the incident, including:',
             bullets: [
                 'Investigating the issue',
                 'Limiting or mitigating potential impact',
@@ -120,9 +121,9 @@ export const dataSecurityByLocale = {    en: {
         s8: {
             title: '8. Backups and Service Continuity',
             paragraphs: [
-                'Evaalo may use backup, recovery, and operational practices designed to help maintain service continuity and reduce the risk of data loss.',
+                'evaalo may use backup, recovery, and operational practices designed to help maintain service continuity and reduce the risk of data loss.',
                 'Backup and recovery processes may vary depending on the type of data, infrastructure provider, storage system, and service configuration.',
-                'Evaalo continues to improve its resilience, backup, recovery, and monitoring capabilities as the platform evolves.',
+                'evaalo continues to improve its resilience, backup, recovery, and monitoring capabilities as the platform evolves.',
             ],
         },
         s9: {
@@ -136,7 +137,7 @@ export const dataSecurityByLocale = {    en: {
                 'Reviewing account activity for suspicious behavior',
                 'Promptly reporting suspected unauthorized access',
                 'Ensuring that authorized team members use the platform appropriately',
-                'Protecting candidate data exported or downloaded from Evaalo',
+                'Protecting candidate data exported or downloaded from evaalo',
             ],
             foot:
                 'Organizations are also responsible for managing access for their own users, recruiters, administrators, and hiring managers.',
@@ -144,7 +145,7 @@ export const dataSecurityByLocale = {    en: {
         s10: {
             title: '10. Data Retention',
             intro:
-                'Evaalo retains data for as long as reasonably necessary to provide the platform, support recruitment workflows, maintain security, comply with legal obligations, resolve disputes, and enforce agreements.',
+                'evaalo retains data for as long as reasonably necessary to provide the platform, support recruitment workflows, maintain security, comply with legal obligations, resolve disputes, and enforce agreements.',
             dependsIntro: 'Data retention may also depend on:',
             bullets: [
                 'The hiring organization\'s recruitment process',
@@ -155,13 +156,13 @@ export const dataSecurityByLocale = {    en: {
                 'Requests for deletion or data access',
             ],
             foot:
-                'For more information about data retention and privacy rights, please review the Evaalo Privacy Policy.',
+                'For more information about data retention and privacy rights, please review the evaalo Privacy Policy.',
         },
         s11: {
             title: '11. Continuous Improvement',
             paragraphs: [
                 'Security is an ongoing process.',
-                'Evaalo may improve, update, replace, or expand its security controls, infrastructure, monitoring practices, access controls, backup processes, and technical safeguards as the platform grows.',
+                'evaalo may improve, update, replace, or expand its security controls, infrastructure, monitoring practices, access controls, backup processes, and technical safeguards as the platform grows.',
             ],
         },
         contact: {

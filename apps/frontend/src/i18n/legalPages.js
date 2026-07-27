@@ -12,7 +12,7 @@ const legalDocs = {
     en: {
         about: {
             introP1:
-                'Evaalo is an intelligent recruitment platform designed to transform how companies discover and evaluate talent.',
+                'evaalo is an intelligent recruitment platform designed to transform how companies discover and evaluate talent.',
             introP2:
                 'We combine artificial intelligence, automation, and modern workflows to simplify hiring processes and improve decision-making.',
             mission: {
@@ -24,7 +24,7 @@ const legalDocs = {
             },
             whatWeDo: {
                 title: 'What We Do',
-                intro: 'At Evaalo, we provide:',
+                intro: 'At evaalo, we provide:',
                 bullets: [
                     'AI-powered interview analysis',
                     'Automated recruitment workflows',
@@ -49,7 +49,7 @@ const legalDocs = {
                     'We envision a future where recruitment is driven by data, fairness, and intelligent systems — eliminating bias and improving outcomes for both companies and candidates.',
             },
             why: {
-                title: 'Why Evaalo?',
+                title: 'Why evaalo?',
                 bullets: [
                     'Faster hiring decisions',
                     'Better candidate insights',

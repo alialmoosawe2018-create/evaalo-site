@@ -8,7 +8,7 @@ export const privacyPolicyByLocale = {
         updated: 'Last updated: May 2026',
         opening: {
             paragraphs: [
-                'Evaalo, LLC ("Evaalo," "we," "us," or "our") operates the Evaalo platform and related services, including AI-assisted recruitment, candidate screening, interview management, and recruitment workflow tools.',
+                'Evaalo, LLC ("evaalo," "we," "us," or "our") operates the evaalo platform and related services, including AI-assisted recruitment, candidate screening, interview management, and recruitment workflow tools.',
                 'We respect your privacy and are committed to handling personal data responsibly. This Privacy Policy explains what information we collect, how we use it, when we may share it, and the choices available to users.',
             ],
             contactLine: 'For privacy-related questions or requests, contact us at:',
@@ -16,9 +16,9 @@ export const privacyPolicyByLocale = {
         s1: {
             title: '1. Scope of This Privacy Policy',
             paragraphs: [
-                'This Privacy Policy applies to Evaalo\'s website, platform, recruitment tools, candidate screening workflows, interview tools, and related services.',
-                'Evaalo may be used by employers, recruiters, hiring organizations, and candidates.',
-                'When an employer or organization uses Evaalo to recruit candidates, that organization generally determines the purpose of collecting candidate information and making recruitment decisions. Evaalo processes candidate data to provide and operate the platform for that organization.',
+                'This Privacy Policy applies to evaalo\'s website, platform, recruitment tools, candidate screening workflows, interview tools, and related services.',
+                'evaalo may be used by employers, recruiters, hiring organizations, and candidates.',
+                'When an employer or organization uses evaalo to recruit candidates, that organization generally determines the purpose of collecting candidate information and making recruitment decisions. evaalo processes candidate data to provide and operate the platform for that organization.',
                 'Employers remain responsible for their recruitment practices, job advertisements, candidate communications, hiring decisions, and compliance with applicable employment and privacy laws.',
             ],
         },
@@ -57,7 +57,7 @@ export const privacyPolicyByLocale = {
                     'Job titles, job descriptions, hiring criteria, and recruitment campaign information',
                     'Candidate evaluation criteria',
                     'Billing and subscription-related information',
-                    'Support requests and communications with Evaalo',
+                    'Support requests and communications with evaalo',
                 ],
             },
             technical: {
@@ -79,7 +79,7 @@ export const privacyPolicyByLocale = {
         s3: {
             title: '3. AI-Assisted Recruitment and Human Review',
             paragraphs: [
-                'Evaalo uses artificial intelligence and automation technologies to assist recruitment workflows.',
+                'evaalo uses artificial intelligence and automation technologies to assist recruitment workflows.',
                 'Depending on the services used, AI may help organize, summarize, compare, analyze, or evaluate information from job applications, resumes, interview responses, voice recordings, video recordings, and other candidate data.',
             ],
             analyzeIntro: 'AI-assisted features may analyze information such as:',
@@ -93,24 +93,24 @@ export const privacyPolicyByLocale = {
                 'Overall performance indicators',
             ],
             footParagraphs: [
-                'Evaalo does not make final hiring decisions.',
+                'evaalo does not make final hiring decisions.',
                 'AI-generated outputs are intended to assist employers and recruiters. Employers remain responsible for reviewing relevant information, making recruitment decisions, and ensuring that AI-assisted outputs are used fairly, appropriately, and lawfully.',
             ],
         },
         s4: {
             title: '4. Audio and Video Interviews',
             paragraphs: [
-                'Evaalo may provide voice and video interview functionality.',
+                'evaalo may provide voice and video interview functionality.',
                 'Where audio or video interviews are recorded, candidates may be informed before recording begins. Recordings may be used to provide interview functionality, generate transcripts, create summaries, support recruitment workflows, and assist with candidate evaluation.',
-                'Audio and video recordings may be processed using approved service providers that support Evaalo\'s platform functionality.',
-                'Where required by applicable law, Evaalo or the hiring organization may request consent before recording an interview.',
+                'Audio and video recordings may be processed using approved service providers that support evaalo\'s platform functionality.',
+                'Where required by applicable law, evaalo or the hiring organization may request consent before recording an interview.',
             ],
         },
         s5: {
             title: '5. How We Use Information',
             intro: 'We may use personal data to:',
             bullets: [
-                'Operate, maintain, and improve the Evaalo platform',
+                'Operate, maintain, and improve the evaalo platform',
                 'Create and manage accounts',
                 'Conduct candidate screening and interview workflows',
                 'Process resumes, applications, interview responses, and recordings',
@@ -123,7 +123,7 @@ export const privacyPolicyByLocale = {
                 'Monitor platform performance and troubleshoot errors',
                 'Process billing, subscriptions, and payment-related activities',
                 'Comply with legal obligations',
-                'Enforce our agreements and protect Evaalo, users, candidates, and organizations',
+                'Enforce our agreements and protect evaalo, users, candidates, and organizations',
             ],
         },
         s6: {
@@ -152,14 +152,14 @@ export const privacyPolicyByLocale = {
                     'Workflow automation',
                     'Technical support and security services',
                 ],
-                foot: 'These providers may process personal data only as needed to provide services to Evaalo.',
+                foot: 'These providers may process personal data only as needed to provide services to evaalo.',
             },
             legal: {
                 title: 'd. For Legal, Security, or Business Reasons',
                 intro: 'We may disclose information when reasonably necessary to:',
                 bullets: [
                     'Comply with applicable law, legal process, or lawful government requests',
-                    'Protect the rights, safety, security, or property of Evaalo, users, candidates, employers, or others',
+                    'Protect the rights, safety, security, or property of evaalo, users, candidates, employers, or others',
                     'Prevent fraud, abuse, security incidents, or unauthorized use',
                     'Enforce our agreements',
                     'Support a merger, acquisition, financing, reorganization, sale of assets, or similar business transaction',
@@ -167,7 +167,7 @@ export const privacyPolicyByLocale = {
             },
             noSell: {
                 title: 'e. No Sale of Personal Data',
-                p: 'Evaalo does not sell personal data to third parties.',
+                p: 'evaalo does not sell personal data to third parties.',
             },
         },
         s7: {
@@ -186,7 +186,7 @@ export const privacyPolicyByLocale = {
         s8: {
             title: '8. Data Retention',
             paragraphs: [
-                'We retain personal data for as long as reasonably necessary to provide the Evaalo services, support recruitment processes, comply with legal obligations, resolve disputes, enforce agreements, maintain security, and meet legitimate business requirements.',
+                'We retain personal data for as long as reasonably necessary to provide the evaalo services, support recruitment processes, comply with legal obligations, resolve disputes, enforce agreements, maintain security, and meet legitimate business requirements.',
                 'Candidate data may be retained according to the hiring organization\'s recruitment process, account settings, retention preferences, or legal obligations.',
                 'Audio and video recordings may be retained for the period selected by the relevant hiring organization, unless deletion is requested or continued retention is required for legal, security, contractual, or dispute-resolution purposes.',
                 'When data is no longer needed, we may delete, anonymize, or securely archive it in accordance with applicable requirements.',
@@ -212,7 +212,7 @@ export const privacyPolicyByLocale = {
         },
         s10: {
             title: '10. Cookies and Similar Technologies',
-            intro: 'Evaalo may use cookies and similar technologies to:',
+            intro: 'evaalo may use cookies and similar technologies to:',
             bullets: [
                 'Maintain user sessions',
                 'Support login and authentication',
@@ -227,23 +227,23 @@ export const privacyPolicyByLocale = {
         s11: {
             title: '11. International Data Transfers',
             paragraphs: [
-                'Evaalo and its service providers may store or process personal data in countries other than the country where a user is located.',
+                'evaalo and its service providers may store or process personal data in countries other than the country where a user is located.',
                 'When personal data is transferred internationally, we take reasonable steps to protect it in accordance with applicable requirements.',
             ],
         },
         s12: {
             title: '12. Children\'s Privacy',
             paragraphs: [
-                'Evaalo is not intended for individuals under the age of 18.',
-                'We do not knowingly collect personal data from children. If you believe that a child has provided personal data to Evaalo, please contact us at:',
+                'evaalo is not intended for individuals under the age of 18.',
+                'We do not knowingly collect personal data from children. If you believe that a child has provided personal data to evaalo, please contact us at:',
             ],
             contactLine: null,
         },
         s13: {
             title: '13. Third-Party Services',
             paragraphs: [
-                'Evaalo may integrate with third-party services, tools, or platforms.',
-                'Those third-party services may have their own privacy policies and terms. Evaalo is not responsible for the privacy practices of third-party services that are not controlled by Evaalo.',
+                'evaalo may integrate with third-party services, tools, or platforms.',
+                'Those third-party services may have their own privacy policies and terms. evaalo is not responsible for the privacy practices of third-party services that are not controlled by evaalo.',
                 'Users should review the privacy policies of relevant third-party services where applicable.',
             ],
         },
@@ -251,13 +251,13 @@ export const privacyPolicyByLocale = {
             title: '14. Changes to This Privacy Policy',
             paragraphs: [
                 'We may update this Privacy Policy from time to time to reflect changes in our services, legal requirements, technology, or business practices.',
-                'When we make significant changes, we may provide notice through the Evaalo platform, by email, or through another appropriate method.',
+                'When we make significant changes, we may provide notice through the evaalo platform, by email, or through another appropriate method.',
                 'The "Last updated" date at the top of this Privacy Policy shows when it was most recently revised.',
             ],
         },
         contact: {
             title: '15. Contact Us',
-            intro: 'For questions, requests, or concerns regarding this Privacy Policy or Evaalo\'s privacy practices, contact us at:',
+            intro: 'For questions, requests, or concerns regarding this Privacy Policy or evaalo\'s privacy practices, contact us at:',
             company: 'Evaalo, LLC',
         },
     },

@@ -281,16 +281,17 @@ export async function login({ email, password, remember = true }) {
     }
 }
 
-export async function signup({ name, email, password, company, remember = true }) {
+export async function signup({ name, email, password, company = '', remember = true }) {
     if (!name || String(name).trim().length < 2) throw new Error('invalid_name');
-    if (!company || String(company).trim().length < 2) throw new Error('invalid_company');
     if (!isValidEmail(email)) throw new Error('invalid_email');
     if (!password || String(password).length < 6) throw new Error('invalid_password');
+
+    const companyName = String(company ?? '').trim();
 
     const clerk = await waitForClerk();
     if (!clerk) {
         await delay(400);
-        return persistSession(buildMockSession({ email, name, company: company.trim() }), { remember });
+        return persistSession(buildMockSession({ email, name, company: companyName }), { remember });
     }
 
     try {
@@ -299,15 +300,18 @@ export async function signup({ name, email, password, company, remember = true }
         }
         const [firstName, ...rest] = name.trim().split(/\s+/);
         const lastName = rest.join(' ') || undefined;
-        const companyName = company.trim();
 
-        const signUp = await clerk.client.signUp.create({
+        const signUpPayload = {
             emailAddress: email,
             password,
             firstName,
             lastName,
-            unsafeMetadata: { companyName },
-        });
+        };
+        if (companyName) {
+            signUpPayload.unsafeMetadata = { companyName };
+        }
+
+        const signUp = await clerk.client.signUp.create(signUpPayload);
 
         if (signUp.status === 'complete' && signUp.createdSessionId) {
             await clerk.setActive({ session: signUp.createdSessionId });
