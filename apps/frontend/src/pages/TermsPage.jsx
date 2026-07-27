@@ -4,7 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { getLegalDocs } from '../i18n/legalPages';
 import LegalBullets from '../components/LegalBullets';
 import LegalParagraphs from '../components/LegalParagraphs';
-import { localizeLegalBrandText } from '../utils/localizeLegalBrandText';
+import { EVAALO_LEGAL_ENTITY, localizeLegalBrandText } from '../utils/localizeLegalBrandText';
 
 function TermsEmailLink() {
     return (
@@ -156,7 +156,7 @@ export default function TermsPage() {
                 <p className="legal-contact-card__intro">{lt(tr.contact.intro)}</p>
                 {tr.contact.company ? (
                     <p className="legal-contact-card__company">
-                        <strong>{lt(tr.contact.company)}</strong>
+                        <strong>{EVAALO_LEGAL_ENTITY}</strong>
                     </p>
                 ) : null}
                 <TermsEmailLink />
