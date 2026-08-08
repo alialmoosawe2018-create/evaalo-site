@@ -24,9 +24,13 @@
  *     Use isBillingActive(state.subscriptionStatus) instead.
  */
 
+import mongoose from 'mongoose';
 import OrgPlanState, { type IOrgPlanState } from '../models/OrgPlanState.js';
-import CreditBalance, { type ICreditBalance } from '../models/CreditBalance.js';
-import CreditLedger from '../models/CreditLedger.js';
+import { type ICreditBalance } from '../models/CreditBalance.js';
+// All credit_balances / credit_ledger IO now flows through the repositories below.
+import { enqueueDomainEvent, emitDomainEventBestEffort } from './domainEventService.js';
+import * as creditBalanceRepo from '../repositories/creditBalanceRepository.js';
+import * as creditLedgerRepo from '../repositories/creditLedgerRepository.js';
 import type {
     AdjustCreditsInput,
     BillingActivityEntry,
@@ -124,6 +128,19 @@ function isDuplicateKeyError(err: unknown): boolean {
 }
 
 /**
+ * Detect environments where MongoDB multi-document transactions are unavailable
+ * (standalone Mongo in local dev). Prod (Atlas replica set) always supports them.
+ * Mirrors the same guard used in services/videoBillingService.ts.
+ */
+function isTransactionUnsupported(err: unknown): boolean {
+    if (typeof err !== 'object' || err === null) return false;
+    const e = err as { code?: number; codeName?: string; message?: string };
+    if (e.code === 20 || e.codeName === 'IllegalOperation') return true;
+    const msg = String(e.message || '');
+    return /Transaction numbers are only allowed|replica set|mongos|not supported/i.test(msg);
+}
+
+/**
  * Ledger Snapshot helper (Architecture Contract 4 — hardened).
  *
  * Every CreditLedger entry must carry an IMMUTABLE snapshot of the catalog +
@@ -172,7 +189,7 @@ export async function getOrgPlanState(
 export async function getCreditBalance(
     organizationId: string,
 ): Promise<ICreditBalance | null> {
-    return CreditBalance.findOne({ organizationId }).exec();
+    return creditBalanceRepo.getByOrg(organizationId);
 }
 
 /**
@@ -222,26 +239,20 @@ export async function seedOrgBilling(
         { upsert: true, new: true, setDefaultsOnInsert: true },
     ).exec();
 
-    const creditBalance = await CreditBalance.findOneAndUpdate(
-        { organizationId },
-        {
-            $set: {
-                balanceMicro,
-                monthlyCredits,
-                includedVideoSeconds,
-                // New billing period (seed/new org): reset consumed included minutes.
-                usedIncludedVideoSeconds: 0,
-                periodStart: start,
-                periodEnd: end,
-                refreshedFromPlanAt: now,
-            },
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).exec();
+    const creditBalance = await creditBalanceRepo.upsertPeriod(organizationId, {
+        balanceMicro,
+        monthlyCredits,
+        includedVideoSeconds,
+        // New billing period (seed/new org): reset consumed included minutes.
+        usedIncludedVideoSeconds: 0,
+        periodStart: start,
+        periodEnd: end,
+        refreshedFromPlanAt: now,
+    });
 
     const idempotencyKey = `seed:${organizationId}:${now.toISOString()}`;
     try {
-        await CreditLedger.create({
+        await creditLedgerRepo.create({
             organizationId,
             amountMicro: balanceMicro,
             balanceBeforeMicro: 0,
@@ -250,8 +261,19 @@ export async function seedOrgBilling(
             idempotencyKey,
             metadata: mergeLedgerMetadata({ seeded: true }, orgPlanState),
         });
+        void emitDomainEventBestEffort({
+            organizationId,
+            type: 'CreditBalanceRefreshed',
+            payload: { balanceAfterMicro: balanceMicro, monthlyCredits, reason: 'seed' },
+            idempotencyKey: `balance-refresh:${idempotencyKey}`,
+        });
     } catch (err) {
         if (!isDuplicateKeyError(err)) throw err;
+    }
+
+    if (!creditBalance) {
+        // upsert:true + new:true guarantees a row; guard keeps the non-null contract.
+        throw new Error(`Failed to seed credit balance for org: ${organizationId}`);
     }
 
     return { orgPlanState, creditBalance };
@@ -272,27 +294,25 @@ export async function refreshBalanceFromPlan(
     const before = await getCreditBalance(organizationId);
     const balanceBeforeMicro = before?.balanceMicro ?? 0;
 
-    const creditBalance = await CreditBalance.findOneAndUpdate(
-        { organizationId },
+    const creditBalance = await creditBalanceRepo.upsertPeriod(
+        organizationId,
         {
-            $set: {
-                balanceMicro,
-                monthlyCredits,
-                // Snapshot the plan's included video allowance WITHOUT resetting
-                // usedIncludedVideoSeconds — this is a plan/manual refresh, not a
-                // new billing period. Only seed/Stripe-period events reset usage.
-                includedVideoSeconds,
-                periodStart: start,
-                periodEnd: end,
-                refreshedFromPlanAt: now,
-            },
+            balanceMicro,
+            monthlyCredits,
+            // Snapshot the plan's included video allowance WITHOUT resetting
+            // usedIncludedVideoSeconds — this is a plan/manual refresh, not a
+            // new billing period. Only seed/Stripe-period events reset usage.
+            includedVideoSeconds,
+            periodStart: start,
+            periodEnd: end,
+            refreshedFromPlanAt: now,
         },
-        { upsert: true, new: true },
-    ).exec();
+        { setDefaultsOnInsert: false },
+    );
 
     const idempotencyKey = `refresh:${organizationId}:${now.getTime()}`;
     try {
-        await CreditLedger.create({
+        await creditLedgerRepo.create({
             organizationId,
             amountMicro: balanceMicro - balanceBeforeMicro,
             balanceBeforeMicro,
@@ -300,6 +320,12 @@ export async function refreshBalanceFromPlan(
             source: 'monthly_refresh',
             idempotencyKey,
             metadata: mergeLedgerMetadata({}, state),
+        });
+        void emitDomainEventBestEffort({
+            organizationId,
+            type: 'CreditBalanceRefreshed',
+            payload: { balanceAfterMicro: balanceMicro, monthlyCredits, reason: 'plan_refresh' },
+            idempotencyKey: `balance-refresh:${idempotencyKey}`,
         });
     } catch (err) {
         if (!isDuplicateKeyError(err)) throw err;
@@ -322,10 +348,11 @@ async function creditBalanceNeedsUnifiedMigration(
 ): Promise<boolean> {
     if ((balance?.balanceMicro ?? 0) > 0) return false;
 
-    const raw = (await CreditBalance.collection.findOne(
-        { organizationId },
-        { projection: { balanceMicro: 1, balances: 1, monthlyCredits: 1 } },
-    )) as { balanceMicro?: number; balances?: Record<string, unknown>; monthlyCredits?: number } | null;
+    const raw = (await creditBalanceRepo.rawFindProjected(organizationId, {
+        balanceMicro: 1,
+        balances: 1,
+        monthlyCredits: 1,
+    })) as { balanceMicro?: number; balances?: Record<string, unknown>; monthlyCredits?: number } | null;
 
     if (!raw) return false;
     if (raw.balances != null && typeof raw.balances === 'object') return true;
@@ -378,26 +405,22 @@ export async function ensurePeriodCreditsSeeded(organizationId: string): Promise
         `stripe:plan-change:${subId}:${state.planId}:${periodMs}`,
     ];
 
-    const existingSeed = await CreditLedger.findOne({
+    const existingSeed = await creditLedgerRepo.findOneLean({
         organizationId,
         source: 'monthly_refresh',
         idempotencyKey: { $in: seedKeys },
-    })
-        .lean()
-        .exec();
+    });
 
     if (existingSeed) {
         return false;
     }
 
-    const invoiceSeed = await CreditLedger.findOne({
+    const invoiceSeed = await creditLedgerRepo.findOneLean({
         organizationId,
         source: 'monthly_refresh',
         idempotencyKey: { $regex: /^stripe:invoice:/ },
         createdAt: { $gte: periodStart },
-    })
-        .lean()
-        .exec();
+    });
 
     if (invoiceSeed) {
         return false;
@@ -492,10 +515,10 @@ export async function consumeCredits(
         metadata,
     } = input;
 
-    const existingLedger = await CreditLedger.findOne({
+    const existingLedger = await creditLedgerRepo.findByIdempotencyKey(
         organizationId,
         idempotencyKey,
-    }).exec();
+    );
 
     if (existingLedger) {
         return {
@@ -570,54 +593,74 @@ export async function consumeCredits(
         };
     }
 
-    const updated = await CreditBalance.findOneAndUpdate(
-        {
+    // Atomic compare-and-decrement + ledger insert in a SINGLE transaction so the
+    // balance and its ledger row can never drift (Atlas replica set). balanceBefore
+    // is derived from the post-decrement value so the ledger invariant
+    // (before + amount === after) always holds, even under concurrency.
+    const runConsume = async (
+        session?: mongoose.ClientSession,
+    ): Promise<ConsumeCreditsResult> => {
+        const balanceAfterMicro = await creditBalanceRepo.decrementIfSufficient(
             organizationId,
-            balanceMicro: { $gte: costMicro },
-        },
-        {
-            $inc: { balanceMicro: -costMicro },
-        },
-        { new: true },
-    ).exec();
+            costMicro,
+            session,
+        );
 
-    if (!updated) {
-        return {
-            ok: false,
-            code: 'INSUFFICIENT_CREDITS',
-            message: 'Insufficient credits',
-        };
-    }
+        if (balanceAfterMicro === null) {
+            return { ok: false, code: 'INSUFFICIENT_CREDITS', message: 'Insufficient credits' };
+        }
 
-    const balanceAfterMicro = updated.balanceMicro;
+        const ledger = await creditLedgerRepo.create(
+            {
+                organizationId,
+                usageType,
+                amountMicro: -costMicro,
+                balanceBeforeMicro: balanceAfterMicro + costMicro,
+                balanceAfterMicro,
+                units,
+                source,
+                sourceId,
+                idempotencyKey,
+                metadata: mergeLedgerMetadata(metadata, state),
+            },
+            session,
+        );
 
+        // Transactional outbox (Phase 2, Mode A): CreditsConsumed commits atomically
+        // with the debit + ledger row. The duplicate early-return above means a
+        // replayed consume never reaches here, so the event is never double-emitted.
+        await enqueueDomainEvent(
+            {
+                organizationId,
+                type: 'CreditsConsumed',
+                payload: {
+                    usageType,
+                    amountMicro: -costMicro,
+                    balanceAfterMicro,
+                    units,
+                    source,
+                    sourceId,
+                    ledgerEntryId: String(ledger._id),
+                },
+                idempotencyKey: `credits:${idempotencyKey}`,
+            },
+            session,
+        );
+
+        return { ok: true, balanceAfterMicro, ledgerEntryId: String(ledger._id) };
+    };
+
+    const mongoSession = await mongoose.startSession();
     try {
-        const ledger = await CreditLedger.create({
-            organizationId,
-            usageType,
-            amountMicro: -costMicro,
-            balanceBeforeMicro,
-            balanceAfterMicro,
-            units,
-            source,
-            sourceId,
-            idempotencyKey,
-            metadata: mergeLedgerMetadata(metadata, state),
+        let result: ConsumeCreditsResult | undefined;
+        await mongoSession.withTransaction(async () => {
+            result = await runConsume(mongoSession);
         });
-
-        return {
-            ok: true,
-            balanceAfterMicro,
-            ledgerEntryId: String(ledger._id),
-        };
+        // withTransaction awaits the callback, so result is always assigned here.
+        return result ?? { ok: false, code: 'INSUFFICIENT_CREDITS', message: 'Insufficient credits' };
     } catch (err) {
-        await CreditBalance.updateOne(
-            { organizationId },
-            { $inc: { balanceMicro: costMicro } },
-        ).exec();
-
         if (isDuplicateKeyError(err)) {
-            const dup = await CreditLedger.findOne({ organizationId, idempotencyKey }).exec();
+            const dup = await creditLedgerRepo.findByIdempotencyKey(organizationId, idempotencyKey);
             if (dup) {
                 return {
                     ok: true,
@@ -628,7 +671,70 @@ export async function consumeCredits(
             }
         }
 
+        if (isTransactionUnsupported(err)) {
+            // Standalone Mongo (local dev) — no transactions: decrement then compensate
+            // on ledger failure, preserving idempotency (unchanged legacy behavior).
+            const balanceAfterMicro = await creditBalanceRepo.decrementIfSufficient(
+                organizationId,
+                costMicro,
+            );
+
+            if (balanceAfterMicro === null) {
+                return { ok: false, code: 'INSUFFICIENT_CREDITS', message: 'Insufficient credits' };
+            }
+
+            try {
+                const ledger = await creditLedgerRepo.create({
+                    organizationId,
+                    usageType,
+                    amountMicro: -costMicro,
+                    balanceBeforeMicro: balanceAfterMicro + costMicro,
+                    balanceAfterMicro,
+                    units,
+                    source,
+                    sourceId,
+                    idempotencyKey,
+                    metadata: mergeLedgerMetadata(metadata, state),
+                });
+                // Standalone dev (no transactions): best-effort emit after commit.
+                void emitDomainEventBestEffort({
+                    organizationId,
+                    type: 'CreditsConsumed',
+                    payload: {
+                        usageType,
+                        amountMicro: -costMicro,
+                        balanceAfterMicro,
+                        units,
+                        source,
+                        sourceId,
+                        ledgerEntryId: String(ledger._id),
+                    },
+                    idempotencyKey: `credits:${idempotencyKey}`,
+                });
+                return { ok: true, balanceAfterMicro, ledgerEntryId: String(ledger._id) };
+            } catch (err2) {
+                await creditBalanceRepo.incrementMicro(organizationId, costMicro);
+                if (isDuplicateKeyError(err2)) {
+                    const dup = await creditLedgerRepo.findByIdempotencyKey(
+                        organizationId,
+                        idempotencyKey,
+                    );
+                    if (dup) {
+                        return {
+                            ok: true,
+                            balanceAfterMicro: dup.balanceAfterMicro,
+                            ledgerEntryId: String(dup._id),
+                            duplicate: true,
+                        };
+                    }
+                }
+                throw err2;
+            }
+        }
+
         throw err;
+    } finally {
+        await mongoSession.endSession();
     }
 }
 
@@ -643,10 +749,10 @@ export async function adjustCredits(input: AdjustCreditsInput): Promise<{
 }> {
     const { organizationId, amountMicro, idempotencyKey, metadata } = input;
 
-    const existingLedger = await CreditLedger.findOne({
+    const existingLedger = await creditLedgerRepo.findByIdempotencyKey(
         organizationId,
         idempotencyKey,
-    }).exec();
+    );
 
     if (existingLedger) {
         return {
@@ -669,41 +775,53 @@ export async function adjustCredits(input: AdjustCreditsInput): Promise<{
         throw new Error('Adjustment would make credit balance negative');
     }
 
-    const updated = await CreditBalance.findOneAndUpdate(
-        { organizationId },
-        { $inc: { balanceMicro: amountMicro } },
-        { new: true },
-    ).exec();
-
-    if (!updated) {
-        throw new Error(`Failed to adjust balance for org: ${organizationId}`);
-    }
-
-    const balanceAfterMicro = updated.balanceMicro;
-
-    try {
-        const ledger = await CreditLedger.create({
+    // Atomic adjust + ledger insert in a single transaction. For deductions the
+    // balance decrement is guarded (`$gte`) so a concurrent race can never drive
+    // the balance negative; balanceBefore is derived from the post-update value.
+    const runAdjust = async (
+        session?: mongoose.ClientSession,
+    ): Promise<{ balanceAfterMicro: number; ledgerEntryId: string }> => {
+        const balanceAfterMicro = await creditBalanceRepo.adjustGuarded(
             organizationId,
             amountMicro,
-            balanceBeforeMicro,
-            balanceAfterMicro,
-            source: 'manual_adjustment',
-            idempotencyKey,
-            metadata: mergeLedgerMetadata(metadata, state),
+            session,
+        );
+
+        if (balanceAfterMicro === null) {
+            throw new Error(
+                amountMicro < 0
+                    ? 'Adjustment would make credit balance negative'
+                    : `Failed to adjust balance for org: ${organizationId}`,
+            );
+        }
+
+        const ledger = await creditLedgerRepo.create(
+            {
+                organizationId,
+                amountMicro,
+                balanceBeforeMicro: balanceAfterMicro - amountMicro,
+                balanceAfterMicro,
+                source: 'manual_adjustment',
+                idempotencyKey,
+                metadata: mergeLedgerMetadata(metadata, state),
+            },
+            session,
+        );
+
+        return { balanceAfterMicro, ledgerEntryId: String(ledger._id) };
+    };
+
+    const mongoSession = await mongoose.startSession();
+    try {
+        let result: { balanceAfterMicro: number; ledgerEntryId: string } | undefined;
+        await mongoSession.withTransaction(async () => {
+            result = await runAdjust(mongoSession);
         });
-
-        return {
-            balanceAfterMicro,
-            ledgerEntryId: String(ledger._id),
-        };
+        if (result) return result;
+        throw new Error(`Failed to adjust balance for org: ${organizationId}`);
     } catch (err) {
-        await CreditBalance.updateOne(
-            { organizationId },
-            { $inc: { balanceMicro: -amountMicro } },
-        ).exec();
-
         if (isDuplicateKeyError(err)) {
-            const dup = await CreditLedger.findOne({ organizationId, idempotencyKey }).exec();
+            const dup = await creditLedgerRepo.findByIdempotencyKey(organizationId, idempotencyKey);
             if (dup) {
                 return {
                     balanceAfterMicro: dup.balanceAfterMicro,
@@ -713,7 +831,50 @@ export async function adjustCredits(input: AdjustCreditsInput): Promise<{
             }
         }
 
+        if (isTransactionUnsupported(err)) {
+            // Standalone Mongo (local dev) — compensating fallback (legacy behavior).
+            const balanceAfterMicro = await creditBalanceRepo.adjustGuarded(
+                organizationId,
+                amountMicro,
+            );
+
+            if (balanceAfterMicro === null) {
+                throw new Error(`Failed to adjust balance for org: ${organizationId}`);
+            }
+
+            try {
+                const ledger = await creditLedgerRepo.create({
+                    organizationId,
+                    amountMicro,
+                    balanceBeforeMicro: balanceAfterMicro - amountMicro,
+                    balanceAfterMicro,
+                    source: 'manual_adjustment',
+                    idempotencyKey,
+                    metadata: mergeLedgerMetadata(metadata, state),
+                });
+                return { balanceAfterMicro, ledgerEntryId: String(ledger._id) };
+            } catch (err2) {
+                await creditBalanceRepo.incrementMicro(organizationId, -amountMicro);
+                if (isDuplicateKeyError(err2)) {
+                    const dup = await creditLedgerRepo.findByIdempotencyKey(
+                        organizationId,
+                        idempotencyKey,
+                    );
+                    if (dup) {
+                        return {
+                            balanceAfterMicro: dup.balanceAfterMicro,
+                            ledgerEntryId: String(dup._id),
+                            duplicate: true,
+                        };
+                    }
+                }
+                throw err2;
+            }
+        }
+
         throw err;
+    } finally {
+        await mongoSession.endSession();
     }
 }
 
@@ -862,7 +1023,7 @@ export async function applyVideoPackPurchase(
     // Ledger-first: the unique index is the idempotency gate. If the row already
     // exists (replayed webhook), skip the increment entirely.
     try {
-        await CreditLedger.create({
+        await creditLedgerRepo.create({
             organizationId,
             amountMicro: 0,
             balanceBeforeMicro: balanceMicro,
@@ -879,11 +1040,15 @@ export async function applyVideoPackPurchase(
         throw err;
     }
 
-    await CreditBalance.updateOne(
-        { organizationId },
-        { $inc: { purchasedVideoSeconds: addedSeconds } },
-        { upsert: false },
-    ).exec();
+    await creditBalanceRepo.addPurchasedVideoSeconds(organizationId, addedSeconds);
+
+    // Signals the client to refetch billing status (video seconds changed, not credits).
+    void emitDomainEventBestEffort({
+        organizationId,
+        type: 'CreditBalanceRefreshed',
+        payload: { balanceAfterMicro: balanceMicro, reason: 'video_pack', addedVideoSeconds: addedSeconds },
+        idempotencyKey: `balance-refresh:${idempotencyKey}`,
+    });
 
     return { applied: true, addedSeconds };
 }
@@ -1036,17 +1201,12 @@ export async function applySubscriptionUpdate(
             updated,
         );
     } else {
-        await CreditBalance.updateOne(
-            { organizationId: updated.organizationId },
-            {
-                $set: {
-                    monthlyCredits: getMonthlyCredits(changes.planId),
-                    includedVideoSeconds: getIncludedVideoSeconds(changes.planId),
-                    periodStart: changes.currentPeriodStart,
-                    periodEnd: changes.currentPeriodEnd,
-                },
-            },
-        ).exec();
+        await creditBalanceRepo.setFields(updated.organizationId, {
+            monthlyCredits: getMonthlyCredits(changes.planId),
+            includedVideoSeconds: getIncludedVideoSeconds(changes.planId),
+            periodStart: changes.currentPeriodStart,
+            periodEnd: changes.currentPeriodEnd,
+        });
     }
 
     return updated;
@@ -1305,23 +1465,20 @@ async function seedBalanceForStripe(
     const previous = await getCreditBalance(organizationId);
     const balanceBeforeMicro = previous?.balanceMicro ?? 0;
 
-    await CreditBalance.findOneAndUpdate(
-        { organizationId },
+    await creditBalanceRepo.upsertPeriod(
+        organizationId,
         {
-            $set: {
-                balanceMicro,
-                monthlyCredits,
-                includedVideoSeconds,
-                // checkout / invoice.paid mark a NEW billing period → reset usage.
-                usedIncludedVideoSeconds: 0,
-                periodStart,
-                periodEnd,
-                refreshedFromPlanAt: now,
-            },
-            $unset: { balances: 1 },
+            balanceMicro,
+            monthlyCredits,
+            includedVideoSeconds,
+            // checkout / invoice.paid mark a NEW billing period → reset usage.
+            usedIncludedVideoSeconds: 0,
+            periodStart,
+            periodEnd,
+            refreshedFromPlanAt: now,
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).exec();
+        { unset: { balances: 1 } },
+    );
 
     const state = stateOverride ?? (await getOrgPlanState(organizationId));
     const idempotencyKey =
@@ -1338,7 +1495,7 @@ async function seedBalanceForStripe(
                     : `stripe:refresh:${organizationId}:${periodStart.getTime()}`;
 
     try {
-        await CreditLedger.create({
+        await creditLedgerRepo.create({
             organizationId,
             amountMicro: balanceMicro - balanceBeforeMicro,
             balanceBeforeMicro,
@@ -1354,6 +1511,13 @@ async function seedBalanceForStripe(
                 },
                 state,
             ),
+        });
+        // Grant emitted only on a fresh ledger write (duplicates throw → caught below).
+        void emitDomainEventBestEffort({
+            organizationId,
+            type: 'CreditBalanceRefreshed',
+            payload: { balanceAfterMicro: balanceMicro, monthlyCredits, reason: context.source },
+            idempotencyKey: `balance-refresh:${idempotencyKey}`,
         });
     } catch (err) {
         if (!isDuplicateKeyError(err)) throw err;
@@ -1377,11 +1541,7 @@ export async function listOrgBillingActivity(
         query.createdAt = { $gte: options.since };
     }
 
-    const rows = await CreditLedger.find(query)
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .lean()
-        .exec();
+    const rows = await creditLedgerRepo.list(query, { sort: { createdAt: -1 }, limit });
 
     return rows.map((row) => {
         const chargedMicro =

@@ -5,6 +5,7 @@
 
 import mongoose, { Schema, Document } from 'mongoose';
 import { DEFAULT_ORG_ID, SYSTEM_ACTOR_ID } from '../config/multiTenant.js';
+import { tenantGuardPlugin } from './plugins/tenantGuard.js';
 
 // Interface لرسالة في المحادثة
 export interface IConversationMessage {
@@ -250,6 +251,10 @@ VideoInterviewSessionSchema.methods.cancelSession = function(): void {
     this.endedAt = new Date();
     this.updatedAt = new Date();
 };
+
+// Tenant-isolation guard. `sessionId` (unique) and `candidateId` (person-scoped)
+// are safe single-tenant lookups used by the interview/billing flows.
+VideoInterviewSessionSchema.plugin(tenantGuardPlugin, { safeKeys: ['sessionId', 'candidateId'] });
 
 // Export Model
 const VideoInterviewSession = mongoose.model<IVideoInterviewSession>(

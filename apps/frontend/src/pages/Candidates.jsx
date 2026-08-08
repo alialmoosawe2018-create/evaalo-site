@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLiveRefresh } from '../hooks/useLiveRefresh';
 import {
     PdfCvLink,
     candidateAvatarImageProps,
@@ -359,28 +360,42 @@ const Candidates = () => {
     }, [userKey]);
 
     // جلب البيانات من API
-    useEffect(() => {
-        const fetchCandidates = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const result = await apiClient.get('/api/candidates?forView=candidates');
-                
-                if (result.success) {
-                    setCandidates(result.data || []);
-                } else {
-                    setError(result.error || t('candidates_fetchError'));
-                }
-            } catch (err) {
-                console.error('Error fetching candidates:', err);
-                setError(err.message || t('candidates_fetchError'));
-            } finally {
-                setLoading(false);
-            }
-        };
+    const fetchCandidates = useCallback(async ({ background = false } = {}) => {
+        try {
+            if (!background) setLoading(true);
+            setError(null);
+            const result = await apiClient.get('/api/candidates?forView=candidates');
 
+            if (result.success) {
+                setCandidates(result.data || []);
+            } else if (!background) {
+                setError(result.error || t('candidates_fetchError'));
+            }
+        } catch (err) {
+            console.error('Error fetching candidates:', err);
+            if (!background) setError(err.message || t('candidates_fetchError'));
+        } finally {
+            if (!background) setLoading(false);
+        }
+    }, [t]);
+
+    useEffect(() => {
         fetchCandidates();
-    }, [t, userKey]);
+    }, [fetchCandidates, userKey]);
+
+    // Live: refresh the list in the background (no loading flash) when candidate
+    // domain events arrive — evaluations completed, status changed, new applicant.
+    useLiveRefresh(
+        [
+            'ScreeningEvaluationCompleted',
+            'VoiceEvaluationCompleted',
+            'VideoEvaluationCompleted',
+            'CandidateStatusChanged',
+            'CandidateApplied',
+            'VideoSessionCompleted',
+        ],
+        () => fetchCandidates({ background: true }),
+    );
 
     useEffect(() => {
         try {

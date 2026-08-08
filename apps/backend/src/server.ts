@@ -67,6 +67,9 @@ import {
 } from './services/stage1WrittenEvaluationGate.js';
 import { normalizeRubricResultsFromWebhook } from './services/stage1RubricResults.js';
 import { processPendingStage1EvaluationOutbox } from './services/stage1EvaluationOutboxService.js';
+import crypto from 'crypto';
+import { enqueueDomainEvent } from './services/domainEventService.js';
+import { handleEventsWsConnection } from './realtime/eventsGateway.js';
 import {
     formatStage2EvaluationGateDiagnostic,
     getStage2EvaluationGateMode,
@@ -572,7 +575,22 @@ function resolveInboundApplicationId(
     return undefined;
 }
 
-/** Dual-write: Candidate (توافق) + CandidateApplication (مصدر الحقيقة بعد M2M). */
+/** Detect standalone Mongo (dev) where multi-doc transactions are unavailable. */
+function isTransactionUnsupportedErr(err: unknown): boolean {
+    if (typeof err !== 'object' || err === null) return false;
+    const e = err as { code?: number; codeName?: string; message?: string };
+    if (e.code === 20 || e.codeName === 'IllegalOperation') return true;
+    return /Transaction numbers are only allowed|replica set|mongos|not supported/i.test(
+        String(e.message || '')
+    );
+}
+
+/**
+ * Dual-write: Candidate (compat) + CandidateApplication (source of truth after M2M),
+ * plus the stage-completion domain event — all committed atomically (Mode A) so the
+ * evaluation and its event can never diverge. Falls back to a non-transactional
+ * sequence on standalone Mongo. The timeline push stays best-effort outside the txn.
+ */
 async function dualWriteStageEvaluationUpdate(
     candidateId: string,
     updateData: Record<string, unknown>,
@@ -582,29 +600,95 @@ async function dualWriteStageEvaluationUpdate(
         mode: 'stage1' | 'stage2' | 'stage3';
     }
 ): Promise<void> {
-    await Candidate.findByIdAndUpdate(candidateId, updateData, { new: true });
     const app = await findApplicationForCallback({
         applicationId: opts.applicationId,
         candidateId,
         campaignId: opts.campaignId,
     });
+
     if (!app) {
+        await Candidate.findByIdAndUpdate(candidateId, updateData, { new: true });
         console.warn(
             `⚠️ No CandidateApplication for ${candidateId} (${opts.mode}) — wrote Candidate only`
         );
         return;
     }
-    await CandidateApplication.findByIdAndUpdate(app._id, updateData, { new: true });
+
     const eventType =
         opts.mode === 'stage1'
             ? 'screening_completed'
             : opts.mode === 'stage2'
               ? 'voice_completed'
               : 'video_completed';
+    const stage = opts.mode === 'stage1' ? 'screening' : opts.mode === 'stage2' ? 'voice' : 'video';
+    const domainType =
+        opts.mode === 'stage1'
+            ? 'ScreeningEvaluationCompleted'
+            : opts.mode === 'stage2'
+              ? 'VoiceEvaluationCompleted'
+              : 'VideoEvaluationCompleted';
+
+    // Small summary + content hash (idempotency key for callback-fed events).
+    const evalKey =
+        opts.mode === 'stage1'
+            ? 'writtenInterviewEvaluation'
+            : opts.mode === 'stage2'
+              ? 'voiceInterviewEvaluation'
+              : 'videoInterviewEvaluation';
+    const evalObj = (updateData[evalKey] ?? {}) as Record<string, unknown>;
+    const overallScore =
+        typeof evalObj.overall_score === 'number' ? evalObj.overall_score : undefined;
+    const recommendation =
+        typeof evalObj.recommendation === 'string' ? evalObj.recommendation : undefined;
+    const contentHash = crypto
+        .createHash('sha1')
+        .update(JSON.stringify(updateData))
+        .digest('hex')
+        .slice(0, 16);
+
+    const writeAll = async (session?: mongoose.ClientSession): Promise<void> => {
+        const o = session ? { session } : {};
+        await Candidate.findByIdAndUpdate(candidateId, updateData, { new: true, ...o });
+        await CandidateApplication.findByIdAndUpdate(app._id, updateData, { new: true, ...o });
+        await enqueueDomainEvent(
+            {
+                organizationId: String(app.organizationId),
+                type: domainType,
+                payload: {
+                    candidateId,
+                    applicationId: String(app._id),
+                    campaignId: opts.campaignId ?? app.campaignId ?? null,
+                    stage,
+                    overallScore,
+                    recommendation,
+                },
+                idempotencyKey: `stage-eval:${String(app._id)}:${stage}:${contentHash}`,
+            },
+            session
+        );
+    };
+
+    const mongoSession = await mongoose.startSession();
+    try {
+        await mongoSession.withTransaction(async () => {
+            await writeAll(mongoSession);
+        });
+    } catch (err) {
+        if (isTransactionUnsupportedErr(err)) {
+            await writeAll(undefined);
+        } else {
+            throw err;
+        }
+    } finally {
+        await mongoSession.endSession();
+    }
+
+    // Timeline event is non-critical → best-effort, outside the transaction.
     await pushApplicationEvent(String(app._id), eventType, {
         candidateId,
         campaignId: opts.campaignId,
     }).catch(() => undefined);
+
     console.log(
         `✅ ${opts.mode} dual-write → application ${app.applicationId} (+ candidate ${candidateId})`
     );
@@ -1203,6 +1287,15 @@ wss.on('connection', async (ws, req) => {
     }
 
     // ============================================
+    // Business-events WebSocket (authenticated, Phase 3) — Clerk token at handshake,
+    // per-org Redis fan-out. Separate plane from the media sockets above.
+    // ============================================
+    if (pathname === '/ws/events') {
+        void handleEventsWsConnection(ws, req);
+        return;
+    }
+
+    // ============================================
     // Video Stream WebSocket
     // ============================================
     if (pathname === '/ws/video-stream') {
@@ -1293,6 +1386,16 @@ if ((process.env.STRIPE_SECRET_KEY || '').trim()) {
 
 // الاتصال بقاعدة البيانات ثم تشغيل السيرفر
 connectDatabase().then(() => {
+    // Realtime (Phase 3): init Redis + start the event relay. No-op when REDIS_URL
+    // is unset — the server still boots and events still persist to the outbox.
+    void import('./realtime/redisClient.js')
+        .then(({ initRealtimeRedis }) => {
+            initRealtimeRedis();
+            return import('./realtime/eventRelay.js');
+        })
+        .then((m) => m.startEventRelay())
+        .catch((e) => console.warn(`⚠️ Failed to start realtime: ${e?.message || e}`));
+
     // Billing background jobs: video stale-lock sweep + compare-email timeout refunds.
     void import('./services/billingSchedulers.js')
         .then((m) => m.startBillingSchedulers())
@@ -1305,6 +1408,21 @@ connectDatabase().then(() => {
                 console.warn('[stage1Outbox] retry sweep failed:', err?.message || err);
             });
         }, outboxRetryMs);
+    }
+
+    // Domain-event outbox retry sweep (Phase 2). Republishes pending/failed events;
+    // the primary path is fire-and-forget dispatch at emit time.
+    const domainEventRetryMs = Number(process.env.DOMAIN_EVENT_RETRY_MS || 60 * 1000);
+    if (Number.isFinite(domainEventRetryMs) && domainEventRetryMs > 0) {
+        void import('./services/domainEventService.js')
+            .then(({ processPendingDomainEvents }) => {
+                setInterval(() => {
+                    void processPendingDomainEvents(20).catch((err) => {
+                        console.warn('[domainEvent] retry sweep failed:', err?.message || err);
+                    });
+                }, domainEventRetryMs);
+            })
+            .catch((e) => console.warn(`⚠️ Failed to start domain-event sweep: ${e?.message || e}`));
     }
 
     httpServer.listen(PORT, LISTEN_HOST, () => {
