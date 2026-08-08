@@ -10,6 +10,12 @@ export interface ICreditBalance extends Document {
     organizationId: string;
     /** Remaining balance in microCredits (1 credit = 1,000,000 µ). */
     balanceMicro: number;
+    /**
+     * microCredits currently held by active usage reservations (in-flight sessions).
+     * reserve/finalize/release keep this in sync; the atomic reserve guard is
+     * `balanceMicro - reservedMicro >= needed`, closing the reservation TOCTOU.
+     */
+    reservedMicro: number;
     /** Whole-credit monthly allowance snapshot for this period (for display %). */
     monthlyCredits: number;
     /** Included video seconds granted by the plan for this period (reset monthly). */
@@ -47,6 +53,7 @@ const CreditBalanceSchema = new Schema<ICreditBalance>(
             trim: true,
         },
         balanceMicro: { type: Number, required: true, min: 0, default: 0 },
+        reservedMicro: { type: Number, required: true, min: 0, default: 0 },
         monthlyCredits: { type: Number, required: true, min: 0, default: 0 },
         includedVideoSeconds: { type: Number, required: true, min: 0, default: 0 },
         usedIncludedVideoSeconds: { type: Number, required: true, min: 0, default: 0 },
