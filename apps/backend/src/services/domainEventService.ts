@@ -28,7 +28,9 @@ export type DomainEventType =
     | 'CompareFailed'
     | 'CreditsConsumed'
     | 'CreditBalanceRefreshed'
-    | 'CandidateApplied';
+    | 'CandidateApplied'
+    | 'HeadHunterSearchCompleted'
+    | 'CvComparisonCompleted';
 
 export type EnqueueDomainEventInput = {
     organizationId: string;

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../services/apiClient';
+import { onEvent, startEventsSocket } from '../services/eventsSocket';
 import { headHunterApiErrorMessage } from '../utils/headHunterApiError.js';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useOrganization } from '../contexts/OrganizationContext';
@@ -293,6 +294,19 @@ export default function AIHeadHunter() {
         },
         [clearPollTimerOnly, fetchLastN8nResult, syncCampaignHistory, stopPollForNewResult, t]
     );
+
+    // Live: finish instantly + stop the tail poll when the search reaches a terminal
+    // state. Progressive streaming still uses the poll; this just accelerates the end.
+    useEffect(() => {
+        startEventsSocket();
+        return onEvent('HeadHunterSearchCompleted', (evt) => {
+            const id = activeSearchIdRef.current;
+            if (id && evt?.payload?.searchId === id) {
+                void fetchLastN8nResult(id);
+                stopPollForNewResult();
+            }
+        });
+    }, [fetchLastN8nResult, stopPollForNewResult]);
 
     /** بطاقة النتائج: لا تُعرض إلا بعد بدء بحث لهذا المستخدم */
     const showHeadHunterResultsCard =

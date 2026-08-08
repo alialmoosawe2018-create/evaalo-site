@@ -8,6 +8,7 @@ import {
 } from '../utils/candidateAssets';
 import { absoluteAppUrl } from '../config/apiBase.js';
 import { useLiveRefresh } from '../hooks/useLiveRefresh';
+import { onEvent } from '../services/eventsSocket';
 import '../design-styles.css';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useBilling } from '../contexts/BillingContext';
@@ -236,6 +237,23 @@ const WrittenInterview = () => {
             clearInterval(interval);
         };
     }, [aiCompareStatus, selectedCampaignId, aiCompareRequestId]);
+
+    // Live: surface AI-compare results instantly (instead of waiting up to 3s) when the
+    // compare completes/fails for the active campaign+request. The poll stays as fallback.
+    useEffect(() => {
+        const handle = (evt) => {
+            const p = evt?.payload || {};
+            if (p.campaignId === selectedCampaignId && (!aiCompareRequestId || p.requestId === aiCompareRequestId)) {
+                void fetchAiCompareState();
+            }
+        };
+        const off1 = onEvent('CompareCompleted', handle);
+        const off2 = onEvent('CompareFailed', handle);
+        return () => {
+            off1();
+            off2();
+        };
+    }, [selectedCampaignId, aiCompareRequestId]);
 
     // إعادة جلب النتيجة عند العودة للتبويب (مثلاً بعد timeout أو إغلاق اللوحة)
     useEffect(() => {

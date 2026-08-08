@@ -7,6 +7,7 @@ import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
 import { getOrgId, getClerkUserId, getAuthContext } from '../middleware/auth.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
 import { checkCredits, consumeCredits } from '../services/billingRuntimeService.js';
+import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import {
     executeContactReveal,
     listRevealedContactStates,
@@ -477,6 +478,18 @@ function applyHeadHunterInboundMerge(
         receivedAt,
         payload: merged,
     });
+
+    // Domain event (Phase 4) — terminal state reached; lets the client drop its 1s poll.
+    const wasTerminal = existing.status === 'completed' || existing.status === 'failed';
+    if ((status === 'completed' || status === 'failed') && !wasTerminal) {
+        void emitDomainEventBestEffort({
+            organizationId: existing.organizationId,
+            type: 'HeadHunterSearchCompleted',
+            payload: { searchId, status, requestedByClerkUserId: existing.userId, candidateCount: rowCount },
+            idempotencyKey: `hh-search-done:${searchId}`,
+        });
+    }
+
     cleanupHeadHunterRecords();
     return { merged, rowCount, complete, receivedAt };
 }
