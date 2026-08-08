@@ -32,6 +32,8 @@ import {
     resolveShareAdvertisingCompany,
 } from '../utils/shareInterviewLink.js';
 import { absoluteAppUrl } from '../config/apiBase.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh';
+import { onEvent } from '../services/eventsSocket';
 import { buildCandidateInterviewQuery, resolveSharePersonId, resolveShareApplicationId } from '../utils/interviewShareLink.js';
 import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import {
@@ -328,6 +330,22 @@ const VideoInterview = () => {
         };
     }, [aiCompareStatus, selectedCampaignId, aiCompareRequestId]);
 
+    // Live: surface AI-compare results instantly when the compare completes/fails.
+    useEffect(() => {
+        const handle = (evt) => {
+            const p = evt?.payload || {};
+            if (p.campaignId === selectedCampaignId && (!aiCompareRequestId || p.requestId === aiCompareRequestId)) {
+                void fetchAiCompareState();
+            }
+        };
+        const off1 = onEvent('CompareCompleted', handle);
+        const off2 = onEvent('CompareFailed', handle);
+        return () => {
+            off1();
+            off2();
+        };
+    }, [selectedCampaignId, aiCompareRequestId]);
+
     useEffect(() => {
         const previous = document.title;
         document.title = `${t('videoInterviewPageTitle')} · ${t('companyName')}`;
@@ -347,9 +365,10 @@ const VideoInterview = () => {
     // - overall_score (number, percentage)
     // - professional_attitude (string) or fit_for_role (string) - for backward compatibility
     // - recommendation (string: "Hire", "Consider", "Reject")
-    const fetchCandidates = async () => {
+    const fetchCandidates = async (opts = {}) => {
+        const { background = false } = opts || {};
         try {
-            setLoading(true);
+            if (!background) setLoading(true);
             const result = await apiClient.get('/api/candidates');
             
             if (result.success && result.data) {
@@ -386,9 +405,15 @@ const VideoInterview = () => {
             console.error('❌ Error fetching candidates:', error);
             setCampaignGroups({ active: [], uncategorized: null });
         } finally {
-            setLoading(false);
+            if (!background) setLoading(false);
         }
     };
+
+    // Live: refresh the video board in the background when relevant domain events arrive.
+    useLiveRefresh(
+        ['VideoEvaluationCompleted', 'VideoSessionCompleted', 'CandidateStatusChanged', 'CandidateApplied'],
+        () => fetchCandidates({ background: true }),
+    );
 
     const getRecommendationColor = (recommendation) => {
         switch (recommendation) {

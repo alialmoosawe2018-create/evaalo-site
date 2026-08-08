@@ -4,7 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { getLegalDocs } from '../i18n/legalPages';
 import LegalBullets from '../components/LegalBullets';
 import LegalParagraphs from '../components/LegalParagraphs';
-import { localizeLegalBrandText } from '../utils/localizeLegalBrandText';
+import { EVAALO_LEGAL_ENTITY, localizeLegalBrandText } from '../utils/localizeLegalBrandText';
 
 function SecurityEmailLink() {
     return (
@@ -127,7 +127,7 @@ export default function DataSecurityPage() {
                 <p className="legal-contact-card__intro">{lt(s.contact.intro)}</p>
                 {s.contact.company ? (
                     <p className="legal-contact-card__company">
-                        <strong>{lt(s.contact.company)}</strong>
+                        <strong>{EVAALO_LEGAL_ENTITY}</strong>
                     </p>
                 ) : null}
                 <SecurityEmailLink />

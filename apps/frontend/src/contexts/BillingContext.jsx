@@ -22,11 +22,13 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { DEFAULT_PLAN_ID } from '../config/billingPlans';
 import { resolvePlanId } from '../utils/billingDisplay';
 import { apiClient } from '../services/apiClient';
+import { startEventsSocket, onEvent, reconnectEventsSocket } from '../services/eventsSocket';
 import { useAuth } from './AuthContext';
 
 const BillingContext = createContext(null);
 
-const REGULAR_POLL_MS = 30_000;
+// Push-driven via domain events (Phase 4); this poll is now just a slow safety net.
+const REGULAR_POLL_MS = 120_000;
 const DEFAULT_FAST_DURATION_MS = 30_000;
 const DEFAULT_FAST_INTERVAL_MS = 2_000;
 // How many consecutive race-suppressed 403s to tolerate before surfacing the
@@ -63,6 +65,8 @@ export const BillingProvider = ({ children }) => {
     const fastTimerRef = useRef(null);
     const fastDeadlineRef = useRef(0);
     const raceRetriesRef = useRef(0);
+    const refreshTimerRef = useRef(null);
+    const prevOrgRef = useRef(null);
     // Billing is org-scoped and requires an authenticated session. On public
     // candidate-facing pages (form, interview, screening…) there is no session,
     // so polling would only produce 403 noise — gate the polling on auth.
@@ -186,10 +190,45 @@ export const BillingProvider = ({ children }) => {
         const interval = setInterval(() => {
             fetchStatus().catch(() => undefined);
         }, REGULAR_POLL_MS);
+
+        // Push: live balance from domain events. Instant optimistic update from the
+        // event's balanceAfterMicro, then a debounced authoritative refetch (covers
+        // video seconds / grants). The slow poll above is only a fallback.
+        startEventsSocket();
+        // On org switch the token's org changes → reconnect to join the new org's
+        // channel (and drop the stale seq cursor).
+        if (prevOrgRef.current !== null && prevOrgRef.current !== activeOrgId) {
+            reconnectEventsSocket();
+        }
+        prevOrgRef.current = activeOrgId;
+
+        const onCredit = (evt) => {
+            const after = evt?.payload?.balanceAfterMicro;
+            if (Number.isFinite(after)) {
+                setState((prev) => ({
+                    ...prev,
+                    balanceMicro: after,
+                    creditsRemaining: Math.floor(after / 1_000_000),
+                }));
+            }
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+            refreshTimerRef.current = setTimeout(() => {
+                fetchStatus().catch(() => undefined);
+            }, 600);
+        };
+        const offConsumed = onEvent('CreditsConsumed', onCredit);
+        const offRefreshed = onEvent('CreditBalanceRefreshed', onCredit);
+
         return () => {
             aliveRef.current = false;
             clearInterval(interval);
             stopFastRefresh();
+            offConsumed();
+            offRefreshed();
+            if (refreshTimerRef.current) {
+                clearTimeout(refreshTimerRef.current);
+                refreshTimerRef.current = null;
+            }
         };
     }, [fetchStatus, stopFastRefresh, isAuthenticated, activeOrgId]);
 

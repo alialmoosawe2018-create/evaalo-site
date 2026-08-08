@@ -7,6 +7,12 @@ import CandidateApplication, {
     type ApplicationEventType,
 } from '../models/CandidateApplication.js';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
+import {
+    findApplicationsForListing,
+    findApplicationsPage,
+    loadPeopleByIds,
+} from '../repositories/candidateApplicationRepository.js';
+import type { CursorPage } from '../repositories/pagination.js';
 
 export function buildApplicationSnapshot(input: {
     full_name?: string;
@@ -319,26 +325,38 @@ export async function findApplicationForCallback(opts: {
     return null;
 }
 
+/** Map lean application rows to stage rows, batch-loading their person docs. */
+async function mapAppsToStageRows(
+    apps: Record<string, unknown>[]
+): Promise<Record<string, unknown>[]> {
+    if (!apps.length) return [];
+    const personIds = [...new Set(apps.map((a) => String(a.candidateId)))];
+    const byId = await loadPeopleByIds(personIds);
+    return apps.map((a) => applicationToStageListRow(a, byId.get(String(a.candidateId))));
+}
+
+/**
+ * Full org-scoped stage-row listing (unpaginated) — legacy behavior.
+ * Mongo IO lives in candidateApplicationRepository (Service → Repository → Mongo).
+ */
 export async function listApplicationsAsStageRows(opts: {
     organizationId: string;
     campaignId?: string;
     extraFilter?: Record<string, unknown>;
 }): Promise<Record<string, unknown>[]> {
-    const q: Record<string, unknown> = {
-        organizationId: opts.organizationId,
-        deletedAt: null,
-        ...(opts.extraFilter || {}),
-    };
-    if (opts.campaignId) q.campaignId = opts.campaignId;
+    const apps = await findApplicationsForListing(opts);
+    return mapAppsToStageRows(apps);
+}
 
-    const apps = await CandidateApplication.find(q).sort({ createdAt: -1 }).lean();
-    if (!apps.length) return [];
-
-    const personIds = [...new Set(apps.map((a) => String(a.candidateId)))];
-    const people = await Candidate.find({ _id: { $in: personIds } }).lean();
-    const byId = new Map(people.map((p) => [String(p._id), p as Record<string, unknown>]));
-
-    return apps.map((a) =>
-        applicationToStageListRow(a as Record<string, unknown>, byId.get(String(a.candidateId)))
-    );
+/** Cursor-paginated stage-row listing — org-scoped, stable order. */
+export async function listApplicationsAsStageRowsPage(opts: {
+    organizationId: string;
+    campaignId?: string;
+    extraFilter?: Record<string, unknown>;
+    limit?: number;
+    cursor?: string | null;
+}): Promise<CursorPage<Record<string, unknown>>> {
+    const { apps, nextCursor, hasMore } = await findApplicationsPage(opts);
+    const rows = await mapAppsToStageRows(apps);
+    return { rows, nextCursor, hasMore };
 }

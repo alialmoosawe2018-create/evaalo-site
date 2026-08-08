@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import mongoose, { Schema, Document, Types } from 'mongoose';
 import { DEFAULT_ORG_ID } from '../config/multiTenant.js';
 import type { CandidateEvaluationContext } from '../shared/formTemplates/index.js';
+import { tenantGuardPlugin } from './plugins/tenantGuard.js';
 
 /** أنواع مرفقات التقديم (أوسع من files القديمة). */
 export type ApplicationAttachmentType =
@@ -429,6 +430,10 @@ CandidateApplicationSchema.index(
         },
     }
 );
+
+// Tenant-isolation guard. `applicationId` (public, unique) and `candidateId`
+// (person-scoped, already org-bound) are safe single-tenant lookups.
+CandidateApplicationSchema.plugin(tenantGuardPlugin, { safeKeys: ['applicationId', 'candidateId'] });
 
 export default mongoose.model<ICandidateApplication>(
     'CandidateApplication',

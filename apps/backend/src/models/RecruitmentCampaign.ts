@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { DEFAULT_ORG_ID, SYSTEM_ACTOR_ID } from '../config/multiTenant.js';
+import { tenantGuardPlugin } from './plugins/tenantGuard.js';
 import type { CampaignFormBinding, EvaluationRubricItem } from '../shared/formTemplates/index.js';
 
 /** نتيجة مقارنة أفضل المرشحين لمرحلة واحدة (مستقلة عن باقي الـ webhooks). */
@@ -266,5 +267,11 @@ const RecruitmentCampaignSchema = new Schema<IRecruitmentCampaign>({
 });
 
 RecruitmentCampaignSchema.index({ organizationId: 1, createdAt: -1 });
+
+// Tenant-isolation guard. `campaignId` and `publicApplicationToken` are unique,
+// non-guessable global keys — safe to resolve a single campaign without org.
+RecruitmentCampaignSchema.plugin(tenantGuardPlugin, {
+    safeKeys: ['campaignId', 'publicApplicationToken'],
+});
 
 export default mongoose.model<IRecruitmentCampaign>('RecruitmentCampaign', RecruitmentCampaignSchema);

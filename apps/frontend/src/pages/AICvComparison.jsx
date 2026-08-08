@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import apiClient from '../services/apiClient';
+import { onEvent, startEventsSocket } from '../services/eventsSocket';
 import { headHunterApiErrorMessage } from '../utils/headHunterApiError.js';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useOrganization } from '../contexts/OrganizationContext';
@@ -226,6 +227,17 @@ export default function AICvComparison() {
         },
         [clearPollTimerOnly, fetchComparisonResult, showValidationNotice, stopPoll, t]
     );
+
+    // Live: fetch instantly + stop the poll when the comparison completes (non-progressive).
+    useEffect(() => {
+        startEventsSocket();
+        return onEvent('CvComparisonCompleted', (evt) => {
+            if (comparisonId && evt?.payload?.comparisonId === comparisonId) {
+                void fetchComparisonResult(comparisonId);
+                stopPoll();
+            }
+        });
+    }, [comparisonId, fetchComparisonResult, stopPoll]);
 
     const handleCvFilesChange = (next) => {
         setCvFiles(next);

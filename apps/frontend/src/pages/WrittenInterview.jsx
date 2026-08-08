@@ -7,6 +7,8 @@ import {
     stage1FilesFromCandidate,
 } from '../utils/candidateAssets';
 import { absoluteAppUrl } from '../config/apiBase.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh';
+import { onEvent } from '../services/eventsSocket';
 import '../design-styles.css';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useBilling } from '../contexts/BillingContext';
@@ -107,6 +109,13 @@ const WrittenInterview = () => {
     useEffect(() => {
         fetchCandidates();
     }, [currentLang]);
+
+    // Live: refresh the screening board in the background (no spinner flash) when
+    // relevant candidate domain events arrive.
+    useLiveRefresh(
+        ['ScreeningEvaluationCompleted', 'CandidateStatusChanged', 'CandidateApplied'],
+        () => fetchCandidates({ background: true }),
+    );
 
     const selectedCampaignId = selectedGroup?.campaignId ?? null;
 
@@ -229,6 +238,23 @@ const WrittenInterview = () => {
         };
     }, [aiCompareStatus, selectedCampaignId, aiCompareRequestId]);
 
+    // Live: surface AI-compare results instantly (instead of waiting up to 3s) when the
+    // compare completes/fails for the active campaign+request. The poll stays as fallback.
+    useEffect(() => {
+        const handle = (evt) => {
+            const p = evt?.payload || {};
+            if (p.campaignId === selectedCampaignId && (!aiCompareRequestId || p.requestId === aiCompareRequestId)) {
+                void fetchAiCompareState();
+            }
+        };
+        const off1 = onEvent('CompareCompleted', handle);
+        const off2 = onEvent('CompareFailed', handle);
+        return () => {
+            off1();
+            off2();
+        };
+    }, [selectedCampaignId, aiCompareRequestId]);
+
     // إعادة جلب النتيجة عند العودة للتبويب (مثلاً بعد timeout أو إغلاق اللوحة)
     useEffect(() => {
         if (!selectedCampaignId) return undefined;
@@ -249,9 +275,10 @@ const WrittenInterview = () => {
         };
     }, [t, currentLang]);
 
-    const fetchCandidates = async () => {
+    const fetchCandidates = async (opts = {}) => {
+        const { background = false } = opts || {};
         try {
-            setLoading(true);
+            if (!background) setLoading(true);
             const result = await apiClient.get('/api/candidates');
             
             if (result.success && result.data) {
@@ -287,7 +314,7 @@ const WrittenInterview = () => {
         } catch (error) {
             console.error('❌ Error fetching candidates:', error);
         } finally {
-            setLoading(false);
+            if (!background) setLoading(false);
         }
     };
 

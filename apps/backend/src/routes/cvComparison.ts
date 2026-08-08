@@ -8,6 +8,7 @@ import { requirePermission } from '../middleware/rbac.js';
 import { getOrgId, getClerkUserId } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import { logAudit } from '../services/auditService.js';
+import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import {
     assertCvComparisonInboundSecretConfigured,
     buildCvComparisonCallbackUrl,
@@ -300,6 +301,14 @@ export async function postCvComparisonN8nInbound(req: Request, res: Response): P
         cleanupStaleRecords();
 
         console.log(`[cv-comparison] inbound completed comparisonId=${comparisonId} status=completed`);
+
+        // Domain event (Phase 4) — lets the client drop its 2.8s result poll.
+        void emitDomainEventBestEffort({
+            organizationId: existing.organizationId,
+            type: 'CvComparisonCompleted',
+            payload: { comparisonId, requestedByClerkUserId: existing.userId },
+            idempotencyKey: `cv-comparison-done:${comparisonId}`,
+        });
 
         const completeFn = inboundTestOverrides.completeWebhook ?? completeWebhook;
         await completeFn('n8n-cv-comparison', idempotencyKey);

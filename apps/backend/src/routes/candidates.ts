@@ -5,9 +5,13 @@ import CandidateApplication from '../models/CandidateApplication.js';
 import {
     upsertCandidateApplication,
     listApplicationsAsStageRows,
+    listApplicationsAsStageRowsPage,
     syncEmailDenormForCandidate,
     applicationToStageListRow,
+    findApplicationForCallback,
+    pushApplicationEvent,
 } from '../services/candidateApplicationService.js';
+import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import {
@@ -102,11 +106,40 @@ router.get('/', conditionalRequireAuth(), requirePermission('candidate.read'), a
                 : {};
 
         const orgId = getOrgId(req);
+        const listExtraFilter =
+            forView === 'candidates' ? { hiddenFromViews: { $nin: ['candidates'] } } : {};
+
+        // Opt-in cursor pagination: engaged only when the client sends limit/cursor,
+        // so the existing full-list frontend behavior stays unchanged until it adopts
+        // paging. An empty first page falls through to the legacy candidate list.
+        const wantsPage =
+            typeof req.query.limit === 'string' || typeof req.query.cursor === 'string';
+        if (wantsPage) {
+            const page = await listApplicationsAsStageRowsPage({
+                organizationId: orgId,
+                campaignId: campaignFilter.campaignId as string | undefined,
+                extraFilter: listExtraFilter,
+                limit: req.query.limit ? Number(req.query.limit) : undefined,
+                cursor: typeof req.query.cursor === 'string' ? req.query.cursor : null,
+            });
+            if (page.rows.length > 0 || typeof req.query.cursor === 'string') {
+                return res.json({
+                    success: true,
+                    count: page.rows.length,
+                    data: page.rows,
+                    nextCursor: page.nextCursor,
+                    hasMore: page.hasMore,
+                    rowKind: 'application',
+                });
+            }
+            // first page empty → fall through to legacy candidate list below
+        }
+
         // Many-to-Many: فضّل صفوف Application إن وُجدت؛ وإلا fallback لـ Candidate القديم.
         const appRows = await listApplicationsAsStageRows({
             organizationId: orgId,
             campaignId: campaignFilter.campaignId as string | undefined,
-            extraFilter: forView === 'candidates' ? { hiddenFromViews: { $nin: ['candidates'] } } : {},
+            extraFilter: listExtraFilter,
         });
         if (appRows.length > 0) {
             const filtered =
@@ -940,6 +973,21 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             eventType: 'applied',
         });
 
+        // Domain event (Phase 2) — new-applicant fan-out. Reused applications keep the
+        // same _id → same idempotency key, so only a genuinely new application emits.
+        void emitDomainEventBestEffort({
+            organizationId: String(application.organizationId),
+            type: 'CandidateApplied',
+            payload: {
+                candidateId: String(candidate._id),
+                applicationId: String(application._id),
+                campaignId: application.campaignId ?? campaignId ?? null,
+                entryStage: application.entryStage ?? candidate.entryStage ?? null,
+                sourceType: application.sourceType ?? candidate.sourceType ?? null,
+            },
+            idempotencyKey: `candidate-applied:${String(application._id)}`,
+        });
+
         // إن كان الشخص موجوداً مسبقاً ونقلنا بيانات الاستمارة من هذا الطلب، حدّث Application.
         if (!createdNewPerson) {
             await CandidateApplication.findByIdAndUpdate(application._id, {
@@ -1096,12 +1144,54 @@ router.put('/:id', requirePermission('candidate.write'), async (req: Request, re
             }
             body.languages = normalizeLanguagesToStringArray(body.languages);
         }
+        // Status is per-application: CandidateApplication is the source of truth.
+        // Resolve the exact target application BEFORE mutating anything so an
+        // ambiguous person-level status change (a candidate with several campaigns)
+        // is rejected instead of silently overwriting other campaigns' outcomes.
+        // Legacy candidates with no application fall back to person-level status.
+        const orgId = getOrgId(req);
+        const newStatus = typeof body.status === 'string' ? body.status.trim() : undefined;
+        const statusApplicationId =
+            typeof body.applicationId === 'string' ? body.applicationId.trim() : undefined;
+        const statusCampaignId =
+            typeof body.campaignId === 'string' ? body.campaignId.trim() : undefined;
+        // applicationId is targeting context only — never persisted onto Candidate.
+        delete body.applicationId;
+
+        let targetApplication: Awaited<ReturnType<typeof findApplicationForCallback>> = null;
+        if (newStatus && mongoose.Types.ObjectId.isValid(req.params.id)) {
+            targetApplication = await findApplicationForCallback({
+                applicationId: statusApplicationId,
+                candidateId: req.params.id,
+                campaignId: statusCampaignId,
+            });
+            if (targetApplication && String(targetApplication.organizationId) !== String(orgId)) {
+                targetApplication = null;
+            }
+            if (!targetApplication) {
+                const appCount = await CandidateApplication.countDocuments({
+                    candidateId: req.params.id,
+                    organizationId: orgId,
+                    deletedAt: null,
+                });
+                if (appCount > 0) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'campaign_context_required',
+                        message:
+                            'Status change is ambiguous for a candidate with multiple applications. Provide applicationId or campaignId to target one.',
+                    });
+                }
+                // appCount === 0 → legacy candidate with no application: mirror to Candidate only.
+            }
+        }
+
         const candidate = await Candidate.findOneAndUpdate(
             orgScopedQuery(req, { _id: req.params.id }),
             body,
             { new: true, runValidators: true }
         );
-        
+
         if (!candidate) {
             return res.status(404).json({
                 success: false,
@@ -1113,13 +1203,52 @@ router.put('/:id', requirePermission('candidate.write'), async (req: Request, re
                 console.warn('emailDenorm sync failed:', err?.message || err)
             );
         }
+
+        // Persist status to the targeted application (source of truth) + timeline event.
+        // Candidate.status was already mirrored via the update above (person-view display).
+        if (newStatus && targetApplication) {
+            await CandidateApplication.updateOne(
+                { _id: targetApplication._id, organizationId: orgId },
+                { $set: { status: newStatus } }
+            );
+            await pushApplicationEvent(targetApplication._id, 'status_changed', {
+                status: newStatus,
+            }).catch((err) =>
+                console.warn('application status timeline push failed:', err?.message || err)
+            );
+        }
+
+        // Domain event (Phase 2) — side-effect fan-out only; never blocks the response.
+        if (newStatus) {
+            void emitDomainEventBestEffort({
+                organizationId: orgId,
+                type: 'CandidateStatusChanged',
+                payload: {
+                    candidateId: String(candidate._id),
+                    applicationId: targetApplication ? String(targetApplication._id) : null,
+                    campaignId:
+                        statusCampaignId ||
+                        (targetApplication ? targetApplication.campaignId ?? null : null),
+                    status: newStatus,
+                },
+                idempotencyKey: `candidate-status:${
+                    targetApplication ? String(targetApplication._id) : String(candidate._id)
+                }:${newStatus}:${Date.now()}`,
+            });
+        }
+
         logAudit(req, {
             action: 'candidate.updated',
             targetType: 'candidate',
             targetId: candidate._id?.toString(),
-            metadata: { fields: Object.keys(body) },
+            metadata: {
+                fields: Object.keys(body),
+                ...(targetApplication
+                    ? { applicationId: String(targetApplication._id), status: newStatus }
+                    : {}),
+            },
         });
-        
+
         // إرسال تحديث الحالة إلى n8n إذا تم تحديث الحالة
         if (req.body.status) {
             sendStatusUpdateToN8N(

@@ -23,6 +23,7 @@ import {
 import { dispatchCompareTopV2Emails } from './compareTopV2EmailDispatch.js';
 import { mirrorCompareTopV2ToCampaign } from './compareTopV2Adapter.js';
 import { refundCampaignCompareEmail } from './compareEmailBilling.js';
+import { emitDomainEventBestEffort } from './domainEventService.js';
 
 const MAX_SUMMARY = 8000;
 const MAX_FOCUS = 4000;
@@ -376,6 +377,21 @@ export async function postCampaignCompareN8nInbound(
             console.warn('[campaign-compare] email dispatch failed:', err instanceof Error ? err.message : err);
         });
 
+        // Domain event (Phase 2) — lets the client drop the compare-result poll.
+        void emitDomainEventBestEffort({
+            organizationId: claims.organizationId,
+            type: 'CompareCompleted',
+            payload: {
+                requestId: claims.requestId,
+                campaignId: claims.campaignId,
+                stage: claims.compareStage,
+                rankedCount: Array.isArray(rankingParsed.ranking)
+                    ? rankingParsed.ranking.length
+                    : undefined,
+            },
+            idempotencyKey: `compare:${claims.requestId}:completed`,
+        });
+
         res.status(200).json({
             ok: true,
             requestId: claims.requestId,
@@ -403,6 +419,18 @@ export async function postCampaignCompareN8nInbound(
                 );
             }
         );
+        void emitDomainEventBestEffort({
+            organizationId: claims.organizationId,
+            type: 'CompareFailed',
+            payload: {
+                requestId: claims.requestId,
+                campaignId: claims.campaignId,
+                stage: claims.compareStage,
+                error: 'CALLBACK_PROCESSING_FAILED',
+                refunded: true,
+            },
+            idempotencyKey: `compare:${claims.requestId}:failed`,
+        });
         console.error('[campaign-compare] inbound processing error');
         res.status(500).json({ ok: false, error: 'internal_error' });
     }

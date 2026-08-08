@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { DEFAULT_ORG_ID, SYSTEM_ACTOR_ID } from '../config/multiTenant.js';
 import type { CandidateEvaluationContext } from '../shared/formTemplates/index.js';
+import { tenantGuardPlugin } from './plugins/tenantGuard.js';
 
 // Interface للمرشح
 // ملاحظة: organizationId/createdByClerkUserId مطلوبين على مستوى الـ schema (بـ defaults)
@@ -306,15 +307,16 @@ const CandidateSchema = new Schema<ICandidate>({
     entryStage: {
         type: String,
         enum: ['screening', 'audio', 'video'],
-        default: 'screening',
-        index: true
+        default: 'screening'
+        // Low-cardinality (3 values): no standalone index. Org-scoped compound
+        // indexes cover the real query patterns (see prune-candidate-indexes.ts).
     },
     sourceType: {
         type: String,
         trim: true,
         lowercase: true,
-        index: true,
         default: undefined
+        // Low-cardinality: no standalone index (pruned — see prune-candidate-indexes.ts).
     },
     headHunterContextId: {
         type: String,
@@ -549,6 +551,10 @@ const CandidateSchema = new Schema<ICandidate>({
 
 CandidateSchema.index({ organizationId: 1, email: 1 }, { unique: true });
 CandidateSchema.index({ organizationId: 1, createdAt: -1 });
+
+// Tenant-isolation guard: candidate rows are always org-scoped; only _id lookups
+// (and explicit skipTenantGuard) may run unscoped.
+CandidateSchema.plugin(tenantGuardPlugin, { safeKeys: [] });
 
 // Export Model
 export default mongoose.model<ICandidate>('Candidate', CandidateSchema, 'candidates');

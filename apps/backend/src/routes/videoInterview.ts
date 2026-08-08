@@ -15,6 +15,7 @@ import {
     reserveUsage,
 } from '../services/usageReservationService.js';
 import { startVideoSession, consumeVideoSeconds, type StartVideoResult } from '../services/videoBillingService.js';
+import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import type { UsageType } from '../types/billing.js';
 import { transcribeAudio } from '../services/sttService.js';
 import { createLiveKitRoom, createUserToken, dispatchAgentToRoom, deleteLiveKitRoom } from '../services/livekitService.js';
@@ -1540,6 +1541,22 @@ router.post('/end', async (req, res) => {
             } catch (saveError: any) {
                 console.warn(`⚠️ Error saving session end (non-blocking): ${(saveError as Error).message}`);
             }
+
+            // Domain event (Phase 2) — session completion for all modes (best-effort;
+            // the video-billing settle path only covers video-mode).
+            void emitDomainEventBestEffort({
+                organizationId: (session.organizationId as string) || DEFAULT_ORG_ID,
+                type: 'VideoSessionCompleted',
+                payload: {
+                    sessionId,
+                    candidateId: session.candidateId?.toString?.() ?? null,
+                    campaignId: (session.campaignId as string) ?? null,
+                    applicationId: (session.applicationId as string) ?? null,
+                    interviewMode: session.interviewMode ?? null,
+                    status: session.status ?? 'completed',
+                },
+                idempotencyKey: `video-session:${sessionId}:completed`,
+            });
         }
 
         // Unified-credit charge — bill the ACTUAL interview duration once, at end.
