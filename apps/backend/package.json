@@ -10,6 +10,7 @@
     "build": "node scripts/sync-job-catalog.cjs && tsc && node scripts/copy-reception-data.cjs",
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
+    "test:int": "tsx src/scripts/integration/atomicity.int.ts",
     "check-db": "tsx src/scripts/check-db-connection.ts",
     "mongo-ping": "tsx src/scripts/mongo-ping.ts",
     "migrate:org-id": "tsx src/scripts/migrateAddOrgId.ts",
@@ -125,6 +126,7 @@
     "@types/node": "^20.10.5",
     "@types/pdf-parse": "^1.1.5",
     "@types/ws": "^8.5.10",
+    "mongodb-memory-server": "^11.2.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }
