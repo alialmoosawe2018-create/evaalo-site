@@ -11,12 +11,15 @@
 
 | # | Outcome | Before | After |
 |---|---|---|---|
-| 1 | Credit spend can't corrupt money | balance & ledger written in 2 non-transactional steps (drift on crash) | single `withTransaction`; balance + ledger + event commit atomically |
-| 2 | Tenant isolation is enforceable | every query had to remember `orgScopedQuery` (leaked once) | Mongoose guard plugin flags/【strict】-throws unscoped queries |
+| 1 | Credit spend can't corrupt money | balance & ledger written in 2 non-transactional steps (drift on crash) | single `withTransaction`; balance + ledger + event commit atomically (proven under real concurrency) |
+| 2 | Tenant isolation is enforceable | every query had to remember `orgScopedQuery` (leaked once) | Mongoose guard plugin flags / `strict`-throws unscoped queries |
 | 3 | Person status is consistent | `PUT /candidates/:id` wrote only `Candidate`, left the application stale | targets the exact `CandidateApplication`; ambiguous → 400 |
 | 4 | Data access is swappable | fat services issued Mongo IO inline | repository layer for candidates + **100% of billing IO** |
 | 5 | Lists can scale | unpaginated full-collection reads | opt-in cursor pagination (backward compatible) |
-| 6 | Business events exist | no way to react to state changes | durable transactional outbox, 10 producers wired |
+| 6 | Business events exist | no way to react to state changes | durable transactional outbox, **12 producers** wired |
+| 7 | UI updates live, not by polling | 30s / 1s / 2.8s polls hammering the API | `/ws/events` + Redis push: live balance, live candidate/stage boards, instant compare — the three polls eliminated |
+| 8 | Concurrent sessions can't over-admit | reservation headroom was read-then-create (TOCTOU) | atomic `$expr`-guarded `reservedMicro` reserve (0.3b) |
+| 9 | Scale guardrails in place | unbounded reads + arrays; orphan collection | read-through cache (campaign metadata); `conversationHistory` 16MB cap; orphan-drop script |
 
 ---
 
@@ -89,9 +92,12 @@
 
 ---
 
-## 7. Phase 3 readiness
+## 7. Realtime + client (Phases 3–5) — delivered
 
-Everything upstream of realtime is in place: the domain-event outbox is **producing** and waiting for a consumer. Phase 3 (`/ws/events` + Redis relay + client `EventsSocket`) needs exactly one input from you — **`REDIS_URL`** from your chosen managed provider — then it slots onto this foundation without touching the producers. The immediate wins it unlocks: replacing the 30s `BillingContext` poll, the 1s `AIHeadHunter` poll, and the 2.8s `AICvComparison` poll with live pushes.
+- **Phase 3 (transport):** an authenticated `/ws/events` gateway (Clerk token verified at handshake) + a relay that publishes the domain-event outbox to Redis pub/sub on a per-org channel, with replay-since-cursor for missed events. Verified **end-to-end in a local environment** (a credit deduction pushed a live balance update through relay → Redis → gateway → client). Graceful: the whole layer no-ops when `REDIS_URL` is unset, so the server still boots and events still persist to the outbox.
+- **Phase 4 (client):** a single reconnecting `EventsSocket` (exponential backoff + `ack` + `seq` cursor) feeds `BillingContext` (live balance — the 30s poll is now a slow 120s fallback) and a reusable `useLiveRefresh` hook (candidate list + all three stage boards). Two new events (`HeadHunterSearchCompleted`, `CvComparisonCompleted`) eliminated the 1s / 2.8s polls; `CompareCompleted` / `CompareFailed` surface compare results instantly.
+- **Phase 5 (hardening):** a read-through Redis cache on the campaign-metadata batch (30s TTL, no-op without Redis); a `conversationHistory` pre-save cap (16MB guardrail); an orphan-collection cleanup script.
+- **Ops:** provide `REDIS_URL` (a `rediss://` TLS URL) in production to activate realtime + cache; both degrade to no-ops without it, so nothing breaks if it's absent.
 
 ---
 
