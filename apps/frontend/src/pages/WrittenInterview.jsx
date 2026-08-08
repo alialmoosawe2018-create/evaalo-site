@@ -7,6 +7,7 @@ import {
     stage1FilesFromCandidate,
 } from '../utils/candidateAssets';
 import { absoluteAppUrl } from '../config/apiBase.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh';
 import '../design-styles.css';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useBilling } from '../contexts/BillingContext';
@@ -107,6 +108,13 @@ const WrittenInterview = () => {
     useEffect(() => {
         fetchCandidates();
     }, [currentLang]);
+
+    // Live: refresh the screening board in the background (no spinner flash) when
+    // relevant candidate domain events arrive.
+    useLiveRefresh(
+        ['ScreeningEvaluationCompleted', 'CandidateStatusChanged', 'CandidateApplied'],
+        () => fetchCandidates({ background: true }),
+    );
 
     const selectedCampaignId = selectedGroup?.campaignId ?? null;
 
@@ -249,9 +257,10 @@ const WrittenInterview = () => {
         };
     }, [t, currentLang]);
 
-    const fetchCandidates = async () => {
+    const fetchCandidates = async (opts = {}) => {
+        const { background = false } = opts || {};
         try {
-            setLoading(true);
+            if (!background) setLoading(true);
             const result = await apiClient.get('/api/candidates');
             
             if (result.success && result.data) {
@@ -287,7 +296,7 @@ const WrittenInterview = () => {
         } catch (error) {
             console.error('❌ Error fetching candidates:', error);
         } finally {
-            setLoading(false);
+            if (!background) setLoading(false);
         }
     };
 

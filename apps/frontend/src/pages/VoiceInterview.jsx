@@ -8,6 +8,7 @@ import {
 } from '../utils/candidateAssets';
 import '../design-styles.css';
 import { absoluteAppUrl } from '../config/apiBase.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh';
 import { buildCandidateInterviewQuery, resolveSharePersonId, resolveShareApplicationId } from '../utils/interviewShareLink.js';
 import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import apiClient, { ApiError } from '../services/apiClient';
@@ -402,9 +403,10 @@ const VoiceInterview = () => {
 
     // Stage 2: POST /webhook/n8n/stage2 — voiceInterviewEvaluation
     // communication / problem_solving: number أو نص | strengths / weaknesses: مصفوفة أو سطر
-    const fetchCandidates = async () => {
+    const fetchCandidates = async (opts = {}) => {
+        const { background = false } = opts || {};
         try {
-            setLoading(true);
+            if (!background) setLoading(true);
             const result = await apiClient.get('/api/candidates');
 
             if (result.success && result.data) {
@@ -440,9 +442,15 @@ const VoiceInterview = () => {
         } catch (error) {
             console.error('❌ Error fetching candidates:', error);
         } finally {
-            setLoading(false);
+            if (!background) setLoading(false);
         }
     };
+
+    // Live: refresh the voice board in the background when relevant domain events arrive.
+    useLiveRefresh(
+        ['VoiceEvaluationCompleted', 'VideoSessionCompleted', 'CandidateStatusChanged', 'CandidateApplied'],
+        () => fetchCandidates({ background: true }),
+    );
 
     const getRecommendationColor = (recommendation) => {
         switch (recommendation) {
