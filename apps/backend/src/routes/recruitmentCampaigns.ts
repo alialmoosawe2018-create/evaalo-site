@@ -7,6 +7,7 @@ import { orgScopedQuery, orgScopedDefaults } from '../middleware/orgScope.js';
 import { requirePermission } from '../middleware/rbac.js';
 import { getOrgId, getClerkUserId, isMissingProductionOrg } from '../middleware/auth.js';
 import { logAudit } from '../services/auditService.js';
+import { cacheGetOrSet } from '../services/cache.js';
 import { ensureBlueprintForCampaign } from '../services/expertise/ensureBlueprint.js';
 import {
     buildEvaluationRubricFromCampaignBody,
@@ -284,15 +285,18 @@ router.get('/', async (req: Request, res: Response) => {
             return res.json({ success: true, data: [] });
         }
 
-        const campaigns = await RecruitmentCampaign.find(
-            orgScopedQuery(req, { campaignId: { $in: ids } })
-        )
-            .select('campaignId criteria jobAdvertisement interviewType templateType templateName status closedAt createdAt updatedAt')
-            .lean();
-
-        res.json({
-            success: true,
-            data: campaigns.map((c) => ({
+        // Read-through cache (Phase 5): campaign display metadata changes rarely.
+        // Keyed by org + the requested id set; 30s TTL, no explicit invalidation —
+        // brief staleness of display fields is acceptable. No-op without Redis.
+        const orgId = getOrgId(req);
+        const cacheKey = `campaigns-batch:${orgId}:${[...ids].sort().join(',')}`;
+        const data = await cacheGetOrSet(cacheKey, 30, async () => {
+            const campaigns = await RecruitmentCampaign.find(
+                orgScopedQuery(req, { campaignId: { $in: ids } })
+            )
+                .select('campaignId criteria jobAdvertisement interviewType templateType templateName status closedAt createdAt updatedAt')
+                .lean();
+            return campaigns.map((c) => ({
                 campaignId: c.campaignId,
                 criteria: c.criteria,
                 jobAdvertisement: c.jobAdvertisement,
@@ -303,8 +307,10 @@ router.get('/', async (req: Request, res: Response) => {
                 closedAt: c.closedAt || null,
                 createdAt: c.createdAt,
                 updatedAt: c.updatedAt,
-            })),
+            }));
         });
+
+        res.json({ success: true, data });
     } catch (error: any) {
         console.error('❌ Error batch-fetching recruitment campaigns:', error);
         res.status(500).json({
