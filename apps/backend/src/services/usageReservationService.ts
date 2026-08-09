@@ -9,6 +9,7 @@ import UsageReservation, { type IUsageReservation } from '../models/UsageReserva
 import type { ConsumeCreditsResult, LedgerSource, UsageType } from '../types/billing.js';
 import { creditCostMicro } from './billingEngine.js';
 import { checkCredits, consumeCredits, getCreditBalance } from './billingRuntimeService.js';
+import * as creditBalanceRepo from '../repositories/creditBalanceRepository.js';
 
 const DEFAULT_TTL_MS = Number(process.env.USAGE_RESERVATION_TTL_MS || 2 * 60 * 60 * 1000);
 
@@ -143,7 +144,7 @@ export async function reserveUsage(input: ReserveUsageInput): Promise<ReserveUsa
         if (perUnitMicro > 0) {
             const balance = await getCreditBalance(organizationId);
             const remainingMicro = balance?.balanceMicro ?? 0;
-            const alreadyReserved = await sumActiveReservedMicro(organizationId);
+            const alreadyReserved = balance?.reservedMicro ?? 0;
             const affordableUnits = Math.floor(
                 Math.max(0, remainingMicro - alreadyReserved) / perUnitMicro,
             );
@@ -165,11 +166,12 @@ export async function reserveUsage(input: ReserveUsageInput): Promise<ReserveUsa
     }
 
     const reservedMicro = creditCostMicro(usageType, grantedUnits);
+    // Atomic headroom hold — the single `$expr`-guarded update that closes the
+    // TOCTOU: two concurrent reserves can never both pass the available-headroom
+    // check. `reservedMicro` is released on finalize / release / expire.
     if (reservedMicro > 0) {
-        const balance = await getCreditBalance(organizationId);
-        const remainingMicro = balance?.balanceMicro ?? 0;
-        const alreadyReserved = await sumActiveReservedMicro(organizationId);
-        if (remainingMicro - alreadyReserved < reservedMicro) {
+        const held = await creditBalanceRepo.reserveHeadroom(organizationId, reservedMicro);
+        if (!held) {
             return {
                 ok: false,
                 code: 'INSUFFICIENT_CREDITS',
@@ -200,6 +202,11 @@ export async function reserveUsage(input: ReserveUsageInput): Promise<ReserveUsa
             grantedUnits,
         };
     } catch (err) {
+        // The reservation row failed to persist — release the headroom we just held
+        // so the atomic counter never drifts from the actual active reservations.
+        if (reservedMicro > 0) {
+            await creditBalanceRepo.releaseHeadroom(organizationId, reservedMicro).catch(() => undefined);
+        }
         if (isDuplicateKeyError(err)) {
             const dup = await UsageReservation.findOne({ organizationId, idempotencyKey }).exec();
             if (dup) {
@@ -254,6 +261,9 @@ export async function finalizeUsageReservation(
         reservation.finalizedAt = new Date();
         reservation.ledgerEntryId = 'noop';
         await reservation.save();
+        await creditBalanceRepo
+            .releaseHeadroom(input.organizationId, reservation.reservedMicro)
+            .catch(() => undefined);
         return {
             ok: true,
             reservationId: String(reservation._id),
@@ -291,6 +301,10 @@ export async function finalizeUsageReservation(
     reservation.finalizedAt = new Date();
     reservation.ledgerEntryId = consumeResult.ledgerEntryId;
     await reservation.save();
+    // Release the held headroom — the actual debit already happened via consumeCredits.
+    await creditBalanceRepo
+        .releaseHeadroom(input.organizationId, reservation.reservedMicro)
+        .catch(() => undefined);
 
     return {
         ok: true,
@@ -318,7 +332,22 @@ export async function releaseUsageReservation(input: {
         reservation.metadata = { ...(reservation.metadata ?? {}), releaseReason: input.reason };
     }
     await reservation.save();
+    await creditBalanceRepo
+        .releaseHeadroom(reservation.organizationId, reservation.reservedMicro)
+        .catch(() => undefined);
     return { ok: true, reservationId: String(reservation._id) };
+}
+
+/**
+ * Reconcile the `reservedMicro` counter to the authoritative sum of active
+ * reservations. Self-heals rare drift (e.g. a crash between the atomic hold and the
+ * reservation write, which drifts conservatively). Run as occasional maintenance;
+ * a concurrent reserve is benign and corrected on the next run.
+ */
+export async function reconcileReservedMicro(organizationId: string): Promise<number> {
+    const sum = await sumActiveReservedMicro(organizationId);
+    await creditBalanceRepo.setReservedMicro(organizationId, sum);
+    return sum;
 }
 
 /** Mark expired active reservations (maintenance / reconciliation). */
@@ -326,8 +355,25 @@ export async function expireStaleReservations(organizationId?: string): Promise<
     const now = new Date();
     const filter: Record<string, unknown> = { status: 'active', expiresAt: { $lte: now } };
     if (organizationId) filter.organizationId = organizationId;
-    const result = await UsageReservation.updateMany(filter, {
-        $set: { status: 'expired' },
-    }).exec();
-    return result.modifiedCount ?? 0;
+
+    // Fetch first, then transition each atomically so the held headroom is released
+    // exactly once (a concurrent finalize/release that already moved it won't match).
+    const expiring = await UsageReservation.find(filter)
+        .select('organizationId reservedMicro')
+        .lean();
+
+    let expired = 0;
+    for (const r of expiring) {
+        const moved = await UsageReservation.findOneAndUpdate(
+            { _id: r._id, status: 'active' },
+            { $set: { status: 'expired' } },
+        ).exec();
+        if (moved) {
+            expired += 1;
+            await creditBalanceRepo
+                .releaseHeadroom(String(r.organizationId), Number(r.reservedMicro ?? 0))
+                .catch(() => undefined);
+        }
+    }
+    return expired;
 }

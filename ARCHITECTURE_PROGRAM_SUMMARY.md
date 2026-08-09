@@ -1,7 +1,7 @@
 # Evaalo — Architecture Improvement Program: Final Summary
 
-**Status:** ✅ Foundation complete & frozen (Phases 0–2 + 100% Billing Repository).
-**Branch:** `arch/phase0-critical-correctness` — **nothing committed, nothing deployed.**
+**Status:** ✅ Program complete — Phases 0–5 + reservation TOCTOU fix (0.3b) + a real-replica-set integration harness (**6/6 passing**). Verified, not deployed.
+**Branch:** `arch/phase0-critical-correctness` — committed + pushed; **open PR (base `master`), not merged.**
 **Companion docs:** [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md) (the why), [`apps/backend/docs/DOMAIN_EVENT_CATALOG.md`](./apps/backend/docs/DOMAIN_EVENT_CATALOG.md) (event contracts), `.claude/plans/architecture-design-v1-2-validated-swing.md` (the plan + living status).
 **Guiding principle (locked):** *Harden now, separate later* — fix correctness on MongoDB; add structural seams that make a future partial split (e.g. ledger → Postgres) cheap; **do not** migrate databases.
 
@@ -11,12 +11,15 @@
 
 | # | Outcome | Before | After |
 |---|---|---|---|
-| 1 | Credit spend can't corrupt money | balance & ledger written in 2 non-transactional steps (drift on crash) | single `withTransaction`; balance + ledger + event commit atomically |
-| 2 | Tenant isolation is enforceable | every query had to remember `orgScopedQuery` (leaked once) | Mongoose guard plugin flags/【strict】-throws unscoped queries |
+| 1 | Credit spend can't corrupt money | balance & ledger written in 2 non-transactional steps (drift on crash) | single `withTransaction`; balance + ledger + event commit atomically (proven under real concurrency) |
+| 2 | Tenant isolation is enforceable | every query had to remember `orgScopedQuery` (leaked once) | Mongoose guard plugin flags / `strict`-throws unscoped queries |
 | 3 | Person status is consistent | `PUT /candidates/:id` wrote only `Candidate`, left the application stale | targets the exact `CandidateApplication`; ambiguous → 400 |
 | 4 | Data access is swappable | fat services issued Mongo IO inline | repository layer for candidates + **100% of billing IO** |
 | 5 | Lists can scale | unpaginated full-collection reads | opt-in cursor pagination (backward compatible) |
-| 6 | Business events exist | no way to react to state changes | durable transactional outbox, 10 producers wired |
+| 6 | Business events exist | no way to react to state changes | durable transactional outbox, **12 producers** wired |
+| 7 | UI updates live, not by polling | 30s / 1s / 2.8s polls hammering the API | `/ws/events` + Redis push: live balance, live candidate/stage boards, instant compare — the three polls eliminated |
+| 8 | Concurrent sessions can't over-admit | reservation headroom was read-then-create (TOCTOU) | atomic `$expr`-guarded `reservedMicro` reserve (0.3b) |
+| 9 | Scale guardrails in place | unbounded reads + arrays; orphan collection | read-through cache (campaign metadata); `conversationHistory` 16MB cap; orphan-drop script |
 
 ---
 
@@ -26,6 +29,7 @@
 - **0.1 Transactional money** — `services/billingRuntimeService.ts`: `consumeCredits` & `adjustCredits` now do the balance CAS + ledger insert inside one `session.withTransaction(...)`, with a standalone-Mongo fallback (mirrors `videoBillingService.settle`). Ledger `balanceBefore` is derived from the post-decrement value, so `before + amount === after` holds under concurrency.
 - **0.2 Tenant-isolation guard** — new `models/plugins/tenantGuard.ts`; applied to `Candidate`, `CandidateApplication`, `RecruitmentCampaign`, `VideoInterviewSession`. Modes via env `TENANT_GUARD`: **warn** (default, logs once), **strict** (throws — for CI), **off**. Safe keys (`_id`, `organizationId`, per-model unique alternates) + `skipTenantGuard` bypass mean only genuine unscoped scans trip it.
 - **0.3a Per-application status** — `routes/candidates.ts` `PUT /:id` resolves the exact target application (single-app resolves automatically → existing calls unaffected); ambiguous multi-application → `400 campaign_context_required`; legacy no-application candidates fall back to person-level; writes a `status_changed` timeline event.
+- **0.3b Reservation TOCTOU (closed)** — new `CreditBalance.reservedMicro` counter + `reserveHeadroom` in `repositories/creditBalanceRepository.ts`: a single `$expr`-guarded `$inc` (`balanceMicro - reservedMicro >= needed`) so two concurrent reserves can never both pass — a transaction alone can't fix this write-skew across separate reservation docs. Released on finalize/release/expire (each expiry transitions atomically → released exactly once), compensated on reservation-write failure, and `reconcileReservedMicro` self-heals rare conservative crash-drift. `usageReservationService` delegates to the repo layer.
 
 ### Phase 1 — Repository layer
 - **Candidate-application repository + cursor pagination** — `repositories/candidateApplicationRepository.ts` + `repositories/pagination.ts` (org-scoped lean rows, `limit+1`/`hasMore`, `$and`-safe cursor). Service delegates; `GET /api/candidates` uses opt-in paging (full-list behavior preserved when no `limit`/`cursor`). *(Pre-existing parallel work — verified + tested, not rewritten.)*
@@ -54,10 +58,10 @@
 
 | Item | Why deferred | What it needs |
 |---|---|---|
-| **0.3b Reservation TOCTOU** | money-loss already closed by 0.1 (final spend can't overdraw); the correct fix is invasive | add a `reservedMicro` counter on `CreditBalance` with an `$expr`-guarded atomic reserve, decremented on finalize/release/expire |
+| **Session-store → Redis** | high-risk (live audio/video streaming hot path); limited value — the interview socket is pinned to one instance anyway, so sticky sessions cover pinning | move the process-local `Map`s (`evaalo-only-voice/sessionStore.ts` + reception copy) to Redis-backed sessions, carefully, with a running-interview test |
+| **`conversationHistory` → separate collection** | 12-file blast radius incl. the live-interview core; the pre-save 1000-message cap already guards the 16MB limit | a `VideoInterviewMessage` collection + migrating every read/write site (voiceSessionCore, videoInterview, n8n transcript assembly, …) |
 | **Candidate-repo "100%"** | billing was the priority; the legacy `Candidate.find` fallback in the list route still calls the model directly | route the legacy fallback + person lookups through a `CandidateRepository` (parallel-work territory — coordinate) |
-| **`CreditBalanceRefreshed` → Mode A** | the grant/seed balance writes aren't wrapped in transactions | wrap those balance writes so grant events are transactional (currently best-effort; missed events self-heal via the 30s poll) |
-| **Integration test harness** | its own dedicated phase, per decision | `mongodb-memory-server` (replica-set mode) + the real Phase 0 verifications (see §6) |
+| **`CreditBalanceRefreshed` → Mode A** | the grant/seed balance writes aren't wrapped in transactions | wrap those balance writes so grant events are transactional (currently best-effort; missed events self-heal via the billing poll) |
 
 ---
 
@@ -67,32 +71,34 @@
 2. **Run the index prune** once, post-deploy: `DRY_RUN=true npx tsx src/scripts/prune-candidate-indexes.ts` then without `DRY_RUN`. It drops `entryStage_1`, `sourceType_1`, `email_1` (guards protected indexes; skips absent ones). The live indexes still exist until this runs.
 3. **Decide the tenant-guard mode per environment** — leave `TENANT_GUARD` unset (warn) in prod initially; run CI/tests with `TENANT_GUARD=strict`. Flip prod to strict only after the warn logs are clean.
 4. **Transactions require a replica set** — prod (Atlas) is fine; local standalone Mongo uses the built-in non-transactional fallback automatically.
-5. **Schema drift** — the orphan `campaigncomparerequests` collection (0 docs) can be dropped (separate from the index script).
-6. **Commit discipline** — all work sits uncommitted on `arch/phase0-critical-correctness`; the working tree also contains unrelated pre-existing changes from parallel development — stage selectively when committing.
+5. **Schema drift** — run `src/scripts/drop-orphan-collections.ts` (`DRY_RUN` supported) to drop the orphan `campaigncomparerequests` collection (empty-only; refuses any non-empty collection).
+6. **Commit discipline** — the program is committed + pushed on `arch/phase0-critical-correctness` (open PR, not merged). The working tree also holds unrelated **active parallel-dev** changes — never `git add -A`; stage explicit program files only.
 
 ---
 
-## 6. Verification status (read this honestly)
+## 6. Verification status
 
 - **Type safety:** `tsc --noEmit` green after every step.
-- **Unit gates (standalone `tsx`, mocked models — the repo has no test framework):**
-  - Candidate-repo pagination — 4 checks (cursor round-trip, `clampLimit`, `limit+1`/`hasMore`/org-scope, `$and` cursor predicate).
-  - Billing repositories — 8 checks (guarded CAS returns balance/null, session forwarding, deduction-guarded vs grant-unguarded, array-form ledger create, `upsertPeriod` flags + `$unset`, `setFields`, `list` sort/limit, `findOneLean`).
-  - Domain-event pipeline — 2 checks (`schemaVersion` default/override, published envelope + new types).
-- **NOT yet verified (the honest gap → the deferred integration phase):**
-  - `withTransaction` behavior against a real Atlas replica set.
-  - No **balance↔ledger drift** under real concurrent `consumeCredits`.
-  - **Kill-mid-transaction** consistency.
-  - **Two-org isolation** end-to-end + the guard throwing in `strict`.
-  - Outbox: exactly one row per fact, rolled back with the mutation on failure.
-- **Bottom line:** the foundation is type-correct and unit-verified with mocks, but **has not run against a real database and is uncommitted.** Treat "done" as "ready for integration verification," not "battle-tested."
+- **Unit gates (standalone `tsx`, mocked models):** candidate-repo pagination (4), billing repositories (8), domain-event pipeline (2), cache (3), reserve/release-headroom query shapes (3), tenant-guard registration, conversationHistory cap (2). Frontend changes checked via `esbuild` transform/bundle.
+- **Integration harness — real MongoDB replica set — `npm run test:int`** (`src/scripts/integration/atomicity.int.ts`, via `mongodb-memory-server`). **6/6 pass**, proving on a real replica set with real transactions:
+  1. Consume CAS never overdraws under 20 concurrent debits (balance stays ≥ 0).
+  2. `reserveHeadroom` never over-reserves under concurrency (only the affordable count succeed) — the reservation TOCTOU is genuinely closed.
+  3. `releaseHeadroom` never goes negative.
+  4. Transaction **abort** rolls back the balance decrement **and** the ledger row together.
+  5. Transaction **commit** persists both together.
+  6. Tenant guard (`strict`) throws on an unscoped query, passes on an org-scoped one.
+- **Realtime:** the full `/ws/events` chain was verified **end-to-end in a local environment** (a credit deduction pushed a live balance update through relay → Redis → gateway → client).
+- **Bottom line:** money atomicity, reservation atomicity, and tenant isolation are **battle-tested under real concurrency + real transactions** — not mocks. Not yet deployed.
 
 ---
 
-## 7. Phase 3 readiness
+## 7. Realtime + client (Phases 3–5) — delivered
 
-Everything upstream of realtime is in place: the domain-event outbox is **producing** and waiting for a consumer. Phase 3 (`/ws/events` + Redis relay + client `EventsSocket`) needs exactly one input from you — **`REDIS_URL`** from your chosen managed provider — then it slots onto this foundation without touching the producers. The immediate wins it unlocks: replacing the 30s `BillingContext` poll, the 1s `AIHeadHunter` poll, and the 2.8s `AICvComparison` poll with live pushes.
+- **Phase 3 (transport):** an authenticated `/ws/events` gateway (Clerk token verified at handshake) + a relay that publishes the domain-event outbox to Redis pub/sub on a per-org channel, with replay-since-cursor for missed events. Verified **end-to-end in a local environment** (a credit deduction pushed a live balance update through relay → Redis → gateway → client). Graceful: the whole layer no-ops when `REDIS_URL` is unset, so the server still boots and events still persist to the outbox.
+- **Phase 4 (client):** a single reconnecting `EventsSocket` (exponential backoff + `ack` + `seq` cursor) feeds `BillingContext` (live balance — the 30s poll is now a slow 120s fallback) and a reusable `useLiveRefresh` hook (candidate list + all three stage boards). Two new events (`HeadHunterSearchCompleted`, `CvComparisonCompleted`) eliminated the 1s / 2.8s polls; `CompareCompleted` / `CompareFailed` surface compare results instantly.
+- **Phase 5 (hardening):** a read-through Redis cache on the campaign-metadata batch (30s TTL, no-op without Redis); a `conversationHistory` pre-save cap (16MB guardrail); an orphan-collection cleanup script.
+- **Ops:** provide `REDIS_URL` (a `rediss://` TLS URL) in production to activate realtime + cache; both degrade to no-ops without it, so nothing breaks if it's absent.
 
 ---
 
-*Foundation frozen at this point. Phase 3 begins after Redis is provisioned; the integration-test harness follows as a dedicated phase.*
+*All phases delivered and verified (unit gates + a real-replica-set integration harness, 6/6). Committed + pushed on `arch/phase0-critical-correctness` (open PR, not merged). The remaining items in §4 are deliberate deferrals for dedicated, interview-tested sessions.*

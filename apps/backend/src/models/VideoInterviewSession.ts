@@ -252,6 +252,22 @@ VideoInterviewSessionSchema.methods.cancelSession = function(): void {
     this.updatedAt = new Date();
 };
 
+// Safety cap (Phase 5): real interviews are well under 100 messages, but a runaway or
+// abusive session could grow conversationHistory toward the 16MB document limit. On
+// save, trim to the most recent messages (recent context matters most for evaluation).
+// This is a guardrail — the full move to a separate messages collection is a follow-up.
+const MAX_CONVERSATION_MESSAGES = 1000;
+VideoInterviewSessionSchema.pre('save', function (next) {
+    const hist = this.conversationHistory;
+    if (Array.isArray(hist) && hist.length > MAX_CONVERSATION_MESSAGES) {
+        this.conversationHistory = hist.slice(-MAX_CONVERSATION_MESSAGES);
+        console.warn(
+            `[video-session] conversationHistory capped to ${MAX_CONVERSATION_MESSAGES} for session ${this.sessionId}`,
+        );
+    }
+    next();
+});
+
 // Tenant-isolation guard. `sessionId` (unique) and `candidateId` (person-scoped)
 // are safe single-tenant lookups used by the interview/billing flows.
 VideoInterviewSessionSchema.plugin(tenantGuardPlugin, { safeKeys: ['sessionId', 'candidateId'] });

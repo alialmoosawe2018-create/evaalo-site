@@ -74,6 +74,67 @@ export async function adjustGuarded(
     return updated ? updated.balanceMicro : null;
 }
 
+/**
+ * Atomically hold reservation headroom: increments `reservedMicro` ONLY if the
+ * available headroom (`balanceMicro - reservedMicro`) covers `micro`. This single
+ * `$expr`-guarded update is what closes the reservation TOCTOU — two concurrent
+ * reserves cannot both pass. Returns true when the hold was placed.
+ */
+export async function reserveHeadroom(
+    organizationId: string,
+    micro: number,
+    session?: Session,
+): Promise<boolean> {
+    if (micro <= 0) return true;
+    const updated = await CreditBalance.findOneAndUpdate(
+        {
+            organizationId,
+            $expr: {
+                $gte: [{ $subtract: ['$balanceMicro', { $ifNull: ['$reservedMicro', 0] }] }, micro],
+            },
+        },
+        { $inc: { reservedMicro: micro } },
+        { new: true, ...opt(session) },
+    ).exec();
+    return updated != null;
+}
+
+/** Release a previously-held reservation (finalize / release / expire). Floors at 0
+ *  via a pipeline update so double-release or drift can never go negative. */
+export async function releaseHeadroom(
+    organizationId: string,
+    micro: number,
+    session?: Session,
+): Promise<void> {
+    if (micro <= 0) return;
+    await CreditBalance.updateOne(
+        { organizationId },
+        [
+            {
+                $set: {
+                    reservedMicro: {
+                        $max: [0, { $subtract: [{ $ifNull: ['$reservedMicro', 0] }, micro] }],
+                    },
+                },
+            },
+        ],
+        opt(session),
+    ).exec();
+}
+
+/** Set the reservedMicro counter to an authoritative value (reconciliation). */
+export async function setReservedMicro(
+    organizationId: string,
+    micro: number,
+    session?: Session,
+): Promise<void> {
+    await CreditBalance.updateOne(
+        { organizationId },
+        { $set: { reservedMicro: Math.max(0, Math.floor(micro)) } },
+        opt(session),
+    ).exec();
+}
+
 /** Grant persisted (video packs) — separate from the credit balance. */
 export async function addPurchasedVideoSeconds(
     organizationId: string,
