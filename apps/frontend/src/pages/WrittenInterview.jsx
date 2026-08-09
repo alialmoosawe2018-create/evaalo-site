@@ -47,6 +47,8 @@ const WrittenInterview = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, hire, consider, reject
     const [expandedRows, setExpandedRows] = useState(new Set());
+    /** أقرب لحظة تنتهي فيها مهلة انتظار تقييم مرشح مخفي (ms epoch)، أو null */
+    const [analysisReleaseAt, setAnalysisReleaseAt] = useState(null);
 
     // AI Compare Top (مستقل عن باقي الـ webhooks)
     const [aiCompareModalOpen, setAiCompareModalOpen] = useState(false);
@@ -116,6 +118,14 @@ const WrittenInterview = () => {
         ['ScreeningEvaluationCompleted', 'CandidateStatusChanged', 'CandidateApplied'],
         () => fetchCandidates({ background: true }),
     );
+
+    // تعذّر التقييم لا يُصدر حدثاً، فنُعيد الحساب عند انتهاء المهلة لكشف المرشح المخفي.
+    useEffect(() => {
+        if (analysisReleaseAt == null) return undefined;
+        const delay = Math.max(0, analysisReleaseAt - Date.now()) + 1000;
+        const timerId = setTimeout(() => fetchCandidates({ background: true }), delay);
+        return () => clearTimeout(timerId);
+    }, [analysisReleaseAt]);
 
     const selectedCampaignId = selectedGroup?.campaignId ?? null;
 
@@ -282,7 +292,8 @@ const WrittenInterview = () => {
             const result = await apiClient.get('/api/candidates');
             
             if (result.success && result.data) {
-                const { evaluated, pending } = splitScreeningCandidates(result.data);
+                const { evaluated, pending, nextReleaseAt } = splitScreeningCandidates(result.data);
+                setAnalysisReleaseAt(nextReleaseAt);
                 const campaignIds = collectCampaignIdsFromCandidates(evaluated, pending);
 
                 const metaByCampaignId = {};
@@ -309,6 +320,7 @@ const WrittenInterview = () => {
                 setCampaignGroups(groups);
             } else {
                 console.warn('⚠️ No candidates data received');
+                setAnalysisReleaseAt(null);
                 setCampaignGroups({ active: [], uncategorized: null });
             }
         } catch (error) {
@@ -1019,14 +1031,14 @@ const WrittenInterview = () => {
                                                                 display: 'inline-block',
                                                                 padding: '5px 10px',
                                                                 borderRadius: '6px',
-                                                                background: 'rgba(245, 158, 11, 0.2)',
-                                                                border: '1px solid rgba(245, 158, 11, 0.4)',
-                                                                color: '#FBBF24',
+                                                                background: 'rgba(239, 68, 68, 0.18)',
+                                                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                                                color: '#F87171',
                                                                 fontWeight: 600,
                                                                 fontSize: '12px',
                                                                 lineHeight: 1.15,
                                                             }}>
-                                                                {t('writtenInterviewStatusPending')}
+                                                                {t('writtenInterviewStatusAnalysisStalled')}
                                                             </div>
                                                         )}
                                                     </div>

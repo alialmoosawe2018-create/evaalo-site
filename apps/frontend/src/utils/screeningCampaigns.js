@@ -14,18 +14,43 @@ export function isHiddenFromStage(c, stage) {
     return Array.isArray(list) && list.includes(stage);
 }
 
-export function splitScreeningCandidates(allCandidates) {
+/**
+ * مهلة انتظار تقييم n8n قبل إظهار المرشح بلا تحليل.
+ * خلال المهلة يبقى الصف مخفياً تماماً حتى تظهر البطاقة كاملة (صورة + وظيفة + نتيجة) مرة واحدة.
+ */
+export const SCREENING_ANALYSIS_GRACE_MS = 90 * 1000;
+
+/** اللحظة التي يُسمح فيها بإظهار مرشح بلا تقييم، أو null إذا تعذّر تحديد وقت تقديمه. */
+function analysisReleaseAt(c) {
+    const raw = c?.createdAt;
+    if (!raw) return null;
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? t + SCREENING_ANALYSIS_GRACE_MS : null;
+}
+
+/**
+ * `nextReleaseAt` = أقرب لحظة ينتهي فيها إخفاء مرشح، لتجديد الحساب بلا استطلاع دوري
+ * (حدث `ScreeningEvaluationCompleted` لا يصل إذا فشل التحليل).
+ */
+export function splitScreeningCandidates(allCandidates, now = Date.now()) {
     const evaluated = [];
     const pending = [];
+    let nextReleaseAt = null;
     for (const c of allCandidates) {
         if (isHiddenFromStage(c, 'screening')) continue;
         if (hasMeaningfulStageEvaluation(c.writtenInterviewEvaluation)) {
             evaluated.push(c);
-        } else if (isScreeningCandidate(c) && Array.isArray(c.files) && c.files.length > 0) {
-            pending.push(c);
+            continue;
         }
+        if (!isScreeningCandidate(c) || !Array.isArray(c.files) || c.files.length === 0) continue;
+        const releaseAt = analysisReleaseAt(c);
+        if (releaseAt != null && releaseAt > now) {
+            if (nextReleaseAt == null || releaseAt < nextReleaseAt) nextReleaseAt = releaseAt;
+            continue;
+        }
+        pending.push(c);
     }
-    return { evaluated, pending };
+    return { evaluated, pending, nextReleaseAt };
 }
 
 function campaignKeyFromCandidate(c) {

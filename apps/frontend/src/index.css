@@ -16167,6 +16167,30 @@ button:focus {
     color: #0f172a;
 }
 
+.legal-page-shell--agent .pricing-card__cta-inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.legal-page-shell--agent .pricing-card__cta-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    flex-shrink: 0;
+    opacity: 0.85;
+    animation: pricingCardCtaSpin 0.7s linear infinite;
+}
+
+@keyframes pricingCardCtaSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .legal-page-shell--agent .pricing-card--featured .pricing-card__cta.btn-primary {
     width: 100%;
     margin-top: auto;

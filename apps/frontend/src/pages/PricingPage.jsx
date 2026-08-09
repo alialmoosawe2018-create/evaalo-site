@@ -108,6 +108,7 @@ function PricingPlanCta({ tier, featured, t }) {
                 <button
                     type="button"
                     disabled={loading}
+                    aria-busy={loading}
                     onClick={startCheckout}
                     className={
                         featured
@@ -115,7 +116,10 @@ function PricingPlanCta({ tier, featured, t }) {
                             : 'pricing-card__cta'
                     }
                 >
-                    {loading ? '…' : t('pricing_cta_subscribe')}
+                    <span className="pricing-card__cta-inner">
+                        {loading ? <span className="pricing-card__cta-spinner" aria-hidden /> : null}
+                        {t('pricing_cta_subscribe')}
+                    </span>
                 </button>
                 {alreadyOnPlan ? (
                     <p className="pricing-card__cta-note" style={{ marginTop: 8, fontSize: 12, color: '#9ca3af' }}>

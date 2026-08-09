@@ -239,26 +239,46 @@ export default function PositionSuggestCombobox({
 
     const listScrollRef = useRef(null);
     const sectionRefs = useRef(new Map());
+    const scrollSyncRaf = useRef(null);
+    const activeSectionLabelRef = useRef('');
     const [activeSectionLabel, setActiveSectionLabel] = useState('');
 
-    const syncActiveSectionFromScroll = useCallback(() => {
+    const resolveActiveSectionLabel = useCallback(() => {
         const el = listScrollRef.current;
-        if (!el || !groupedBySection?.length) return;
+        if (!el || !groupedBySection?.length) return '';
         const y = el.scrollTop + 10;
         let current = groupedBySection[0];
         for (const group of groupedBySection) {
             const node = sectionRefs.current.get(group.section);
             if (node && node.offsetTop <= y) current = group;
         }
-        setActiveSectionLabel(current.label);
+        return current.label;
     }, [groupedBySection]);
+
+    const syncActiveSectionFromScroll = useCallback(() => {
+        const nextLabel = resolveActiveSectionLabel();
+        if (!nextLabel || nextLabel === activeSectionLabelRef.current) return;
+        activeSectionLabelRef.current = nextLabel;
+        setActiveSectionLabel(nextLabel);
+    }, [resolveActiveSectionLabel]);
+
+    const handleListScroll = useCallback(() => {
+        if (scrollSyncRaf.current != null) return;
+        scrollSyncRaf.current = requestAnimationFrame(() => {
+            scrollSyncRaf.current = null;
+            syncActiveSectionFromScroll();
+        });
+    }, [syncActiveSectionFromScroll]);
 
     useEffect(() => {
         if (!showMenu || !groupedBySection?.length) {
+            activeSectionLabelRef.current = '';
             setActiveSectionLabel('');
             return;
         }
-        setActiveSectionLabel(groupedBySection[0].label);
+        const initialLabel = groupedBySection[0].label;
+        activeSectionLabelRef.current = initialLabel;
+        setActiveSectionLabel(initialLabel);
         const el = listScrollRef.current;
         if (el) el.scrollTop = 0;
     }, [showMenu, groupedBySection]);
@@ -267,6 +287,16 @@ export default function PositionSuggestCombobox({
         if (!showMenu) return;
         syncActiveSectionFromScroll();
     }, [showMenu, groupedBySection, syncActiveSectionFromScroll]);
+
+    useEffect(
+        () => () => {
+            if (scrollSyncRaf.current != null) {
+                cancelAnimationFrame(scrollSyncRaf.current);
+                scrollSyncRaf.current = null;
+            }
+        },
+        []
+    );
 
     const clearCloseTimer = () => {
         if (blurCloseTimer.current) {
@@ -436,7 +466,7 @@ export default function PositionSuggestCombobox({
                     <div
                         className="position-suggest-dropdown-scroll"
                         ref={listScrollRef}
-                        onScroll={groupedBySection ? syncActiveSectionFromScroll : undefined}
+                        onScroll={groupedBySection ? handleListScroll : undefined}
                     >
                         {useOptionsMode
                             ? groupedBySection
