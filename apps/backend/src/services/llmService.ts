@@ -840,6 +840,13 @@ function getPhaseReminderOrNull(context: LLMContext): string | null {
           );
 }
 
+/**
+ * المتابعة مسموحة فقط عبر مسار `followUpNext` المحكوم بالعدّاد في `interviewState`.
+ * بدون هذه القاعدة كان الموديل يتعمّق في الإجابة السابقة من تلقائه فتتجاوز المتابعات السقف.
+ */
+const NO_FOLLOW_UP_RULE =
+    '\n\nCRITICAL: Ask a NEW interview question. Do NOT ask a follow-up, probe, or any deeper question about the answer the candidate just gave. Move to the next subject.';
+
 function buildUserContent(transcript: string, context: LLMContext, phaseReminder: string | null): string {
     if (context.clarificationRequested) {
         return `Candidate said: ${transcript}\n\nThey asked for clarification. Rephrase the same question in simpler words only. No apology. No "sorry for confusion" or Arabic equivalents. No "أقصد" preface. Output only the clearer question.`;
@@ -851,20 +858,20 @@ function buildUserContent(transcript: string, context: LLMContext, phaseReminder
     }
     if (context.selectedQuestion?.availableTopics?.length) {
         return phaseReminder
-            ? `${phaseReminder}\n\nCandidate said: ${transcript}\n\nChoose the most relevant topic and ask a natural question. Do NOT say "the topic is X" — just ask directly.`
-            : `Candidate said: ${transcript}\n\nChoose the most relevant topic and ask a natural question. Do NOT say "the topic is X" — just ask directly.`;
+            ? `${phaseReminder}\n\nCandidate said: ${transcript}\n\nChoose the most relevant topic and ask a natural question. Do NOT say "the topic is X" — just ask directly.${NO_FOLLOW_UP_RULE}`
+            : `Candidate said: ${transcript}\n\nChoose the most relevant topic and ask a natural question. Do NOT say "the topic is X" — just ask directly.${NO_FOLLOW_UP_RULE}`;
     }
     if (context.selectedQuestion?.topic) {
         return phaseReminder
-            ? `${phaseReminder}\n\nCandidate said: ${transcript}\n\nAsk a question about: ${context.selectedQuestion.topic}.`
-            : `Candidate said: ${transcript}\n\nAsk a question about: ${context.selectedQuestion.topic}.`;
+            ? `${phaseReminder}\n\nCandidate said: ${transcript}\n\nAsk a question about: ${context.selectedQuestion.topic}.${NO_FOLLOW_UP_RULE}`
+            : `Candidate said: ${transcript}\n\nAsk a question about: ${context.selectedQuestion.topic}.${NO_FOLLOW_UP_RULE}`;
     }
     if (context.selectedQuestion?.text) {
-        return `Candidate answered. Rephrase and ask: ${context.selectedQuestion.text}`;
+        return `Candidate answered. Rephrase and ask: ${context.selectedQuestion.text}${NO_FOLLOW_UP_RULE}`;
     }
     return phaseReminder
-        ? `${phaseReminder}\n\nCandidate said: ${transcript}`
-        : `Candidate said: ${transcript}`;
+        ? `${phaseReminder}\n\nCandidate said: ${transcript}${NO_FOLLOW_UP_RULE}`
+        : `Candidate said: ${transcript}${NO_FOLLOW_UP_RULE}`;
 }
 
 function buildEarlyEnglishUserAppend(): string {

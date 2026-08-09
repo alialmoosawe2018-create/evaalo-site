@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import type { WebSocket } from "ws";
 import { createRateLimiter } from "./rateLimiter.js";
 import { createSession, removeSession, touchSession, updateState } from "./sessionStore.js";
-import { createInterviewState, getInterviewState, removeInterviewState, onExchangeComplete } from "./interviewState.js";
+import { createInterviewState, getInterviewState, removeInterviewState, onExchangeComplete, FOLLOW_UP_MAX_PER_INTERVIEW, FOLLOW_UP_MIN_GAP_TURNS } from "./interviewState.js";
 import { getControllerOutput } from "./interviewController.js";
 import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair } from "./questionEngine.js";
 import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
@@ -706,12 +706,26 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         .map((m) => m.content)
         .slice(-2);
 
-      // المتابعة: مرة واحدة لكل سؤال — عند ذكر تحدي (بعد المتابعة نعيد للصفر للسؤال التالي)
-      const currentFollowUp = changeRequested || clarificationRequested ? 0 : (interviewState?.followUpCount ?? 0);
-      let followUpNext: 1 | undefined;
-      const allowFollowUp = userMessageCount >= 2;
-      if (allowFollowUp && currentFollowUp === 0 && intent === 'challenge') followUpNext = 1;
-      else followUpNext = undefined;
+      // المتابعة — قواعد صارمة: سقف FOLLOW_UP_MAX_PER_INTERVIEW للمقابلة كلها، وفاصل
+      // FOLLOW_UP_MIN_GAP_TURNS أدوار (سؤالان عاديان) بين متابعتين. طلب التوضيح أو تغيير
+      // السؤال لا يمنح متابعة إضافية ولا يعيد ضبط العدّادات.
+      const turnIndex = userMessageCount + 1;
+      const followUpsUsed = interviewState?.totalFollowUps ?? 0;
+      const lastFollowUpTurn = interviewState?.lastFollowUpTurn ?? -FOLLOW_UP_MIN_GAP_TURNS;
+      const followUpBudgetLeft = followUpsUsed < FOLLOW_UP_MAX_PER_INTERVIEW;
+      const followUpGapOk = turnIndex - lastFollowUpTurn >= FOLLOW_UP_MIN_GAP_TURNS;
+      const allowFollowUp =
+        userMessageCount >= 2 &&
+        !changeRequested &&
+        !clarificationRequested &&
+        followUpBudgetLeft &&
+        followUpGapOk;
+      const followUpNext: 1 | undefined = allowFollowUp && intent === 'challenge' ? 1 : undefined;
+      if (intent === 'challenge' && !followUpNext) {
+        console.log(
+          `[FOLLOW-UP BLOCKED] ${sessionId.substring(0, 8)}... used=${followUpsUsed}/${FOLLOW_UP_MAX_PER_INTERVIEW} turn=${turnIndex} lastAt=${lastFollowUpTurn} budget=${followUpBudgetLeft} gap=${followUpGapOk}`
+        );
+      }
 
       let selectedQuestion: ReturnType<typeof selectNextQuestion>;
 
@@ -866,10 +880,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       history.push({ role: "user", content: cleaned });
       history.push({ role: "assistant", content: llmReply });
       conversationHistory.set(sessionId, history);
-      const nextFollowUpCount: 0 | 1 | undefined = changeRequested ? 0
-        : followUpNext ? 1
-        : currentFollowUp >= 1 ? 0
-        : undefined;
+      const nextFollowUpCount: 0 | 1 = followUpNext ? 1 : 0;
       const topicUsed = followUpNext ? undefined
         : selectedQuestion?.topic
         ? selectedQuestion.topic
@@ -882,6 +893,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         poolUsed: clarificationRequested || followUpNext ? undefined : selectedQuestion?.pool,
         topicUsed: isVoiceTopicMemoryEnabled() ? topicUsed : undefined,
         followUpCount: nextFollowUpCount,
+        followUpAsked: followUpNext === 1,
       });
 
       await speakAgentReply(llmReply, { endSession: selectedQuestion?.isInterviewEnd === true });

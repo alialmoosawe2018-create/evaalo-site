@@ -28,9 +28,20 @@ export interface InterviewState {
   englishTestAnnounced: boolean;
   /** المتابعة: 0=لا متابعة لهذا السؤال، 1=تمت المتابعة — حد أقصى متابعة واحدة لكل سؤال */
   followUpCount: 0 | 1;
+  /** إجمالي المتابعات في المقابلة كلها — سقف صارم `FOLLOW_UP_MAX_PER_INTERVIEW` */
+  totalFollowUps: number;
+  /** رقم دور المرشح الذي طُرحت فيه آخر متابعة — يفرض فاصل `FOLLOW_UP_MIN_GAP_TURNS` */
+  lastFollowUpTurn: number;
   /** Topic Memory: المواضيع التي تم طرحها — منع التكرار */
   askedTopics: string[];
 }
+
+/** سقف المتابعات للمقابلة الواحدة */
+export const FOLLOW_UP_MAX_PER_INTERVIEW = 5;
+/** أدنى فاصل بين متابعتين بالأدوار: 3 = سؤالان عاديان بينهما */
+export const FOLLOW_UP_MIN_GAP_TURNS = 3;
+/** قيمة أولية تضمن السماح بأول متابعة دون قيد الفاصل */
+const NO_FOLLOW_UP_YET = -FOLLOW_UP_MIN_GAP_TURNS;
 
 const stateStore = new Map<string, InterviewState>();
 
@@ -48,6 +59,8 @@ export function createInterviewState(sessionId: string): InterviewState {
     englishTestAnnounced: false,
     askedTopics: [],
     followUpCount: 0,
+    totalFollowUps: 0,
+    lastFollowUpTurn: NO_FOLLOW_UP_YET,
   };
   stateStore.set(sessionId, state);
   return state;
@@ -76,7 +89,15 @@ export function onExchangeComplete(
   sessionId: string,
   _assistantReply: string,
   previousUserCount: number,
-  options?: { mandatoryQuestion1Asked?: boolean; mandatoryQuestion2Asked?: boolean; poolUsed?: number; topicUsed?: string; followUpCount?: 0 | 1 }
+  options?: {
+    mandatoryQuestion1Asked?: boolean;
+    mandatoryQuestion2Asked?: boolean;
+    poolUsed?: number;
+    topicUsed?: string;
+    followUpCount?: 0 | 1;
+    /** true عندما يكون رد هذا الدور متابعة — يرفع العدّاد الكلي ويثبّت الفاصل */
+    followUpAsked?: boolean;
+  }
 ): InterviewState | undefined {
   const state = stateStore.get(sessionId);
   if (!state) return undefined;
@@ -101,6 +122,10 @@ export function onExchangeComplete(
   }
   if (options?.followUpCount !== undefined) {
     state.followUpCount = options.followUpCount;
+  }
+  if (options?.followUpAsked) {
+    state.totalFollowUps = (state.totalFollowUps ?? 0) + 1;
+    state.lastFollowUpTurn = newUserCount;
   }
 
   // تحديد المرحلة من userMessageCount (منطق حتمي)

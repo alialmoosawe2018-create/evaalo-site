@@ -62,10 +62,17 @@ export function isChangeQuestionRequest(transcript: string): boolean {
   );
 }
 
+/** أدنى عدد كلمات في إجابة المرشح ليُعتد بها كموقف قابل للمتابعة */
+const CHALLENGE_MIN_WORDS = 15;
+
 /** STAR Probing: كشف ذكر المرشح لتحدي أو موقف صعب */
 export function isChallengeMention(transcript: string): boolean {
   const t = transcript.trim().toLowerCase();
-  return /(تحدي|تحديات|موقف|مواقف|مشكلة|مشاكل|صعب|صعبة|مو\s+سهل|ضغط|ضغط\s+وقت|واجهت|واجهنا|صار|صارلي|مريت|كدرت|قدرت|challenge|situation|problem|issue|difficulty|faced|struggled|difficult|hard|pressure)/i.test(
+  if (!t) return false;
+  // إجابة قصيرة لا تحمل موقفاً يستحق التعمّق — تمنع المتابعة على عبارات عابرة.
+  if (t.split(/\s+/).filter(Boolean).length < CHALLENGE_MIN_WORDS) return false;
+  // الكلمات العامة (صار/قدرت/كدرت/hard/difficult) مستبعدة: تَرِد في كلام عادي ولا تدل على تحدٍّ.
+  return /(تحدي|تحديات|موقف|مواقف|مشكلة|مشاكل|صعوبة|مو\s+سهل|ضغط|واجهت|واجهنا|مريت|challenge|situation|problem|issue|difficulty|faced|struggled|pressure)/i.test(
     t
   );
 }
