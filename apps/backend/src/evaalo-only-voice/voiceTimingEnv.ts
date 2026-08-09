@@ -30,7 +30,7 @@ export function getVoiceVadSettings(): {
     pcmStreamingMinRms: n(process.env.VOICE_PCM_MIN_RMS, 48, 0, 4000),
     batchEnergyRms: n(process.env.VOICE_BATCH_ENERGY_RMS, 175, 50, 4000),
     vadCheckIntervalMs: n(process.env.VOICE_VAD_CHECK_INTERVAL_MS, 350, 100, 2000),
-    speechmaticsMaxDelaySec: n(process.env.VOICE_SPEECHMATICS_MAX_DELAY_SEC, 0.85, 0.2, 2.5),
+    speechmaticsMaxDelaySec: n(process.env.VOICE_SPEECHMATICS_MAX_DELAY_SEC, 1.35, 0.2, 2.5),
   };
 }
 
