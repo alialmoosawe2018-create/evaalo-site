@@ -1,7 +1,7 @@
 # Evaalo — Architecture Improvement Program: Final Summary
 
 **Status:** ✅ Program complete — Phases 0–5 + reservation TOCTOU fix (0.3b) + a real-replica-set integration harness (**6/6 passing**). Verified, not deployed.
-**Branch:** `arch/phase0-critical-correctness` — committed + pushed; **open PR (base `master`), not merged.**
+**Merged to `master`** (base `master`) in two PRs: **PR #1 `19dd3a0`** (phases 0–5 core + poll elimination + cache) then **PR #2 `f7a0ff9`** (reservation TOCTOU fix + `conversationHistory` cap + integration harness + docs, pushed after #1 merged). `master` tip `f7a0ff9`; branch `arch/phase0-critical-correctness` fully landed. Verified, **not yet deployed**.
 **Companion docs:** [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md) (the why), [`apps/backend/docs/DOMAIN_EVENT_CATALOG.md`](./apps/backend/docs/DOMAIN_EVENT_CATALOG.md) (event contracts), `.claude/plans/architecture-design-v1-2-validated-swing.md` (the plan + living status).
 **Guiding principle (locked):** *Harden now, separate later* — fix correctness on MongoDB; add structural seams that make a future partial split (e.g. ledger → Postgres) cheap; **do not** migrate databases.
 
@@ -72,7 +72,7 @@
 3. **Decide the tenant-guard mode per environment** — leave `TENANT_GUARD` unset (warn) in prod initially; run CI/tests with `TENANT_GUARD=strict`. Flip prod to strict only after the warn logs are clean.
 4. **Transactions require a replica set** — prod (Atlas) is fine; local standalone Mongo uses the built-in non-transactional fallback automatically.
 5. **Schema drift** — run `src/scripts/drop-orphan-collections.ts` (`DRY_RUN` supported) to drop the orphan `campaigncomparerequests` collection (empty-only; refuses any non-empty collection).
-6. **Commit discipline** — the program is committed + pushed on `arch/phase0-critical-correctness` (open PR, not merged). The working tree also holds unrelated **active parallel-dev** changes — never `git add -A`; stage explicit program files only.
+6. **Commit discipline** — the program is merged to `master` (PR #1 `19dd3a0` + PR #2 `f7a0ff9`) off `arch/phase0-critical-correctness`. The working tree also holds unrelated **active parallel-dev** changes — never `git add -A`; stage explicit program files only.
 
 ---
 
@@ -101,4 +101,4 @@
 
 ---
 
-*All phases delivered and verified (unit gates + a real-replica-set integration harness, 6/6). Committed + pushed on `arch/phase0-critical-correctness` (open PR, not merged). The remaining items in §4 are deliberate deferrals for dedicated, interview-tested sessions.*
+*All phases delivered and verified (unit gates + a real-replica-set integration harness, 6/6), and merged to `master` (PR #1 `19dd3a0` + PR #2 `f7a0ff9`). The remaining items in §4 are deliberate deferrals for dedicated, interview-tested sessions.*
