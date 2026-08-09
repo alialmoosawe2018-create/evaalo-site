@@ -1509,7 +1509,7 @@ export const translations = {
         applyNow: "ابدأ الآن مجاناً",
         learnMore: "اعرف المزيد",
         applicationProcess: "كيف يعمل ایڤالو",
-        navWhyUsMobile: "لماذا evaalo",
+        navWhyUsMobile: "لماذا ایڤالو",
         navHowWorkMobile: "كيف يعمل",
         navWhyUsTablet: "لماذا نحن",
         navHowWorkTablet: "كيف يعمل",

@@ -3246,6 +3246,94 @@ body.rtl-text .nav-product-option .language-name .evaalo-text-en {
         box-shadow: inset 3px 0 0 #a78bfa;
     }
 
+    /* Mobile language — matches other nav-link rows */
+    .nav-links-mobile .nav-mobile-lang-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        width: 100%;
+    }
+
+    .nav-links-mobile .nav-mobile-lang-toggle {
+        width: 100%;
+        border: 1px solid transparent;
+        background: transparent;
+        cursor: pointer;
+        text-align: start;
+        font: inherit;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .nav-links-mobile .nav-mobile-lang-toggle.is-open .dropdown-arrow {
+        transform: rotate(180deg);
+    }
+
+    .nav-links-mobile .nav-mobile-lang-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: 4px 0 2px;
+        padding: 4px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+
+    .nav-links-mobile .nav-mobile-lang-list__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        min-height: 46px;
+        padding: 11px 14px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: #f8fafc;
+        font-size: 15px;
+        font-weight: 500;
+        line-height: 1.35;
+        cursor: pointer;
+        text-align: start;
+        box-sizing: border-box;
+        transition: background 0.16s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .nav-links-mobile .nav-mobile-lang-list__name {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .nav-links-mobile .nav-mobile-lang-list__item[data-lang="en"] .nav-mobile-lang-list__name {
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    .nav-links-mobile .nav-mobile-lang-list__item[data-lang="ar"] .nav-mobile-lang-list__name {
+        font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    .nav-links-mobile .nav-mobile-lang-list__item[data-lang="ku"] .nav-mobile-lang-list__name {
+        font-family: 'Noto Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    .nav-links-mobile .nav-mobile-lang-list__check {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        color: #38bdf8;
+    }
+
+    .nav-links-mobile .nav-mobile-lang-list__item:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-links-mobile .nav-mobile-lang-list__item.is-selected {
+        background: rgba(255, 255, 255, 0.07);
+    }
+
     .nav-links-mobile .nav-product-dropdown-columns {
         display: flex !important;
         flex-direction: column !important;

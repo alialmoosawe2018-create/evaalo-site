@@ -19,6 +19,12 @@ const DropdownArrow = () => (
     </svg>
 );
 
+const NavLangCheckIcon = () => (
+    <svg className="nav-mobile-lang-list__check" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M5 12.5l4.2 4.2L19 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
 const ProductDropdownPanel = ({ sections, dropdownClassName, onNavigate, isPathActive, panelProps = {} }) => (
     <div className={dropdownClassName} {...panelProps}>
         <div className="nav-product-dropdown-columns">
@@ -137,8 +143,8 @@ const Navigation = () => {
 
     const languages = [
         { code: 'en', name: 'English' },
-        { code: 'ar', name: 'العربية', codeText: '' },
-        { code: 'ku', name: 'کوردی', codeText: '(KU)' },
+        { code: 'ar', name: 'العربية' },
+        { code: 'ku', name: 'کوردی' },
     ];
 
     useEffect(() => {
@@ -281,7 +287,7 @@ const Navigation = () => {
                 {t('features')}
             </Link>
             <Link to="/#features-2" className="nav-link" onClick={closeMobileMenu}>
-                <span className="nav-link-label">{t('navWhyUsMobile')}</span>
+                <span className="nav-link-label">{wrapEvaaloInLabel(t('navWhyUsMobile'))}</span>
             </Link>
             <Link to="/#process" className="nav-link" onClick={closeMobileMenu}>
                 <span className="nav-link-label">{t('navHowWorkMobile')}</span>
@@ -297,41 +303,43 @@ const Navigation = () => {
                 </Link>
             )}
 
-            <div
-                className={`nav-link nav-link-dropdown ${mobileLangExpanded ? 'expanded' : ''}`}
-                onClick={() => setMobileLangExpanded(!mobileLangExpanded)}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setMobileLangExpanded(!mobileLangExpanded);
-                    }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-expanded={mobileLangExpanded}
-            >
-                <span>{t('language')}</span>
-                <DropdownArrow />
-                <div className="nav-language-dropdown">
-                    {languages.map((lang) => (
-                        <button
-                            key={lang.code}
-                            type="button"
-                            className={`nav-language-option ${currentLang === lang.code ? 'active' : ''}`}
-                            role="menuitem"
-                            data-lang={lang.code}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleLanguageChange(lang.code);
-                            }}
-                        >
-                            <span className="language-name">{lang.name}</span>
-                            {lang.codeText ? (
-                                <span className="language-code">{lang.codeText}</span>
-                            ) : null}
-                        </button>
-                    ))}
-                </div>
+            <div className="nav-mobile-lang-section">
+                <button
+                    type="button"
+                    className={`nav-link nav-link-dropdown nav-mobile-lang-toggle ${mobileLangExpanded ? 'expanded is-open' : ''}`}
+                    onClick={() => setMobileLangExpanded(!mobileLangExpanded)}
+                    aria-expanded={mobileLangExpanded}
+                    aria-controls="navMobileLangList"
+                >
+                    <span>{t('language')}</span>
+                    <DropdownArrow />
+                </button>
+                {mobileLangExpanded ? (
+                    <div
+                        id="navMobileLangList"
+                        className="nav-mobile-lang-list"
+                        role="listbox"
+                        aria-label={t('language')}
+                    >
+                        {languages.map((lang) => {
+                            const isActive = currentLang === lang.code;
+                            return (
+                                <button
+                                    key={lang.code}
+                                    type="button"
+                                    className={`nav-mobile-lang-list__item ${isActive ? 'is-selected' : ''}`}
+                                    role="option"
+                                    aria-selected={isActive}
+                                    data-lang={lang.code}
+                                    onClick={() => handleLanguageChange(lang.code)}
+                                >
+                                    <span className="nav-mobile-lang-list__name">{lang.name}</span>
+                                    {isActive ? <NavLangCheckIcon /> : null}
+                                </button>
+                            );
+                        })}
+                    </div>
+                ) : null}
             </div>
 
             <div className="nav-mobile-menu-footer">
@@ -469,7 +477,7 @@ const Navigation = () => {
                                         onClick={() => handleLanguageChange(lang.code)}
                                     >
                                         <span className="language-name">{lang.name}</span>
-                                        {lang.codeText ? <span className="language-code">{lang.codeText}</span> : null}
+                                        <span className="language-code">{lang.code.toUpperCase()}</span>
                                     </button>
                                 ))}
                             </div>
