@@ -44,9 +44,7 @@ const AccountSpending = () => {
     }, []);
 
     const renderUpgradeCard = (plan, labelKey) => {
-        if (!plan) {
-            return <div className="dashboard-card" style={{ padding: '22px 24px' }} />;
-        }
+        if (!plan) return null;
 
         return (
             <div className="dashboard-card" style={{ padding: '22px 24px' }}>
@@ -101,19 +99,20 @@ const AccountSpending = () => {
 
                     <AccountUsageMetricsCard />
 
-                    {/* Upgrade plan row: next tier + the tier above that */}
-                    <div
-                        style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(2, 1fr)',
-                            gap: 16,
-                            marginBottom: 16,
-                        }}
-                        className="account-spending-plan-row"
-                    >
-                        {renderUpgradeCard(nextPlan, 'account_spending_upgradeAvailable')}
-                        {renderUpgradeCard(higherPlan, 'account_spending_higherPlan')}
-                    </div>
+                    {(nextPlan || higherPlan) ? (
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(2, 1fr)',
+                                gap: 16,
+                                marginBottom: 16,
+                            }}
+                            className="account-spending-plan-row"
+                        >
+                            {renderUpgradeCard(nextPlan, 'account_spending_upgradeAvailable')}
+                            {renderUpgradeCard(higherPlan, 'account_spending_higherPlan')}
+                        </div>
+                    ) : null}
                 </main>
 
                 <AdjustPlanModal
