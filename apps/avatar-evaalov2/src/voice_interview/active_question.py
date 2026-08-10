@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from voice_interview.heuristics import normalize_text
+
 if TYPE_CHECKING:
     from voice_interview.assistant import InterviewMemory
 
@@ -91,6 +93,20 @@ def extract_primary_question(text: str) -> str:
             idx = raw.index(sep)
             return raw[: idx + 1].strip()
     return raw
+
+
+def _question_stem(text: str) -> str:
+    """Leading opener signature of an agent question.
+
+    Returns the first normalized token — the "opener" (a question word or a
+    template head like "بخصوص" / "شنو" / "احچيلي" / "لو"). Templated openers
+    collapse to one signature so the varied-question picker and the opener
+    loop-guard can steer away from reopening turns with the same head.
+    """
+    norm = normalize_text(text or "")
+    if not norm:
+        return ""
+    return norm.split(" ", 1)[0]
 
 
 def _planned_single_question(plan: TurnPlan | None) -> str:
