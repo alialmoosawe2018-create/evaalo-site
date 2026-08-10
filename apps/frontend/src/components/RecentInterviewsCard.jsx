@@ -18,7 +18,11 @@ import {
     buildShareCompanyLine,
     buildShareCompanyPart,
 } from '../utils/shareInterviewLink.js';
-import { collectCampaignIdsFromCandidates, resolveCompanyFromMeta } from '../utils/screeningCampaigns.js';
+import {
+    collectCampaignIdsFromCandidates,
+    resolveCompanyFromMeta,
+    withoutPendingAnalysis,
+} from '../utils/screeningCampaigns.js';
 import { buildStageEvalCandidateUrl } from '../utils/stageEvalNavigation.js';
 import {
     dismissNotification,
@@ -118,6 +122,7 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
     const [loadingInterviews, setLoadingInterviews] = useState(true);
     const [clearingRecent, setClearingRecent] = useState(false);
     const [clearRecentError, setClearRecentError] = useState(null);
+    const [analysisReleaseAt, setAnalysisReleaseAt] = useState(null);
     const clearedAtRef = useRef(null);
     const scrollRef = useRef(null);
 
@@ -148,55 +153,70 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
         return interviews;
     };
 
-    useEffect(() => {
-        const fetchRecentInterviews = async () => {
-            try {
-                setLoadingInterviews(true);
-                setClearRecentError(null);
+    const fetchRecentInterviews = useCallback(async ({ background = false } = {}) => {
+        try {
+            if (!background) setLoadingInterviews(true);
+            setClearRecentError(null);
 
-                const [profileResult, candidatesResult] = await Promise.all([
-                    getMyProfile().catch(() => null),
-                    apiClient.get('/api/candidates').catch(() => null),
-                ]);
+            const [profileResult, candidatesResult] = await Promise.all([
+                getMyProfile().catch(() => null),
+                apiClient.get('/api/candidates').catch(() => null),
+            ]);
 
-                const clearedAtIso =
-                    profileResult?.preferences?.dashboardRecentInterviewsClearedAt ?? null;
-                clearedAtRef.current = clearedAtIso;
+            const clearedAtIso =
+                profileResult?.preferences?.dashboardRecentInterviewsClearedAt ?? null;
+            clearedAtRef.current = clearedAtIso;
 
-                const candidates =
-                    candidatesResult?.success && Array.isArray(candidatesResult.data)
-                        ? candidatesResult.data
-                        : [];
+            const allCandidates =
+                candidatesResult?.success && Array.isArray(candidatesResult.data)
+                    ? candidatesResult.data
+                    : [];
 
-                const campaignIds = collectCampaignIdsFromCandidates(candidates, []);
-                const metaByCampaignId = {};
-                if (campaignIds.length > 0) {
-                    try {
-                        const metaRes = await apiClient.get(
-                            `/api/recruitment-campaigns?ids=${encodeURIComponent(campaignIds.join(','))}`
-                        );
-                        if (metaRes?.success && Array.isArray(metaRes.data)) {
-                            for (const row of metaRes.data) {
-                                if (row?.campaignId) metaByCampaignId[row.campaignId] = row;
-                            }
+            // لا إشعار قبل جهوزية البطاقة كاملة — نفس مهلة تحليل المرحلة الأولى.
+            const { visible: candidates, nextReleaseAt } = withoutPendingAnalysis(allCandidates);
+            setAnalysisReleaseAt(nextReleaseAt);
+
+            const campaignIds = collectCampaignIdsFromCandidates(candidates, []);
+            const metaByCampaignId = {};
+            if (campaignIds.length > 0) {
+                try {
+                    const metaRes = await apiClient.get(
+                        `/api/recruitment-campaigns?ids=${encodeURIComponent(campaignIds.join(','))}`
+                    );
+                    if (metaRes?.success && Array.isArray(metaRes.data)) {
+                        for (const row of metaRes.data) {
+                            if (row?.campaignId) metaByCampaignId[row.campaignId] = row;
                         }
-                    } catch (metaErr) {
-                        console.warn('[RecentInterviewsCard] campaign metadata fetch failed:', metaErr);
                     }
+                } catch (metaErr) {
+                    console.warn('[RecentInterviewsCard] campaign metadata fetch failed:', metaErr);
                 }
-
-                setRecentInterviews(buildRecentInterviewsList(candidates, clearedAtIso, metaByCampaignId));
-            } catch (error) {
-                console.error('Error fetching recent interviews:', error);
-                const hasClearedAt = toTime(clearedAtRef.current) > 0;
-                setRecentInterviews(hasClearedAt ? [] : mockRecentInterviewsRef.current);
-            } finally {
-                setLoadingInterviews(false);
             }
-        };
 
-        fetchRecentInterviews();
+            setRecentInterviews(buildRecentInterviewsList(candidates, clearedAtIso, metaByCampaignId));
+        } catch (error) {
+            console.error('Error fetching recent interviews:', error);
+            const hasClearedAt = toTime(clearedAtRef.current) > 0;
+            setRecentInterviews(hasClearedAt ? [] : mockRecentInterviewsRef.current);
+        } finally {
+            if (!background) setLoadingInterviews(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchRecentInterviews();
+    }, [fetchRecentInterviews]);
+
+    // فشل التحليل لا يُصدر حدثاً، فنُعيد الجلب عند انتهاء المهلة لكشف الإشعار المؤجَّل.
+    useEffect(() => {
+        if (analysisReleaseAt == null) return undefined;
+        const delay = Math.max(0, analysisReleaseAt - Date.now()) + 1000;
+        const timerId = window.setTimeout(
+            () => fetchRecentInterviews({ background: true }),
+            delay
+        );
+        return () => window.clearTimeout(timerId);
+    }, [analysisReleaseAt, fetchRecentInterviews]);
 
     useEffect(() => {
         setRecentInterviews((prev) => {

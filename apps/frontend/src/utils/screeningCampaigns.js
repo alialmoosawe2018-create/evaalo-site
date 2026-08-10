@@ -18,7 +18,7 @@ export function isHiddenFromStage(c, stage) {
  * مهلة انتظار تقييم n8n قبل إظهار المرشح بلا تحليل.
  * خلال المهلة يبقى الصف مخفياً تماماً حتى تظهر البطاقة كاملة (صورة + وظيفة + نتيجة) مرة واحدة.
  */
-export const SCREENING_ANALYSIS_GRACE_MS = 90 * 1000;
+export const SCREENING_ANALYSIS_GRACE_MS = 60 * 1000;
 
 /** اللحظة التي يُسمح فيها بإظهار مرشح بلا تقييم، أو null إذا تعذّر تحديد وقت تقديمه. */
 function analysisReleaseAt(c) {
@@ -26,6 +26,37 @@ function analysisReleaseAt(c) {
     if (!raw) return null;
     const t = new Date(raw).getTime();
     return Number.isFinite(t) ? t + SCREENING_ANALYSIS_GRACE_MS : null;
+}
+
+/**
+ * هل ما زال المرشح داخل مهلة انتظار التحليل؟ يرجع لحظة انتهاء الإخفاء أو null.
+ * تُستخدم في لوحة المرحلة الأولى وفي الإشعارات معاً حتى لا يظهر إشعار قبل اكتمال البطاقة.
+ */
+export function screeningAnalysisHoldUntil(c, now = Date.now()) {
+    if (hasMeaningfulStageEvaluation(c?.writtenInterviewEvaluation)) return null;
+    if (hasMeaningfulStageEvaluation(c?.voiceInterviewEvaluation)) return null;
+    if (hasMeaningfulStageEvaluation(c?.videoInterviewEvaluation)) return null;
+    if (!isScreeningCandidate(c) || !Array.isArray(c?.files) || c.files.length === 0) return null;
+    const releaseAt = analysisReleaseAt(c);
+    return releaseAt != null && releaseAt > now ? releaseAt : null;
+}
+
+/**
+ * تصفية قائمة الإشعارات: يُستبعد كل مرشح ما زال تحليله قيد الانتظار.
+ * `nextReleaseAt` لجدولة تحديث واحد عند انتهاء أقرب مهلة.
+ */
+export function withoutPendingAnalysis(candidates, now = Date.now()) {
+    const visible = [];
+    let nextReleaseAt = null;
+    for (const c of candidates ?? []) {
+        const holdUntil = screeningAnalysisHoldUntil(c, now);
+        if (holdUntil != null) {
+            if (nextReleaseAt == null || holdUntil < nextReleaseAt) nextReleaseAt = holdUntil;
+            continue;
+        }
+        visible.push(c);
+    }
+    return { visible, nextReleaseAt };
 }
 
 /**

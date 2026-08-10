@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { POSITION_CATALOG_OPTIONS, POSITION_SUGGESTIONS, ROLE_CATALOG_OPTIONS } from '../constants/positionSuggestions.js';
 import { composeRoleResolution, resolveJobRole, SECTION_ORDER } from '@evaalo/job-catalog';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -37,7 +37,10 @@ export default function PositionSuggestCombobox({
 }) {
     const { currentLang, t } = useLanguage();
     const wrapperRef = useRef(null);
+    const inputWrapRef = useRef(null);
+    const dropdownRef = useRef(null);
     const blurCloseTimer = useRef(null);
+    const [modalDropdownMaxHeight, setModalDropdownMaxHeight] = useState(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const [resolutionHint, setResolutionHint] = useState('');
     const listboxId = listboxIdProp || (id ? `${id}-suggestions` : undefined);
@@ -336,6 +339,39 @@ export default function PositionSuggestCombobox({
         return () => document.removeEventListener('mousedown', onDocDown);
     }, [showMenu]);
 
+    const updateModalDropdownMaxHeight = useCallback(() => {
+        const wrap = inputWrapRef.current;
+        if (!wrap || !wrapperRef.current?.closest('.new-interview-modal')) {
+            setModalDropdownMaxHeight(null);
+            return;
+        }
+        const shell = wrapperRef.current.closest('.ni-job-details-shell');
+        const footer = shell?.querySelector('.ni-continue-footer');
+        if (!footer) {
+            setModalDropdownMaxHeight(null);
+            return;
+        }
+        const gap = 10;
+        const preferMax = Math.min(420, window.innerHeight * 0.55);
+        const available = footer.getBoundingClientRect().top - wrap.getBoundingClientRect().bottom - gap;
+        const maxHeight = Math.max(120, Math.min(preferMax, available));
+        setModalDropdownMaxHeight(`${maxHeight}px`);
+    }, []);
+
+    useLayoutEffect(() => {
+        if (!showMenu) {
+            setModalDropdownMaxHeight(null);
+            return undefined;
+        }
+        updateModalDropdownMaxHeight();
+        window.addEventListener('resize', updateModalDropdownMaxHeight);
+        window.addEventListener('scroll', updateModalDropdownMaxHeight, true);
+        return () => {
+            window.removeEventListener('resize', updateModalDropdownMaxHeight);
+            window.removeEventListener('scroll', updateModalDropdownMaxHeight, true);
+        };
+    }, [showMenu, updateModalDropdownMaxHeight]);
+
     useEffect(() => () => clearCloseTimer(), []);
 
     return (
@@ -343,7 +379,7 @@ export default function PositionSuggestCombobox({
             className={['position-suggest-combobox-wrapper', wrapperClassName].filter(Boolean).join(' ')}
             ref={wrapperRef}
         >
-            <div className="position-suggest-input-wrap">
+            <div className="position-suggest-input-wrap" ref={inputWrapRef}>
                 <input
                     type="text"
                     id={id}
@@ -458,10 +494,12 @@ export default function PositionSuggestCombobox({
                     </svg>
                 </span>
                 <div
+                    ref={dropdownRef}
                     id={listboxId}
                     className={`language-dropdown-menu position-suggest-dropdown ${showMenu ? 'active' : ''}${groupedBySection ? ' position-suggest-dropdown--grouped' : ''}`}
                     role="listbox"
                     hidden={!showMenu}
+                    style={modalDropdownMaxHeight ? { maxHeight: modalDropdownMaxHeight } : undefined}
                 >
                     <div
                         className="position-suggest-dropdown-scroll"
