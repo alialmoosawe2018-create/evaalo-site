@@ -5281,7 +5281,9 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     box-shadow: 0 2px 8px rgba(34, 211, 238, 0.2);
 }
 
-/* العنوان + الوصف فقط — نمط Learn More (زجاج + حد سماوي) عند hover */
+/* العنوان + الوصف فقط — نمط Learn More (زجاج + حد سماوي) عند hover.
+   لا transform ولا backdrop-filter: التمرير يمرّر المحتوى تحت المؤشر فيتبدّل
+   hover تلقائياً، وأي إزاحة أو ضبابية هنا تُترجم إلى قفزات وإعادة رسم. */
 .new-interview-modal .ni-job-ad-block {
     margin-bottom: 12px;
     padding: 8px 10px;
@@ -5292,21 +5294,30 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     transition:
         background 0.22s ease,
         border-color 0.22s ease,
-        box-shadow 0.22s ease,
-        backdrop-filter 0.22s ease,
-        -webkit-backdrop-filter 0.22s ease,
-        transform 0.22s cubic-bezier(0.34, 1.15, 0.64, 1);
+        box-shadow 0.22s ease;
 }
 
 .new-interview-modal .ni-job-ad-block:hover {
     background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     border-color: rgba(56, 189, 248, 0.55);
     box-shadow:
         0 8px 22px rgba(34, 211, 238, 0.22),
         0 0 0 1px rgba(34, 211, 238, 0.12);
-    transform: translateY(-2px);
+}
+
+/* الضبابية المتداخلة داخل ni-modal-scroll تعتِم «backdrop root» المودال لا محتوى
+   الحاوية، وهو لا يتحرّك مع التمرير: فتتداخل الأقسام داخل مساحة العنصر ويخرج
+   التمرير من الـ compositor. زجاج المودال نفسه كافٍ. */
+.new-interview-modal .workflow-btn-primary,
+.new-interview-modal .ni-job-ad-preview__toolbar,
+.new-interview-modal .ni-job-ad-toolbar-btn {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* هالة الزر تمتد 12px خارج حدوده فوق العنوان وبطاقة الإعلان */
+.new-interview-modal .ni-generate-ad-btn.workflow-btn-primary::after {
+    display: none !important;
 }
 
 /* Job ad preview — document card */

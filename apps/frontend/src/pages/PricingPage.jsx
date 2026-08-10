@@ -49,6 +49,15 @@ function PricingPlanCta({ tier, featured, t }) {
     const [error, setError] = useState(null);
     const [alreadyOnPlan, setAlreadyOnPlan] = useState(false);
 
+    // زر Back من Stripe يستعيد الصفحة من bfcache مع loading=true — نُصفّره عند الاستعادة.
+    useEffect(() => {
+        const onPageShow = (event) => {
+            if (event.persisted) setLoading(false);
+        };
+        window.addEventListener('pageshow', onPageShow);
+        return () => window.removeEventListener('pageshow', onPageShow);
+    }, []);
+
     // Only trust the current plan once billing has loaded, so a placeholder
     // default never marks the wrong card as "current".
     const isCurrent =

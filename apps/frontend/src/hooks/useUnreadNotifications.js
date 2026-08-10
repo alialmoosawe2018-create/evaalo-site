@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { apiClient } from '../services/apiClient';
 import { getMyProfile } from '../services/profileService';
 import { isNotificationsTabActive } from '../utils/appRoutes';
+import { withoutPendingAnalysis } from '../utils/screeningCampaigns';
 import {
     countUnreadNotifications,
     getNotificationsLastViewedAt,
@@ -12,6 +13,8 @@ import {
 export function useUnreadNotifications() {
     const { pathname } = useLocation();
     const [unreadCount, setUnreadCount] = useState(0);
+    const analysisTimerRef = useRef(null);
+    const refreshRef = useRef(null);
 
     const refresh = useCallback(async () => {
         if (isNotificationsTabActive(pathname)) {
@@ -32,13 +35,36 @@ export function useUnreadNotifications() {
                     ? candidatesResult.data
                     : [];
 
-            setUnreadCount(
-                countUnreadNotifications(candidates, clearedAtIso, lastViewedIso)
-            );
+            // لا يُحتسب إشعار لمرشح ما زال تحليله قيد الانتظار — نفس مهلة لوحة المرحلة الأولى.
+            const { visible, nextReleaseAt } = withoutPendingAnalysis(candidates);
+            setUnreadCount(countUnreadNotifications(visible, clearedAtIso, lastViewedIso));
+
+            if (analysisTimerRef.current != null) {
+                window.clearTimeout(analysisTimerRef.current);
+                analysisTimerRef.current = null;
+            }
+            if (nextReleaseAt != null) {
+                analysisTimerRef.current = window.setTimeout(
+                    () => refreshRef.current?.(),
+                    Math.max(0, nextReleaseAt - Date.now()) + 1000
+                );
+            }
         } catch {
             setUnreadCount(0);
         }
     }, [pathname]);
+
+    refreshRef.current = refresh;
+
+    useEffect(
+        () => () => {
+            if (analysisTimerRef.current != null) {
+                window.clearTimeout(analysisTimerRef.current);
+                analysisTimerRef.current = null;
+            }
+        },
+        []
+    );
 
     useEffect(() => {
         if (!isNotificationsTabActive(pathname)) return;

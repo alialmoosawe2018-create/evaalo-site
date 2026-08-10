@@ -1029,17 +1029,6 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         };
     }, [isOpen]);
 
-    const clampModalScrollWheel = useCallback((e) => {
-        const el = modalScrollRef.current;
-        if (!el) return;
-        const { scrollTop, scrollHeight, clientHeight } = el;
-        const atTop = scrollTop <= 0;
-        const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
-        if ((atTop && e.deltaY < 0) || (atBottom && e.deltaY > 0)) {
-            e.preventDefault();
-        }
-    }, []);
-
     /** Hydrate roleKey/careerLevel when only legacy position title exists. */
     useEffect(() => {
         if (!isOpen) return;
@@ -2171,11 +2160,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                 {/* Job Details Form - Dynamic Criteria Selection */}
                 {showJobDetailsForm ? (
                     <div className="ni-job-details-shell">
-                        <div
-                            className="ni-modal-scroll"
-                            ref={modalScrollRef}
-                            onWheel={showJobDetailsForm ? clampModalScrollWheel : undefined}
-                        >
+                        {/* حدّ التمرير من overscroll-behavior في CSS — onWheel كان passive فلا يعمل */}
+                        <div className="ni-modal-scroll" ref={modalScrollRef}>
                         {/* General Error */}
                         {errors.general && (
                             <div

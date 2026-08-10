@@ -145,6 +145,16 @@ export function AdjustPlanModal({
     }, [isOpen]);
 
     useEffect(() => {
+        const onPageShow = (event) => {
+            if (!event.persisted) return;
+            setPendingPlanId(null);
+            setPortalLoading(false);
+        };
+        window.addEventListener('pageshow', onPageShow);
+        return () => window.removeEventListener('pageshow', onPageShow);
+    }, []);
+
+    useEffect(() => {
         if (!isOpen || !scrollToPlanId) return undefined;
         const ok = allPlans.some((p) => p.id === scrollToPlanId);
         if (!ok) return undefined;
