@@ -263,3 +263,77 @@ def test_simplify_clarify_metrics_question_petroleum() -> None:
     assert "Time to Fill" not in simplified
     assert "Offer Acceptance" not in simplified
     assert "معدل الإنتاج" in simplified or "الضغط" in simplified
+
+
+def test_decision_frame_offers_optional_echo_on_rich_answer() -> None:
+    # Selective active listening: on a rich answer with a candidate-said entity,
+    # the frame OFFERS a reflection ("MAY … only if it connects naturally"),
+    # never forces one.
+    agent = _make_assistant()
+    text = (
+        "اشتغلت على GPS بمشروع مسح كبير بالبصرة، وكنت مسؤول عن دقة الإحداثيات "
+        "لمدة ثلاث سنوات، وسلّمنا المشروع بنجاح بدون أخطاء تُذكر"
+    )
+    diag = analyze_user_answer(text)
+    diag = agent._apply_entity_policy(text, diag)
+    assert diag.get("is_rich_answer")
+    assert diag["link_policy"]["allowed_link_entities"]
+    frame = agent._build_decision_frame(diag)
+    assert "MAY open" in frame
+    assert "connects naturally" in frame
+    assert "GPS" in frame
+
+
+def test_decision_frame_no_echo_on_greeting() -> None:
+    # No candidate content yet → no reflection offered, no attributed entity.
+    agent = _make_assistant()
+    diag = analyze_user_answer("أنا جاهز")
+    diag = agent._apply_entity_policy("أنا جاهز", diag)
+    frame = agent._build_decision_frame(diag)
+    assert "MAY open" not in frame
+
+
+def test_competency_floor_prioritizes_uncovered_critical() -> None:
+    comps = [
+        {"competencyKey": "c1", "priority": "critical", "followUpRules": ["شنو خبرتك بـ c1؟"]},
+        {"competencyKey": "c2", "priority": "critical", "followUpRules": ["احچيلي عن c2؟"]},
+        {"competencyKey": "c3", "priority": "medium", "followUpRules": ["س٣؟"]},
+    ]
+    agent = _make_assistant(competencies=comps)
+    mem = agent._memory
+
+    assert agent._pick_uncovered_critical_competency(mem) is not None
+    assert agent._turn_plan.competency_key == "c1"
+
+    mem.asked_competency_keys.add("c1")
+    assert agent._pick_uncovered_critical_competency(mem) is not None
+    assert agent._turn_plan.competency_key == "c2"
+
+    # Both criticals covered → floor stops (the medium competency is NOT forced).
+    mem.asked_competency_keys.add("c2")
+    assert agent._pick_uncovered_critical_competency(mem) is None
+
+
+def test_competency_floor_noop_without_priority_field() -> None:
+    # Legacy/test blueprints without priority must keep old bank behaviour.
+    agent = _make_assistant(competencies=[{"title": "field survey", "followUps": ["س؟"]}])
+    assert agent._pick_uncovered_critical_competency(agent._memory) is None
+
+
+def test_competency_floor_marks_covered_at_send_time() -> None:
+    # Asked-once semantics: the floor advances to the next critical competency
+    # even if the previous one's answer stayed "open" (no loop).
+    comps = [
+        {"competencyKey": "c1", "priority": "critical", "followUpRules": ["شنو خبرتك بـ c1؟"]},
+        {"competencyKey": "c2", "priority": "critical", "followUpRules": ["احچيلي عن c2؟"]},
+    ]
+    agent = _make_assistant(competencies=comps)
+    mem = agent._memory
+
+    q1 = agent._pick_uncovered_critical_competency(mem)
+    agent.record_agent_reply(q1)  # marks c1 covered at send time
+    assert "c1" in mem.asked_competency_keys
+
+    q2 = agent._pick_uncovered_critical_competency(mem)
+    assert agent._turn_plan.competency_key == "c2"
+    assert q2 != q1

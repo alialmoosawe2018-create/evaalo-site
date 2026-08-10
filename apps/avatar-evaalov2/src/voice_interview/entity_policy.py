@@ -210,6 +210,65 @@ def pick_hook_followup(canonical: str) -> str:
     )
 
 
+# ── Varied follow-up phrasing (interview-prep methodology) ───────────────────
+# Instead of one fixed "بخصوص {X}، شلون…" template, keep small pools whose
+# OPENERS deliberately differ, organised around the two proven question forms:
+#   * behavioural (past evidence): "احچيلي عن مرّة…", "خذني بموقف…"
+#   * situational (reasoning):     "لو صار…، شنو أول خطوة؟"
+# ``pick_varied`` rotates through them while avoiding the opener stems used in
+# the last few turns (``mem.recent_opener_stems``) so consecutive fallbacks
+# never share a head. "{X}" is filled with the entity the candidate named.
+
+# "How did you actually apply / use {X}" — behavioural + situational mix.
+ENTITY_APPLY_POOL: tuple[str, ...] = (
+    "احچيلي عن مرّة استخدمت بيها {X} فعلياً؟",
+    "خذني بموقف {X} صار فرق حقيقي بشغلك؟",
+    "شنو أكبر تحدي واجهته وية {X}؟",
+    "لو صار عندك موقف يتعلق بـ{X}، شنو أول خطوة تسويها؟",
+    "وين {X} ساعدك توصل نتيجة ملموسة؟",
+)
+
+# "How do you ensure quality/accuracy with {X}" — verification angle.
+ENTITY_QUALITY_POOL: tuple[str, ...] = (
+    "شلون تتأكد من الدقة أو الجودة بـ{X} قبل التسليم؟",
+    "لو طلعت نتيجة {X} فيها شك، شلون تتصرّف؟",
+    "احچيلي عن مرّة {X} احتاج مراجعة قبل ما تعتمده؟",
+    "خذني بالخطوات اللي تسويها حتى تضمن {X} صحيح؟",
+)
+
+# Role-neutral "what made this hard" difficulty probe (replaces the HR-only one).
+DIFFICULTY_FOLLOWUP_POOL: tuple[str, ...] = (
+    "شنو أصعب جزء واجهته بهالشغلة؟",
+    "احچيلي عن موقف كان تحدي حقيقي إلك بهالدور؟",
+    "لو ترجع لهالتجربة، شنو تسوي بشكل مختلف؟",
+    "خذني بأكبر عقبة صادفتك وشلون تجاوزتها؟",
+)
+
+
+def pick_varied(pool: tuple[str, ...] | list[str], mem: Any, *, key: str = "") -> str:
+    """Pick a phrasing from ``pool`` whose opener differs from the last few asked.
+
+    Deterministic round-robin (``mem.template_rotation``) with an opener-stem
+    filter (``mem.recent_opener_stems``) so consecutive fallbacks don't reuse
+    the same head. ``key`` fills any ``{X}`` placeholder. Falls back to the
+    round-robin order when every opener was recently used.
+    """
+    items = [p for p in (pool or ()) if p and p.strip()]
+    if not items:
+        return ""
+    formatted = [p.format(X=key) if "{X}" in p else p for p in items]
+    recent = set(getattr(mem, "recent_opener_stems", None) or ())
+    n = len(formatted)
+    rot = int(getattr(mem, "template_rotation", 0) or 0) % n
+    order = [formatted[(rot + i) % n] for i in range(n)]
+    chosen = next(
+        (q for q in order if normalize_text(q).split(" ", 1)[0] not in recent),
+        order[0],
+    )
+    mem.template_rotation = (rot + 1) % n
+    return chosen
+
+
 _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
     "petroleum_engineer": {
         "metrics": (

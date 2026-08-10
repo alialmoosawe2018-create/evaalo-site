@@ -260,6 +260,15 @@ _CLARIFY_PATTERNS_AR = (
     "وضحلي أكثر",
     "وضحي أكثر",
     "وضحي اكثر",
+    # MSA / Gulf / Levantine clarify phrasings. The agent speaks light Iraqi,
+    # but candidates often ask for clarification in MSA ("ماذا تقصدين…") or
+    # Gulf/Levantine ("وش/شو/أيش تقصد"). "ماذا تقصد" also covers "ماذا تقصدين".
+    "ماذا تقصد",
+    "ماذا تعني",
+    "شو تقصد",
+    "وش تقصد",
+    "أيش تقصد",
+    "ايش تقصد",
 )
 
 _CLARIFY_PATTERNS_EN = (

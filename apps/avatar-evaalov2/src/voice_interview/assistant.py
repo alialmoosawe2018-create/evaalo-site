@@ -33,6 +33,9 @@ from voice_interview.config import (
 )
 from voice_interview.cross_domain_guard import validate_cross_domain_output
 from voice_interview.entity_policy import (
+    DIFFICULTY_FOLLOWUP_POOL,
+    ENTITY_APPLY_POOL,
+    ENTITY_QUALITY_POOL,
     CandidateCorrection,
     RoleGlossaryEntry,
     clarify_challenge_reply,
@@ -42,6 +45,7 @@ from voice_interview.entity_policy import (
     extract_candidate_entities,
     extract_speech_hooks,
     pick_hook_followup,
+    pick_varied,
     simplify_clarify_for_pack,
     simplify_clarify_question,
 )
@@ -61,7 +65,9 @@ from voice_interview.active_question import (
     STATUS_IDLE,
     STATUS_REJECTED,
     TurnPlan,
+    _question_stem,
     close_question_on_memory,
+    count_question_marks,
     enforce_single_question_response,
     extract_primary_question,
     is_open_status,
@@ -207,6 +213,23 @@ class InterviewMemory:
     skip_count_by_cluster: dict[str, int] = field(default_factory=dict)
     deferred_question_id: str = ""
     topic_change_count: int = 0
+    # Opener signatures (first token) of the last few questions the agent asked.
+    # Used by the varied-question picker to avoid reopening turns with the same
+    # head ("بخصوص…", "شنو…") — capped FIFO via ``record_opener_stem``.
+    recent_opener_stems: list[str] = field(default_factory=list)
+    # Round-robin cursor for deterministic (test-friendly) template rotation.
+    template_rotation: int = 0
+    # Sent-question guard: every question id/anchor id emitted this session, so a
+    # question can never be re-selected even if its answer left it "open".
+    sent_question_guard: set[str] = field(default_factory=set)
+
+    def record_opener_stem(self, stem: str, *, keep: int = 3) -> None:
+        s = (stem or "").strip()
+        if not s:
+            return
+        self.recent_opener_stems.append(s)
+        if len(self.recent_opener_stems) > keep:
+            self.recent_opener_stems = self.recent_opener_stems[-keep:]
 
     def followups_for(self, topic: str) -> int:
         return int(self.topic_followup_counts.get(topic, 0))
@@ -273,6 +296,10 @@ Encouragement style (Arabic interview mode):
 - Preferred supportive phrases: "ممتاز"، "عاشت إيدك"، "حلو"، "جيد".
 - Do not overpraise or repeat encouragement in every turn.
 
+Active listening (selective, NOT mandatory):
+- Active listening must be selective, not mandatory. Do not echo the candidate on every substantive answer. Use a short reflection only when it naturally connects the candidate's answer to the next question. If no natural reflection exists, ask the question directly.
+- When you do reflect, keep it to at most ~6 words, reuse a concrete word the candidate ACTUALLY said, and vary the wording — do not open with "بخصوص" every time. A reflection is not thanks and not a preamble; it still counts inside the one-paragraph, one-question limit.
+
 Language (strict, sticky):
 - Always respond in the candidate's CURRENT language — defined as the language of their MOST RECENT message, not the language of the question bank or your previous turns.
 - If the candidate's full last sentence is English, you respond in English — even if the suggested question in your context is written in Arabic. Translate or rephrase the suggested question into English on the fly.
@@ -327,7 +354,8 @@ Hard constraints:
 - Blueprint and domain guidance are for YOUR expertise and suggested questions — not assumed candidate facts.
 - If the candidate only greeted or said they are ready, ask the next bank anchor as a fresh open question — no false "you mentioned…".
 - After a substantive answer (real project, tool, field), you may link to a specific detail they actually said.
-- Do not open three turns in a row with the same template ("شنو هي…" / "what are the…"). Vary openers: "اذكرلي مثال…"، "شلون سويت…"، "شنو استخدمت…".
+- Vary your opener every turn. Never start two consecutive turns with the same head word (e.g. not "شنو…" then "شنو…"; not "بخصوص…" then "بخصوص…"). Rotate among distinct forms — behavioural ("احچيلي عن مرّة…"، "خذني بموقف…") and situational ("لو صار…، شنو تسوي؟") — plus "اذكرلي مثال…"، "شلون سويت…"، "وين…".
+- NEVER read a bank/suggested question verbatim. Reshape it into one short spoken question. Example: bank "شلون قمت بتحليل بيانات السوق لتطوير برنامج مزايا جديد؟" → "بيانات السوق — شنو نوع البيانات اللي طلع منها قرار عندك؟".
 - Avoid generic soft-skills questions (difficult colleague, conflict, team drama) unless the role is clearly HR/people-focused OR the blueprint competency explicitly requires it.
 - When DOMAIN KNOWLEDGE / JOB EXPERTISE blocks exist in context, prioritize role-specific technical probes (tools, data, field operations, domain terminology) over generic HR questions.
 
@@ -862,7 +890,7 @@ class InterviewAssistant(Agent):
             if follow:
                 return collapse_to_single_question(follow)
             return collapse_to_single_question(
-                f"بخصوص {allowed[0]}، شلون طبّقته بمشروع حقيقي؟"
+                pick_varied(ENTITY_APPLY_POOL, self._memory, key=allowed[0])
             )
         return None
 
@@ -1063,11 +1091,8 @@ class InterviewAssistant(Agent):
             and mem.active_question_status in (STATUS_AWAITING_ANSWER, STATUS_ANSWERING)
         ):
             parent = mem.parent_question_id or mem.sent_question_id or ""
-            follow = "شنو المتطلبات أو المواصفات اللي خلت هذا الدور صعب بالتوظيف؟"
-            if "مدير" in (mem.last_candidate_snippet or "").lower() or "hr" in (
-                mem.last_candidate_snippet or ""
-            ).lower():
-                follow = "شنو المتطلبات اللي خلت دور مدير الموارد البشرية صعب بالتوظيف؟"
+            # Role-neutral difficulty probe, varied opener (was HR-specific).
+            follow = pick_varied(DIFFICULTY_FOLLOWUP_POOL, mem)
             return self._set_turn_recommendation(
                 collapse_to_single_question(follow),
                 source="follow_up_on_active",
@@ -1415,7 +1440,7 @@ class InterviewAssistant(Agent):
                 if fact:
                     return self._set_turn_recommendation(
                         collapse_to_single_question(
-                            f"بخصوص {fact}، شلون استخدمته بعملك فعلياً؟"
+                            pick_varied(ENTITY_APPLY_POOL, self._memory, key=fact)
                         ),
                         source="correction_followup",
                     )
@@ -1523,7 +1548,7 @@ class InterviewAssistant(Agent):
                     )
                 return self._set_turn_recommendation(
                     collapse_to_single_question(
-                        f"بخصوص {allowed[0]}، شلون تتأكد من الدقة أو الجودة قبل التسليم؟"
+                        pick_varied(ENTITY_QUALITY_POOL, self._memory, key=allowed[0])
                     ),
                     source="entity_followup",
                 )
@@ -1537,11 +1562,51 @@ class InterviewAssistant(Agent):
                 source="intro_self",
             )
 
+        # Coverage floor (interview-prep "Structured"): before improvising, make
+        # sure every critical competency has had at least one evidence-seeking
+        # question. Gated on priority=="critical", so blueprints without that
+        # field (e.g. legacy/test fixtures) keep the old bank-anchor behaviour.
+        floor = self._pick_uncovered_critical_competency(mem)
+        if floor is not None:
+            return floor
+
         result = self._pick_track_aware_anchor(mem) or anchor
         return self._set_turn_recommendation(
             collapse_to_single_question(result) if result else None,
             source="track_anchor" if result else "bank",
         )
+
+    def _pick_uncovered_critical_competency(self, mem: InterviewMemory) -> str | None:
+        """Return a question for the first critical competency not yet asked.
+
+        Reads ``self._blueprint_competencies`` directly (works for taxonomy-
+        generated blueprints that have no interview_paths). Draws the question
+        from the competency's own ``followUpRules``/``followUps`` (interview-prep
+        methodology), falling back to a behavioural probe on its title.
+        """
+        for comp in self._blueprint_competencies:
+            if str(comp.get("priority") or "").strip().lower() != "critical":
+                continue
+            ckey = str(comp.get("competencyKey") or comp.get("key") or "").strip()
+            if not ckey or ckey in mem.asked_competency_keys:
+                continue
+            follow_ups = [
+                str(f).strip()
+                for f in (comp.get("followUpRules") or comp.get("followUps") or [])
+                if str(f).strip()
+            ]
+            question = follow_ups[0] if follow_ups else ""
+            if not question:
+                title = str(comp.get("title") or "").strip()
+                if not title:
+                    continue
+                question = f"احچيلي عن خبرتك بـ{title}؟"
+            return self._set_turn_recommendation(
+                collapse_to_single_question(question),
+                source="competency_floor",
+                competency_key=ckey,
+            )
+        return None
 
     def _wrap_decision_frame(
         self,
@@ -1644,7 +1709,7 @@ class InterviewAssistant(Agent):
             if not key or key in used:
                 continue
             bank_id = make_bank_question_id(pack, key[:80])
-            if bank_id in mem.closed_question_ids:
+            if bank_id in mem.closed_question_ids or bank_id in mem.sent_question_guard:
                 continue
             mem.bank_cursor = i
             return collapse_to_single_question(q.strip())
@@ -1662,6 +1727,11 @@ class InterviewAssistant(Agent):
 
         mode = plan.response_mode or MODE_ASK
         question_text = extract_primary_question(guarded) or (plan.question or guarded).strip()
+
+        # Track the opener signature of any turn that actually asked a question
+        # (WAIT/ACK/RESUME strip their question marks, so they never record).
+        if count_question_marks(guarded) >= 1:
+            mem.record_opener_stem(_question_stem(question_text))
 
         if mode == MODE_WAIT:
             if mem.active_question_status in (STATUS_ANSWERING, STATUS_CLARIFYING):
@@ -1690,6 +1760,22 @@ class InterviewAssistant(Agent):
             mem.active_question_text = question_text
         mem.sent_question_id = (plan.question_id or "").strip()
         mem.parent_question_id = (plan.parent_question_id or "").strip()
+        # Loop guard: register the question the moment it is SENT — decoupled from
+        # answer quality / open status. Previously an anchor was only recorded on
+        # the next turn, and only when the question had closed; a run of short
+        # answers left it "open" and eligible, so the picker looped back to the
+        # first anchor. Register the raw recommended-question key + its id now.
+        if plan.source in ("bank", "track_anchor", "path_step", "competency_jump"):
+            if plan.question:
+                sent_key = normalize_text(plan.question)
+                if sent_key:
+                    mem.asked_question_keys.add(sent_key)
+            if plan.question_id:
+                mem.sent_question_guard.add(plan.question_id)
+        # Coverage floor: mark a critical competency covered the moment it is
+        # asked, so a run of short answers can't loop the floor on the same one.
+        if plan.source == "competency_floor" and plan.competency_key:
+            mem.asked_competency_keys.add(plan.competency_key)
         if plan.step_key:
             mem.pending_step_key = plan.step_key
         if plan.cluster_key:
@@ -1865,13 +1951,22 @@ class InterviewAssistant(Agent):
                 "No question marks. Do NOT advance to a new topic."
             )
         elif diag.get("is_rich_answer"):
+            allowed = link_policy.get("allowed_link_entities") or []
+            echo_line = ""
+            if allowed:
+                echo_line = (
+                    f" You MAY open with a brief 2-4 word reflection of \"{allowed[0]}\" "
+                    "ONLY if it connects naturally to your question; otherwise ask directly. "
+                    "Vary the wording — do not open with \"بخصوص\" every time."
+                )
             body = (
                 f"{ctx_block}\n\n"
                 "The candidate gave a substantive answer with concrete details they actually said.\n"
                 "Action: ask ONE follow-up from the recommended question — reference ONLY "
-                "allowed_link_entities or speech_hooks (prefer \"بخصوص X\"). "
+                "allowed_link_entities or speech_hooks. "
                 "If they named LinkedIn, Telegram, referrals, or similar channels, follow up on "
                 "that channel — do not jump to an unrelated generic topic."
+                f"{echo_line}"
             )
         elif diag.get("is_greeting_or_ready"):
             body = (
