@@ -40,13 +40,33 @@ import {
     failWebhook,
     errorMessage as wbErrorMessage,
 } from '../services/webhookIdempotency.js';
+import { consumeCredits, adjustCredits } from '../services/billingRuntimeService.js';
+import { creditCostMicro } from '../services/billingEngine.js';
 
 const router = express.Router();
 
+const BILLING_ENFORCE = process.env.BILLING_ENFORCE !== 'false';
+
+/** استرداد رسم توليد الإعلان عند فشل التوليد (idempotent، fire-and-forget). */
+async function refundJobAd(organizationId: string, genId: string, reason: string): Promise<void> {
+    await adjustCredits({
+        organizationId,
+        amountMicro: creditCostMicro('JOB_AD', 1),
+        idempotencyKey: `job-ad-refund:${genId}`,
+        metadata: { kind: 'job_ad_refund', reason, genId },
+    }).catch((e) =>
+        console.warn(`[job-ad] refund failed genId=${genId}: ${e?.message || e}`)
+    );
+}
+
 // POST /api/recruitment-campaigns/generate-ad - توليد إعلان الوظيفة تلقائياً من المعايير
 router.post('/generate-ad', async (req: Request, res: Response) => {
+    const genId = crypto.randomUUID();
+    let organizationId = '';
+    let jobAdCharged = false;
     try {
         const { language, ...criteria } = req.body || {};
+        organizationId = getOrgId(req);
 
         // معلومات الشركة من بروفايل المستخدم (best-effort — الإعلان يتولد حتى بدونها)
         let company: { name?: string; description?: string } | undefined;
@@ -65,20 +85,51 @@ router.post('/generate-ad', async (req: Request, res: Response) => {
             /* الملف غير موجود أو Clerk غير مهيأ — نكمل بدون معلومات الشركة */
         }
 
+        // تحصيل JOB_AD (1 كردت/توليد — السعر المعلن في الكتالوج). يُسترد إذا فشل التوليد أدناه.
+        if (BILLING_ENFORCE) {
+            const billing = await consumeCredits({
+                organizationId,
+                usageType: 'JOB_AD',
+                units: 1,
+                idempotencyKey: `job-ad:${genId}`,
+                source: 'job_ad',
+                sourceId: genId,
+                metadata: { language: language || null },
+            });
+            if (!billing.ok) {
+                const status = billing.code === 'INSUFFICIENT_CREDITS' ? 402 : 403;
+                return res.status(status).json({
+                    success: false,
+                    error: billing.code,
+                    message: billing.message,
+                });
+            }
+            jobAdCharged = !billing.duplicate;
+        }
+
         const ad = await generateJobAdvertisement(criteria, language, company);
         if (!ad) {
+            if (jobAdCharged) await refundJobAd(organizationId, genId, 'empty_generation');
             return res.status(400).json({
                 success: false,
                 error: 'Unable to generate advertisement',
                 message: 'No criteria provided or OpenAI not configured'
             });
         }
+
+        logAudit(req, {
+            action: 'recruitmentCampaign.generateAd',
+            targetType: 'recruitmentCampaign',
+            metadata: { language: language || null, charged: jobAdCharged },
+        });
+
         res.json({
             success: true,
             jobAdvertisement: ad,
             language: language || null
         });
     } catch (error: any) {
+        if (jobAdCharged) await refundJobAd(organizationId, genId, 'exception');
         console.error('❌ Error generating job advertisement:', error);
         res.status(500).json({
             success: false,
