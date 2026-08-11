@@ -31,9 +31,17 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
         { careerLevel: 'junior', displayTitle: 'HR Coordinator' },
         { careerLevel: 'senior', displayTitle: 'Senior HR Coordinator' },
     ]),
+    role('hr_assistant', 'business', 'hr_operations', 'hr', 'ic', [
+        { careerLevel: 'mid', displayTitle: 'HR Assistant' },
+        { careerLevel: 'senior', displayTitle: 'Senior HR Assistant' },
+    ]),
     role('hr_specialist', 'business', 'hr_operations', 'hr', 'ic', [
         { careerLevel: 'mid', displayTitle: 'HR Specialist' },
         { careerLevel: 'senior', displayTitle: 'Senior HR Specialist' },
+    ]),
+    role('hr_officer', 'business', 'hr_operations', 'hr', 'ic', [
+        { careerLevel: 'mid', displayTitle: 'HR Officer' },
+        { careerLevel: 'senior', displayTitle: 'Senior HR Officer' },
     ]),
     role('hr_generalist', 'business', 'hr_generalist', 'hr', 'ic', [
         { careerLevel: 'mid', displayTitle: 'HR Generalist' },
@@ -180,6 +188,10 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
         { careerLevel: 'manager', displayTitle: 'Marketing Manager', managementTrack: 'manager' },
         { careerLevel: 'director', displayTitle: 'Marketing Director', managementTrack: 'director' },
     ]),
+    role('marketing_specialist', 'business', 'marketing', 'marketing', 'ic', [
+        { careerLevel: 'mid', displayTitle: 'Marketing Specialist' },
+        { careerLevel: 'senior', displayTitle: 'Senior Marketing Specialist' },
+    ]),
     role('performance_marketing_specialist', 'business', 'performance_marketing', 'marketing', 'ic', [
         { careerLevel: 'mid', displayTitle: 'Performance Marketing Specialist' },
         { careerLevel: 'senior', displayTitle: 'Senior Performance Marketing Specialist' },
@@ -274,6 +286,10 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
         { careerLevel: 'mid', displayTitle: 'Financial Analyst' },
         { careerLevel: 'senior', displayTitle: 'Senior Financial Analyst' },
         { careerLevel: 'manager', displayTitle: 'Financial Planning and Analysis Manager', managementTrack: 'manager' },
+    ]),
+    role('finance_specialist', 'business', 'finance', 'finance', 'ic', [
+        { careerLevel: 'mid', displayTitle: 'Finance Specialist' },
+        { careerLevel: 'senior', displayTitle: 'Senior Finance Specialist' },
     ]),
     role('internal_auditor', 'business', 'internal_audit', 'finance', 'ic', [
         { careerLevel: 'junior', displayTitle: 'Internal Audit Associate' },
@@ -433,6 +449,10 @@ export const ROLE_DEFINITIONS: RoleDefinition[] = [
         { careerLevel: 'manager', displayTitle: 'Procurement Manager', managementTrack: 'manager' },
         { careerLevel: 'head', displayTitle: 'Head of Procurement', managementTrack: 'director' },
         { careerLevel: 'director', displayTitle: 'Procurement Director', managementTrack: 'director' },
+    ]),
+    role('procurement_specialist', 'business', 'procurement', 'procurement', 'ic', [
+        { careerLevel: 'mid', displayTitle: 'Procurement Specialist' },
+        { careerLevel: 'senior', displayTitle: 'Senior Procurement Specialist' },
     ]),
     role('purchasing_officer', 'business', 'procurement', 'procurement', 'ic', [
         { careerLevel: 'mid', displayTitle: 'Purchasing Officer' },
