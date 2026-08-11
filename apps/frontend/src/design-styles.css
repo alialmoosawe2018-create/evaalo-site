@@ -5756,6 +5756,28 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     min-height: 0;
 }
 
+/* Campaign ready — scroll body + fixed Share/Copy footer (job ad can be tall) */
+.new-interview-modal .ni-campaign-ready-view {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.new-interview-modal .ni-campaign-ready-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.new-interview-modal .ni-continue-footer.ni-campaign-ready-footer {
+    justify-content: stretch;
+    padding-inline: 0;
+}
+
+.new-interview-modal .ni-continue-footer.ni-campaign-ready-footer .campaign-action-buttons {
+    width: 100%;
+}
+
 .new-interview-modal .ni-modal-scroll {
     flex: 1 1 auto;
     min-height: 0;

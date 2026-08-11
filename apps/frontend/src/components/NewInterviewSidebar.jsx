@@ -3382,15 +3382,17 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                         </div>
                     </div>
                 ) : showFormLink ? (
-                    <>
-                        {/* Form Link Display */}
-                        <div style={{ 
-                            flex: 1, 
-                            display: 'flex', 
+                    <div
+                        className="ni-campaign-ready-view"
+                        style={{
+                            display: 'flex',
                             flexDirection: 'column',
-                            gap: '20px'
-                        }}>
-                            {/* Single container: Advertisement + Form Link + Share options */}
+                            flex: 1,
+                            minHeight: 0,
+                        }}
+                    >
+                        <div className="ni-modal-scroll ni-campaign-ready-scroll">
+                        {/* Single container: Advertisement + Form Link */}
                             <div className="ni-campaign-ready-shell" style={{
                                 padding: '24px',
                                 background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 100%)',
@@ -3662,8 +3664,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                     ✓ Tick the options above to include the job ad and/or links in <strong style={{ color: NT.inputText }}>Share</strong> and <strong style={{ color: NT.inputText }}>Copy</strong>.
                                 </p>
                             ) : null}
+                        </div>
 
-                            {/* Action buttons: Back · Copy (start) · Share (end) */}
+                        {/* Action buttons — fixed footer; scroll job ad + links above */}
+                        <div className="ni-continue-footer ni-campaign-ready-footer">
                             <div
                                 className="campaign-action-buttons"
                                 style={{
@@ -3672,7 +3676,6 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                     justifyContent: 'space-between',
                                 gap: '12px',
                                     width: '100%',
-                                marginTop: 'auto',
                                     flexWrap: 'wrap',
                                 }}
                             >
@@ -3776,8 +3779,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                     </svg>
                             </button>
                         </div>
+                        </div>
                     </div>
-                    </>
                 ) : (
                     <>
                         {/*

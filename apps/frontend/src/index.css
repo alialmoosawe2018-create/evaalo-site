@@ -15912,6 +15912,47 @@ button:focus {
     color: rgba(224, 242, 254, 0.88);
 }
 
+/* iPad / tablet فقط — صفان × 3 عناصر؛ الدسكتوب (>1366px) يبقى صفاً أفقياً واحداً */
+@media (min-width: 769px) and (max-width: 1366px) {
+    .legal-page-shell--agent .pricing-usage-costs__row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        width: 100%;
+        overflow: visible;
+        padding-block: 2px;
+        direction: ltr;
+    }
+
+    .legal-page-shell--agent .pricing-usage-costs__item {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25em;
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        min-height: 42px;
+        box-sizing: border-box;
+        white-space: normal;
+        text-align: center;
+        font-size: clamp(0.65rem, 1.35vw, 0.78rem);
+        padding: 8px 10px;
+        line-height: 1.3;
+    }
+
+    .legal-page-shell--agent .pricing-usage-costs__label {
+        flex: 0 1 auto;
+        min-width: 0;
+    }
+
+    .legal-page-shell--agent .pricing-usage-costs__value {
+        flex: 0 0 auto;
+    }
+}
+
 .legal-page-shell--agent .pricing-plans__grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -16446,13 +16487,6 @@ button:focus {
     }
 }
 
-@media (max-width: 1200px) {
-    .legal-page-shell--agent .pricing-plans__grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-    }
-}
-
 @media (max-width: 768px) {
     .legal-page-shell--agent .pricing-usage-costs {
         margin-bottom: 22px;
@@ -16514,6 +16548,13 @@ button:focus {
     /* Mobile: show credit number only — hide unit suffixes */
     .legal-page-shell--agent .pricing-usage-costs__unit {
         display: none;
+    }
+}
+
+@media (max-width: 1200px) {
+    .legal-page-shell--agent .pricing-plans__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
     }
 }
 
