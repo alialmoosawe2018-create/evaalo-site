@@ -11,7 +11,7 @@ import HeadHunterCardVideoInvite from './HeadHunterCardVideoInvite.jsx';
  */
 
 /** عتبة شارة TOP على الشريط الأخضر (مطابقة قوية). */
-const TOP_MATCH_THRESHOLD = 60;
+const TOP_MATCH_THRESHOLD = 80;
 
 /** نبذة العمود الأوسط: ملخص/ذكاء فقط — بدون إدراج headline لأنه معروض في العمود الرئيسي. */
 function cardAboutText(c) {
