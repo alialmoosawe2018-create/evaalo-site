@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useBilling } from '../contexts/BillingContext';
 import ThemeToggle from './ThemeToggle';
@@ -68,6 +68,7 @@ const Navigation = () => {
     const { currentLang, changeLanguage, t } = useLanguage();
 
     const location = useLocation();
+    const navigate = useNavigate();
     const showThemeToggle = isAppThemeRoute(location.pathname);
     // ويدجت الرصيد: يظهر على صفحات التطبيق فقط وعندما تكون الفوترة مهيأة ومحمّلة.
     const { creditsRemaining, configured: billingConfigured, isLoaded: billingLoaded } = useBilling();
@@ -83,6 +84,8 @@ const Navigation = () => {
     const desktopProductRef = useRef(null);
     const desktopLangTimeoutRef = useRef(null);
     const desktopProductTimeoutRef = useRef(null);
+    /** When set, closing the mobile drawer must not restore the pre-menu scroll position. */
+    const skipScrollRestoreRef = useRef(false);
     
     const isActive = (path) => location.pathname === path;
 
@@ -169,6 +172,11 @@ const Navigation = () => {
             document.body.classList.remove('sidebar-open');
             document.body.style.removeProperty('overflow');
             document.body.style.removeProperty('touch-action');
+            if (skipScrollRestoreRef.current) {
+                skipScrollRestoreRef.current = false;
+                delete document.body.dataset.mobileNavScrollY;
+                return;
+            }
             const savedScrollY = Number(document.body.dataset.mobileNavScrollY || '0');
             delete document.body.dataset.mobileNavScrollY;
             window.scrollTo(0, savedScrollY);
@@ -216,6 +224,35 @@ const Navigation = () => {
         setMobileMenuOpen(false);
         setMobileProductExpanded(false);
         setMobileLangExpanded(false);
+    };
+
+    /**
+     * Mobile home-section anchors (Features / Why evaalo / How work).
+     * React Router hash Links do not scroll reliably, and the drawer cleanup
+     * restores the pre-open scroll position — both must be bypassed here.
+     */
+    const handleMobileHomeSectionClick = (event, sectionId) => {
+        event.preventDefault();
+        skipScrollRestoreRef.current = true;
+        closeMobileMenu();
+
+        const scrollToSection = () => {
+            requestAnimationFrame(() => {
+                document.getElementById(sectionId)?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                });
+            });
+        };
+
+        if (location.pathname !== '/') {
+            navigate({ pathname: '/', hash: sectionId });
+            window.setTimeout(scrollToSection, 200);
+            return;
+        }
+
+        navigate({ pathname: '/', hash: sectionId }, { replace: false });
+        scrollToSection();
     };
 
     const closeProductMenus = () => {
@@ -283,15 +320,27 @@ const Navigation = () => {
                 {t('navPricing')}
             </Link>
 
-            <Link to="/#features" className="nav-link" onClick={closeMobileMenu}>
+            <a
+                href="#features"
+                className="nav-link"
+                onClick={(event) => handleMobileHomeSectionClick(event, 'features')}
+            >
                 {t('features')}
-            </Link>
-            <Link to="/#features-2" className="nav-link" onClick={closeMobileMenu}>
+            </a>
+            <a
+                href="#features-2"
+                className="nav-link"
+                onClick={(event) => handleMobileHomeSectionClick(event, 'features-2')}
+            >
                 <span className="nav-link-label">{wrapEvaaloInLabel(t('navWhyUsMobile'))}</span>
-            </Link>
-            <Link to="/#process" className="nav-link" onClick={closeMobileMenu}>
+            </a>
+            <a
+                href="#process"
+                className="nav-link"
+                onClick={(event) => handleMobileHomeSectionClick(event, 'process')}
+            >
                 <span className="nav-link-label">{t('navHowWorkMobile')}</span>
-            </Link>
+            </a>
 
             {SHOW_DESIGN_IN_NAV && (
                 <Link
