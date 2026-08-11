@@ -1919,7 +1919,6 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
             <div
                 className="modal-overlay new-interview-modal-overlay"
                 onClick={onClose}
-                onWheel={(e) => e.preventDefault()}
                 style={{
                     position: 'fixed',
                     top: 0,

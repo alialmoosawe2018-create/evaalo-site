@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useDesign } from '../contexts/DesignContext';
 import '../design-styles.css';
@@ -200,14 +200,21 @@ const Workflow = () => {
     };
 
     // Zoom functionality (mouse wheel)
-    const handleCanvasWheel = (e) => {
-        if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            const newZoom = Math.max(0.5, Math.min(2, zoom * delta));
-            setZoom(newZoom);
-        }
-    };
+    const handleCanvasWheel = useCallback((e) => {
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        setZoom((z) => Math.max(0.5, Math.min(2, z * delta)));
+    }, []);
+
+    // Bound natively: React registers wheel listeners as passive, so preventDefault
+    // from an onWheel prop is ignored and Ctrl+wheel zooms the browser page too.
+    useEffect(() => {
+        const el = canvasRef.current;
+        if (!el) return;
+        el.addEventListener('wheel', handleCanvasWheel, { passive: false });
+        return () => el.removeEventListener('wheel', handleCanvasWheel);
+    }, [handleCanvasWheel]);
 
     // Zoom controls from toolbar
     const handleZoomIn = () => {
@@ -674,7 +681,6 @@ const Workflow = () => {
                         onMouseMove={handleCanvasMouseMove}
                         onMouseUp={handleCanvasMouseUp}
                         onMouseLeave={handleCanvasMouseUp}
-                        onWheel={handleCanvasWheel}
                         onDragOver={handleCanvasDragOver}
                         onDrop={handleCanvasDrop}
                         style={{ cursor: isPanning ? 'grabbing' : (!isSelectMode ? 'grab' : 'default') }}

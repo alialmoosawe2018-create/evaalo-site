@@ -137,6 +137,15 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
         }
     }, []);
 
+    // Bound natively: React registers wheel listeners as passive, so preventDefault
+    // from an onWheel prop is ignored and the page scrolls at the list boundaries.
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        el.addEventListener('wheel', clampRecentInterviewsScrollWheel, { passive: false });
+        return () => el.removeEventListener('wheel', clampRecentInterviewsScrollWheel);
+    }, [clampRecentInterviewsScrollWheel]);
+
     const mockRecentInterviews = useMemo(() => buildMockRecentInterviews(t), [t]);
     const mockRecentInterviewsRef = useRef(mockRecentInterviews);
     mockRecentInterviewsRef.current = mockRecentInterviews;
@@ -415,7 +424,6 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
             <div
                 ref={scrollRef}
                 className="dashboard-card-body recent-interviews-scroll"
-                onWheel={clampRecentInterviewsScrollWheel}
             >
                 {loadingInterviews ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
