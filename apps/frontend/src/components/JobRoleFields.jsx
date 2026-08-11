@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
     composeRoleResolution,
     fromJobLevelUiValue,
-    getLevelsForRoleUI,
     getRepresentativeEntry,
     toJobLevelUiValue,
 } from '@evaalo/job-catalog';
@@ -91,11 +90,7 @@ export default function JobRoleFields({
                 return;
             }
             const levelUi = toJobLevelUiValue(rk, currentLevel || careerLevel);
-            let effectiveLevel = fromJobLevelUiValue(rk, levelUi);
-            const levels = getLevelsForRoleUI(rk);
-            if (levels.length === 1) {
-                effectiveLevel = levels[0];
-            }
+            const effectiveLevel = fromJobLevelUiValue(rk, levelUi);
             const resolution = composeRoleResolution(rk, effectiveLevel);
             emitResolution(resolution);
         },
@@ -111,16 +106,6 @@ export default function JobRoleFields({
         [roleKey, emitResolution]
     );
 
-    useEffect(() => {
-        const rk = String(roleKey || '').trim();
-        if (!rk) return;
-        const levels = getLevelsForRoleUI(rk);
-        if (levels.length === 1 && careerLevel !== levels[0]) {
-            const resolution = composeRoleResolution(rk, levels[0]);
-            emitResolution(resolution);
-        }
-    }, [roleKey, careerLevel, emitResolution]);
-
     const roleBlock = (
         <div className={roleWrapperClassName || undefined}>
             <PositionSuggestCombobox
@@ -131,11 +116,7 @@ export default function JobRoleFields({
                 onChange={(e) => handleRolePick(e.target.value, careerLevel)}
                 onRoleResolved={(resolution) => {
                     if (resolution?.roleKey) {
-                        const levels = getLevelsForRoleUI(resolution.roleKey);
-                        const levelUi = toJobLevelUiValue(
-                            resolution.roleKey,
-                            levels.length === 1 ? levels[0] : careerLevel
-                        );
+                        const levelUi = toJobLevelUiValue(resolution.roleKey, careerLevel);
                         emitResolution(
                             composeRoleResolution(
                                 resolution.roleKey,

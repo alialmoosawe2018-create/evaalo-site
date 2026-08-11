@@ -150,6 +150,43 @@ function main(): void {
         assert(levels.includes('intern'), 'backend_developer has intern in UI');
     }
 
+    // Regression: roles defined as mid + one other level used to be force-upgraded,
+    // because mid is hidden from the UI list so only the other level remained visible.
+    {
+        const previouslyUpgraded = [
+            'hr_specialist',
+            'hr_officer',
+            'hr_assistant',
+            'marketing_specialist',
+            'finance_specialist',
+            'procurement_specialist',
+            'credit_controller',
+            'bim_engineer',
+            'planning_engineer',
+        ];
+        for (const roleKey of previouslyUpgraded) {
+            assert(!!getRepresentativeEntry(roleKey), `role exists: ${roleKey}`);
+            const res = composeRoleResolution(roleKey);
+            assertEq(res.careerLevel, 'mid', `${roleKey} must stay mid by default`);
+            assertEq(toJobLevelUiValue(roleKey, res.careerLevel), '', `${roleKey} UI level empty`);
+            assertEq(getLevelsForRoleUI(roleKey).length, 1, `${roleKey} still has one UI level`);
+        }
+        assertEq(
+            composeRoleResolution('credit_controller').displayTitle,
+            'Credit Controller',
+            'credit_controller keeps base title, not Credit Control Manager'
+        );
+    }
+
+    // Generalized invariant behind the regression above
+    {
+        for (const def of ROLE_DEFINITIONS) {
+            if (!def.levels.some((l) => l.careerLevel === 'mid')) continue;
+            const res = composeRoleResolution(def.roleKey);
+            assertEq(res.careerLevel, 'mid', `role defining mid must default to mid: ${def.roleKey}`);
+        }
+    }
+
     console.log('role-resolution-matrix-test: all assertions passed');
 }
 
