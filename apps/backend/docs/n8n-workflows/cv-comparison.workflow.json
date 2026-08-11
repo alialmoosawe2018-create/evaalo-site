@@ -1,10 +1,10 @@
 [
   {
-    "updatedAt": "2026-07-02T06:20:41.583Z",
+    "updatedAt": "2026-08-11 17:24:21",
     "createdAt": "2026-06-17T13:52:49.605Z",
     "id": "hmPyS1Hyd1GsDiT5",
     "name": "CV Comparison",
-    "description": "Compare multiple CV PDFs with AI. Non-CV or unreadable PDFs are filtered out before ranking and omitted from results.",
+    "description": "Compare multiple CV PDFs with AI and return ranked JSON results",
     "active": true,
     "isArchived": false,
     "nodes": [
@@ -43,17 +43,17 @@
       {
         "parameters": {
           "promptType": "define",
-          "text": "={{ (() => {\n  const body = $('Webhook').first().json.body || {};\n  let criteria = {};\n  try {\n    criteria = typeof body.criteria === 'string' ? JSON.parse(body.criteria) : (body.criteria || {});\n  } catch (e) {}\n  const job = [\n    'Position: ' + (body.position || criteria.position || 'Not specified'),\n    'Location: ' + (body.location || criteria.location || 'Not specified'),\n    criteria.yearsOfExperience ? 'Years of experience: ' + criteria.yearsOfExperience : '',\n    criteria.ageRange ? 'Age range: ' + criteria.ageRange : '',\n    criteria.query ? 'Notes: ' + criteria.query : '',\n    criteria.optionsSummaryEn || criteria.optionsSummaryAr || '',\n  ].filter(Boolean).join('\\n');\n\n  const filterRows = $('Filter CV Documents').all().filter((i) => i.json.isCv);\n  const cvPayload = filterRows.map((i) => ({\n    fileName: i.json.fileName,\n    text: i.json.text,\n  }));\n\n  return 'Job requirements:\\n' + job + '\\n\\nValid CVs to compare (non-CV uploads were already removed):\\n' + JSON.stringify(cvPayload, null, 2);\n})() }}",
+          "text": "={{ (() => {\n  const body = $('Webhook').first().json.body || {};\n  let criteria = {};\n  try { criteria = typeof body.criteria === 'string' ? JSON.parse(body.criteria) : (body.criteria || {}); } catch (e) {}\n\n  const position = body.position || criteria.position || '';\n  const location = body.location || criteria.location || '';\n  const notes = criteria.query || '';\n  const ns = 'Not specified';\n\n  // The analysis is ALWAYS produced in English; \"Apply CV Localization\" downstream\n  // renders it in Arabic when the requester's locale is Arabic.\n  const summary = criteria.optionsSummaryEn || criteria.optionsSummaryAr || '';\n\n  const job = [\n    'Position: ' + (position || ns),\n    'Location: ' + (location || ns),\n    criteria.yearsOfExperience ? 'Years of experience: ' + criteria.yearsOfExperience : '',\n    criteria.ageRange ? 'Age range: ' + criteria.ageRange : '',\n    notes ? 'Notes: ' + notes : '',\n    summary,\n  ].filter(Boolean).join('\\n');\n\n  const directive = 'OUTPUT_LANGUAGE = en\\nWrite every human-readable field (summary, strengths, weaknesses, education, recommendation, comparisonSummary) in English only, even if the CVs or the job requirements below are written in Arabic.';\n\n  const cvTexts = $input.first().json.text;\n  return directive + '\\n\\nJob requirements:\\n' + job + '\\n\\nCVs to compare (extracted text):\\n' + JSON.stringify(cvTexts, null, 2);\n})() }}",
           "options": {
-            "systemMessage": "You are an expert HR recruiter and CV analyst. Compare only valid CV/resume documents against the job requirements.\n\nReturn ONLY valid JSON (no markdown fences):\n{\n  \"candidates\": [\n    {\n      \"name\": \"string\",\n      \"overallScore\": 0,\n      \"skills\": [\"string\"],\n      \"experienceYears\": 0,\n      \"education\": \"string\",\n      \"strengths\": [\"string\"],\n      \"weaknesses\": [\"string\"],\n      \"summary\": \"string (1-2 sentences for ranking table)\",\n      \"finalHrReport\": \"string (full HR report: candidate identity, personal background, experience, education, role fit)\"\n    }\n  ],\n  \"ranking\": [\"name1\", \"name2\"],\n  \"recommendation\": \"string\",\n  \"comparisonSummary\": \"string\"\n}\n\nRules:\n- Only include real CVs/resumes in \"candidates\". Omit any document that is not a CV (forms, invoices, blank pages, random PDFs).\n- Never invent a candidate for a non-CV file.\n- \"summary\" = brief match overview for the results table (max ~2 sentences).\n- \"finalHrReport\" = complete Final HR Report paragraph per candidate: name, personal/profile context, years of experience, education, and evidence-based hiring assessment. Write in clear professional English unless the CV is Arabic-only (then Arabic is OK).\n- Score 0-100 based on fit for the role and location.\n- Be evidence-based; support Arabic and English CVs.\n- Do not invent facts not in the CV text.\n- Use the provided fileName for each candidate \"name\" when available.",
+            "systemMessage": "You are an expert HR recruiter and CV analyst. Compare all candidates against the job requirements.\n\nReturn ONLY valid JSON (no markdown fences):\n{\n  \"candidates\": [\n    {\n      \"name\": \"string\",\n      \"overallScore\": 0,\n      \"skills\": [\"string\"],\n      \"experienceYears\": 0,\n      \"education\": \"string\",\n      \"strengths\": [\"string\"],\n      \"weaknesses\": [\"string\"],\n      \"summary\": \"string\"\n    }\n  ],\n  \"ranking\": [\"name1\", \"name2\"],\n  \"recommendation\": \"string\",\n  \"comparisonSummary\": \"string\"\n}\n\nRules:\n- LANGUAGE (STRICT — HIGHEST PRIORITY): Write the ENTIRE analysis in English only. This covers every human-readable field (\"summary\", \"strengths\", \"weaknesses\", \"education\", \"recommendation\", \"comparisonSummary\"). The CVs and the job requirements may be written in Arabic — read them in whatever language they use, but ALWAYS write your own output in English. Never emit Arabic, Kurdish, or mixed-language prose. A separate localization step translates the result afterwards, so do not attempt any translation yourself.\n- Keep \"name\" exactly as written in the CV. Do NOT translate or transliterate candidate names.\n- \"ranking\" must contain the same name strings, spelled identically to \"candidates[].name\".\n- Score 0-100 based on fit for the role and location.\n- Be evidence-based. Do not invent facts not in the CV text.\n- If a CV has little or no extractable text, score low and note it.",
             "maxIterations": 3
           }
         },
         "type": "@n8n/n8n-nodes-langchain.agent",
         "typeVersion": 3.1,
         "position": [
-          1500,
-          -80
+          960,
+          0
         ],
         "id": "d6be1ee6-8e02-464a-afba-5cd16dc98a7b",
         "name": "Compare CVs Agent"
@@ -101,8 +101,8 @@
         "type": "n8n-nodes-base.aggregate",
         "typeVersion": 1,
         "position": [
-          1280,
-          -80
+          800,
+          0
         ]
       },
       {
@@ -116,8 +116,8 @@
         "type": "n8n-nodes-base.respondToWebhook",
         "typeVersion": 1.5,
         "position": [
-          1440,
-          0
+          420,
+          -180
         ]
       },
       {
@@ -135,15 +135,15 @@
       },
       {
         "parameters": {
-          "jsCode": "const agentOut = $input.first().json;\nlet raw = agentOut.output ?? agentOut.text ?? agentOut.response ?? agentOut;\nlet parsed = {};\n\nif (typeof raw === 'string') {\n  const start = raw.indexOf('{');\n  const end = raw.lastIndexOf('}');\n  if (start >= 0 && end > start) {\n    try { parsed = JSON.parse(raw.slice(start, end + 1)); } catch (e) { parsed = {}; }\n  }\n} else if (raw && typeof raw === 'object') {\n  if (raw.candidates) parsed = raw;\n  else if (raw.parsed && typeof raw.parsed === 'object') parsed = raw.parsed;\n  else if (typeof raw.output === 'string') {\n    const start = raw.output.indexOf('{');\n    const end = raw.output.lastIndexOf('}');\n    if (start >= 0 && end > start) {\n      try { parsed = JSON.parse(raw.output.slice(start, end + 1)); } catch (e) { parsed = {}; }\n    }\n  }\n}\n\nconst webhook = $('Webhook').first().json.body || {};\nconst filterItems = $('Filter CV Documents').all();\nconst skippedFromFilter = filterItems.find((i) => Array.isArray(i.json.skippedFiles))?.json.skippedFiles || [];\nconst validCvFiles = filterItems.filter((i) => i.json.isCv).map((i) => i.json.fileName);\n\nconst candidates = Array.isArray(parsed.candidates) ? parsed.candidates : [];\n\nfunction looksLikeNonCvCandidate(c) {\n  const name = String(c?.name || '').toLowerCase();\n  const summary = String(c?.summary || '').toLowerCase();\n  if (name.includes('no text') || name.includes('(no text)')) return true;\n  if (summary.includes('no extractable text') || summary.includes('not a cv') || summary.includes('not a resume')) return true;\n  if (summary.includes('little or no') && summary.includes('text')) return true;\n  return false;\n}\n\nconst filteredCandidates = candidates.filter((c) => !looksLikeNonCvCandidate(c));\n\nconst comparisons = filteredCandidates.map((c, idx) => ({\n  fileName: c.name || validCvFiles[idx] || `CV ${idx + 1}`,\n  name: c.name || validCvFiles[idx] || `CV ${idx + 1}`,\n  rank: idx + 1,\n  score: c.overallScore ?? c.score ?? null,\n  matchScore: c.overallScore ?? c.score ?? null,\n  summary: c.summary || '',\n  finalHrReport:\n    c.finalHrReport ||\n    c.finalHrEvaluation ||\n    c.final_hr_report ||\n    c.hrReport ||\n    '',\n  skills: Array.isArray(c.skills) ? c.skills : [],\n  experienceYears: c.experienceYears ?? null,\n  education: c.education || '',\n  strengths: Array.isArray(c.strengths) ? c.strengths : [],\n  weaknesses: Array.isArray(c.weaknesses) ? c.weaknesses : [],\n  isCv: true,\n}));\n\nreturn [{\n  json: {\n    comparisonId: webhook.comparisonId,\n    callbackUrl: webhook.callbackUrl,\n    comparisons,\n    candidates: filteredCandidates,\n    ranking: (parsed.ranking || []).filter((name) =>\n      comparisons.some((c) => c.name === name || c.fileName === name)\n    ),\n    recommendation: parsed.recommendation || '',\n    comparisonSummary: parsed.comparisonSummary || '',\n    skippedFiles: skippedFromFilter,\n  },\n}];"
+          "jsCode": "const agentOut = $input.first().json;\nlet raw = agentOut.output ?? agentOut.text ?? agentOut.response ?? agentOut;\nlet parsed = {};\n\nif (typeof raw === 'string') {\n  const start = raw.indexOf('{');\n  const end = raw.lastIndexOf('}');\n  if (start >= 0 && end > start) {\n    try { parsed = JSON.parse(raw.slice(start, end + 1)); } catch (e) { parsed = {}; }\n  }\n} else if (raw && typeof raw === 'object') {\n  if (raw.candidates) parsed = raw;\n  else if (raw.parsed && typeof raw.parsed === 'object') parsed = raw.parsed;\n  else if (typeof raw.output === 'string') {\n    const start = raw.output.indexOf('{');\n    const end = raw.output.lastIndexOf('}');\n    if (start >= 0 && end > start) {\n      try { parsed = JSON.parse(raw.output.slice(start, end + 1)); } catch (e) { parsed = {}; }\n    }\n  }\n}\n\nconst candidates = Array.isArray(parsed.candidates) ? parsed.candidates : [];\nconst webhook = $('Webhook').first().json.body || {};\nconst fileNames = $('Prepare CV Binaries').all().map((i) => i.json.fileName);\n\nconst comparisons = candidates.map((c, idx) => ({\n  fileName: c.name || fileNames[idx] || `CV ${idx + 1}`,\n  name: c.name || fileNames[idx] || `CV ${idx + 1}`,\n  rank: idx + 1,\n  score: c.overallScore ?? c.score ?? null,\n  matchScore: c.overallScore ?? c.score ?? null,\n  summary: c.summary || (Array.isArray(c.strengths) ? c.strengths.join('; ') : '') || '',\n  skills: Array.isArray(c.skills) ? c.skills : [],\n  experienceYears: c.experienceYears ?? null,\n  education: c.education || '',\n  strengths: Array.isArray(c.strengths) ? c.strengths : [],\n  weaknesses: Array.isArray(c.weaknesses) ? c.weaknesses : [],\n}));\n\n// Display locale for the result. An explicit locale from the backend wins; otherwise\n// detect it from what the USER typed - never from the CV text (analysis is English now).\nlet _criteria = {};\ntry { _criteria = typeof webhook.criteria === 'string' ? JSON.parse(webhook.criteria) : (webhook.criteria || {}); } catch (e) {}\nconst _explicit = String(webhook.language || webhook.locale || _criteria.language || '').trim().toLowerCase();\nlet targetLang = _explicit.indexOf('ar') === 0 ? 'ar' : (_explicit.indexOf('en') === 0 ? 'en' : '');\nif (!targetLang) {\n  const _sample = [\n    webhook.position || _criteria.position || '',\n    webhook.location || _criteria.location || '',\n    _criteria.query || '',\n    _criteria.optionsSummaryAr || '',\n  ].join(' ');\n  const _ar = (_sample.match(/[\\u0600-\\u06FF]/g) || []).length;\n  const _lat = (_sample.match(/[A-Za-z]/g) || []).length;\n  targetLang = (_ar >= 2 && _ar >= _lat) ? 'ar' : 'en';\n}\n\nreturn [{\n  json: {\n    targetLang,\n    comparisonId: webhook.comparisonId,\n    callbackUrl: webhook.callbackUrl,\n    comparisons,\n    candidates,\n    ranking: parsed.ranking || [],\n    recommendation: parsed.recommendation || '',\n    comparisonSummary: parsed.comparisonSummary || '',\n  },\n}];"
         },
         "id": "09824971-bd73-469d-a60e-97076f42e6ae",
         "name": "Format Comparison Results",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1720,
-          -80
+          1120,
+          0
         ]
       },
       {
@@ -152,7 +152,7 @@
           "url": "={{ $('Webhook').first().json.body.callbackUrl }}",
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ comparisons: $json.comparisons, candidates: $json.candidates, ranking: $json.ranking, recommendation: $json.recommendation, comparisonSummary: $json.comparisonSummary, comparisonId: $json.comparisonId, skippedFiles: $json.skippedFiles || [] }) }}",
+          "jsonBody": "={{ JSON.stringify({ comparisons: $json.comparisons, candidates: $json.candidates, ranking: $json.ranking, recommendation: $json.recommendation, comparisonSummary: $json.comparisonSummary, comparisonId: $json.comparisonId }) }}",
           "options": {
             "timeout": 60000
           },
@@ -175,8 +175,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          1280,
-          0
+          1920,
+          60
         ]
       },
       {
@@ -258,17 +258,65 @@
       },
       {
         "parameters": {
-          "mode": "runOnceForAllItems",
-          "jsCode": "const items = $input.all();\n\nfunction isLikelyCv(text, fileName) {\n  const t = String(text || '').replace(/\\s+/g, ' ').trim();\n  if (t.length < 80) return { ok: false, reason: 'insufficient_text' };\n\n  const lower = t.toLowerCase();\n  const cvSignals = [\n    'experience', 'education', 'skills', 'employment', 'university', 'bachelor', 'master',\n    'resume', 'curriculum vitae', 'objective', 'certification', 'qualified', 'position',\n    'career', 'profile', 'languages', 'internship', 'degree',\n    'خبرة', 'تعليم', 'مهارات', 'السيرة', 'جامعة', 'مؤهل', 'وظيفة', 'عمل', 'تخصص', 'شهادة'\n  ];\n  const hits = cvSignals.filter((s) => lower.includes(s)).length;\n  const hasEmail = /@[\\w.-]+\\.\\w{2,}/.test(t);\n  const hasPhone = /(\\+?\\d[\\d\\s\\-().]{7,}\\d)/.test(t);\n\n  if (hits >= 2) return { ok: true };\n  if (hasEmail && (hasPhone || hits >= 1)) return { ok: true };\n  if (t.length >= 400 && hits >= 1) return { ok: true };\n\n  const nameHint = String(fileName || '').toLowerCase();\n  if (\n    (nameHint.includes('cv') || nameHint.includes('resume') || nameHint.includes('سيرة') || nameHint.includes('curriculum')) &&\n    t.length >= 120 &&\n    hits >= 1\n  ) {\n    return { ok: true };\n  }\n\n  return { ok: false, reason: 'not_cv_like' };\n}\n\nconst valid = [];\nconst skipped = [];\n\nfor (const item of items) {\n  const text = item.json.text ?? item.json.data ?? '';\n  const fileName =\n    item.json.fileName ||\n    item.binary?.data?.fileName ||\n    item.binary?.data?.fileName ||\n    'unknown.pdf';\n  const verdict = isLikelyCv(text, fileName);\n  if (verdict.ok) {\n    valid.push({\n      json: {\n        ...item.json,\n        fileName,\n        text: String(text).trim(),\n        isCv: true,\n      },\n      binary: item.binary,\n    });\n  } else {\n    skipped.push({ fileName, reason: verdict.reason });\n  }\n}\n\nconst webhook = $('Webhook').first().json.body || {};\n\nif (!valid.length) {\n  return [{\n    json: {\n      noValidCvs: true,\n      comparisonId: webhook.comparisonId,\n      callbackUrl: webhook.callbackUrl,\n      skippedFiles: skipped,\n      comparisons: [],\n      candidates: [],\n      ranking: [],\n      recommendation: '',\n      comparisonSummary:\n        skipped.length\n          ? 'No valid CV documents were found. Non-CV or unreadable files were ignored.'\n          : 'No CV files were provided.',\n    },\n  }];\n}\n\nreturn valid.map((row, idx) => ({\n  json: {\n    ...row.json,\n    skippedFiles: idx === 0 ? skipped : [],\n  },\n  binary: row.binary,\n}));"
+          "promptType": "define",
+          "text": "=Comparison result JSON (English):\n{{ JSON.stringify({ comparisons: $json.comparisons.map(c => ({ rank: c.rank, summary: c.summary, education: c.education, strengths: c.strengths, weaknesses: c.weaknesses })), recommendation: $json.recommendation, comparisonSummary: $json.comparisonSummary }) }}",
+          "hasOutputParser": false,
+          "messages": {
+            "messageValues": [
+              {
+                "message": "=You localize an HR CV-comparison result for display to the recruiter.\n\nTarget output language code: {{ $json.targetLang }}\n\nRules:\n- If the target code is \"en\", return the input JSON completely unchanged.\n- If the target is \"ar\", translate every narrative string into fluent Modern Standard Arabic: \"summary\", \"education\", every item of \"strengths\" and \"weaknesses\", plus \"recommendation\" and \"comparisonSummary\".\n- Translate the way a native Arabic HR professional would write — natural and idiomatic, not word-for-word. The result must read as if it had been written in Arabic originally.\n- NEVER change the \"rank\" numbers. They are join keys used to merge your output back.\n- Keep short technical tokens in Latin script even inside Arabic sentences (e.g. Python, SQL, AWS, React, Excel).\n- Do NOT add, remove, merge, or reorder array items. Each \"strengths\" and \"weaknesses\" array must contain EXACTLY the same number of items as the input.\n- Return ONE valid JSON object with exactly these keys: comparisons, recommendation, comparisonSummary. Each item of \"comparisons\" keeps exactly these keys: rank, summary, education, strengths, weaknesses.\n- No markdown, no code fences, no commentary, no extra keys."
+              }
+            ]
+          },
+          "batching": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.9,
+        "position": [
+          1500,
+          -40
+        ],
+        "id": "76493240-e220-4266-af24-a8f4d7762c66",
+        "name": "CV Translate LLM"
+      },
+      {
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "list",
+            "value": "gpt-4.1-mini",
+            "cachedResultName": "gpt-4.1-mini"
+          },
+          "builtInTools": {},
+          "options": {}
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          1500,
+          180
+        ],
+        "id": "8953c4dc-55e4-4885-a436-859875342855",
+        "name": "Translate Chat Model",
+        "credentials": {
+          "openAiApi": {
+            "id": "xr8zb16RIutIemnJ",
+            "name": "OpenAI account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// Merge the Arabic translation back onto the English result.\n// Any parse/shape failure falls back to the English text rather than breaking the callback.\nconst base = $('Format Comparison Results').first().json;\nconst targetLang = base.targetLang || 'en';\n\nconst fallback = () => [{ json: base }];\nif (targetLang === 'en') return fallback();\n\nfunction parseJsonLoose(raw) {\n  if (raw == null) return null;\n  if (typeof raw === 'object' && !Array.isArray(raw)) return raw;\n  if (typeof raw !== 'string') return null;\n  let s = raw.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/i, '').trim();\n  const a = s.indexOf('{'), b = s.lastIndexOf('}');\n  if (a >= 0 && b > a) s = s.slice(a, b + 1);\n  try { return JSON.parse(s); } catch (e) { return null; }\n}\n\nconst item = $input.first().json;\nlet t = parseJsonLoose(item.output ?? item.text ?? item.response ?? item);\nif (t && t.output && typeof t.output === 'object') t = t.output;\nif (!t || typeof t !== 'object' || !Array.isArray(t.comparisons)) return fallback();\n\nconst str = (v, fb) => (typeof v === 'string' && v.trim()) ? v : fb;\n// Length equality is required: a shorter array means the model dropped a point.\nconst arr = (v, fb) => (Array.isArray(fb) && Array.isArray(v) && v.length === fb.length)\n  ? v.map((x, i) => str(x, fb[i]))\n  : fb;\n\nconst byRank = new Map();\nfor (const c of t.comparisons) byRank.set(Number(c && c.rank), c);\n\nconst comparisons = (base.comparisons || []).map((c) => {\n  const tr = byRank.get(Number(c.rank));\n  if (!tr) return c;\n  return {\n    ...c,\n    summary: str(tr.summary, c.summary),\n    education: str(tr.education, c.education),\n    strengths: arr(tr.strengths, c.strengths),\n    weaknesses: arr(tr.weaknesses, c.weaknesses),\n  };\n});\n\n// candidates[] mirrors comparisons by position - keep both in sync for the backend contract.\nconst candidates = (base.candidates || []).map((cand, idx) => {\n  const c = comparisons[idx];\n  if (!c) return cand;\n  return { ...cand, summary: c.summary, education: c.education, strengths: c.strengths, weaknesses: c.weaknesses };\n});\n\nreturn [{\n  json: {\n    ...base,\n    comparisons,\n    candidates,\n    recommendation: str(t.recommendation, base.recommendation),\n    comparisonSummary: str(t.comparisonSummary, base.comparisonSummary),\n  },\n}];"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          860,
-          0
+          1700,
+          -40
         ],
-        "id": "afbGT0caNDWApdJ8",
-        "name": "Filter CV Documents"
+        "id": "b61e2a83-55c7-4ec9-b9df-8e1e1e0f1ae6",
+        "name": "Apply CV Localization"
       },
       {
         "parameters": {
@@ -276,14 +324,13 @@
             "combinator": "and",
             "conditions": [
               {
-                "id": "cvcomp-has-valid-cv",
-                "leftValue": "={{ $json.noValidCvs }}",
+                "id": "cvcomp-needs-translation",
+                "leftValue": "={{ $json.targetLang }}",
                 "operator": {
-                  "operation": "false",
-                  "singleValue": true,
-                  "type": "boolean"
+                  "operation": "equals",
+                  "type": "string"
                 },
-                "rightValue": ""
+                "rightValue": "ar"
               }
             ],
             "options": {
@@ -296,13 +343,13 @@
           "options": {}
         },
         "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
+        "typeVersion": 2.3,
         "position": [
-          1060,
+          1300,
           0
         ],
-        "id": "iRp5r4DuycfN63ye",
-        "name": "Has Valid CVs"
+        "id": "3a78301c-1ea7-404d-ab44-cd38d2c07e47",
+        "name": "Needs Translation"
       }
     ],
     "connections": {
@@ -321,7 +368,7 @@
         "main": [
           [
             {
-              "node": "Filter CV Documents",
+              "node": "Aggregate CVs",
               "type": "main",
               "index": 0
             }
@@ -365,18 +412,7 @@
         "main": [
           [
             {
-              "node": "Send Results to Evaalo",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Send Results to Evaalo": {
-        "main": [
-          [
-            {
-              "node": "Respond to Webhook",
+              "node": "Needs Translation",
               "type": "main",
               "index": 0
             }
@@ -420,6 +456,11 @@
         "main": [
           [
             {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            },
+            {
               "node": "Prepare CV Binaries",
               "type": "main",
               "index": 0
@@ -434,22 +475,44 @@
           ]
         ]
       },
-      "Filter CV Documents": {
+      "CV Translate LLM": {
         "main": [
           [
             {
-              "node": "Has Valid CVs",
+              "node": "Apply CV Localization",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "Has Valid CVs": {
+      "Apply CV Localization": {
         "main": [
           [
             {
-              "node": "Aggregate CVs",
+              "node": "Send Results to Evaalo",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Translate Chat Model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "CV Translate LLM",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Needs Translation": {
+        "main": [
+          [
+            {
+              "node": "CV Translate LLM",
               "type": "main",
               "index": 0
             }
@@ -556,8 +619,8 @@
         }
       ]
     },
-    "versionId": "a023e226-51ff-422e-8287-3c3a3484615c",
-    "activeVersionId": "a023e226-51ff-422e-8287-3c3a3484615c",
+    "versionId": "0ae89345-afb9-4910-a195-c2c9cc977556",
+    "activeVersionId": "0ae89345-afb9-4910-a195-c2c9cc977556",
     "versionCounter": 44,
     "triggerCount": 1,
     "sourceWorkflowId": null,
