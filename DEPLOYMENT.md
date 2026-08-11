@@ -25,8 +25,9 @@ Monorepo → Commit → Push → (deploy command) → Git mirror → VPS git pul
 | **Local mirror clone** | `cursor-react/.deploy-tmp/evaalo-backend` | Working clone the deploy command syncs & pushes |
 | **Production (backend)** | VPS `/root/evaalo-backend` (git clone of `evaalo-backend@main`) | Pulled by the auto-deployer; builds the Docker image |
 | **Running backend** | Docker container `evaalo-api` (compose service `api`) | `api.evaalo.com` ← cloudflared tunnel |
-| **Production (frontend)** | GitHub Pages (`evaalo-site` branch `main`, dist-only) → `www.evaalo.com` | Built from `apps/frontend`, deployed via `gh-pages`. **Being migrated to Cloudflare Pages — see §2.1.** |
+| **Production (frontend)** | Cloudflare Pages (`evaalo-site` branch **`master`**) → `www.evaalo.com` | Auto-built from source on every push to `master`. No deploy command — see §2.1 |
 | **Staging (frontend)** | Cloudflare Pages (`evaalo-site` branch `staging`) → `staging.evaalo.com` | Auto-built on push. Talks to the **production** API |
+| **Dead branch** | `evaalo-site` branch `main` | Abandoned GitHub Pages artifact (built `dist` only). **Nothing serves it.** Do not push to it |
 
 **Canonical file boundary (backend):**
 - **Synced from monorepo** (byte-for-byte, LF): `src/`, `scripts/`, `ops/`, `Dockerfile`, `.dockerignore`, `tsconfig*.json`.
@@ -69,16 +70,23 @@ Then the **VPS auto-deployer** (systemd timer `evaalo-backend-deploy.timer`, eve
 
 ### Frontend
 ```bash
-npm run deploy:frontend   # builds apps/frontend and publishes to gh-pages (www.evaalo.com)
+# from the monorepo root, after committing your apps/frontend changes:
+git push origin master    # Cloudflare Pages builds and publishes www.evaalo.com
 ```
+There is **no frontend deploy command**. See §2.1.
 
 ---
 
-## 2.1 Frontend hosting: migration to Cloudflare Pages
+## 2.1 Frontend hosting: Cloudflare Pages
 
-`www.evaalo.com` is moving off GitHub Pages onto Cloudflare Pages. Until the
-cutover, `npm run deploy:frontend` remains the live path and this section
-describes the target state.
+`www.evaalo.com` is served by Cloudflare Pages, which **builds from source** on
+every push to `master`. The push *is* the deploy — a build starts within seconds
+and goes live in ~1–2 min.
+
+> **`npm run deploy:frontend` no longer exists.** It ran `gh-pages` and pushed a
+> built `dist` to branch `main` — the old GitHub Pages artifact branch, which
+> nothing serves since the cutover. It reported "Published" while the live site
+> never changed. The script now hard-fails with a pointer to `git push origin master`.
 
 **Cloudflare Pages project settings** (these are not inferrable — get them right):
 
@@ -106,8 +114,8 @@ set, since Vite gives `process.env` precedence.)
 > with the `rollup` version vite resolves (currently `4.53.3`).
 
 **Files that make this work** (all in `apps/frontend/public/`):
-- `_redirects` — `/* /index.html 200`, the SPA fallback. Replaces the GitHub
-  Pages `404.html` trick, which is removed at cutover **in the same commit**.
+- `_redirects` — `/* /index.html 200`, the SPA fallback. Replaced the GitHub
+  Pages `404.html` trick.
 - `_headers` — HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`,
   `Permissions-Policy` (camera/mic allowed — the interview flows need them), and
   immutable caching for `/assets/*`.
@@ -146,6 +154,9 @@ ssh evaalo-vps 'cd /root/evaalo-backend && git rev-parse --short HEAD origin/mai
 # 3) production health + which commit it runs:
 curl -s -o /dev/null -w '%{http_code}\n' https://api.evaalo.com/health   # 200
 ssh evaalo-vps 'grep "deploy OK" /root/evaalo-backend/ops/deploy.log | tail -1'
+
+# 4) frontend: the live bundle hash must change after a frontend commit
+curl -s https://www.evaalo.com/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'
 ```
 
 ---
@@ -174,6 +185,7 @@ Env/secret rollback: backups live at `/root/evaalo-backend/.env.api.backup-*`.
 | build fails on VPS | `docker compose build api` error | check `ops/deploy.log`; the previous version keeps running (rollback) |
 | dep-parity WARN in `deploy:backend` | monorepo added an npm package | update the deploy `package.json`/`package-lock.json` in `evaalo-backend`, then redeploy |
 | timer not deploying | `systemctl status evaalo-backend-deploy.timer` | `systemctl enable --now evaalo-backend-deploy.timer` |
+| frontend commit is live in git but `www.evaalo.com` serves the old bundle | commit never reached `master`, or the Cloudflare build failed | `git log origin/master -1`; then check the deployment log in the Cloudflare Pages dashboard (build errors do **not** surface anywhere else) |
 
 Disable auto-deploy (deploy only manually): `ssh evaalo-vps 'systemctl disable --now evaalo-backend-deploy.timer'`
 then deploy on demand with `ssh evaalo-vps 'bash /root/evaalo-backend/ops/deploy.sh'`.
@@ -187,19 +199,22 @@ then deploy on demand with `ssh evaalo-vps 'bash /root/evaalo-backend/ops/deploy
                               │
                         git commit
                               │
-                        git push  (evaalo-site)
+              git push origin master  (evaalo-site)
                               │
-         backend: npm run deploy:backend   │   frontend: npm run deploy:frontend
-                              │
-        mirror push → VPS git pull → build → health-gated replace (auto-rollback)
-                              │
-                    production verified (health 200)
+              ┌───────────────┴────────────────┐
+         frontend                          backend
+   Cloudflare Pages builds          npm run deploy:backend
+   from master → www.evaalo.com              │
+                                mirror push → VPS git pull → build →
+                                health-gated replace (auto-rollback)
+                                             │
+                                production verified (health 200)
 ```
 
 **Never:** edit code on the VPS · `rsync`/`scp`/copy backend folders · push to
-`evaalo-backend` by hand · run a deploy that skips these commands · add an
-`evaalo-backend` remote to the monorepo root (it was removed to prevent
-clobbering production).
+`evaalo-backend` by hand · push to the dead `evaalo-site@main` branch or run
+`gh-pages` · run a deploy that skips these commands · add an `evaalo-backend`
+remote to the monorepo root (it was removed to prevent clobbering production).
 
 If you are an AI agent (Cursor / Claude / ChatGPT): follow this file exactly.
 The monorepo is the only place you write code. `npm run deploy:backend` is the

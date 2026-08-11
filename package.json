@@ -18,7 +18,7 @@
     "clean": "npm run clean --workspaces && rimraf node_modules",
     "type-check": "npm run type-check --workspace=apps/backend",
     "deploy:backend": "bash scripts/deploy-backend.sh",
-    "deploy:frontend": "npm run deploy --workspace=apps/frontend"
+    "deploy:frontend": "node -e \"console.error('\\ndeploy:frontend is retired.\\n\\nwww.evaalo.com is built by Cloudflare Pages from the master branch of evaalo-site.\\nThe old gh-pages script published to branch main, which nothing serves anymore.\\n\\nTo ship the frontend:  git commit  &&  git push origin master\\n'); process.exit(1)\""
   },
   "devDependencies": {
     "rimraf": "^5.0.5",

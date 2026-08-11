@@ -196,4 +196,4 @@ If applied later, add a row to §2 before changing.
 ## 7. Related session work (not agent tuning)
 
 - Frontend deploy path: cherry-pick to `master` for Cloudflare (commits `594bfbc`, `ee50aa8`) — unrelated to voice timing.
-- `npm run deploy:frontend` (gh-pages) is **not** the live production path; use `git push origin master`.
+- The frontend ships via `git push origin master` (Cloudflare Pages builds it). `npm run deploy:frontend` is retired and now hard-fails.
