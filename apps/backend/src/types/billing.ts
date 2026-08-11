@@ -125,7 +125,7 @@ export const CREDIT_COST_MICRO: Record<UsageType, number> = {
     // TOP_CANDIDATES غير مفعّل — لا موقع consumeCredits يستخدمه (تكلفة التقرير
     // الفعلية = COMPARE_EMAIL + SCREENING). يبقى لأن الـ enum مستخدم في الموديلات.
     TOP_CANDIDATES: 5 * MICRO_PER_CREDIT,
-    // CV_ANALYSIS يُحصَّل في routes/cvComparison.ts (2/عملية).
+    // CV_ANALYSIS يُحصَّل في routes/cvComparison.ts (2/سيرة).
     CV_ANALYSIS: 2 * MICRO_PER_CREDIT,
     // JOB_AD يُحصَّل في routes/recruitmentCampaigns.ts /generate-ad (1/توليد).
     JOB_AD: 1 * MICRO_PER_CREDIT,

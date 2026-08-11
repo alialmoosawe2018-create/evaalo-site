@@ -41,13 +41,15 @@ const BILLING_ENFORCE = process.env.BILLING_ENFORCE !== 'false';
 async function refundCvAnalysisCharge(
     organizationId: string,
     comparisonId: string,
+    cvCount: number,
     reason: string
 ): Promise<void> {
+    if (cvCount <= 0) return;
     await adjustCredits({
         organizationId,
-        amountMicro: creditCostMicro('CV_ANALYSIS', 1),
+        amountMicro: creditCostMicro('CV_ANALYSIS', cvCount),
         idempotencyKey: `cv-analysis-refund:${comparisonId}`,
-        metadata: { kind: 'cv_analysis_refund', reason, comparisonId },
+        metadata: { kind: 'cv_analysis_refund', reason, comparisonId, cvCount },
     }).catch((e) =>
         console.warn(
             `[cv-comparison] refund failed comparison=${comparisonId}: ${e?.message || e}`
@@ -64,6 +66,8 @@ export type CvComparisonRecord = {
     userId: string;
     submittedAt: string;
     callbackToken: string;
+    /** CVs billed for this comparison (for refund audit). */
+    cvCountCharged?: number;
     receivedAt?: string;
     payload?: unknown;
     errorMessage?: string;
@@ -529,18 +533,19 @@ router.post(
                 return res.status(status).json(body);
             }
 
-            // تحصيل CV_ANALYSIS (2 كردت/عملية — السعر المعلن في الكتالوج).
+            // تحصيل CV_ANALYSIS (2 كردت/سيرة — السعر المعلن في الكتالوج).
             // يُسترد تلقائياً إذا فشل الإرسال إلى n8n أدناه.
-            let cvAnalysisCharged = false;
+            const cvCount = files.length;
+            let cvAnalysisChargedUnits = 0;
             if (BILLING_ENFORCE) {
                 const billing = await consumeCredits({
                     organizationId,
                     usageType: 'CV_ANALYSIS',
-                    units: 1,
+                    units: cvCount,
                     idempotencyKey: `cv-analysis:${comparisonId}`,
                     source: 'cv_analysis',
                     sourceId: comparisonId,
-                    metadata: { position, cvCount: files.length },
+                    metadata: { position, cvCount },
                 });
                 if (!billing.ok) {
                     removeUploadedFiles(files);
@@ -551,7 +556,7 @@ router.post(
                         message: billing.message,
                     });
                 }
-                cvAnalysisCharged = !billing.duplicate;
+                cvAnalysisChargedUnits = billing.duplicate ? 0 : cvCount;
             }
 
             cvComparisonInboundById.set(comparisonId, {
@@ -561,6 +566,7 @@ router.post(
                 userId,
                 submittedAt,
                 callbackToken,
+                cvCountCharged: cvAnalysisChargedUnits || undefined,
             });
             cleanupStaleRecords();
 
@@ -639,8 +645,13 @@ router.post(
                         status: 'failed',
                         errorMessage: 'n8n webhook returned an error',
                     });
-                    if (cvAnalysisCharged) {
-                        await refundCvAnalysisCharge(organizationId, comparisonId, 'n8n_non_ok');
+                    if (cvAnalysisChargedUnits > 0) {
+                        await refundCvAnalysisCharge(
+                            organizationId,
+                            comparisonId,
+                            cvAnalysisChargedUnits,
+                            'n8n_non_ok'
+                        );
                     }
                     return res.status(502).json({
                         ok: false,
@@ -682,8 +693,13 @@ router.post(
                         errorMessage: 'Failed to reach n8n webhook',
                     });
                 }
-                if (cvAnalysisCharged) {
-                    await refundCvAnalysisCharge(organizationId, comparisonId, 'n8n_unreachable');
+                if (cvAnalysisChargedUnits > 0) {
+                    await refundCvAnalysisCharge(
+                        organizationId,
+                        comparisonId,
+                        cvAnalysisChargedUnits,
+                        'n8n_unreachable'
+                    );
                 }
                 return res.status(502).json({
                     ok: false,

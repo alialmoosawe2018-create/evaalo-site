@@ -19,7 +19,7 @@ import type { BillingPlanId } from '../types/billing.js';
  *  - search: 6/مرشح (SEARCH_CANDIDATE)
  *  - screening: 2/عملية (فرز المرشحين) — ظاهر في شريط التسعير
  *  - compare_candidate: 2/مرشح في تقرير أفضل المرشحين
- *  - cv_analysis: 2/عملية (routes/cvComparison.ts)
+ *  - cv_analysis: 2/سيرة (routes/cvComparison.ts)
  *  - job_ad: 1/توليد (routes/recruitmentCampaigns.ts /generate-ad)
  * مخفي من الشريط العام: contact_reveal، compare_email (ما زال التحصيل الفعلي قائماً).
  */
@@ -28,7 +28,7 @@ const PUBLIC_USAGE_COSTS = [
     { id: 'search', credits: 6, labelKey: 'pricing_usage_search', unitKey: 'pricing_usage_unit_per_candidate' },
     { id: 'screening', credits: 2, labelKey: 'pricing_usage_screening', unitKey: 'pricing_usage_unit_per_action' },
     { id: 'compare_candidate', credits: 2, labelKey: 'pricing_usage_compare_candidate', unitKey: 'pricing_usage_unit_per_candidate' },
-    { id: 'cv_analysis', credits: 2, labelKey: 'pricing_usage_cv_analysis', unitKey: 'pricing_usage_unit_per_action' },
+    { id: 'cv_analysis', credits: 2, labelKey: 'pricing_usage_cv_analysis', unitKey: 'pricing_usage_unit_per_candidate' },
     { id: 'job_ad', credits: 1, labelKey: 'pricing_usage_job_ad', unitKey: 'pricing_usage_unit_per_action' },
 ] as const;
 
