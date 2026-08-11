@@ -57,6 +57,16 @@ const LegacyApplicationForm = () => {
         () => buildLanguageSuggestionOptions(currentLang),
         [currentLang],
     );
+    const skillLabelByValue = useMemo(
+        () => Object.fromEntries(skillSuggestionOptions.map((o) => [o.value, o.label])),
+        [skillSuggestionOptions],
+    );
+    const languageLabelByValue = useMemo(
+        () => Object.fromEntries(languageSuggestionOptions.map((o) => [o.value, o.label])),
+        [languageSuggestionOptions],
+    );
+    const displaySkillLabel = (stored) => skillLabelByValue[stored] ?? stored;
+    const displayLanguageLabel = (stored) => languageLabelByValue[stored] ?? stored;
 
     const ft = (fieldId) => t(`formField_${fieldId}`);
     const fph = (fieldId) => t(`formField_${fieldId}_ph`);
@@ -579,7 +589,7 @@ const LegacyApplicationForm = () => {
                         value={formData.full_name}
                         onChange={handleInputChange}
                         placeholder={fph('full_name')}
-                        className={errors.full_name ? 'error' : ''}
+                        className={[currentLang === 'en' && 'font-en', errors.full_name && 'error'].filter(Boolean).join(' ') || undefined}
                         required={!isPreviewMode}
                         {...inputPreviewProps}
                     />
@@ -686,7 +696,7 @@ const LegacyApplicationForm = () => {
                     <div className="tags-container">
                         {languages.map((lang, index) => (
                             <span key={index} className="tag">
-                                {lang.name} ({languageLevelLabel(t, lang.level)})
+                                {displayLanguageLabel(lang.name)} ({languageLevelLabel(t, lang.level)})
                                 {!isPreviewMode && (
                                 <button type="button" className="tag-remove" onClick={() => removeLanguage(index)}>×</button>
                                 )}
@@ -1081,7 +1091,7 @@ const LegacyApplicationForm = () => {
                 <div className="tags-container">
                     {skills.map((skill, index) => (
                         <span key={index} className="tag">
-                            {skill}
+                            {displaySkillLabel(skill)}
                             {!isPreviewMode && (
                             <button type="button" className="tag-remove" onClick={() => removeSkill(index)}>×</button>
                             )}

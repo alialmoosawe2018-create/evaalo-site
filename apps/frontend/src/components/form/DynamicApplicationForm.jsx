@@ -189,6 +189,16 @@ export default function DynamicApplicationForm({ pubToken }) {
         () => buildLanguageSuggestionOptions(currentLang),
         [currentLang],
     );
+    const skillLabelByValue = useMemo(
+        () => Object.fromEntries(skillSuggestionOptions.map((o) => [o.value, o.label])),
+        [skillSuggestionOptions],
+    );
+    const languageLabelByValue = useMemo(
+        () => Object.fromEntries(languageSuggestionOptions.map((o) => [o.value, o.label])),
+        [languageSuggestionOptions],
+    );
+    const displaySkillLabel = (stored) => skillLabelByValue[stored] ?? stored;
+    const displayLanguageLabel = (stored) => languageLabelByValue[stored] ?? stored;
 
     const [alreadySubmitted, setAlreadySubmitted] = useState(() => {
         try {
@@ -561,7 +571,7 @@ export default function DynamicApplicationForm({ pubToken }) {
                     <div className="tags-container">
                         {(formValues.skills || []).map((skill, index) => (
                             <span key={`${skill}-${index}`} className="tag">
-                                {skill}
+                                {displaySkillLabel(skill)}
                                 <button type="button" className="tag-remove" onClick={() => removeSkill(index)}>
                                     ×
                                 </button>
@@ -603,7 +613,7 @@ export default function DynamicApplicationForm({ pubToken }) {
                     <div className="tags-container">
                         {(formValues.languages || []).map((lang, index) => (
                             <span key={`${lang.name}-${index}`} className="tag">
-                                {lang.name} ({languageLevelLabel(t, lang.level)})
+                                {displayLanguageLabel(lang.name)} ({languageLevelLabel(t, lang.level)})
                                 <button type="button" className="tag-remove" onClick={() => removeLanguage(index)}>
                                     ×
                                 </button>

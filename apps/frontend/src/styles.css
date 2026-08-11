@@ -767,6 +767,33 @@ body:has(.form-page)::-webkit-scrollbar {
     background-color: var(--card-bg);
 }
 
+/* Latin-script inputs keep the site English UI font in Arabic/Kurdish forms */
+html[lang="ar"] .form-page .form-group input[type="email"],
+html[lang="ar"] .form-page .form-group input[type="tel"],
+html[lang="ar"] .form-page .form-group input[type="url"],
+html[lang="ar"] .form-page .form-group input[type="number"],
+html[lang="ar"] .form-page .form-group input.font-en,
+html[lang="ku"] .form-page .form-group input[type="email"],
+html[lang="ku"] .form-page .form-group input[type="tel"],
+html[lang="ku"] .form-page .form-group input[type="url"],
+html[lang="ku"] .form-page .form-group input[type="number"],
+html[lang="ku"] .form-page .form-group input.font-en {
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+html[lang="ar"] .form-page .form-group input[type="email"]::placeholder,
+html[lang="ar"] .form-page .form-group input[type="tel"]::placeholder,
+html[lang="ar"] .form-page .form-group input[type="url"]::placeholder,
+html[lang="ar"] .form-page .form-group input[type="number"]::placeholder,
+html[lang="ar"] .form-page .form-group input.font-en::placeholder,
+html[lang="ku"] .form-page .form-group input[type="email"]::placeholder,
+html[lang="ku"] .form-page .form-group input[type="tel"]::placeholder,
+html[lang="ku"] .form-page .form-group input[type="url"]::placeholder,
+html[lang="ku"] .form-page .form-group input[type="number"]::placeholder,
+html[lang="ku"] .form-page .form-group input.font-en::placeholder {
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
 /* Form page - light green accent borders on inputs */
 .form-page .form-group input[type="text"],
 .form-page .form-group input[type="email"],
@@ -1086,6 +1113,31 @@ html[dir="rtl"] .form-page .salary-range .salary-currency-select .language-style
     accent-color: var(--primary-color);
 }
 
+/* Application form consent row: box and label share one vertical center */
+.form-page .checkbox-label {
+    align-items: center;
+    gap: 12px;
+}
+
+.form-page .checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    margin-top: 0;
+    flex-shrink: 0;
+}
+
+.form-page .checkbox-label > span {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.45;
+}
+
+html[dir="rtl"] .form-page .checkbox-label > span {
+    text-align: right;
+}
+
 .checkbox-label a {
     color: var(--primary-color);
     text-decoration: none;
@@ -1372,6 +1424,21 @@ html[dir="rtl"] .language-option {
     .form-group label {
         font-size: 0.9375rem;
         margin-bottom: 7px;
+    }
+
+    .form-page .checkbox-label {
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        min-height: 44px;
+    }
+
+    .form-page .checkbox-label input[type="checkbox"] {
+        width: 22px;
+        height: 22px;
+        min-width: 22px;
+        min-height: 22px;
+        margin-top: 0;
     }
 
     .form-page .form-group input[type="text"],
