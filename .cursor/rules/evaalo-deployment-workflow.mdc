@@ -1,0 +1,49 @@
+---
+description: Evaalo mandatory deployment workflow — monorepo is the only source of truth
+alwaysApply: true
+---
+
+# Evaalo — Mandatory Deployment Workflow
+
+**Do not improvise.** Full reference: `DEPLOYMENT.md` (this repo root).
+
+## The one rule
+
+This repo (`cursor-react`, GitHub `evaalo-site`, branch `master`) is the **ONLY** source of truth.
+Edit code **only** here. Everything else is a generated copy.
+
+| Target | Role |
+|--------|------|
+| `evaalo-backend` (GitHub `main`) | **Generated deploy mirror** — never hand-edit or hand-push |
+| VPS `/root/evaalo-backend` | Git clone that **auto-deploys** — never edit, rsync, scp, or copy files onto it |
+
+## Ship backend
+
+1. Edit only `apps/backend/`
+2. Commit: `git add … && git commit -m "…"`
+3. `npm run deploy:backend`
+4. `git push origin master`
+5. VPS timer (~60s) pulls mirror, builds, health-gates, auto-rolls back on failure
+
+Verify: `curl -s -o /dev/null -w '%{http_code}' https://api.evaalo.com/health` → **200**
+
+## Ship frontend
+
+Edit `apps/frontend/`, commit, then `git push origin master`. Cloudflare Pages
+builds `master` from source and publishes www.evaalo.com (~1–2 min). **The push is
+the deploy** — there is no frontend deploy command.
+
+## NEVER (re-creates drift)
+
+- Edit/rsync/scp/copy to VPS
+- Hand-edit or hand-push `evaalo-backend`
+- Add `evaalo-backend` remote to monorepo root
+- Deploy backend outside `npm run deploy:backend` → timer
+- Push to `evaalo-site@main` or run `gh-pages` — `main` is a dead GitHub Pages
+  artifact branch that nothing serves; publishing there silently does nothing
+
+## Golden test
+
+LF-normalized `src` signature must match: `apps/backend/src` == mirror `src` == VPS `/root/evaalo-backend/src`
+
+Only **one** window/agent runs git/deploy at a time.
