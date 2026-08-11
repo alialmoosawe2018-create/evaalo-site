@@ -1,4 +1,4 @@
-﻿/** Privacy Policy copy — May 2026 (EN / AR / KU) */
+/** Privacy Policy copy — May 2026 (EN / AR / KU) */
 
 import { privacyPolicyAr } from './privacyPolicy.ar.js';
 import { privacyPolicyKu } from './privacyPolicy.ku.js';
