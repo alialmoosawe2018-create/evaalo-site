@@ -38,8 +38,8 @@ export interface InterviewState {
 
 /** سقف المتابعات للمقابلة الواحدة */
 export const FOLLOW_UP_MAX_PER_INTERVIEW = 5;
-/** أدنى فاصل بين متابعتين بالأدوار: 3 = سؤالان عاديان بينهما */
-export const FOLLOW_UP_MIN_GAP_TURNS = 3;
+/** أدنى فاصل بين متابعتين بالأدوار: 2 = سؤال عادي واحد بينهما (متابعة لكل سؤالين) */
+export const FOLLOW_UP_MIN_GAP_TURNS = 2;
 /** قيمة أولية تضمن السماح بأول متابعة دون قيد الفاصل */
 const NO_FOLLOW_UP_YET = -FOLLOW_UP_MIN_GAP_TURNS;
 

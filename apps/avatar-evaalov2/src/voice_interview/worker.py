@@ -29,6 +29,7 @@ from livekit.rtc.room import ConnectError
 
 from voice_interview.assistant import InterviewAssistant, TtsRouteContext
 from voice_interview.config import (
+    ENGLISH_VOICE_ID,
     apply_interview_endpointing_boost,
     avatar_fast_response,
     avatar_stability_mode,
@@ -441,13 +442,36 @@ def _build_interview_state(meta: dict[str, Any]) -> str:
     )
 
 
+def session_language(meta: dict[str, Any]) -> str | None:
+    """Interview language locked by the share link, forwarded in job metadata.
+
+    Returns ``"ar"``/``"en"`` when the backend set it, ``None`` when absent (older
+    dispatches) so the agent keeps its env-driven default behaviour.
+    """
+    raw = str(meta.get("language") or "").strip().lower()
+    if raw in ("en", "english"):
+        return "en"
+    # Kurdish has no dedicated voice/STT here — the bilingual Arabic voice serves it.
+    if raw in ("ar", "arabic", "ku", "kurdish", "ckb"):
+        return "ar"
+    return None
+
+
+def _greeting_mode(meta: dict[str, Any]) -> str:
+    """Greeting language: the session lock wins over ``INITIAL_GREETING_LANGUAGE``."""
+    locked = session_language(meta)
+    if locked:
+        return locked
+    return (os.getenv("INITIAL_GREETING_LANGUAGE") or "ar").strip().lower()
+
+
 def _initial_greeting_instructions(meta: dict[str, Any]) -> str:
     """One-shot instructions for session.generate_reply — dynamic welcome from metadata."""
     name = str(meta.get("candidate_name") or "").strip()
     pos = str(meta.get("position") or "").strip()
     if pos.upper() == "N/A":
         pos = ""
-    mode = (os.getenv("INITIAL_GREETING_LANGUAGE") or "ar").strip().lower()
+    mode = _greeting_mode(meta)
     neutral = _neutral_greeting_address()
     gender = _candidate_gender_from_meta(meta)
     gender_hint = ""
@@ -536,7 +560,7 @@ def _canned_initial_greeting(meta: dict[str, Any]) -> str:
         pos = ""
     bank = resolve_livekit_questions(meta)
     first_q = bank.questions[0] if bank.questions else None
-    mode = (os.getenv("INITIAL_GREETING_LANGUAGE") or "ar").strip().lower()
+    mode = _greeting_mode(meta)
     short_mode = (os.getenv("INITIAL_GREETING_SHORT_MODE", "true").strip().lower() in ("1", "true", "yes"))
     include_first_q = (
         os.getenv("INITIAL_GREETING_INCLUDE_FIRST_QUESTION", "false").strip().lower()
@@ -899,7 +923,9 @@ async def my_agent(ctx: JobContext):
     _session_tel.bank_category = bank_res.category
     _session_tel.bank_override_used = bank_res.override_used
 
-    english_voice_id = (os.getenv("ELEVENLABS_ENGLISH_VOICE_ID") or "").strip() or voice_id
+    english_voice_id = (
+        (os.getenv("ELEVENLABS_ENGLISH_VOICE_ID") or "").strip() or ENGLISH_VOICE_ID
+    )
     arabic_voice_id = voice_id
     tts_route_cooldown_ms = float(os.getenv("TTS_LANG_SWITCH_COOLDOWN_MS", "2800" if _iv else "2500"))
     tts_router = TtsRouteContext(
@@ -908,9 +934,21 @@ async def my_agent(ctx: JobContext):
         english_voice_id=english_voice_id,
         supports_override=supports_override,
         cooldown_ms=tts_route_cooldown_ms,
+        # Must mirror how `tts` was actually built, so the switch below detects a
+        # real mismatch and pushes `update_options` instead of no-opping.
         initial_voice_id=voice_id,
         initial_language=tts_language if supports_override else "n/a",
     )
+    # An English-locked session has to switch the voice before the greeting,
+    # otherwise the welcome is spoken by the Arabic voice.
+    locked_language = session_language(meta)
+    if locked_language:
+        tts_router.apply(locked_language, force=True, source="session_lock")
+        logger.info(
+            "session language locked from share link: %s (voice=%s)",
+            locked_language,
+            tts_router.current_voice_id,
+        )
     attach_user_transcript_routing(session, tts_router, interview_defaults=_iv)
 
     if avatar_session:
@@ -957,6 +995,7 @@ async def my_agent(ctx: JobContext):
 
     interview_agent = InterviewAssistant(
         tts_router=tts_router,
+        session_language=locked_language,
         allow_interruptions=allow_interrupt,
         interview_state=interview_state,
         interview_context=interview_context or None,

@@ -347,6 +347,18 @@ function normalizeInterviewMode(raw: unknown): InterviewMode {
 }
 
 /**
+ * لغة المقابلة كما يفهمها وكيل LiveKit: `ar` أو `en` فقط. الكردية تُطوى إلى
+ * العربية لأن الوكيل لا يملك صوتاً ولا STT كرديين، والصوت العربي ثنائي اللغة.
+ * الغياب يعني «لا قفل» فيبقى الوكيل على سلوكه الافتراضي.
+ */
+function normalizeAgentLanguage(raw: unknown): 'ar' | 'en' | undefined {
+    const s = String(raw ?? '').trim().toLowerCase();
+    if (s === 'en' || s === 'english') return 'en';
+    if (s === 'ar' || s === 'arabic' || s === 'ku' || s === 'kurdish' || s === 'ckb') return 'ar';
+    return undefined;
+}
+
+/**
  * LiveKit question bank metadata (high-quality path):
  * 1) jobId in request body (valid Mongo ObjectId) wins.
  * 2) Else candidate.jobPostingId from DB.
@@ -419,7 +431,8 @@ router.post('/prepare', async (req, res) => {
             followUpRequired,
             questionLocked,
             currentPhase,
-            currentQuestion
+            currentQuestion,
+            language: prepareLanguage
         } = req.body as {
             candidateId?: string;
             campaignId?: string;
@@ -430,6 +443,7 @@ router.post('/prepare', async (req, res) => {
             questionLocked?: boolean | string;
             currentPhase?: string;
             currentQuestion?: string;
+            language?: string;
         };
 
         if (!candidateId) {
@@ -596,6 +610,11 @@ router.post('/prepare', async (req, res) => {
                     question_locked: String(parseStateBool(questionLocked, false)),
                     current_phase: typeof currentPhase === 'string' && currentPhase.trim() ? currentPhase.trim() : 'L1',
                     current_question: typeof currentQuestion === 'string' && currentQuestion.trim() ? currentQuestion.trim() : 'N/A',
+                    // /start قد يعيد استخدام هذه الغرفة دون dispatch جديد، فلا بد
+                    // أن يصلها قفل اللغة هنا أيضاً.
+                    ...(normalizeAgentLanguage(prepareLanguage)
+                        ? { language: normalizeAgentLanguage(prepareLanguage)! }
+                        : {}),
                 };
                 if (bankMeta.jobIdForBank) {
                     metadata.job_id = bankMeta.jobIdForBank;
@@ -1064,6 +1083,11 @@ router.post('/start', async (req, res) => {
                     question_locked: String(parseStateBool(questionLocked, false)),
                     current_phase: typeof currentPhase === 'string' && currentPhase.trim() ? currentPhase.trim() : 'L1',
                     current_question: typeof currentQuestion === 'string' && currentQuestion.trim() ? currentQuestion.trim() : 'N/A',
+                    // قفل لغة المقابلة من رابط المشاركة — بدونه لا يعرف الوكيل
+                    // أن المقابلة إنجليزية فيرحّب بالعربية افتراضياً.
+                    ...(normalizeAgentLanguage(sessionLanguage)
+                        ? { language: normalizeAgentLanguage(sessionLanguage)! }
+                        : {}),
                 };
                 if (bankMeta.jobIdForBank) {
                     metadata.job_id = bankMeta.jobIdForBank;

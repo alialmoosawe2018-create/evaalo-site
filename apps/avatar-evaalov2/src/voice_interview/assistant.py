@@ -563,6 +563,7 @@ class InterviewAssistant(Agent):
         self,
         *,
         tts_router: TtsRouteContext,
+        session_language: str | None = None,
         allow_interruptions: bool | None = None,
         interview_state: str | None = None,
         interview_context: str | None = None,
@@ -620,11 +621,14 @@ class InterviewAssistant(Agent):
         self._heuristics_disabled = (
             (os.getenv("HEURISTIC_DISABLE") or "").strip().lower() in ("1", "true", "yes", "on")
         )
-        # Sticky reply-language lock. Set by an explicit user request ("speak in
+        # Sticky reply-language lock. Seeded from the share-link language when the
+        # backend sent one, then overridden by an explicit user request ("speak in
         # English", "بالعربي لو سمحت") and cleared only by an opposite explicit
         # request — so a single short confirmation in the other language ("نعم",
         # "ok") cannot regress the language. ``None`` = follow last_user_lang.
-        self._locked_lang: str | None = None
+        self._locked_lang: str | None = (
+            session_language if session_language in ("ar", "en") else None
+        )
         raw = (os.getenv("INTERVIEW_AGENT_INSTRUCTIONS") or "").strip()
         instructions = raw if raw else _default_interview_instructions()
         extra = (os.getenv("INTERVIEW_AGENT_INSTRUCTIONS_EXTRA") or "").strip()
@@ -734,13 +738,14 @@ class InterviewAssistant(Agent):
         """
         if self._locked_lang == "en":
             return (
-                "REPLY LANGUAGE: English. The candidate explicitly asked to continue in English. "
-                "Stay in English for every turn until they explicitly ask to switch back to Arabic. "
-                "Do NOT switch back on a short Arabic confirmation like 'نعم', 'تمام', or 'ok'."
+                "REPLY LANGUAGE: English. This interview is being conducted in English. "
+                "Stay in English for every turn until the candidate explicitly asks to switch to Arabic. "
+                "If they answer in Arabic, you still reply in English — never mirror their language. "
+                "Do NOT switch on a short Arabic confirmation like 'نعم', 'تمام', or 'ok'."
             )
         if self._locked_lang == "ar":
             return (
-                "REPLY LANGUAGE: Arabic. The candidate explicitly asked to continue in Arabic. "
+                "REPLY LANGUAGE: Arabic. This interview is being conducted in Arabic. "
                 "Answer in Arabic and apply the active dialect profile from the system prompt. "
                 "Reuse any English terms the candidate used (brand names, tools, skills) verbatim. "
                 "Do NOT switch to English on a stray English word or short confirmation."

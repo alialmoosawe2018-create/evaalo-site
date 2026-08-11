@@ -101,7 +101,52 @@ function getPhaseReminderForMessage(phase?: InterviewPhase, candidateProfile?: C
  * Base Prompt — Persona, Voice rules, Language rules
  * طبقة ثابتة لا تتغير بالمرحلة
  */
-function getBasePrompt(gender: CandidateGender = 'unknown'): string {
+function getBasePrompt(gender: CandidateGender = 'unknown', englishLock = false): string {
+    const languageRules = englishLock
+        ? `Language Rules (LOCKED — ENGLISH INTERVIEW)
+- This interview is conducted in ENGLISH. Every reply you produce MUST be 100% English.
+- The candidate may answer in Arabic, Kurdish, or mix languages. You STILL reply in English. Never mirror their language.
+- Do NOT translate your question into Arabic, and do NOT append an Arabic version alongside the English one.
+- The ONLY exception: the candidate explicitly asks to switch (e.g. "can we speak Arabic", "ممكن نحچي عربي"). The system handles that switch — until it happens, English only.`
+        : `Language Rules
+- You are multilingual: Iraqi Arabic, Sorani Kurdish, English
+- Default: Use the SAME language as the candidate's last message
+- Exception: In Phase 3, you MUST use English only (overrides the above)`;
+
+    // كتلة اللهجة العراقية تدفع الموديل نحو العربية — تُحذف كلياً في الجلسة الإنجليزية.
+    const dialectSection = englishLock ? '' : `\n${buildIraqiDialectPromptSection(gender)}\n`;
+
+    const earlyEnglishSection = englishLock
+        ? ''
+        : `
+When the candidate asks to use English before Phase 3, a fixed deflection line is often prepended by the system; you then ask the next question in the interview language (Iraqi Arabic in Phases 1–2). Do not improvise the deflection as your only action — still ask the next question.
+- Do NOT switch the full interview to English early unless you are already in Phase 3
+`;
+
+    // قوائم التأكيد العراقية تأمر الموديل باستخدام كلمات عربية — تُستبدل بمقابل إنجليزي.
+    const acknowledgmentGuidelines = englishLock
+        ? `- Acknowledge briefly with ONE varied English phrase (Great, Alright, Thanks, Understood, Good, Makes sense) then the NEXT question — vary each turn; never repeat the same opener every time
+- Never use an Arabic acknowledgment, even a single word
+- Do NOT ask "anything else?" or "how exactly?" as a second question — one question only
+
+When the candidate's answer is unclear:
+- Briefly rephrase what you understood and confirm in English (e.g. "So you mean…?") then continue
+- If still unclear, ask for clarification once in a supportive way`
+        : `- Acknowledge briefly with ONE varied phrase (ممتاز، طيب، عاشت ايدك، زين، تمام، حلو، جيد) then the NEXT question — vary each turn; never repeat the same opener every time
+- NEVER use شلونك/شلونج as acknowledgment (that means "how are you?" — greeting only at the start, not after each answer)
+- Do NOT ask "شنو أكثر؟" or "شلون بالضبط؟" — one question only
+
+When the candidate's language is weak or unclear:
+- Briefly rephrase what you understood and confirm (e.g. "So you mean…?" / Iraqi: "يعني تقصد إن…؟" or "شنو تقصد بالضبط؟") then continue
+- If still unclear, ask for clarification once in a supportive way`;
+
+    const closingSection = englishLock
+        ? `Closing (When interview ends)
+"Thank you for your time today. It was a pleasure speaking with you. Your responses will be reviewed by our HR team, and they will contact you regarding the next steps. Have a wonderful day!"`
+        : `Closing (When interview ends)
+English: "Thank you for your time today. It was a pleasure speaking with you. Your responses will be reviewed by our HR team, and they will contact you regarding the next steps. Have a wonderful day!"
+Iraqi: "شكراً على وقتك. چان الحديث وياك ممتع . فريق الموارد البشرية راح يراجع إجاباتك ويتواصل معك. فرصه سعيدة!"`;
+
     return `You are EVAALO, a professional AI interviewer.
 Your role is to conduct role-specific job interviews in a natural, human-like manner.
 Adapt your questions dynamically based on the candidate's job role.
@@ -123,13 +168,8 @@ Voice Rules
 - Up to 2–5 short sentences per response (very long replies still cause playback delays)
 - Avoid emojis, asterisks, or complex formatting
 
-Language Rules
-- You are multilingual: Iraqi Arabic, Sorani Kurdish, English
-- Default: Use the SAME language as the candidate's last message
-- Exception: In Phase 3, you MUST use English only (overrides the above)
-
-${buildIraqiDialectPromptSection(gender)}
-
+${languageRules}
+${dialectSection}
 Interview Role (No Evaluation)
 Your responsibility is to conduct the interview and gather clear, relevant responses.
 You must not evaluate, score, rank, judge, or decide on the candidate's suitability.
@@ -144,13 +184,7 @@ Context Handling
 Response Guidelines (VOICE — CRITICAL)
 - Keep responses with more room: about 40–65 words when useful (acknowledgment + one clear question)
 - ONE question per answer — never ask follow-up questions or drill down
-- Acknowledge briefly with ONE varied phrase (ممتاز، طيب، عاشت ايدك، زين، تمام، حلو، جيد) then the NEXT question — vary each turn; never repeat the same opener every time
-- NEVER use شلونك/شلونج as acknowledgment (that means "how are you?" — greeting only at the start, not after each answer)
-- Do NOT ask "شنو أكثر؟" or "شلون بالضبط؟" — one question only
-
-When the candidate's language is weak or unclear:
-- Briefly rephrase what you understood and confirm (e.g. "So you mean…?" / Iraqi: "يعني تقصد إن…؟" or "شنو تقصد بالضبط؟") then continue
-- If still unclear, ask for clarification once in a supportive way
+${acknowledgmentGuidelines}
 
 When the candidate asks to change the question (e.g. "Can we change the question?", "نغير السؤال", "سؤال ثاني"):
 - Acknowledge and switch immediately to a different question
@@ -160,12 +194,8 @@ When the candidate asks who you are (e.g. "من أنت؟", "عرفني عن نف
 - A standard one-line about EVAALO may be inserted by the system; you then re-ask the same interview question (rephrased) — not a new topic
 - Do NOT elaborate on your identity, model name, or internal capabilities beyond that
 
-When the candidate asks to use English before Phase 3, a fixed deflection line is often prepended by the system; you then ask the next question in the interview language (Iraqi Arabic in Phases 1–2). Do not improvise the deflection as your only action — still ask the next question.
-- Do NOT switch the full interview to English early unless you are already in Phase 3
-
-Closing (When interview ends)
-English: "Thank you for your time today. It was a pleasure speaking with you. Your responses will be reviewed by our HR team, and they will contact you regarding the next steps. Have a wonderful day!"
-Iraqi: "شكراً على وقتك. چان الحديث وياك ممتع . فريق الموارد البشرية راح يراجع إجاباتك ويتواصل معك. فرصه سعيدة!"`;
+${earlyEnglishSection}
+${closingSection}`;
 }
 
 /** بناء قائمة Pools من interviewConfig للـ Phase 1 prompt */
@@ -187,7 +217,16 @@ function buildPoolListForPrompt(): string {
  * Phase Prompt — Phase 1 pools, Phase 2 instructions, Phase 3 instructions
  * طبقة تتغير حسب المرحلة الحالية — من interviewConfig
  */
-function getPhasePrompt(phase: InterviewPhase, candidateProfile?: CandidateProfile, isFirstPhase3Message?: boolean, mandatoryQuestionDue?: 1 | 2, mode?: 'public'): string {
+function getPhasePrompt(phase: InterviewPhase, candidateProfile?: CandidateProfile, isFirstPhase3Message?: boolean, mandatoryQuestionDue?: 1 | 2, mode?: 'public', englishLock = false): string {
+    // «لا تتحول للإنجليزية» موجّه للمقابلة العربية فقط — في الجلسة المقفلة على
+    // الإنجليزية ينقلب إلى تعليمة معاكسة تماماً.
+    const noSwitchRule = englishLock
+        ? 'Ask every question in English. If a listed question is written in Arabic, translate it into natural English.'
+        : 'Do NOT switch to English.';
+    const noSwitchYetRule = englishLock
+        ? 'Ask every question in English.'
+        : 'Do NOT switch to English yet.';
+
     if (phase === 1) {
         const mandatoryNote = mandatoryQuestionDue === 1
             ? `\n\n⚠️ CRITICAL — You MUST ask the FIRST Mandatory Question (Tell me about yourself) NOW. This is the opening question.\n`
@@ -199,18 +238,16 @@ function getPhasePrompt(phase: InterviewPhase, candidateProfile?: CandidateProfi
 ═══════════════════════════════════════════════════════════════
 ⚠️ MANDATORY — PHASE 1: الأسئلة الاعتيادية (General Pool Questions)
 ═══════════════════════════════════════════════════════════════
-You MUST use ONLY questions from the list below. Do NOT ask about application data yet. Do NOT switch to English.
+You MUST use ONLY questions from the list below. Do NOT ask about application data yet. ${noSwitchRule}
 Choose ONE question at a time. Vary across Pools. Select L1/L2/L3 based on candidate performance.
 ${mandatoryNote}
 
 Mandatory Question 2 (Ask in Every Interview — Once, after Warm-up)
-English: "${m2.en}"
-Iraqi: "${m2.iq}"
+${englishLock ? `"${m2.en}"` : `English: "${m2.en}"\nIraqi: "${m2.iq}"`}
 Place after Warm-up or within Digital section. Asked once only.
 
 ${buildPoolListForPrompt()}
-
-When candidate speaks Arabic, use Iraqi equivalents: ${IRAQI_DIALECT_EXAMPLES}`;
+${englishLock ? '' : `\nWhen candidate speaks Arabic, use Iraqi equivalents: ${IRAQI_DIALECT_EXAMPLES}`}`;
     }
     if (phase === 2) {
         // المسار العام (رابط مشارَك بدون حقن بيانات المرحلة الأولى):
@@ -224,7 +261,7 @@ When candidate speaks Arabic, use Iraqi equivalents: ${IRAQI_DIALECT_EXAMPLES}`;
 This is a public screening interview opened via a shared link. There is NO trusted application data about the candidate.
 Do NOT assume or invent that the candidate has any skill, certification, education, or employment history.
 Use the ROLE CONTEXT block (the job's required skills, experience, and qualifications) to steer your questions toward what THIS role needs — ask the candidate about their relevant background, motivation, strengths, and concrete experience for those requirements.
-Ask open questions and verify, do not confirm. Ask one question at a time. Do NOT switch to English yet.`;
+Ask open questions and verify, do not confirm. Ask one question at a time. ${noSwitchYetRule}`;
         }
         const hasData = candidateProfile && (
             (candidateProfile.skills?.length ?? 0) > 0 ||
@@ -239,7 +276,7 @@ Ask open questions and verify, do not confirm. Ask one question at a time. Do NO
 ⚠️ MANDATORY — PHASE 2: أسئلة من بيانات التقديم (Application-Based)
 ═══════════════════════════════════════════════════════════════
 No candidate data available. Ask about their background, motivation, or continue with relevant Pool questions.
-Do NOT switch to English yet.`;
+${noSwitchYetRule}`;
         }
         const topSkills = candidateProfile!.skills?.slice(0, 2).join(', ') || '';
         const certs = candidateProfile!.certifications || '';
@@ -254,7 +291,7 @@ Do NOT switch to English yet.`;
 You MUST ask questions based ONLY on the candidate's application data below. Do NOT use generic Pool questions.
 Candidate data to use (top 2 skills only): Skills: ${topSkills || '—'} | Certifications: ${certs || '—'} | Education: ${edu || '—'} | Experience: ${exp || '—'} | Current company: ${company || '—'} | Languages (names only, no proficiency levels): ${langs || '—'}
 Examples: Ask how they use [specific skill], about their [certification], their studies at [education], challenges at [company], or which languages they speak and their level in each — for languages, mention names from the application if helpful but NEVER state levels from the form; ask the candidate to describe their level.
-Do NOT repeat Phase 1 questions. Do NOT switch to English yet. Ask one question at a time.`;
+Do NOT repeat Phase 1 questions. ${noSwitchYetRule} Ask one question at a time.`;
     }
     // Phase 3
     const phase3Transition = isFirstPhase3Message
@@ -336,6 +373,12 @@ export interface LLMContext {
     jobCriteria?: Record<string, any>;
     /** الإعلان الوظيفي من الحملة (المسار العام فقط) — سياق إضافي للايجنت */
     jobAdvertisement?: string;
+    /**
+     * لغة الجلسة المقفلة — مصدرها رابط المشاركة (`?language=`) لا نصّ المرشح.
+     * `'en'` يفرض الإنجليزية على كل ردود الايجنت مهما كانت لغة المرشح، ولا يُكسر
+     * إلا بطلب تحويل صريح يعالجه المتصل قبل استدعاء الـ LLM.
+     */
+    sessionLanguage?: 'ar' | 'en';
 }
 
 /**
@@ -386,13 +429,21 @@ function createSystemPrompt(context: LLMContext): string {
     const { candidateProfile, position, interviewDurationMinutes, currentPhase = 1, isFirstPhase3Message, selectedQuestion } = context;
     const candidateName = candidateProfile ? (candidateProfile.full_name || '').trim() : '';
 
+    // قفل الجلسة الإنجليزية: يتقدّم على كل قواعد «طابِق لغة المرشح» أدناه.
+    const englishLock = context.sessionLanguage === 'en';
+    const ENGLISH_LOCK_RULE =
+        'Respond in ENGLISH only. The candidate may answer in Arabic — you still reply in English. Never mirror their language and never add an Arabic translation.';
+    const preferArabic = !englishLock && (selectedQuestion?.preferArabic ?? false);
+
     // وضع المتابعة: متابعة واحدة — صيغتها حسب نوع السؤال (evaluates) عند الوجود
     if (context.followUpNext === 1) {
         const pair = getFollowUpPromptPair(context.selectedQuestion);
-        const langRule = context.selectedQuestion?.preferArabic
+        const langRule = englishLock
+            ? ENGLISH_LOCK_RULE
+            : preferArabic
             ? 'Respond in Iraqi Arabic. Use natural dialect.'
             : 'Respond in English.';
-        const ex = context.selectedQuestion?.preferArabic ? pair.ar : pair.en;
+        const ex = preferArabic ? pair.ar : pair.en;
         return `You are EVAALO. The candidate mentioned a challenge/situation. Ask ONE short deeper probe in the same spirit as the example (same intent: solution path, other party reaction, alternatives, team role, reflection, or how they applied learning).
 ${langRule}
 Example: "${ex}"
@@ -401,7 +452,9 @@ Keep it natural, about 24–40 words. One question only. Do NOT announce "follow
 
     // وضع التوضيح: المرشح طلب توضيح — وضّح السؤال وأعد طرحه
     if (context.clarificationRequested && context.lastAssistantMessage) {
-        const langRule = /[\u0600-\u06FF]/.test(context.lastAssistantMessage)
+        const langRule = englishLock
+            ? 'Clarify in ENGLISH only. Use simpler words. Never switch to Arabic.'
+            : /[\u0600-\u06FF]/.test(context.lastAssistantMessage)
             ? 'Clarify in Iraqi Arabic. Use simpler words.'
             : 'Clarify in English. Use simpler words.';
         return `You are EVAALO, a professional interviewer. The candidate did not understand your last question and asked for clarification.
@@ -419,7 +472,9 @@ Your last question was: "${context.lastAssistantMessage}"`;
 
     // وضع Topic-choice: LLM يختار الموضوع الأنسب من القائمة حسب إجابة المرشح
     if (selectedQuestion?.availableTopics?.length) {
-        const langRule = selectedQuestion.preferArabic
+        const langRule = englishLock
+            ? ENGLISH_LOCK_RULE
+            : preferArabic
             ? 'Respond in Iraqi Arabic. Use natural dialect (شنو، شلون، چان).'
             : 'Use the same language as the candidate\'s last message.';
         const topicsList = selectedQuestion.availableTopics.join(', ');
@@ -430,14 +485,16 @@ Your last question was: "${context.lastAssistantMessage}"`;
 Available topics: ${topicsList}
 ${lastAnswer}${extracted}
 
-CRITICAL: Do NOT say "the topic is X" or "الموضوع الأنسب هو..." — the topic choice is INTERNAL. Just ask the question directly. You may add ONE brief varied acknowledgment (${IRAQI_ACKNOWLEDGMENT_PHRASES.slice(0, 4).join('، ')}, etc.) then ask — NEVER "شلونك؟" as acknowledgment. Keep it about 45–70 words.
+CRITICAL: Do NOT say "the topic is X" or "الموضوع الأنسب هو..." — the topic choice is INTERNAL. Just ask the question directly. You may add ONE brief varied acknowledgment (${englishLock ? 'Great, Alright, Thanks, Understood' : IRAQI_ACKNOWLEDGMENT_PHRASES.slice(0, 4).join('، ')}, etc.) then ask — NEVER "${englishLock ? 'How are you?' : 'شلونك؟'}" as acknowledgment. Keep it about 45–70 words.
 
 ${langRule}`;
     }
 
     // وضع Topic-only: موضوع واحد، LLM يبني السؤال
     if (selectedQuestion?.topic) {
-        const langRule = selectedQuestion.preferArabic
+        const langRule = englishLock
+            ? ENGLISH_LOCK_RULE
+            : preferArabic
             ? 'Respond in Iraqi Arabic. Use natural dialect (شنو، شلون، چان).'
             : currentPhase === 3
             ? 'Keep the question in ENGLISH.'
@@ -454,13 +511,15 @@ ${langRule}`;
 
     // وضع Rephrase: سؤال محدد — LLM يعيد صياغته بشكل طبيعي
     if (selectedQuestion?.text) {
-        const langRule = selectedQuestion.preferArabic
+        const langRule = englishLock
+            ? 'Ask the question in ENGLISH only. If the source question is written in Arabic, translate it into natural English — never output Arabic.'
+            : preferArabic
             ? 'Rephrase in Iraqi Arabic. Use natural dialect (شنو، شلون، چان).'
             : currentPhase === 3
             ? 'Keep the question in ENGLISH. Do not translate to Arabic.'
             : 'Use the same language as the selected question.';
         const changeNote = context.changeRequested
-            ? 'The candidate asked to change the question. Acknowledge briefly ("تمام" or "Sure") then ask the new question. Keep under 65 words.'
+            ? `The candidate asked to change the question. Acknowledge briefly (${englishLock ? '"Sure"' : '"تمام" or "Sure"'}) then ask the new question. Keep under 65 words.`
             : '';
         return `You are EVAALO, a professional interviewer. Rephrase this question naturally and ask it. You may add a brief transition if it feels natural. One main question.
 Do NOT narrow a broad question into a single sub-topic unless the original question is already specific.
@@ -471,10 +530,12 @@ Keep it about 35–60 words.`;
     }
 
     const candidateGender = resolveCandidateGender(context);
-    const basePrompt = getBasePrompt(candidateGender);
-    const phasePrompt = getPhasePrompt(currentPhase, candidateProfile, isFirstPhase3Message, context.mandatoryQuestionDue, context.mode);
+    const basePrompt = getBasePrompt(candidateGender, englishLock);
+    const phasePrompt = getPhasePrompt(currentPhase, candidateProfile, isFirstPhase3Message, context.mandatoryQuestionDue, context.mode, englishLock);
 
-    const languageOverride = currentPhase === 3 && !isFirstPhase3Message
+    const languageOverride = englishLock
+        ? `\n⚠️ SESSION LANGUAGE LOCK: This interview is ENGLISH. Your reply must be 100% English regardless of the candidate's language or the language any suggested question is written in.\n`
+        : currentPhase === 3 && !isFirstPhase3Message
         ? `\n⚠️ PHASE 3 OVERRIDE: Respond in ENGLISH ONLY. Ignore "same language" rule.\n`
         : currentPhase === 3 && isFirstPhase3Message
         ? `\n⚠️ PHASE 3 FIRST MESSAGE: Respond in ARABIC only. Say "هسة راح أختبر لغتك الإنكليزية. جاهز؟" — no English.\n`
@@ -1236,14 +1297,16 @@ export async function getLLMResponse(
     transcript: string,
     context: LLMContext
 ): Promise<string> {
+    const englishLock = context.sessionLanguage === 'en';
+    const fallbackReply = englishLock || context.currentPhase === 3 ? LLM_FALLBACK_EN : LLM_FALLBACK_AR;
     const openai = getOpenAIClient();
     if (!openai) {
         console.warn('⚠️ OpenAI not configured — using fallback');
-        return context.currentPhase === 3 ? LLM_FALLBACK_EN : LLM_FALLBACK_AR;
+        return fallbackReply;
     }
 
     if (!transcript || transcript.trim().length === 0) {
-        return context.currentPhase === 3 ? LLM_FALLBACK_EN : LLM_FALLBACK_AR;
+        return fallbackReply;
     }
 
     const phase = context.currentPhase ?? 1;
@@ -1252,8 +1315,12 @@ export async function getLLMResponse(
         (context.conversationHistory?.filter((m) => m.role === 'assistant').length ?? 0);
     const askIdentity = !context.clarificationRequested && isAskingAgentIdentity(transcript);
     const policyIntent = !context.clarificationRequested ? classifyInterviewPolicyIntent(transcript) : null;
+    // صدّ طلب الإنجليزية بلا معنى حين تكون المقابلة إنجليزية أصلاً.
     const englishEarlyPath =
-        (phase === 1 || phase === 2) && !context.clarificationRequested && isWantsEnglishBeforePhase3(transcript);
+        !englishLock &&
+        (phase === 1 || phase === 2) &&
+        !context.clarificationRequested &&
+        isWantsEnglishBeforePhase3(transcript);
 
     try {
         if (askIdentity) {
@@ -1313,9 +1380,16 @@ export async function getLLMResponse(
         let reply = response.choices[0]?.message?.content?.trim() || '';
         const hasArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(reply);
 
-        // Phase 3: إذا رد بالعربية (ما عدا أول رسالة التي يجب أن تكون عربية "جاهز؟")، أعد المحاولة
-        if (context.currentPhase === 3 && !context.isFirstPhase3Message && hasArabic && reply.length > 0) {
-            console.warn('[LLM] Phase 3 response was in Arabic, retrying with English-only enforcement');
+        // شبكة أمان اللغة: الجلسة الإنجليزية المقفلة، أو Phase 3 (ما عدا أول رسالة
+        // التي يجب أن تكون عربية "جاهز؟"). أي عربية مُتسربة تُعاد بإنجليزية صارمة.
+        const arabicLeak =
+            hasArabic &&
+            reply.length > 0 &&
+            (englishLock || (context.currentPhase === 3 && !context.isFirstPhase3Message));
+        if (arabicLeak) {
+            console.warn(
+                `[LLM] Arabic leaked into an English-only turn (lock=${englishLock}, phase=${context.currentPhase}), retrying with English-only enforcement`
+            );
             const strictSystem = 'You are EVAALO interviewer. CRITICAL: Your response MUST be 100% in English. No Arabic characters allowed. Ask one short question in English.';
             const retryResponse = await openai.chat.completions.create({
                 model: 'gpt-4o-mini',
@@ -1335,9 +1409,12 @@ export async function getLLMResponse(
             context.currentPhase !== 3
         ) {
             console.warn('[LLM] Reply did not look like a valid question, retrying with strict question prompt');
+            const strictLangRule = englishLock
+                ? 'Output ONE short interview question only, in ENGLISH, ending with ?.'
+                : 'Output ONE short interview question only (Iraqi Arabic for Phases 1–2), ending with ؟.';
             const strictSystem = `${systemPrompt}
 
-CRITICAL: Your last response was not a clear interview question. Output ONE short interview question only (Iraqi Arabic for Phases 1–2), ending with ؟. Max 2 sentences including a brief ack if needed.
+CRITICAL: Your last response was not a clear interview question. ${strictLangRule} Max 2 sentences including a brief ack if needed.
 
 ${getProfessionalRegisterBlock()}`;
             const retryResponse = await createCompletion(strictSystem, 0.25);
@@ -1347,7 +1424,7 @@ ${getProfessionalRegisterBlock()}`;
         
         if (!reply) {
             console.warn('⚠️ Empty LLM response — using fallback');
-            return context.currentPhase === 3 ? LLM_FALLBACK_EN : LLM_FALLBACK_AR;
+            return fallbackReply;
         }
         
         if (context.clarificationRequested) {
@@ -1356,7 +1433,7 @@ ${getProfessionalRegisterBlock()}`;
         return sanitizeVoiceReply(reply, context);
     } catch (error: any) {
         console.error('❌ Error getting LLM response:', error?.message || error);
-        return context.currentPhase === 3 ? LLM_FALLBACK_EN : LLM_FALLBACK_AR;
+        return fallbackReply;
     }
 }
 
@@ -1836,13 +1913,19 @@ export async function getInitialGreetingMessage(params: {
 /**
  * الحصول على رسالة إغلاق عند انتهاء وقت المقابلة
  */
-export async function getTimeEndedClosingMessage(conversationHistory?: Message[]): Promise<string> {
+export async function getTimeEndedClosingMessage(
+    conversationHistory?: Message[],
+    sessionLanguage?: 'ar' | 'en'
+): Promise<string> {
     const openai = getOpenAIClient();
     if (!openai) {
-        return 'انتهى وقت المقابلة. شكراً لكم على وقتكم.';
+        return sessionLanguage === 'en'
+            ? 'Interview time has ended. Thank you for your time.'
+            : 'انتهى وقت المقابلة. شكراً لكم على وقتكم.';
     }
     const lastUser = conversationHistory?.filter((m) => m.role === 'user').pop()?.content || '';
-    const useArabic = /[\u0600-\u06FF]/.test(lastUser);
+    // لغة الجلسة المقفلة تتقدّم على لغة آخر رسالة من المرشح.
+    const useArabic = sessionLanguage ? sessionLanguage === 'ar' : /[\u0600-\u06FF]/.test(lastUser);
     const langHint = useArabic ? 'Respond in Iraqi Baghdadi dialect only (شنو، شلون، تمام، هلا).' : 'Respond in English only.';
     try {
         const response = await openai.chat.completions.create({
@@ -1868,12 +1951,21 @@ export async function getTimeEndedClosingMessage(conversationHistory?: Message[]
 /**
  * رسالة اعتذار عندما يحاول المستخدم الحديث بعد انتهاء وقت المقابلة
  */
-export async function getTimeEndedApologyMessage(userTranscript?: string): Promise<string> {
+export async function getTimeEndedApologyMessage(
+    userTranscript?: string,
+    sessionLanguage?: 'ar' | 'en'
+): Promise<string> {
     const openai = getOpenAIClient();
     if (!openai) {
-        return 'عذراً، انتهى وقت المقابلة. شكراً لكم على وقتكم.';
+        return sessionLanguage === 'en'
+            ? 'Sorry, the interview time has ended. Thank you for your time.'
+            : 'عذراً، انتهى وقت المقابلة. شكراً لكم على وقتكم.';
     }
-    const useArabic = userTranscript ? /[\u0600-\u06FF]/.test(userTranscript) : true;
+    const useArabic = sessionLanguage
+        ? sessionLanguage === 'ar'
+        : userTranscript
+        ? /[\u0600-\u06FF]/.test(userTranscript)
+        : true;
     const langHint = useArabic ? 'Respond in Iraqi Baghdadi dialect only (شنو، شلون، تمام، هلا).' : 'Respond in English only.';
     try {
         const response = await openai.chat.completions.create({

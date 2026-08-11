@@ -19,15 +19,28 @@ const PHASE1_MAX_USER_MSGS = 9;
 const PHASE2_MAX_USER_MSGS = 13;
 
 /**
+ * الجلسة الإنجليزية: لا Phase 3 — اختبار الإنجليزية بلا معنى في مقابلة إنجليزية
+ * بالكامل. أدوارها الأربعة تُوزَّع على Phase 1 (+3) ويبقى Phase 2 مفتوحاً حتى
+ * انتهاء الوقت، فتبقى المدة الإجمالية كما هي.
+ */
+const PHASE1_MAX_USER_MSGS_EN = 12;
+
+/**
  * يحسب مخرجات الـ Controller من الحالة الحالية
  * يُستدعى قبل إرسال الطلب للـ LLM
  */
 export function getControllerOutput(
   userMessageCount: number,
-  state?: InterviewState | null
+  state?: InterviewState | null,
+  sessionLanguage?: 'ar' | 'en'
 ): ControllerOutput {
-  const phase: InterviewPhase =
-    userMessageCount < PHASE1_MAX_USER_MSGS
+  const englishSession = sessionLanguage === 'en';
+
+  const phase: InterviewPhase = englishSession
+    ? userMessageCount < PHASE1_MAX_USER_MSGS_EN
+      ? 1
+      : 2
+    : userMessageCount < PHASE1_MAX_USER_MSGS
       ? 1
       : userMessageCount < PHASE2_MAX_USER_MSGS
         ? 2

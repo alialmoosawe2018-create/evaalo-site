@@ -5,7 +5,7 @@ import { createRateLimiter } from "./rateLimiter.js";
 import { createSession, removeSession, touchSession, updateState } from "./sessionStore.js";
 import { createInterviewState, getInterviewState, removeInterviewState, onExchangeComplete, FOLLOW_UP_MAX_PER_INTERVIEW, FOLLOW_UP_MIN_GAP_TURNS } from "./interviewState.js";
 import { getControllerOutput } from "./interviewController.js";
-import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair } from "./questionEngine.js";
+import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch } from "./questionEngine.js";
 import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
 import { getVoiceResponseTiming, getVoiceVadSettings } from "./voiceTimingEnv.js";
@@ -137,6 +137,13 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   const url = new URL(req.url || "", `http://${req.headers.host}`);
   const candidateId = url.searchParams.get("candidateId") || undefined;
   const language = url.searchParams.get("language") || undefined;
+  /**
+   * قفل لغة المقابلة — مصدره رابط المشاركة، وهو المرجع الوحيد لاختيار الصوت
+   * ولغة ردود الايجنت. لا يتغير بتغيّر لغة كلام المرشح؛ يتغير فقط بطلب تحويل
+   * صريح. الكردية تُعامل كعربية لأن الصوت العربي هو الوحيد الذي يخدمها.
+   */
+  let interviewLanguage: 'ar' | 'en' =
+    language === 'en' || language === 'english' ? 'en' : 'ar';
   const isVoiceTest = url.searchParams.get("voiceTest") === "1";
   // المسار العام (رابط مشارَك): mode=public => حقن معايير الوظيفة + إرسالها مع الترانسكريبت إلى n8n.
   const sessionMode = url.searchParams.get("mode") === "public" ? ("public" as const) : undefined;
@@ -465,7 +472,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   const speakAgentReply = async (llmReply: string, options?: { resumeListening?: boolean; endSession?: boolean }) => {
     const resumeListening = options?.resumeListening ?? true;
     const endSession = options?.endSession ?? false;
-    const ttsLanguage = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(llmReply.trim()) ? ("ar" as const) : ("en" as const);
+    // الصوت يتبع لغة الجلسة لا نص الرد: الصوت العربي ثنائي اللغة فيغطي أسئلة
+    // الإنجليزية داخل مقابلة عربية بلا تبديل مفاجئ لهوية المتحدث.
+    const ttsLanguage = interviewLanguage;
 
     const alignmentToWords = (
       alignment: { characters: string[]; character_start_times_seconds: number[]; character_end_times_seconds: number[] }
@@ -624,8 +633,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       startSpeaking();
       send(ws, { type: "transcript", text: cleaned, isFinal: true });
       try {
-        const apologyMsg = await getTimeEndedApologyMessage(cleaned);
-        const ttsLang = /[\u0600-\u06FF]/.test(apologyMsg) ? ('ar' as const) : ('en' as const);
+        const apologyMsg = await getTimeEndedApologyMessage(cleaned, interviewLanguage);
         send(ws, { type: "agent_reply", text: apologyMsg });
         const history = conversationHistory.get(sessionId) || [];
         history.push({ role: "user", content: cleaned });
@@ -635,7 +643,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           recordChunk("agent", "mp3", c);
           send(ws, { type: "audio_chunk", chunkBase64: c.toString("base64"), format: "mp3" });
         };
-        await textToSpeech(apologyMsg, ttsLang, sendChunk);
+        await textToSpeech(apologyMsg, interviewLanguage, sendChunk);
         send(ws, { type: "tts_complete" });
         await new Promise((r) => setTimeout(r, voiceTiming.postPlaybackResumeMs));
         if (ws.readyState === ws.OPEN) startListening();
@@ -691,12 +699,27 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         }
       }
 
+      // كسر القفل بطلب صريح فقط. الصوت الإنجليزي أحادي اللغة، لذا التحول إلى
+      // العربية يستدعي تبديل الصوت أيضاً — وهو ما يفعله تحديث `interviewLanguage`.
+      // الجلسة العربية تحتفظ بسلوكها القائم (صدّ الطلب المبكر حتى Phase 3).
+      if (interviewLanguage === 'en' && isWantsArabicSwitch(cleaned)) {
+        interviewLanguage = 'ar';
+        console.log(`[LANG SWITCH] ${sessionId.substring(0, 8)}... en -> ar (candidate request)`);
+      }
+
       const userMessageCount = history.filter((m) => m.role === "user").length;
       const interviewState = getInterviewState(sessionId);
-      const controllerOutput = getControllerOutput(userMessageCount, interviewState);
+      const controllerOutput = getControllerOutput(userMessageCount, interviewState, interviewLanguage);
       const { phase: currentPhase, isFirstPhase3Message, mandatoryQuestionDue } = controllerOutput;
 
-      const candidateLastLang = /[\u0600-\u06FF]/.test(cleaned) ? ('ar' as const) : ('en' as const);
+      // الجلسة الإنجليزية المقفلة: لا تُستنتج اللغة من كلام المرشح إطلاقاً،
+      // وإلا انقلب `preferArabic` وعادت الأسئلة عربية.
+      const candidateLastLang =
+        interviewLanguage === 'en'
+          ? ('en' as const)
+          : /[\u0600-\u06FF]/.test(cleaned)
+          ? ('ar' as const)
+          : ('en' as const);
       const intent = detectIntent(cleaned);
       const changeRequested = intent === 'change_question';
       const clarificationRequested = intent === 'clarification';
@@ -815,6 +838,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
               candidateLastAnswer: cleaned,
               followUpNext,
               timeEndedForInterview: timeEndedSent,
+              sessionLanguage: interviewLanguage,
             }),
             new Promise<string>((_, reject) =>
               setTimeout(() => reject(new Error('LLM timeout after 10s')), 10000)
@@ -844,13 +868,17 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
                 candidateLastAnswer: cleaned,
                 followUpNext,
                 timeEndedForInterview: timeEndedSent,
+                sessionLanguage: interviewLanguage,
               }),
               new Promise<string>((_, reject) =>
                 setTimeout(() => reject(new Error('LLM timeout after 10s (retry)')), 10000)
               )
             ]);
           } catch (retryErr: any) {
-            llmReply = currentPhase === 3 ? 'Could you repeat your answer, please?' : 'ممكن تعيد الإجابة؟';
+            llmReply =
+              interviewLanguage === 'en' || currentPhase === 3
+                ? 'Could you repeat your answer, please?'
+                : 'ممكن تعيد الإجابة؟';
             console.warn(`[LLM FALLBACK] ${sessionId.substring(0, 8)}... using fallback after retry failed`);
           }
         }
@@ -859,15 +887,25 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
 
         // Hybrid Intelligence: Engine يتحقق من اقتراح الـ LLM
         if (!validateLLMQuestion(llmReply)) {
+          // احتياطيات المواضيع مكتوبة بالعراقية فقط — الجلسة الإنجليزية تأخذ
+          // بديلاً إنجليزياً محايداً بدلاً من كسر قفل اللغة عند أول فشل تحقق.
+          const genericFallback =
+            interviewLanguage === 'en' || currentPhase === 3
+              ? 'Could you tell me more about that?'
+              : 'ممكن تحچيلي أكثر عن هالموضوع؟';
+          const topicFallback = (topic: string) =>
+            interviewLanguage === 'en'
+              ? genericFallback
+              : getFallbackForTopic(topic, candidateProfile?.gender);
           const fallback = clarificationRequested && lastAssistantMessage
             ? lastAssistantMessage
             : followUpNext
               ? (candidateLastLang === 'ar' ? getFollowUpPromptPair(selectedQuestion).ar : getFollowUpPromptPair(selectedQuestion).en)
               : selectedQuestion?.topic
-                ? getFallbackForTopic(selectedQuestion.topic, candidateProfile?.gender)
+                ? topicFallback(selectedQuestion.topic)
                 : selectedQuestion?.availableTopics?.length
-                ? getFallbackForTopic(selectedQuestion.availableTopics[0], candidateProfile?.gender)
-                : selectedQuestion?.text ?? (currentPhase === 3 ? 'Could you tell me more about that?' : 'ممكن تحچيلي أكثر عن هالموضوع؟');
+                ? topicFallback(selectedQuestion.availableTopics[0])
+                : selectedQuestion?.text ?? genericFallback;
           console.warn(`[ENGINE VALIDATE] ${sessionId.substring(0, 8)}... LLM reply invalid, using fallback`);
           llmReply = polishVoiceArabicReply(fallback, {
             gender: candidateProfile?.gender,
@@ -1004,8 +1042,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           recordChunk("agent", "mp3", c);
           send(ws, { type: "audio_chunk", chunkBase64: c.toString("base64"), format: "mp3" });
         };
-            const ttsLang = /[\u0600-\u06FF]/.test(greetingMsg) ? ("ar" as const) : ("en" as const);
-            await textToSpeech(greetingMsg, ttsLang, sendChunk);
+            await textToSpeech(greetingMsg, interviewLanguage, sendChunk);
             send(ws, { type: "tts_complete" });
             const playbackEnded = new Promise<void>((resolve) => {
               const done = () => {
@@ -1041,8 +1078,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         (async () => {
           try {
             const history = conversationHistory.get(sessionId) || [];
-            const closingMsg = await getTimeEndedClosingMessage(history);
-            const ttsLang = /[\u0600-\u06FF]/.test(closingMsg) ? ('ar' as const) : ('en' as const);
+            const closingMsg = await getTimeEndedClosingMessage(history, interviewLanguage);
             startSpeaking();
             send(ws, { type: "agent_reply", text: closingMsg });
             history.push({ role: "assistant", content: closingMsg });
@@ -1051,7 +1087,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           recordChunk("agent", "mp3", c);
           send(ws, { type: "audio_chunk", chunkBase64: c.toString("base64"), format: "mp3" });
         };
-            await textToSpeech(closingMsg, ttsLang, sendChunk);
+            await textToSpeech(closingMsg, interviewLanguage, sendChunk);
             send(ws, { type: "tts_complete" });
             const playbackEnded = new Promise<void>((resolve) => {
               const done = () => {

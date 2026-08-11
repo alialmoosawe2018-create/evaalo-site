@@ -128,6 +128,27 @@ export function isWantsEnglishBeforePhase3(transcript: string): boolean {
 }
 
 /**
+ * طلب صريح بالتحول إلى العربية — يكسر قفل اللغة في الجلسة الإنجليزية.
+ * مقصور على عبارات واضحة: مجرد نطق المرشح كلمة عربية ليس طلب تحويل.
+ */
+export function isWantsArabicSwitch(transcript: string): boolean {
+  const t = transcript.trim();
+  if (t.length < 4) return false;
+  const en =
+    /(can we|could we|may we|let[']?s|let us|please|i want|i'?d like|switch|change).{0,40}\b(speak|talk|use|do|continue|switch|change)?.{0,20}\b(arabic|in arabic)\b/i.test(
+      t
+    ) || /\barabic\s+(please|only)\b|\bswitch\s+to\s+arabic\b|\bin\s+arabic\s+please\b/i.test(t);
+  const ar =
+    /(نحجي|نحكي|نتحدث|نكمل|نحچي|نحکي|نتكلم|تتكلم|نغير|ممكن|اريد|أريد|بدي|حاب|نريد|يلا|خلي).{0,40}(بالعرب|عربي|العربية|بالعربي)/i.test(
+      t
+    ) ||
+    /(بالعرب|عربي|العربية).{0,30}(نحجي|نحكي|نحچي|نتكلم|ممكن|أفضل|افضل|رجاء|لو سمحت|فقط)/i.test(t) ||
+    /(بلغة|اللغة).{0,15}(العرب|عرب)/i.test(t);
+  const ckb = /(بە|ب)?\s*عەرەب(ی|ي)|قسە.{0,15}عەرەب/i.test(t);
+  return en || ar || ckb;
+}
+
+/**
  * كشف سؤال المرشح عن هوية/طبيعة المساعد (من أنت؟ مين أنت؟ who are you؟)
  * نصوص قصيرة نسبياً لتقليل التعارض مع إجابات طويلة بالصدفة
  */

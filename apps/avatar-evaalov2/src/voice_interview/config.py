@@ -39,7 +39,11 @@ _apply_windows_asyncio_policy()
 
 # --- defaults aligned with product interview flow ---
 
+# Bilingual (ar + en) — an Arabic session keeps this voice even while speaking
+# English, so the speaker identity never changes mid-interview.
 ARABIC_VOICE_ID = "a0K946lDZEyNuRXJc7sI"
+# English-only voice, used when the share link locks the session to English.
+ENGLISH_VOICE_ID = "eR40ATw9ArzDf9h3v7t7"
 LEGACY_WRONG_AVATAR_ID = "b5bebaf9-ae80-4e43-b97f-4506136ed926"
 DEFAULT_AVATAR_ID = "694c83e2-8895-4a98-bd16-56332ca3f449"
 INVALID_ELEVEN_VOICE_IDS = frozenset({"21m00Tzpb8gXv3hC"})

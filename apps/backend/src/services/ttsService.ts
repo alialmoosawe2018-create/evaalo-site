@@ -8,10 +8,11 @@ import { detectLanguage } from '../utils/languageDetection.js';
 
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1/text-to-speech';
 
-// Voice IDs for different languages — env-overridable; defaults are premade
-// voices available on every ElevenLabs account (custom voices are per-account).
+// Voice IDs per interview language — env-overridable.
+// `ARABIC_VOICE_ID` is bilingual (ar + en), so an Arabic session keeps this same
+// voice even while speaking English; `ENGLISH_VOICE_ID` is English-only.
 const ARABIC_VOICE_ID = (process.env.ELEVENLABS_VOICE_ID_AR || '').trim() || 'a0K946lDZEyNuRXJc7sI';
-const ENGLISH_VOICE_ID = (process.env.ELEVENLABS_VOICE_ID_EN || '').trim() || 'Xb7hH8MSUJpSbSDYk0k2';
+const ENGLISH_VOICE_ID = (process.env.ELEVENLABS_VOICE_ID_EN || '').trim() || 'eR40ATw9ArzDf9h3v7t7';
 
 // Model for TTS
 const TTS_MODEL = 'eleven_turbo_v2_5';

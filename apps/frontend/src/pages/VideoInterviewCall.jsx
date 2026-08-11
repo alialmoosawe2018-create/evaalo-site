@@ -472,6 +472,10 @@ const VideoInterviewCall = () => {
                     candidateId: effectiveCandidateId,
                     campaignId: campaignId || undefined,
                     applicationId: resolvedApplicationId || undefined,
+                    // /start قد يعيد استخدام الغرفة المحضّرة هنا دون dispatch
+                    // جديد، فيجب أن يحمل الإحماء قفل اللغة نفسه.
+                    language:
+                        parseInterviewUrlLanguage(searchParams.get('language')) || currentLang,
                 }),
                 signal: controller.signal
             })
@@ -506,6 +510,9 @@ const VideoInterviewCall = () => {
             clearTimeout(t);
             controller.abort();
         };
+        // اللغة مقروءة من الرابط عمداً خارج قائمة الاعتماديات: إضافتها تُعيد
+        // إطلاق الإحماء وتُنشئ dispatch مكرراً.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [effectiveCandidateId, campaignId, resolvedApplicationId]);
 
     /**
