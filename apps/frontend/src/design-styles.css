@@ -12430,6 +12430,13 @@ html[data-app-theme='light'] .headhunter-campaign-snapshot-meta__value--accent {
     cursor: wait;
 }
 
+.headhunter-card__video-popover--portal .headhunter-card__video-popover-linkstate {
+    margin: 10px 0 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #94a3b8;
+}
+
 .headhunter-card__video-popover--portal .headhunter-card__video-popover-divider {
     margin: 10px 0 8px;
     font-size: 11px;
@@ -12586,6 +12593,10 @@ html[data-app-theme='light'] .ai-head-hunter-page .headhunter-card__video-popove
     background: linear-gradient(180deg, #ecfeff 0%, #f0fdfa 100%);
     border-color: rgba(8, 145, 178, 0.55);
     color: #0c4a6e;
+}
+
+html[data-app-theme='light'] .headhunter-card__video-popover--portal .headhunter-card__video-popover-linkstate {
+    color: #64748b;
 }
 
 html[data-app-theme='light'] .headhunter-card__video-popover--portal .headhunter-card__video-popover-textarea,

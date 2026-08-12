@@ -1,6 +1,8 @@
 import Candidate from '../models/Candidate.js';
 import CandidateApplication from '../models/CandidateApplication.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
+import { emitDomainEventBestEffort } from './domainEventService.js';
+import { DEFAULT_ORG_ID } from '../config/multiTenant.js';
 
 export const INTERVIEW_LINK_ALREADY_USED = 'INTERVIEW_LINK_ALREADY_USED';
 
@@ -40,6 +42,37 @@ export function isVoiceLinkConsumed(doc: LinkFields | null | undefined): boolean
 
 export function isVideoLinkConsumed(doc: LinkFields | null | undefined): boolean {
     return Boolean(doc?.videoInterviewLinkConsumedAt);
+}
+
+/**
+ * Tell the HR boards that a link's availability flipped.
+ *
+ * Consumption is recorded when the session closes — well before the evaluation
+ * callback — and a thin or failed session produces no evaluation event at all.
+ * Without this signal a board keeps rendering stale link state until a manual
+ * page reload, which reads to HR as a dead "reopen link" control.
+ */
+function emitLinkAccessChanged(input: {
+    organizationId?: string | null;
+    candidateId: string;
+    stage: 'voice' | 'video';
+    consumed: boolean;
+    scope?: Omit<InterviewLinkScope, 'candidateId'>;
+    sessionId?: string;
+}): void {
+    const suffix = input.consumed ? `consumed:${input.sessionId || 'unknown'}` : `reopened:${Date.now()}`;
+    void emitDomainEventBestEffort({
+        organizationId: input.organizationId || DEFAULT_ORG_ID,
+        type: 'InterviewLinkAccessChanged',
+        idempotencyKey: `link-access:${input.stage}:${input.candidateId}:${suffix}`,
+        payload: {
+            candidateId: input.candidateId,
+            stage: input.stage,
+            consumed: input.consumed,
+            applicationId: input.scope?.applicationId || null,
+            campaignId: input.scope?.campaignId || null,
+        },
+    });
 }
 
 async function resolveScopedApplication(scope: InterviewLinkScope) {
@@ -112,7 +145,18 @@ export async function markVoiceLinkConsumed(
         { new: true }
     );
 
-    return appOk || Boolean(personResult);
+    const changed = appOk || Boolean(personResult);
+    if (changed) {
+        emitLinkAccessChanged({
+            organizationId: personResult?.organizationId,
+            candidateId,
+            stage: 'voice',
+            consumed: true,
+            scope,
+            sessionId,
+        });
+    }
+    return changed;
 }
 
 export async function markVideoLinkConsumed(
@@ -149,7 +193,18 @@ export async function markVideoLinkConsumed(
         { new: true }
     );
 
-    return appOk || Boolean(personResult);
+    const changed = appOk || Boolean(personResult);
+    if (changed) {
+        emitLinkAccessChanged({
+            organizationId: personResult?.organizationId,
+            candidateId,
+            stage: 'video',
+            consumed: true,
+            scope,
+            sessionId,
+        });
+    }
+    return changed;
 }
 
 export async function clearVoiceLinkAccess(
@@ -171,7 +226,17 @@ export async function clearVoiceLinkAccess(
         ok = Boolean(r);
     }
     const person = await Candidate.findByIdAndUpdate(candidateId, { $set: unset }, { new: true });
-    return ok || Boolean(person);
+    const changed = ok || Boolean(person);
+    if (changed) {
+        emitLinkAccessChanged({
+            organizationId: person?.organizationId,
+            candidateId,
+            stage: 'voice',
+            consumed: false,
+            scope,
+        });
+    }
+    return changed;
 }
 
 export async function clearVideoLinkAccess(
@@ -193,5 +258,15 @@ export async function clearVideoLinkAccess(
         ok = Boolean(r);
     }
     const person = await Candidate.findByIdAndUpdate(candidateId, { $set: unset }, { new: true });
-    return ok || Boolean(person);
+    const changed = ok || Boolean(person);
+    if (changed) {
+        emitLinkAccessChanged({
+            organizationId: person?.organizationId,
+            candidateId,
+            stage: 'video',
+            consumed: false,
+            scope,
+        });
+    }
+    return changed;
 }

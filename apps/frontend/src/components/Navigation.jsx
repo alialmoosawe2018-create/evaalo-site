@@ -73,7 +73,7 @@ const Navigation = () => {
     // ويدجت الرصيد: يظهر على صفحات التطبيق فقط وعندما تكون الفوترة مهيأة ومحمّلة.
     const { creditsRemaining, configured: billingConfigured, isLoaded: billingLoaded } = useBilling();
     const showCreditsChip = SHOW_CREDITS_IN_NAV && showThemeToggle && billingConfigured && billingLoaded;
-    const hideNavOnRoutes = ['/account/billing/portal', '/login', '/signup', '/forgot-password', '/form', '/onboarding'];
+    const hideNavOnRoutes = ['/account/billing/portal', '/login', '/signup', '/forgot-password', '/form', '/onboarding', '/sso-callback'];
     const hideNav = hideNavOnRoutes.includes(location.pathname) || isCandidateInterviewRoute(location.pathname);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [desktopLangDropdownOpen, setDesktopLangDropdownOpen] = useState(false);

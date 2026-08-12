@@ -467,7 +467,13 @@ const VoiceInterview = () => {
 
     // Live: refresh the voice board in the background when relevant domain events arrive.
     useLiveRefresh(
-        ['VoiceEvaluationCompleted', 'VideoSessionCompleted', 'CandidateStatusChanged', 'CandidateApplied'],
+        [
+            'VoiceEvaluationCompleted',
+            'VideoSessionCompleted',
+            'CandidateStatusChanged',
+            'CandidateApplied',
+            'InterviewLinkAccessChanged',
+        ],
         () => fetchCandidates({ background: true }),
     );
 

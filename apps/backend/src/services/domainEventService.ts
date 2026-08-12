@@ -30,7 +30,9 @@ export type DomainEventType =
     | 'CreditBalanceRefreshed'
     | 'CandidateApplied'
     | 'HeadHunterSearchCompleted'
-    | 'CvComparisonCompleted';
+    | 'CvComparisonCompleted'
+    /** An interview share link was consumed by a candidate, or reopened by HR. */
+    | 'InterviewLinkAccessChanged';
 
 export type EnqueueDomainEventInput = {
     organizationId: string;

@@ -116,7 +116,12 @@ const WrittenInterview = () => {
     // Live: refresh the screening board in the background (no spinner flash) when
     // relevant candidate domain events arrive.
     useLiveRefresh(
-        ['ScreeningEvaluationCompleted', 'CandidateStatusChanged', 'CandidateApplied'],
+        [
+            'ScreeningEvaluationCompleted',
+            'CandidateStatusChanged',
+            'CandidateApplied',
+            'InterviewLinkAccessChanged',
+        ],
         () => fetchCandidates({ background: true }),
     );
 

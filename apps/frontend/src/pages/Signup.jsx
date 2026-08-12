@@ -94,7 +94,9 @@ const Signup = () => {
                     <div className="auth-alert" role="alert">{friendlyError(error)}</div>
                 )}
 
-                <AuthSocialButtons mode="signUp" redirectComplete="/dashboard" disabled={loading} />
+                {/* Straight to Onboarding: a new account always needs it, and Onboarding
+                    bounces anyone who doesn't to /dashboard — so this drops a whole hop. */}
+                <AuthSocialButtons mode="signUp" redirectComplete="/onboarding" disabled={loading} />
 
                 <label className="auth-field">
                     <span className="auth-field__label">{t('fullNameLabel')}</span>
