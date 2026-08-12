@@ -4,18 +4,26 @@
  */
 
 const DEMO_POSITION_KEYS = {
-    softwareEngineer: 'demoSample_position_softwareEngineer',
-    productManager: 'demoSample_position_productManager',
-    dataAnalyst: 'demoSample_position_dataAnalyst',
-    uxDesigner: 'demoSample_position_uxDesigner',
+    mechanicalEngineer: 'demoSample_position_mechanicalEngineer',
+    salesManager: 'demoSample_position_salesManager',
+    financeSpecialist: 'demoSample_position_financeSpecialist',
+    hrAssistant: 'demoSample_position_hrAssistant',
 };
 
 /** English position strings kept for filters / catalog lookup when not using display labels. */
 const DEMO_POSITION_EN = {
-    softwareEngineer: 'Software Engineer',
-    productManager: 'Product Manager',
-    dataAnalyst: 'Data Analyst',
-    uxDesigner: 'UX Designer',
+    mechanicalEngineer: 'Mechanical Engineer',
+    salesManager: 'Sales Manager',
+    financeSpecialist: 'Finance Specialist',
+    hrAssistant: 'HR Assistant',
+};
+
+/** Professional demo headshots served from `public/images/demo/`. */
+const DEMO_PHOTOS = {
+    yousef: '/images/demo/yousef-haider-mazen.jpg',
+    ahmed: '/images/demo/ahmed-abdullah-hussein.jpg',
+    mohammed: '/images/demo/mohammed-hassan.jpg',
+    ritaj: '/images/demo/ritaj-mustafa-musa.jpg',
 };
 
 /**
@@ -29,15 +37,16 @@ export function buildSampleCandidates(t) {
             full_name: t('demoSample_name_ahmed'),
             email: 'ali.mahmoud.najm@example.com',
             phone: '+966 50 123 4567',
-            position_applied_for: DEMO_POSITION_EN.softwareEngineer,
+            position_applied_for: DEMO_POSITION_EN.mechanicalEngineer,
             years_of_experience: '5',
             current_company: 'Tech Corp',
             highest_education_level: "Bachelor's Degree",
             gender: 'male',
-            skills: ['React', 'Node.js', 'TypeScript', 'MongoDB'],
+            photo: DEMO_PHOTOS.yousef,
+            skills: ['CAD', 'SolidWorks', 'Thermodynamics', 'Maintenance'],
             languages: ['Arabic', 'English'],
             coverLetter:
-                'Experienced software engineer with 5 years of experience in web development...',
+                'Experienced mechanical engineer with 5 years of experience in design and maintenance...',
             aiEvaluation: {
                 score: 85,
                 communication: 90,
@@ -55,14 +64,15 @@ export function buildSampleCandidates(t) {
             full_name: t('demoSample_name_sarah'),
             email: 'ahmed.abdullah.hussein@example.com',
             phone: '+1 555 123 4567',
-            position_applied_for: DEMO_POSITION_EN.productManager,
+            position_applied_for: DEMO_POSITION_EN.salesManager,
             years_of_experience: '7',
             current_company: 'StartupXYZ',
             highest_education_level: "Master's Degree",
             gender: 'male',
-            skills: ['Product Management', 'Agile', 'Data Analysis'],
+            photo: DEMO_PHOTOS.ahmed,
+            skills: ['B2B Sales', 'CRM', 'Negotiation', 'Team Leadership'],
             languages: ['Arabic', 'English'],
-            coverLetter: 'Product manager with extensive experience in agile methodologies...',
+            coverLetter: 'Sales manager with extensive experience in B2B growth and team leadership...',
             aiEvaluation: {
                 score: 78,
                 communication: 85,
@@ -79,14 +89,15 @@ export function buildSampleCandidates(t) {
             full_name: t('demoSample_name_mohammed'),
             email: 'mohammed.hassan@example.com',
             phone: '+971 50 987 6543',
-            position_applied_for: DEMO_POSITION_EN.dataAnalyst,
+            position_applied_for: DEMO_POSITION_EN.financeSpecialist,
             years_of_experience: '3',
             current_company: 'Data Solutions Inc',
             highest_education_level: "Bachelor's Degree",
             gender: 'male',
-            skills: ['Python', 'SQL', 'Tableau', 'Excel'],
+            photo: DEMO_PHOTOS.mohammed,
+            skills: ['Financial Analysis', 'Budgeting', 'Excel', 'Reporting'],
             languages: ['Arabic', 'English', 'French'],
-            coverLetter: 'Data analyst passionate about turning data into insights...',
+            coverLetter: 'Finance specialist focused on budgeting, reporting, and financial analysis...',
             aiEvaluation: {
                 score: 92,
                 communication: 88,
@@ -104,14 +115,15 @@ export function buildSampleCandidates(t) {
             full_name: t('demoSample_name_emily'),
             email: 'ritaj.mustafa.musa@example.com',
             phone: '+964 770 123 4567',
-            position_applied_for: DEMO_POSITION_EN.uxDesigner,
+            position_applied_for: DEMO_POSITION_EN.hrAssistant,
             years_of_experience: '4',
             current_company: 'Design Studio',
             highest_education_level: "Bachelor's Degree",
             gender: 'female',
-            skills: ['Figma', 'Adobe XD', 'User Research', 'Prototyping'],
+            photo: DEMO_PHOTOS.ritaj,
+            skills: ['Recruitment Support', 'HRIS', 'Employee Relations', 'Onboarding'],
             languages: ['Arabic', 'English'],
-            coverLetter: 'Creative UX designer focused on user-centered design...',
+            coverLetter: 'HR assistant experienced in recruitment support, onboarding, and employee relations...',
             aiEvaluation: {
                 score: 65,
                 communication: 70,
@@ -135,30 +147,42 @@ export function buildMockRecentInterviews(t) {
         {
             id: 'mock-1',
             candidate: t('demoSample_name_ahmed'),
-            position: t(DEMO_POSITION_KEYS.softwareEngineer),
+            full_name: t('demoSample_name_ahmed'),
+            position: t(DEMO_POSITION_KEYS.mechanicalEngineer),
             status: 'pending',
             date: '2025-01-15',
+            gender: 'male',
+            photoUrl: DEMO_PHOTOS.yousef,
         },
         {
             id: 'mock-2',
             candidate: t('demoSample_name_sarah'),
-            position: t(DEMO_POSITION_KEYS.productManager),
+            full_name: t('demoSample_name_sarah'),
+            position: t(DEMO_POSITION_KEYS.salesManager),
             status: 'pending',
             date: '2025-01-14',
+            gender: 'male',
+            photoUrl: DEMO_PHOTOS.ahmed,
         },
         {
             id: 'mock-3',
             candidate: t('demoSample_name_mohammed'),
-            position: t(DEMO_POSITION_KEYS.dataAnalyst),
+            full_name: t('demoSample_name_mohammed'),
+            position: t(DEMO_POSITION_KEYS.financeSpecialist),
             status: 'pending',
             date: '2025-01-13',
+            gender: 'male',
+            photoUrl: DEMO_PHOTOS.mohammed,
         },
         {
             id: 'mock-4',
             candidate: t('demoSample_name_emily'),
-            position: t(DEMO_POSITION_KEYS.uxDesigner),
+            full_name: t('demoSample_name_emily'),
+            position: t(DEMO_POSITION_KEYS.hrAssistant),
             status: 'pending',
             date: '2025-01-12',
+            gender: 'female',
+            photoUrl: DEMO_PHOTOS.ritaj,
         },
     ];
 }
