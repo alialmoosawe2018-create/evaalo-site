@@ -318,7 +318,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   let voiceState: "IDLE" | "LISTENING" | "SPEAKING" = "IDLE";
   /** تجاهل transcripts المتأخرة التي تصل بعد انتهاء الإيجنت (تجنب تداخل مع الرسالة التالية) */
   let lastListeningStartedAt = 0;
-  const LATE_TRANSCRIPT_IGNORE_MS = 800;
+  const LATE_TRANSCRIPT_IGNORE_MS = voiceTiming.lateTranscriptIgnoreMs;
+  /** يُقاس مرة واحدة لكل نافذة استماع: الفجوة بين فتح الميك وأول كلمة تُلتقط */
+  let firstTranscriptLogged = false;
   /** يطابق getSttPurgeToken عند آخر startListening حقيقي — أي بثّ بعد مزامنة الجيل يُهمل (كلام من جولة سابقة) */
   let sttTokenAtCurrentListen = 0;
   /** تم إرسال تنبيه انتهاء الوقت */
@@ -342,6 +344,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       speechBuffers.delete(sessionId);
       // بداية استماع جديدة = جيل STT جديد؛ أي transcript متأخر من الجولة السابقة يجب أن يسقط
       sttTokenAtCurrentListen = bumpSttPurgeToken(sessionId);
+      firstTranscriptLogged = false;
     }
     createSTTRouterConnection(
       sessionId,
@@ -351,6 +354,12 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         if (lastListeningStartedAt > 0 && Date.now() - lastListeningStartedAt < LATE_TRANSCRIPT_IGNORE_MS) return;
         const t = text.trim();
         if (t) {
+          if (!firstTranscriptLogged && lastListeningStartedAt > 0) {
+            firstTranscriptLogged = true;
+            console.log(
+              `[LISTEN LATENCY] ${sessionId.substring(0, 8)}... first transcript ${Date.now() - lastListeningStartedAt}ms after LISTENING`
+            );
+          }
           handleTranscript(t, isFinal, confidence);
           // إرسال النص المتراكم (تدفقي) للعرض - وليس آخر chunk فقط
           const buffer = speechBuffers.get(sessionId);

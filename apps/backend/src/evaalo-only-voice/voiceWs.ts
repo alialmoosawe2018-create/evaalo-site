@@ -202,7 +202,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   let voiceState: "IDLE" | "LISTENING" | "SPEAKING" = "IDLE";
   /** تجاهل transcripts المتأخرة التي تصل بعد انتهاء الإيجنت (تجنب تداخل مع الرسالة التالية) */
   let lastListeningStartedAt = 0;
-  const LATE_TRANSCRIPT_IGNORE_MS = 800;
+  const LATE_TRANSCRIPT_IGNORE_MS = voiceTiming.lateTranscriptIgnoreMs;
   let sttTokenAtCurrentListen = 0;
   /** تم إرسال تنبيه انتهاء الوقت */
   let timeEndedSent = false;
