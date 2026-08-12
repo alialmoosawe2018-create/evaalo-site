@@ -25,6 +25,7 @@ import {
 } from '../services/publicCampaignService.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import type { CampaignFormBinding } from '../shared/formTemplates/types.js';
+import { CERTIFICATES_MAX_FILES } from '../shared/formTemplates/types.js';
 import { sendStatusUpdateToN8N } from '../services/n8nService.js';
 import {
     enqueueStage1EvaluationOutbox,
@@ -472,7 +473,8 @@ router.post(
 // Multer للحصول على multipart/form-data (مع الملفات أو بدونه)
 const candidateUpload = upload.fields([
     { name: 'cv', maxCount: 1 },
-    { name: 'photo', maxCount: 1 }
+    { name: 'photo', maxCount: 1 },
+    { name: 'certificates', maxCount: CERTIFICATES_MAX_FILES }
 ]);
 
 /** JSON body: لا نمرّر multer لأنه يستهلك الـ stream؛ multipart فقط للاستمارة مع الملفات */
@@ -551,8 +553,8 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
         }
         
         // Build uploaded file records (attach to candidate after form validation)
-        const uploadedFiles: Array<{ kind: 'cv' | 'photo'; filename: string; originalName: string; path: string; mimeType: string; size: number; uploadedAt: Date }> = [];
-        const uploads = (req as any).files as { cv?: Express.Multer.File[]; photo?: Express.Multer.File[] } | undefined;
+        const uploadedFiles: Array<{ kind: 'cv' | 'photo' | 'certificate'; filename: string; originalName: string; path: string; mimeType: string; size: number; uploadedAt: Date }> = [];
+        const uploads = (req as any).files as { cv?: Express.Multer.File[]; photo?: Express.Multer.File[]; certificates?: Express.Multer.File[] } | undefined;
         if (uploads?.cv?.length) {
             const f = uploads.cv[0];
             uploadedFiles.push({
@@ -569,6 +571,17 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             const f = uploads.photo[0];
             uploadedFiles.push({
                 kind: 'photo',
+                filename: f.filename,
+                originalName: f.originalname,
+                path: f.path,
+                mimeType: f.mimetype,
+                size: f.size,
+                uploadedAt: new Date()
+            });
+        }
+        for (const f of (uploads?.certificates ?? []).slice(0, CERTIFICATES_MAX_FILES)) {
+            uploadedFiles.push({
+                kind: 'certificate',
                 filename: f.filename,
                 originalName: f.originalname,
                 path: f.path,
@@ -676,6 +689,7 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             const submissionInput = buildSubmissionInputFromRequest(candidateData, {
                 cv: uploads?.cv?.[0],
                 photo: uploads?.photo?.[0],
+                certificates: uploads?.certificates ?? [],
             });
             const validation = validateApplicationSubmission(
                 campaignFormBinding.snapshot,

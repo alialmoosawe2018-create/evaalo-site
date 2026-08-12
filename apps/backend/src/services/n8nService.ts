@@ -56,7 +56,7 @@ interface CandidateData {
     status?: string;
     createdAt?: Date | string;
     files?: Array<{
-        kind?: 'cv' | 'photo';
+        kind?: 'cv' | 'photo' | 'certificate';
         filename: string;
         originalName: string;
         path?: string;
@@ -171,7 +171,8 @@ function pickCvFileForN8n(files: CandidateData['files']) {
     if (!files?.length) return null;
     const byKind = files.find((f) => f.kind === 'cv');
     if (byKind) return byKind;
-    return files.find((f) => f.mimeType === 'application/pdf') || null;
+    // Untagged legacy records fall back to mime sniffing — a certificate PDF is not the CV.
+    return files.find((f) => f.kind !== 'certificate' && f.mimeType === 'application/pdf') || null;
 }
 
 async function resolveCandidateCampaignId(candidateId?: string): Promise<string> {

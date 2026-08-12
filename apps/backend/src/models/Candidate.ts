@@ -129,7 +129,7 @@ export interface ICandidate extends Document {
     videoInterviewLinkConsumedAt?: Date | null;
     videoInterviewLinkConsumedSessionId?: string;
     files?: Array<{
-        kind?: 'cv' | 'photo';
+        kind?: 'cv' | 'photo' | 'certificate';
         filename: string;
         originalName: string;
         path: string;
@@ -515,7 +515,7 @@ const CandidateSchema = new Schema<ICandidate>({
     files: [{
         kind: {
             type: String,
-            enum: ['cv', 'photo']
+            enum: ['cv', 'photo', 'certificate']
         },
         filename: String,
         originalName: String,

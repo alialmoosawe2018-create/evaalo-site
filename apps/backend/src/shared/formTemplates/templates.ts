@@ -6,8 +6,8 @@ export const TEMPLATE_REMOTE: FormTemplateRegistryEntry = {
     id: DEFAULT_FORM_TEMPLATE_ID,
     nameKey: 'interviewTemplates_standardName',
     descriptionKey: 'interviewTemplates_standardDesc',
-    version: 1,
-    schemaVersion: 1,
+    version: 2,
+    schemaVersion: 2,
     sections: [
         {
             id: 'personal',
@@ -39,7 +39,7 @@ export const TEMPLATE_REMOTE: FormTemplateRegistryEntry = {
         {
             id: 'files',
             titleKey: 'form.section.files',
-            fieldIds: ['cv'],
+            fieldIds: ['cv', 'certificates'],
         },
     ],
     fieldIds: [
@@ -65,6 +65,7 @@ export const TEMPLATE_REMOTE: FormTemplateRegistryEntry = {
         'hearAboutUs',
         'agreeToTerms',
         'cv',
+        'certificates',
     ],
 };
 

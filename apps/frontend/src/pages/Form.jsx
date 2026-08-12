@@ -10,6 +10,12 @@ import LanguageStyleSingleSelect from '../components/LanguageStyleSingleSelect.j
 import { applyRoleResolutionToState, mergeRoleResolution, roleResolutionCriteriaFields } from '../utils/jobCatalogRole.js';
 import { resolveJobRole } from '@evaalo/job-catalog';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
+import {
+    CERTIFICATES_ACCEPT,
+    CERTIFICATES_MAX_FILES,
+    formatFileSize,
+    mergeCertificateSelection,
+} from '../constants/certificateUpload.js';
 import { parseInterviewUrlLanguage } from '../utils/interviewShareLink.js';
 import {
     buildAvailabilityOptions,
@@ -118,6 +124,7 @@ const LegacyApplicationForm = () => {
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [cvFile, setCvFile] = useState(null);
     const [photoFile, setPhotoFile] = useState(null);
+    const [certificateFiles, setCertificateFiles] = useState([]);
     const [cvPreview, setCvPreview] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
     const [languageInputValue, setLanguageInputValue] = useState('');
@@ -295,6 +302,28 @@ const LegacyApplicationForm = () => {
         }
     };
 
+
+    const handleCertificatesChange = (e) => {
+        const { files, reason } = mergeCertificateSelection(certificateFiles, e.target.files);
+        e.target.value = '';
+        setCertificateFiles(files);
+        setErrors((prev) => ({
+            ...prev,
+            certificateFiles:
+                reason === 'count'
+                    ? fillI18nTemplate(t('formValidation_maxFiles'), { max: CERTIFICATES_MAX_FILES })
+                    : reason === 'size'
+                      ? fillI18nTemplate(t('formValidation_maxFileSize'), { max: '5MB' })
+                      : reason === 'type'
+                        ? fillI18nTemplate(t('formValidation_file'), { field: ft('certificates') })
+                        : undefined,
+        }));
+    };
+
+    const removeCertificate = (index) => {
+        setCertificateFiles((prev) => prev.filter((_, i) => i !== index));
+        setErrors((prev) => ({ ...prev, certificateFiles: undefined }));
+    };
 
     const addSkill = () => {
         if (!skillInputValue.trim()) return;
@@ -482,6 +511,9 @@ const LegacyApplicationForm = () => {
             if (photoFile) {
                 formDataToSend.append('photo', photoFile);
             }
+            for (const certificate of certificateFiles.slice(0, CERTIFICATES_MAX_FILES)) {
+                formDataToSend.append('certificates', certificate);
+            }
             formDataToSend.append('website', honeypotRef.current?.value ?? '');
             formDataToSend.append('evaluationLanguage', currentLang === 'en' ? 'en' : 'ar');
             
@@ -525,13 +557,16 @@ const LegacyApplicationForm = () => {
             setCurrentSection(0);
             setCvFile(null);
             setPhotoFile(null);
+            setCertificateFiles([]);
             setCvPreview(null);
             setPhotoPreview(null);
             // Clear file inputs
             const cvInput = document.getElementById('cvFile');
             const photoInput = document.getElementById('photo');
+            const certificatesInput = document.getElementById('certificates');
             if (cvInput) cvInput.value = '';
             if (photoInput) photoInput.value = '';
+            if (certificatesInput) certificatesInput.value = '';
             
             // التوجيه إلى Stage 1 — ملفات المرشح في جدول «بانتظار التقييم» أدناه
             setTimeout(() => {
@@ -934,6 +969,80 @@ const LegacyApplicationForm = () => {
                             </div>
                         )}
                     </div>
+                </div>
+
+                <div className="form-group">
+                    <label htmlFor="certificates">{ft('certificates')}</label>
+                    <div
+                        className="form-upload-dropzone form-upload-dropzone--certificates"
+                        {...(!isPreviewMode && {
+                            onClick: () => document.getElementById('certificates')?.click(),
+                        })}
+                        style={{ cursor: isPreviewMode ? 'default' : 'pointer' }}
+                    >
+                        <div style={{ textAlign: 'center' }}>
+                            <div className="form-upload-empty-icon">🎓</div>
+                            <div className="form-upload-empty-title">
+                                {certificateFiles.length
+                                    ? t('formUpload_certificatesAdd')
+                                    : t('formUpload_click')}
+                            </div>
+                            <div className="form-upload-empty-hint">
+                                {fillI18nTemplate(t('formUpload_certificatesHint'), {
+                                    max: CERTIFICATES_MAX_FILES,
+                                })}
+                            </div>
+                        </div>
+                        {!isPreviewMode && (
+                            <input
+                                type="file"
+                                id="certificates"
+                                multiple
+                                accept={CERTIFICATES_ACCEPT}
+                                onChange={handleCertificatesChange}
+                                style={{ display: 'none' }}
+                            />
+                        )}
+                    </div>
+
+                    {certificateFiles.length > 0 && (
+                        <ul className="form-certificate-list">
+                            {certificateFiles.map((file, index) => (
+                                <li key={`${file.name}-${file.size}-${index}`} className="form-certificate-item">
+                                    <span className="form-certificate-icon" aria-hidden>
+                                        {file.type === 'application/pdf' ? '📄' : '🖼️'}
+                                    </span>
+                                    <span className="form-certificate-name">{file.name}</span>
+                                    <span className="form-certificate-size">{formatFileSize(file.size)}</span>
+                                    {!isPreviewMode && (
+                                        <button
+                                            type="button"
+                                            className="form-certificate-remove"
+                                            onClick={() => removeCertificate(index)}
+                                            aria-label={t('formUpload_remove')}
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    {certificateFiles.length > 0 && (
+                        <div className="form-upload-empty-hint" style={{ marginTop: '8px' }}>
+                            {fillI18nTemplate(t('formUpload_certificatesCount'), {
+                                count: certificateFiles.length,
+                                max: CERTIFICATES_MAX_FILES,
+                            })}
+                        </div>
+                    )}
+
+                    {errors.certificateFiles && (
+                        <div style={{ marginTop: '12px', color: '#EF4444', fontSize: '13px' }}>
+                            {errors.certificateFiles}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

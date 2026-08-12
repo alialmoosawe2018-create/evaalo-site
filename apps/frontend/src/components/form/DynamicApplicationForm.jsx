@@ -29,6 +29,12 @@ import {
 import { applyRoleResolutionToState, roleResolutionCriteriaFields } from '../../utils/jobCatalogRole.js';
 import { resolveJobRole } from '@evaalo/job-catalog';
 import { localizeCatalogLabel } from '../../utils/localizeCatalogLabel.js';
+import {
+    CERTIFICATES_ACCEPT,
+    CERTIFICATES_MAX_FILES,
+    formatFileSize,
+    mergeCertificateSelection,
+} from '../../constants/certificateUpload.js';
 import '../../styles.css';
 
 function storageKeyForPub(pubToken) {
@@ -160,6 +166,75 @@ function DynamicFormFileUpload({
                     {t('formValidation_required').replace('{field}', fieldLabel(t, field))}
                 </span>
             )}
+        </div>
+    );
+}
+
+function DynamicFormMultiFileUpload({ field, files, error, onChange, onRemove, t, accept, maxFiles }) {
+    const inputId = `dynamic-file-${field.id}`;
+
+    return (
+        <div className="form-group">
+            <label htmlFor={inputId}>{fieldLabel(t, field)}</label>
+            <div
+                className="form-upload-dropzone form-upload-dropzone--certificates"
+                style={{ cursor: 'pointer', borderColor: error ? '#EF4444' : undefined }}
+                onClick={() => document.getElementById(inputId)?.click()}
+            >
+                <div style={{ textAlign: 'center' }}>
+                    <div className="form-upload-empty-icon">🎓</div>
+                    <div className="form-upload-empty-title">
+                        {files.length ? t('formUpload_certificatesAdd') : t('formUpload_click')}
+                    </div>
+                    <div className="form-upload-empty-hint">
+                        {fillI18nTemplate(t('formUpload_certificatesHint'), { max: maxFiles })}
+                    </div>
+                </div>
+                <input
+                    type="file"
+                    id={inputId}
+                    multiple
+                    accept={accept}
+                    onChange={onChange}
+                    style={{ display: 'none' }}
+                />
+            </div>
+
+            {files.length > 0 && (
+                <ul className="form-certificate-list">
+                    {files.map((file, index) => (
+                        <li key={`${file.name}-${file.size}-${index}`} className="form-certificate-item">
+                            <span className="form-certificate-icon" aria-hidden>
+                                {file.type === 'application/pdf' ? '📄' : '🖼️'}
+                            </span>
+                            <span className="form-certificate-name">{file.name}</span>
+                            <span className="form-certificate-size">{formatFileSize(file.size)}</span>
+                            <button
+                                type="button"
+                                className="form-certificate-remove"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRemove(index);
+                                }}
+                                aria-label={t('formUpload_remove')}
+                            >
+                                ×
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+
+            {files.length > 0 && (
+                <span className="form-upload-empty-hint" style={{ display: 'block', marginTop: '8px' }}>
+                    {fillI18nTemplate(t('formUpload_certificatesCount'), {
+                        count: files.length,
+                        max: maxFiles,
+                    })}
+                </span>
+            )}
+
+            {error && <span className="error-message">{error}</span>}
         </div>
     );
 }
@@ -329,6 +404,47 @@ export default function DynamicApplicationForm({ pubToken }) {
         });
     };
 
+    const handleMultiFileChange = (field, e) => {
+        const maxFiles = field.validation?.maxItems ?? CERTIFICATES_MAX_FILES;
+        const current = filesByFieldId[field.id] ?? [];
+        const { files, reason } = mergeCertificateSelection(current, e.target.files, {
+            mimeTypes: field.validation?.mimeTypes,
+            maxBytes: field.validation?.maxBytes,
+            maxFiles,
+        });
+        e.target.value = '';
+        setFilesByFieldId((prev) => ({ ...prev, [field.id]: files }));
+        setErrors((prev) => {
+            const next = { ...prev };
+            if (reason === 'count') {
+                next[field.id] = fillI18nTemplate(t('formValidation_maxFiles'), { max: maxFiles });
+            } else if (reason === 'size') {
+                next[field.id] = fillI18nTemplate(t('formValidation_maxFileSize'), {
+                    max: formatFileSize(field.validation?.maxBytes ?? 0) || '5 MB',
+                });
+            } else if (reason === 'type') {
+                next[field.id] = fillI18nTemplate(t('formValidation_file'), {
+                    field: fieldLabel(t, field),
+                });
+            } else {
+                delete next[field.id];
+            }
+            return next;
+        });
+    };
+
+    const removeMultiFile = (fieldId, index) => {
+        setFilesByFieldId((prev) => ({
+            ...prev,
+            [fieldId]: (prev[fieldId] ?? []).filter((_, i) => i !== index),
+        }));
+        setErrors((prev) => {
+            const next = { ...prev };
+            delete next[fieldId];
+            return next;
+        });
+    };
+
     const clearFile = (fieldId) => {
         setFilesByFieldId((prev) => {
             const next = { ...prev };
@@ -453,8 +569,17 @@ export default function DynamicApplicationForm({ pubToken }) {
                     body.append(field.id, val ?? '');
                 }
             }
-            if (filesByFieldId.cv) body.append('cv', filesByFieldId.cv);
-            if (filesByFieldId.photo) body.append('photo', filesByFieldId.photo);
+            for (const field of allFields) {
+                if (field.type !== 'file') continue;
+                const picked = filesByFieldId[field.id];
+                if (!picked) continue;
+                if (Array.isArray(picked)) {
+                    const cap = field.validation?.maxItems ?? CERTIFICATES_MAX_FILES;
+                    for (const file of picked.slice(0, cap)) body.append(field.id, file);
+                } else {
+                    body.append(field.id, picked);
+                }
+            }
             body.append('website', honeypotRef.current?.value ?? '');
             body.append(
                 'evaluationLanguage',
@@ -507,6 +632,22 @@ export default function DynamicApplicationForm({ pubToken }) {
             name: field.id,
             className: hasError ? 'error' : '',
         };
+
+        if (field.type === 'file' && field.multiple) {
+            return (
+                <DynamicFormMultiFileUpload
+                    key={field.id}
+                    field={field}
+                    files={filesByFieldId[field.id] ?? []}
+                    error={hasError}
+                    t={t}
+                    accept={CERTIFICATES_ACCEPT}
+                    maxFiles={field.validation?.maxItems ?? CERTIFICATES_MAX_FILES}
+                    onChange={(e) => handleMultiFileChange(field, e)}
+                    onRemove={(index) => removeMultiFile(field.id, index)}
+                />
+            );
+        }
 
         if (field.type === 'file') {
             const accept =

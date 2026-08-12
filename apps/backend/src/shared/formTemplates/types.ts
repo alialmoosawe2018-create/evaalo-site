@@ -29,6 +29,8 @@ export interface FormFieldDef {
     required: boolean;
     labelKey: string;
     sectionId: string;
+    /** `file` fields only: accept several uploads under the same field name. */
+    multiple?: boolean;
     validation?: FormFieldValidation;
 }
 
@@ -144,6 +146,10 @@ export const SUBMIT_META_FIELDS = new Set([
 export const FILE_FIELD_MAP: Record<string, string> = {
     cv: 'cv',
     photo: 'photo',
+    certificates: 'certificates',
 };
+
+/** Upload cap for the multi-file certificates field (also the multer maxCount). */
+export const CERTIFICATES_MAX_FILES = 5;
 
 export const DEFAULT_FORM_TEMPLATE_ID = 'template-remote';

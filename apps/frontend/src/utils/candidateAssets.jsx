@@ -9,9 +9,24 @@ export function stage1FilesFromCandidate(candidate) {
     if (!files?.length) return { cv: null, photo: null };
     let cv = files.find((f) => f.kind === 'cv');
     let photo = files.find((f) => f.kind === 'photo');
-    if (!cv) cv = files.find((f) => f.mimeType === 'application/pdf');
-    if (!photo) photo = files.find((f) => String(f.mimeType || '').startsWith('image/'));
+    // Untagged legacy records fall back to mime sniffing, but a certificate is
+    // never the CV or the profile photo.
+    const untagged = files.filter((f) => f.kind !== 'certificate');
+    if (!cv) cv = untagged.find((f) => f.mimeType === 'application/pdf');
+    if (!photo) photo = untagged.find((f) => String(f.mimeType || '').startsWith('image/'));
     return { cv, photo };
+}
+
+/** الشهادات المرفوعة مع الطلب (قد تكون PDF أو صوراً) */
+export function candidateCertificates(candidate) {
+    const files = candidate?.files;
+    if (!files?.length) return [];
+    return files
+        .filter((f) => f.kind === 'certificate' && f.filename)
+        .map((f) => ({
+            ...f,
+            url: `${API_BASE}/uploads/${encodeURIComponent(f.filename)}`,
+        }));
 }
 
 /** رابط CV كأيقونة PDF */

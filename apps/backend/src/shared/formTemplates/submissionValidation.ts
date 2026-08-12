@@ -9,7 +9,8 @@ export interface FileUploadMeta {
 
 export interface SubmissionValidationInput {
     body: Record<string, unknown>;
-    files?: Record<string, FileUploadMeta | undefined>;
+    /** Multi-upload fields (e.g. certificates) pass an array. */
+    files?: Record<string, FileUploadMeta | FileUploadMeta[] | undefined>;
 }
 
 export interface SubmissionValidationResult {
@@ -92,7 +93,7 @@ function validateBooleanField(field: FormFieldDef, raw: unknown): string | null 
     return null;
 }
 
-function validateFileField(
+function validateSingleFile(
     field: FormFieldDef,
     fileMeta: FileUploadMeta | undefined
 ): string | null {
@@ -115,6 +116,32 @@ function validateFileField(
     return null;
 }
 
+function validateFileField(
+    field: FormFieldDef,
+    meta: FileUploadMeta | FileUploadMeta[] | undefined
+): string | null {
+    if (!field.multiple) {
+        return validateSingleFile(field, Array.isArray(meta) ? meta[0] : meta);
+    }
+    const list = Array.isArray(meta) ? meta : meta ? [meta] : [];
+    if (list.length === 0) {
+        return field.required ? `${field.id} is required` : null;
+    }
+    const max = field.validation?.maxItems;
+    if (max != null && list.length > max) {
+        return `${field.id} exceeds maximum of ${max} files`;
+    }
+    for (const one of list) {
+        const err = validateSingleFile(field, one);
+        if (err) return err;
+    }
+    return null;
+}
+
+function hasFileValue(meta: FileUploadMeta | FileUploadMeta[] | undefined): boolean {
+    return Array.isArray(meta) ? meta.length > 0 : Boolean(meta);
+}
+
 export function validateApplicationSubmission(
     snapshot: FormTemplateSnapshot,
     input: SubmissionValidationInput
@@ -134,11 +161,11 @@ export function validateApplicationSubmission(
 
     for (const field of snapshot.fields) {
         if (field.type === 'file') {
-            const fileKey = field.id === 'cv' ? 'cv' : field.id;
+            const fileKey = field.id;
             const meta = input.files?.[fileKey];
             const err = validateFileField(field, meta);
             if (err) errors.push({ field: field.id, message: err });
-            else if (meta) {
+            else if (hasFileValue(meta)) {
                 submittedFieldIds.push(field.id);
                 normalized[field.id] = fileKey;
             }

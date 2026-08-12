@@ -165,7 +165,10 @@ export async function upsertCandidateApplication(
     });
 
     const filesAsAttachments = (input.candidate.files || []).map((f) => ({
-        type: (f.kind === 'photo' ? 'photo' : 'cv') as 'cv' | 'photo',
+        type: (f.kind === 'photo' || f.kind === 'certificate' ? f.kind : 'cv') as
+            | 'cv'
+            | 'photo'
+            | 'certificate',
         filename: f.filename,
         originalName: f.originalName,
         path: f.path,

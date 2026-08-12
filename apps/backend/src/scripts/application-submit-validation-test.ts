@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import {
     validateApplicationSubmission,
+    CERTIFICATES_MAX_FILES,
     DEFAULT_FORM_TEMPLATE_ID,
 } from '../shared/formTemplates/index.js';
 import { createFormBindingForTemplate } from '../services/formTemplateService.js';
@@ -176,6 +177,63 @@ function testRejectEmptyJobCatalogMetaFieldsNotRequired() {
     assert.equal(result.ok, true);
 }
 
+function certificate(overrides: { mimeType?: string; size?: number } = {}) {
+    return { mimeType: 'application/pdf', size: 200_000, ...overrides };
+}
+
+function testCertificatesOptional() {
+    const binding = createFormBindingForTemplate(DEFAULT_FORM_TEMPLATE_ID);
+    const result = validateApplicationSubmission(binding.snapshot, {
+        body: validBody(),
+        files: { ...validFiles(), certificates: [] },
+    });
+    assert.equal(result.ok, true);
+    assert.ok(!result.submittedFieldIds.includes('certificates'));
+}
+
+function testCertificatesAccepted() {
+    const binding = createFormBindingForTemplate(DEFAULT_FORM_TEMPLATE_ID);
+    const result = validateApplicationSubmission(binding.snapshot, {
+        body: validBody(),
+        files: {
+            ...validFiles(),
+            certificates: [certificate(), certificate({ mimeType: 'image/png' })],
+        },
+    });
+    assert.equal(result.ok, true);
+    assert.ok(result.submittedFieldIds.includes('certificates'));
+}
+
+function testRejectTooManyCertificates() {
+    const binding = createFormBindingForTemplate(DEFAULT_FORM_TEMPLATE_ID);
+    const result = validateApplicationSubmission(binding.snapshot, {
+        body: validBody(),
+        files: {
+            ...validFiles(),
+            certificates: Array.from({ length: CERTIFICATES_MAX_FILES + 1 }, () => certificate()),
+        },
+    });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.some((e) => e.field === 'certificates'));
+}
+
+function testRejectCertificateWrongMimeOrSize() {
+    const binding = createFormBindingForTemplate(DEFAULT_FORM_TEMPLATE_ID);
+    const badMime = validateApplicationSubmission(binding.snapshot, {
+        body: validBody(),
+        files: { ...validFiles(), certificates: [certificate({ mimeType: 'application/zip' })] },
+    });
+    assert.equal(badMime.ok, false);
+    assert.ok(badMime.errors.some((e) => e.field === 'certificates'));
+
+    const tooBig = validateApplicationSubmission(binding.snapshot, {
+        body: validBody(),
+        files: { ...validFiles(), certificates: [certificate({ size: 9_000_000 })] },
+    });
+    assert.equal(tooBig.ok, false);
+    assert.ok(tooBig.errors.some((e) => e.field === 'certificates'));
+}
+
 function main() {
     testValidMinimalSubmit();
     console.log('✓ valid minimal submit');
@@ -215,6 +273,14 @@ function main() {
 
     testRejectEmptyJobCatalogMetaFieldsNotRequired();
     console.log('✓ allow empty job catalog meta fields');
+
+    testCertificatesOptional();
+    testCertificatesAccepted();
+    console.log('✓ certificates optional and accepted as a multi-file field');
+
+    testRejectTooManyCertificates();
+    testRejectCertificateWrongMimeOrSize();
+    console.log('✓ reject too many / oversized / wrong-type certificates');
 
     console.log('\napplication-submit-validation-test: all passed');
 }

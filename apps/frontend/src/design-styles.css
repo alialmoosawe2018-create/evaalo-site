@@ -20287,6 +20287,7 @@ html[data-app-theme='light'] .candidates-page-full-width .filter-menu-container 
     background: rgba(0, 0, 0, 0.75);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    overscroll-behavior: contain;
 }
 
 .candidates-candidate-modal-panel {
@@ -20299,11 +20300,64 @@ html[data-app-theme='light'] .candidates-page-full-width .filter-menu-container 
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 30px;
     padding-top: 28px;
     position: relative;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 36px rgba(56, 189, 248, 0.14);
     color: #ffffff;
+}
+
+/* A long cover letter would otherwise push the rest of the modal out of view. */
+.candidates-candidate-modal-panel .candidates-modal-scroll-box {
+    max-height: 260px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-inline-end: 6px;
+}
+
+.candidates-modal-certificate-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.candidates-modal-certificate-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.candidates-modal-certificate-link {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #38bdf8;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.candidates-modal-certificate-link:hover {
+    text-decoration: underline;
+}
+
+html[data-app-theme='light'] .candidates-modal-certificate-item {
+    border-color: rgba(37, 99, 235, 0.22);
+    background: rgba(37, 99, 235, 0.06);
+}
+
+html[data-app-theme='light'] .candidates-modal-certificate-link {
+    color: #2563eb;
 }
 
 .candidates-candidate-modal-panel .candidates-modal-close-btn {

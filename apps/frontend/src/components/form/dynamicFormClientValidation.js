@@ -85,6 +85,23 @@ function validateBooleanField(field, raw) {
 }
 
 function validateFileField(field, file) {
+    if (field.multiple) {
+        const list = Array.isArray(file) ? file : file ? [file] : [];
+        if (list.length === 0) {
+            return field.required ? `${field.id} is required` : null;
+        }
+        const max = field.validation?.maxItems;
+        if (max != null && list.length > max) return `${field.id} exceeds maximum items`;
+        for (const one of list) {
+            const err = validateSingleFile(field, one);
+            if (err) return err;
+        }
+        return null;
+    }
+    return validateSingleFile(field, Array.isArray(file) ? file[0] : file);
+}
+
+function validateSingleFile(field, file) {
     if (!file) {
         if (field.required) return `${field.id} is required`;
         return null;

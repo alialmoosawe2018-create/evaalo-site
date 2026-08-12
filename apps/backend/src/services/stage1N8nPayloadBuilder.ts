@@ -77,9 +77,23 @@ function fileMetaForField(
     files: Array<{ kind?: string; originalName?: string; mimeType?: string; size?: number }> | undefined
 ): Record<string, unknown> | null {
     if (!files?.length) return null;
+    if (fieldId === 'certificates') {
+        const certs = files.filter((f) => f.kind === 'certificate');
+        if (!certs.length) return null;
+        return {
+            uploaded: true,
+            count: certs.length,
+            items: certs.map((f) => ({
+                originalName: f.originalName || '',
+                mimeType: f.mimeType || '',
+                size: f.size ?? null,
+            })),
+        };
+    }
     const match =
         fieldId === 'cv'
-            ? files.find((f) => f.kind === 'cv') || files.find((f) => f.mimeType === 'application/pdf')
+            ? files.find((f) => f.kind === 'cv') ||
+              files.find((f) => f.kind !== 'certificate' && f.mimeType === 'application/pdf')
             : files.find((f) => f.kind === 'photo');
     if (!match) return null;
     return {

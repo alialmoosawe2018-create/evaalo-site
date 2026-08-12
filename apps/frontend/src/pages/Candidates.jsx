@@ -4,6 +4,7 @@ import { useLiveRefresh } from '../hooks/useLiveRefresh';
 import {
     PdfCvLink,
     candidateAvatarImageProps,
+    candidateCertificates,
     candidateCvUrl,
     candidatePhotoUrl,
     GenderAvatar,
@@ -347,6 +348,22 @@ const Candidates = () => {
             setPhotoUploadError(null);
             setPhotoUploading(false);
         }
+    }, [showCandidateModal]);
+
+    // Lock page scroll while the candidate modal is open, otherwise the page
+    // behind it keeps scrolling once the panel reaches its end.
+    useEffect(() => {
+        if (!showCandidateModal) return undefined;
+        const html = document.documentElement;
+        const body = document.body;
+        const prevHtml = html.style.overflow;
+        const prevBody = body.style.overflow;
+        html.style.overflow = 'hidden';
+        body.style.overflow = 'hidden';
+        return () => {
+            html.style.overflow = prevHtml;
+            body.style.overflow = prevBody;
+        };
     }, [showCandidateModal]);
 
     useEffect(() => {
@@ -1076,6 +1093,16 @@ const Candidates = () => {
                 }
                 .candidates-data-table tbody td.candidates-table-cell:first-child {
                     text-align: center;
+                }
+                /* Long skills lists / cover letters otherwise stretch the row to
+                   several times the height of its neighbours. Full text stays
+                   available in the candidate modal and the cell tooltip. */
+                .candidates-cell-clamp {
+                    display: -webkit-box;
+                    -webkit-box-orient: vertical;
+                    -webkit-line-clamp: 3;
+                    line-clamp: 3;
+                    overflow: hidden;
                 }
                 .candidates-data-table tbody td.candidates-table-cv {
                     text-align: center;
@@ -2001,23 +2028,30 @@ const Candidates = () => {
                                             </td>
 
                                             {/* Form Fields */}
-                                            {formFields.map(field => (
+                                            {formFields.map(field => {
+                                                const cellValue = getFieldValue(candidate, field.key);
+                                                return (
                                                 <td
                                                     key={field.key}
                                                     className="candidates-table-cell"
                                                     style={{ verticalAlign: 'top', minWidth: field.type === 'textarea' ? '260px' : field.type === 'array' ? '200px' : '170px' }}
                                                 >
-                                                    <div className="candidates-cell-secondary" style={{
-                                                        fontSize: '11px',
-                                                        lineHeight: '1.45',
-                                                        whiteSpace: 'normal',
-                                                        wordBreak: 'break-word',
-                                                        overflowWrap: 'anywhere',
-                                                    }}>
-                                                        {getFieldValue(candidate, field.key)}
+                                                    <div
+                                                        className="candidates-cell-secondary candidates-cell-clamp"
+                                                        title={typeof cellValue === 'string' ? cellValue : undefined}
+                                                        style={{
+                                                            fontSize: '11px',
+                                                            lineHeight: '1.45',
+                                                            whiteSpace: 'normal',
+                                                            wordBreak: 'break-word',
+                                                            overflowWrap: 'anywhere',
+                                                        }}
+                                                    >
+                                                        {cellValue}
                                                     </div>
                                                 </td>
-                                            ))}
+                                                );
+                                            })}
 
                                             {/* AI Evaluation */}
                                             <td className="candidates-table-cell" style={{ minWidth: '220px', verticalAlign: 'top' }}>
@@ -2123,6 +2157,7 @@ const Candidates = () => {
                 const modalPhotoUrl = candidatePhotoUrl(selectedCandidateDetails);
                 const modalCvUrl = candidateCvUrl(selectedCandidateDetails);
                 const { cv: modalCv } = stage1FilesFromCandidate(selectedCandidateDetails);
+                const modalCertificates = candidateCertificates(selectedCandidateDetails);
                 const modalEval = resolveCandidateEvaluation(selectedCandidateDetails);
                 const modalYearsRaw =
                     selectedCandidateDetails.years_of_experience ||
@@ -2417,9 +2452,39 @@ const Candidates = () => {
                                     <h3 className="candidates-modal-section-title">
                                         {t('candidates_coverLetterHeading')}
                                     </h3>
-                                    <div className="candidates-modal-body-text" style={{ whiteSpace: 'pre-wrap' }}>
+                                    <div
+                                        className="candidates-modal-body-text candidates-modal-scroll-box"
+                                        style={{ whiteSpace: 'pre-wrap' }}
+                                    >
                                         {selectedCandidateDetails.coverLetter}
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Certificates */}
+                            {modalCertificates.length > 0 && (
+                                <div className="candidates-modal-detail-card candidates-modal-detail-card--wide">
+                                    <h3 className="candidates-modal-section-title">
+                                        {t('candidates_certificatesHeading')}
+                                    </h3>
+                                    <ul className="candidates-modal-certificate-list">
+                                        {modalCertificates.map((file) => (
+                                            <li key={file.filename} className="candidates-modal-certificate-item">
+                                                <span aria-hidden style={{ fontSize: '18px', lineHeight: 1 }}>
+                                                    {file.mimeType === 'application/pdf' ? '📄' : '🖼️'}
+                                                </span>
+                                                <a
+                                                    href={file.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="candidates-modal-certificate-link"
+                                                    title={file.originalName || file.filename}
+                                                >
+                                                    {file.originalName || file.filename}
+                                                </a>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             )}
                         </div>

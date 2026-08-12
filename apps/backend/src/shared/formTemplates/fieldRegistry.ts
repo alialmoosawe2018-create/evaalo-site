@@ -1,4 +1,5 @@
 import type { FormFieldDef } from './types.js';
+import { CERTIFICATES_MAX_FILES } from './types.js';
 
 /** Canonical field definitions for template-remote (matches current Form.jsx). */
 export const FORM_FIELD_REGISTRY: Record<string, FormFieldDef> = {
@@ -181,6 +182,19 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldDef> = {
         validation: {
             mimeTypes: ['application/pdf'],
             maxBytes: 5 * 1024 * 1024,
+        },
+    },
+    certificates: {
+        id: 'certificates',
+        type: 'file',
+        required: false,
+        labelKey: 'form.certificates',
+        sectionId: 'files',
+        multiple: true,
+        validation: {
+            mimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
+            maxBytes: 5 * 1024 * 1024,
+            maxItems: CERTIFICATES_MAX_FILES,
         },
     },
 };

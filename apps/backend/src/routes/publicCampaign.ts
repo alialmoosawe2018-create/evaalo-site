@@ -28,6 +28,7 @@ import {
 import { normalizeStage1EvaluationLanguage } from '../services/stage1EvaluationLanguage.js';
 import { assertStageOutboundSecurityForTrigger, StageCallbackConfigurationError } from '../services/stageCallbackAuth.js';
 import { extractHoneypotFields, isHoneypotTriggered } from '../constants/n8nStage1.js';
+import { CERTIFICATES_MAX_FILES } from '../shared/formTemplates/index.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 
 const router = Router();
@@ -138,6 +139,7 @@ router.post(
     upload.fields([
         { name: 'cv', maxCount: 1 },
         { name: 'photo', maxCount: 1 },
+        { name: 'certificates', maxCount: CERTIFICATES_MAX_FILES },
     ]),
     async (req: Request, res: Response) => {
         try {
@@ -171,6 +173,7 @@ router.post(
             const submissionInput = buildSubmissionInputFromRequest(body, {
                 cv: uploads?.cv?.[0],
                 photo: uploads?.photo?.[0],
+                certificates: uploads?.certificates ?? [],
             });
 
             const validation = validateApplicationSubmission(snapshot, submissionInput);
@@ -214,8 +217,24 @@ router.post(
                 });
                 candidateData.files = files;
             }
+            if (uploads?.certificates?.length) {
+                const files = Array.isArray(candidateData.files) ? candidateData.files : [];
+                for (const f of uploads.certificates.slice(0, CERTIFICATES_MAX_FILES)) {
+                    files.push({
+                        kind: 'certificate',
+                        filename: f.filename,
+                        originalName: f.originalname,
+                        path: f.path,
+                        mimeType: f.mimetype,
+                        size: f.size,
+                        uploadedAt: new Date(),
+                    });
+                }
+                candidateData.files = files;
+            }
 
             delete candidateData.agreeToTerms;
+            delete candidateData.certificates;
 
             const emailNorm = String(candidateData.email || '').trim().toLowerCase();
             const existing = emailNorm

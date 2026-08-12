@@ -6,23 +6,32 @@ import {
 
 export { validateApplicationSubmission };
 
+interface RawUpload {
+    mimetype?: string;
+    size?: number;
+}
+
+const toMeta = (f?: RawUpload) =>
+    f ? { mimeType: f.mimetype, size: f.size } : undefined;
+
 export function buildSubmissionInputFromRequest(
     body: Record<string, unknown>,
     files?: {
-        cv?: { mimetype?: string; size?: number };
-        photo?: { mimetype?: string; size?: number };
+        cv?: RawUpload;
+        photo?: RawUpload;
+        certificates?: RawUpload[];
     }
 ): SubmissionValidationInput {
     const { files: _files, ...bodyForValidation } = body;
     return {
         body: bodyForValidation,
         files: {
-            cv: files?.cv
-                ? { mimeType: files.cv.mimetype, size: files.cv.size }
-                : undefined,
-            photo: files?.photo
-                ? { mimeType: files.photo.mimetype, size: files.photo.size }
-                : undefined,
+            cv: toMeta(files?.cv),
+            photo: toMeta(files?.photo),
+            certificates: (files?.certificates ?? []).map((f) => ({
+                mimeType: f.mimetype,
+                size: f.size,
+            })),
         },
     };
 }
