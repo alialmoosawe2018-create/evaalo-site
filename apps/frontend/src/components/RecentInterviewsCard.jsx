@@ -35,6 +35,7 @@ import {
     buildMockRecentInterviews,
     isMockRecentInterviewId,
 } from '../utils/demoSampleData.js';
+import { useLiveRefresh } from '../hooks/useLiveRefresh.js';
 
 const DASHBOARD_UNKNOWN = 'Unknown';
 const DASHBOARD_NA = 'N/A';
@@ -233,6 +234,19 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
     useEffect(() => {
         fetchRecentInterviews();
     }, [fetchRecentInterviews]);
+
+    // بدون هذا الاشتراك لا تتحدث القائمة إلا بإعادة تحميل الصفحة.
+    useLiveRefresh(
+        [
+            'ScreeningEvaluationCompleted',
+            'VoiceEvaluationCompleted',
+            'VideoEvaluationCompleted',
+            'CandidateStatusChanged',
+            'CandidateApplied',
+            'VideoSessionCompleted',
+        ],
+        () => fetchRecentInterviews({ background: true }),
+    );
 
     // فشل التحليل لا يُصدر حدثاً، فنُعيد الجلب عند انتهاء المهلة لكشف الإشعار المؤجَّل.
     useEffect(() => {

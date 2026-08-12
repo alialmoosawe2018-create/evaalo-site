@@ -68,7 +68,7 @@ import {
 import { normalizeRubricResultsFromWebhook } from './services/stage1RubricResults.js';
 import { processPendingStage1EvaluationOutbox } from './services/stage1EvaluationOutboxService.js';
 import crypto from 'crypto';
-import { enqueueDomainEvent } from './services/domainEventService.js';
+import { dispatchDomainEvent, enqueueDomainEvent } from './services/domainEventService.js';
 import { handleEventsWsConnection } from './realtime/eventsGateway.js';
 import {
     formatStage2EvaluationGateDiagnostic,
@@ -646,11 +646,13 @@ async function dualWriteStageEvaluationUpdate(
         .digest('hex')
         .slice(0, 16);
 
+    let enqueuedOutboxId: string | null = null;
+
     const writeAll = async (session?: mongoose.ClientSession): Promise<void> => {
         const o = session ? { session } : {};
         await Candidate.findByIdAndUpdate(candidateId, updateData, { new: true, ...o });
         await CandidateApplication.findByIdAndUpdate(app._id, updateData, { new: true, ...o });
-        await enqueueDomainEvent(
+        const enqueued = await enqueueDomainEvent(
             {
                 organizationId: String(app.organizationId),
                 type: domainType,
@@ -666,6 +668,7 @@ async function dualWriteStageEvaluationUpdate(
             },
             session
         );
+        enqueuedOutboxId = enqueued && !enqueued.duplicate ? enqueued.outboxId : null;
     };
 
     const mongoSession = await mongoose.startSession();
@@ -682,6 +685,10 @@ async function dualWriteStageEvaluationUpdate(
     } finally {
         await mongoSession.endSession();
     }
+
+    // Publish only after commit: without this the row waits for the 60s retry
+    // sweep, which is what made evaluation results reach the UI a minute late.
+    if (enqueuedOutboxId) void dispatchDomainEvent(enqueuedOutboxId);
 
     // Timeline event is non-critical → best-effort, outside the transaction.
     await pushApplicationEvent(String(app._id), eventType, {
