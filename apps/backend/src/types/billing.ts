@@ -119,8 +119,8 @@ export const CREDIT_COST_MICRO: Record<UsageType, number> = {
     VOICE_SECONDS: (15 * MICRO_PER_CREDIT) / 60,
     VIDEO_SECONDS: Math.round((35 * MICRO_PER_CREDIT) / 60),
     SEARCH_CANDIDATE: 6 * MICRO_PER_CREDIT,
-    // SCREENING يُحصَّل فقط كجزء من تقرير أفضل المرشحين (لكل مرشح في الـ pool)،
-    // لا كرسم مستقل على فرز الطلبات.
+    // SCREENING يُحصَّل في موضعين: services/screeningBilling.ts (2/مرشح عند نجاح
+    // تقييم Stage 1) وضمن تقرير أفضل المرشحين (لكل مرشح في الـ pool).
     SCREENING: 2 * MICRO_PER_CREDIT,
     // TOP_CANDIDATES غير مفعّل — لا موقع consumeCredits يستخدمه (تكلفة التقرير
     // الفعلية = COMPARE_EMAIL + SCREENING). يبقى لأن الـ enum مستخدم في الموديلات.
@@ -164,6 +164,7 @@ export type LedgerSource =
     | 'headhunter'
     | 'contact_reveal'
     | 'ai_compare_email'
+    | 'screening'
     | 'cv_analysis'
     | 'job_ad'
     | 'manual_adjustment'

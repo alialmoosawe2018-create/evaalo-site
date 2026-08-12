@@ -36,6 +36,7 @@ import {
     seedOrgBilling,
 } from '../services/billingRuntimeService.js';
 import { getPlanById, planAllowsVideo } from '../services/billingEngine.js';
+import { countScreeningsDeferredForCredits } from '../services/stage1EvaluationOutboxService.js';
 import {
     cancelSubscription,
     createCheckoutSession,
@@ -100,6 +101,8 @@ router.get('/status', conditionalRequireAuth(), requirePermission('billing.read'
         const authCtx = getAuthContext(req);
         const organizationId = getOrgId(req);
         const status = await getBillingStatus(organizationId);
+        const deferredScreeningCount =
+            await countScreeningsDeferredForCredits(organizationId).catch(() => 0);
         const catalogPlan = status.planId ? getPlanById(status.planId) : undefined;
         const monthlyAllowance = status.monthlyCredits ?? 0;
         const remaining = status.creditsRemaining ?? 0;
@@ -119,6 +122,8 @@ router.get('/status', conditionalRequireAuth(), requirePermission('billing.read'
                 },
             },
             ...status,
+            /** Applications whose AI screening is queued until credits are topped up. */
+            deferredScreeningCount,
             plan: {
                 officialPlanId: status.planId,
                 displayNameKey: catalogPlan?.displayNameKey ?? null,

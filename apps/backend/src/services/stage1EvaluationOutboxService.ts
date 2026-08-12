@@ -2,9 +2,13 @@ import Candidate from '../models/Candidate.js';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import Stage1EvaluationOutbox from '../models/Stage1EvaluationOutbox.js';
 import { sendToN8N } from './n8nService.js';
+import { canAffordScreening } from './screeningBilling.js';
 import { StageCallbackConfigurationError } from './stageCallbackAuth.js';
 
 const MAX_ATTEMPTS = 5;
+
+/** Recorded on the outbox row when delivery is deferred for lack of credits. */
+export const STAGE1_INSUFFICIENT_CREDITS = 'insufficient_credits';
 
 /** Mongoose rejects empty rubricSnapshotHash — use a stable legacy token instead. */
 export function normalizeStage1RubricSnapshotHash(raw?: string): string {
@@ -59,6 +63,28 @@ export async function enqueueStage1EvaluationOutbox(
 }
 
 export async function flushStage1EvaluationOutboxEntry(outboxId: string): Promise<boolean> {
+    // Credit guard, deliberately before the attempt is claimed below: an
+    // organization that ran out of credits must not burn its retry budget. The
+    // application is already saved; the entry simply stays pending until the
+    // balance is topped up, and the periodic sweep then delivers it.
+    const queued = await Stage1EvaluationOutbox.findOne({
+        _id: outboxId,
+        status: { $in: ['pending', 'failed'] },
+    })
+        .select('organizationId')
+        .lean();
+
+    if (queued?.organizationId && !(await canAffordScreening(queued.organizationId))) {
+        await Stage1EvaluationOutbox.updateOne(
+            { _id: outboxId },
+            { $set: { lastError: STAGE1_INSUFFICIENT_CREDITS } }
+        ).exec();
+        console.warn(
+            `[stage1Outbox] deferred ${outboxId} — organization ${queued.organizationId} has no credits for screening`
+        );
+        return false;
+    }
+
     const entry = await Stage1EvaluationOutbox.findOneAndUpdate(
         {
             _id: outboxId,
@@ -144,6 +170,23 @@ export async function processPendingStage1EvaluationOutbox(limit = 10): Promise<
         if (ok) delivered += 1;
     }
     return delivered;
+}
+
+/**
+ * How many applications are waiting on a credit top-up before they can be
+ * screened. Surfaced on the billing status so the organization sees that work is
+ * queued rather than silently lost.
+ */
+export async function countScreeningsDeferredForCredits(
+    organizationId: string
+): Promise<number> {
+    const orgId = organizationId.trim();
+    if (!orgId) return 0;
+    return Stage1EvaluationOutbox.countDocuments({
+        organizationId: orgId,
+        status: 'pending',
+        lastError: STAGE1_INSUFFICIENT_CREDITS,
+    }).exec();
 }
 
 /** Resolve campaign rubric hash when not passed at enqueue time. */

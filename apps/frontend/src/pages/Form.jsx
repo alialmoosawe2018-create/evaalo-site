@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useInterviewTemplate } from '../contexts/InterviewTemplateContext';
 import DynamicApplicationForm from '../components/form/DynamicApplicationForm.jsx';
 import { shouldUsePublicDynamicForm } from '../components/form/dynamicFormFeature.js';
@@ -37,6 +38,7 @@ const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_U
 
 const LegacyApplicationForm = () => {
     const { t, currentLang } = useLanguage();
+    const { isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { templates, selectedTemplate } = useInterviewTemplate();
@@ -567,14 +569,6 @@ const LegacyApplicationForm = () => {
             if (cvInput) cvInput.value = '';
             if (photoInput) photoInput.value = '';
             if (certificatesInput) certificatesInput.value = '';
-            
-            // التوجيه إلى Stage 1 — ملفات المرشح في جدول «بانتظار التقييم» أدناه
-            setTimeout(() => {
-                const screeningUrl = campaignId
-                    ? `/screening?campaignId=${encodeURIComponent(campaignId)}`
-                    : '/screening';
-                navigate(screeningUrl);
-            }, 1800);
         } catch (error) {
             console.error('Error submitting form:', error);
             
@@ -1342,8 +1336,26 @@ const LegacyApplicationForm = () => {
                                 {t('formSubmit_success')}
                             </p>
                             <p className="subtitle" style={{ marginTop: '12px' }}>
-                                {t('writtenInterviewSubtitle')}
+                                {t('formSubmit_successHint')}
                             </p>
+                            {/* المُوظِّف الذي يملأ الاستمارة نيابةً عن مرشح يحتاج طريقاً إلى Stage 1،
+                                لكن المتقدّم نفسه يجب أن تبقى أمامه رسالة الشكر. */}
+                            {isAuthenticated && (
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    style={{ marginTop: '20px' }}
+                                    onClick={() =>
+                                        navigate(
+                                            campaignId
+                                                ? `/screening?campaignId=${encodeURIComponent(campaignId)}`
+                                                : '/screening',
+                                        )
+                                    }
+                                >
+                                    {t('formSubmit_goToScreening')}
+                                </button>
+                            )}
                         </header>
                     </div>
                 </div>

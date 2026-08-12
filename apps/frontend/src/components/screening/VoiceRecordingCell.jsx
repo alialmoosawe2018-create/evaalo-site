@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import apiClient from '../../services/apiClient.js';
 
+/**
+ * المشغّل النشط حالياً على مستوى الصفحة. كل صف يركّب مشغّله الخاص، فبدون سجل
+ * مشترك يمكن تشغيل كل التسجيلات معاً.
+ */
+let activeAudioEl = null;
+
 function formatTime(seconds) {
     if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
     const m = Math.floor(seconds / 60);
@@ -69,13 +75,22 @@ export default function VoiceRecordingCell({ candidateId, hasRecording, t }) {
 
         const onTimeUpdate = () => setCurrentTime(audio.currentTime);
         const onDurationChange = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
-        const onPlay = () => setPlaying(true);
+        const onPlay = () => {
+            if (activeAudioEl && activeAudioEl !== audio) {
+                activeAudioEl.pause();
+                activeAudioEl.currentTime = 0;
+            }
+            activeAudioEl = audio;
+            setPlaying(true);
+        };
         const onPause = () => setPlaying(false);
         const onEnded = () => {
+            if (activeAudioEl === audio) activeAudioEl = null;
             setPlaying(false);
             setCurrentTime(0);
         };
         const onError = () => {
+            if (activeAudioEl === audio) activeAudioEl = null;
             setPlaying(false);
             setUrl(null);
             setError(true);
@@ -90,6 +105,7 @@ export default function VoiceRecordingCell({ candidateId, hasRecording, t }) {
         audio.addEventListener('error', onError);
 
         return () => {
+            if (activeAudioEl === audio) activeAudioEl = null;
             audio.removeEventListener('timeupdate', onTimeUpdate);
             audio.removeEventListener('durationchange', onDurationChange);
             audio.removeEventListener('loadedmetadata', onDurationChange);

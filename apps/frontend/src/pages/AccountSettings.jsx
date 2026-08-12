@@ -4,8 +4,16 @@ import AccountPageLayout from '../components/AccountPageLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import authService, { getSessionStartedAtMs } from '../services/authService';
-import { getMyProfile, updateMyProfile, deleteMyAccount } from '../services/profileService';
 import {
+    getMyProfile,
+    updateMyProfile,
+    deleteMyAccount,
+    listMySessions,
+    revokeMySession,
+} from '../services/profileService';
+import {
+    formatServerSessionLabel,
+    formatSessionLocation,
     formatSessionRelativeTime,
     getBrowserDeviceLabel,
 } from '../utils/accountSessions';
@@ -46,7 +54,10 @@ const AccountSettings = () => {
     const [profileLoading, setProfileLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState(null);
-    const [revokingSession, setRevokingSession] = useState(false);
+    const [serverSessions, setServerSessions] = useState(null);
+    const [sessionsLoading, setSessionsLoading] = useState(false);
+    const [sessionsError, setSessionsError] = useState(false);
+    const [revokingSessionId, setRevokingSessionId] = useState(null);
     const [loggingOut, setLoggingOut] = useState(false);
     const [deletingAccount, setDeletingAccount] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -132,24 +143,75 @@ const AccountSettings = () => {
 
     const relLocale = currentLang === 'ar' ? 'ar' : currentLang === 'ku' ? 'ku' : 'en';
 
-    const activeSessionRow = useMemo(() => {
-        if (!session?.token) return null;
-        const startedAt = getSessionStartedAtMs(session);
-        return {
-            id: `${session.user?.id ?? 'session'}-${String(session.token).slice(0, 16)}`,
-            device: getBrowserDeviceLabel(),
-            created: formatSessionRelativeTime(startedAt, relLocale),
-        };
-    }, [session, relLocale]);
-
-    const handleRevokeCurrentSession = async () => {
-        if (!session?.token || revokingSession) return;
-        setRevokingSession(true);
+    const loadSessions = useCallback(async () => {
+        if (!session?.token) return;
+        setSessionsLoading(true);
+        setSessionsError(false);
         try {
-            await logout();
-            navigate('/login');
+            const { sessions, clerkConfigured } = await listMySessions();
+            setServerSessions(clerkConfigured ? sessions : null);
+        } catch {
+            setServerSessions(null);
+            setSessionsError(true);
         } finally {
-            setRevokingSession(false);
+            setSessionsLoading(false);
+        }
+    }, [session?.token]);
+
+    useEffect(() => {
+        loadSessions();
+    }, [loadSessions]);
+
+    /**
+     * Server rows when Clerk can enumerate them; otherwise a single row synthesized
+     * from this browser, which is all a client can know on its own.
+     */
+    const sessionRows = useMemo(() => {
+        if (serverSessions && serverSessions.length > 0) {
+            return serverSessions.map((row) => ({
+                id: row.id,
+                current: Boolean(row.current),
+                device: formatServerSessionLabel(row),
+                location: formatSessionLocation(row),
+                created: formatSessionRelativeTime(Date.parse(row.createdAt), relLocale),
+                lastActive: formatSessionRelativeTime(Date.parse(row.lastActiveAt), relLocale),
+            }));
+        }
+        if (!session?.token) return [];
+        return [
+            {
+                id: `${session.user?.id ?? 'session'}-${String(session.token).slice(0, 16)}`,
+                current: true,
+                device: getBrowserDeviceLabel(),
+                location: '',
+                created: formatSessionRelativeTime(getSessionStartedAtMs(session), relLocale),
+                lastActive: '',
+            },
+        ];
+    }, [serverSessions, session, relLocale]);
+
+    const handleRevokeSession = async (row) => {
+        if (revokingSessionId) return;
+        // Revoking your own session must end this browser too, not just the record.
+        if (row.current) {
+            setRevokingSessionId(row.id);
+            try {
+                await logout();
+                navigate('/login');
+            } finally {
+                setRevokingSessionId(null);
+            }
+            return;
+        }
+
+        setRevokingSessionId(row.id);
+        try {
+            await revokeMySession(row.id);
+            await loadSessions();
+        } catch {
+            setSessionsError(true);
+        } finally {
+            setRevokingSessionId(null);
         }
     };
 
@@ -345,49 +407,77 @@ const AccountSettings = () => {
                             <span style={{ width: 88 }} aria-hidden="true" />
                         </div>
                         <div style={{ minWidth: 0 }}>
-                            {!activeSessionRow ? (
+                            {sessionsLoading && sessionRows.length === 0 ? (
                                 <div className={ACCOUNT_TEXT_MUTED_CLASS} style={{ padding: '22px', fontSize: 14, textAlign: 'center' }}>
-                                    {t('account_settingsNoSessions')}
+                                    {t('account_settingsSessionsLoading')}
+                                </div>
+                            ) : sessionRows.length === 0 ? (
+                                <div className={ACCOUNT_TEXT_MUTED_CLASS} style={{ padding: '22px', fontSize: 14, textAlign: 'center' }}>
+                                    {sessionsError
+                                        ? t('account_settingsSessionsError')
+                                        : t('account_settingsNoSessions')}
                                 </div>
                             ) : (
-                                <div
-                                    style={{
-                                        display: 'grid',
-                                        gridTemplateColumns: 'minmax(140px, 1fr) minmax(140px, 1fr) auto',
-                                        gap: 12,
-                                        alignItems: 'center',
-                                        padding: '14px 22px',
-                                        borderBottom: 'none',
-                                    }}
-                                    className="account-sessions-row"
-                                >
-                                    <div className="account-sessions-device">
-                                        <IconMonitor style={{ flexShrink: 0, opacity: 0.85 }} />
-                                        <span>{activeSessionRow.device}</span>
-                                        <span
-                                            className="account-session-current-badge"
-                                            style={{
-                                                fontSize: 11,
-                                                fontWeight: 600,
-                                                padding: '2px 8px',
-                                                borderRadius: 4,
-                                            }}
-                                        >
-                                            {t('account_settingsCurrentSession')}
-                                        </span>
-                                    </div>
-                                    <div className={ACCOUNT_TEXT_MUTED_CLASS} style={{ fontSize: 14 }}>
-                                        {activeSessionRow.created}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="workflow-btn-primary account-btn-compact"
-                                        disabled={revokingSession || loggingOut || deletingAccount}
-                                        onClick={() => handleRevokeCurrentSession()}
+                                sessionRows.map((row, index) => (
+                                    <div
+                                        key={row.id}
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'minmax(140px, 1fr) minmax(140px, 1fr) auto',
+                                            gap: 12,
+                                            alignItems: 'center',
+                                            padding: '14px 22px',
+                                            borderBottom:
+                                                index === sessionRows.length - 1
+                                                    ? 'none'
+                                                    : `1px solid ${BORDER}`,
+                                        }}
+                                        className="account-sessions-row"
                                     >
-                                        {revokingSession ? t('account_settingsRevoking') : t('account_settingsRevoke')}
-                                    </button>
-                                </div>
+                                        <div className="account-sessions-device">
+                                            <IconMonitor style={{ flexShrink: 0, opacity: 0.85 }} />
+                                            <span>{row.device}</span>
+                                            {row.current && (
+                                                <span
+                                                    className="account-session-current-badge"
+                                                    style={{
+                                                        fontSize: 11,
+                                                        fontWeight: 600,
+                                                        padding: '2px 8px',
+                                                        borderRadius: 4,
+                                                    }}
+                                                >
+                                                    {t('account_settingsCurrentSession')}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className={ACCOUNT_TEXT_MUTED_CLASS} style={{ fontSize: 14, minWidth: 0 }}>
+                                            <div>{row.created}</div>
+                                            {(row.location || row.lastActive) && (
+                                                <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>
+                                                    {[
+                                                        row.location,
+                                                        row.lastActive
+                                                            ? `${t('account_settingsLastActive')}: ${row.lastActive}`
+                                                            : '',
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' · ')}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="workflow-btn-primary account-btn-compact"
+                                            disabled={Boolean(revokingSessionId) || loggingOut || deletingAccount}
+                                            onClick={() => handleRevokeSession(row)}
+                                        >
+                                            {revokingSessionId === row.id
+                                                ? t('account_settingsRevoking')
+                                                : t('account_settingsRevoke')}
+                                        </button>
+                                    </div>
+                                ))
                             )}
                         </div>
                     </div>

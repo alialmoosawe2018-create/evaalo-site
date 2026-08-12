@@ -38,6 +38,7 @@ const MAX_RACE_RETRIES = 5;
 
 const INITIAL_STATE = {
     currentPlanId: DEFAULT_PLAN_ID,
+    deferredScreeningCount: 0,
     creditsRemaining: 0,
     monthlyCredits: 0,
     balanceMicro: 0,
@@ -110,6 +111,9 @@ export const BillingProvider = ({ children }) => {
                           ? prev.currentPlanId
                           : DEFAULT_PLAN_ID,
                 creditsRemaining: Number.isFinite(data.creditsRemaining) ? data.creditsRemaining : 0,
+                deferredScreeningCount: Number.isFinite(data.deferredScreeningCount)
+                    ? data.deferredScreeningCount
+                    : 0,
                 monthlyCredits: Number.isFinite(data.monthlyCredits) ? data.monthlyCredits : 0,
                 balanceMicro: Number.isFinite(data.balanceMicro) ? data.balanceMicro : 0,
                 subscriptionStatus: data.subscriptionStatus ?? null,
@@ -311,6 +315,7 @@ export const BillingProvider = ({ children }) => {
         () => ({
             currentPlanId: state.currentPlanId,
             creditsRemaining: state.creditsRemaining,
+            deferredScreeningCount: state.deferredScreeningCount,
             monthlyCredits: state.monthlyCredits,
             balanceMicro: state.balanceMicro,
             subscriptionStatus: state.subscriptionStatus,
@@ -350,6 +355,7 @@ export const useBilling = () => {
         return {
             currentPlanId: DEFAULT_PLAN_ID,
             creditsRemaining: 0,
+            deferredScreeningCount: 0,
             monthlyCredits: 0,
             balanceMicro: 0,
             subscriptionStatus: null,

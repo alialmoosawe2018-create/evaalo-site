@@ -22,6 +22,7 @@ import AiCompareTopEmailModal from '../components/screening/AiCompareTopEmailMod
 import { countEligibleCompareCandidates } from '../utils/compareTopCreditCost.js';
 import ScreeningAiCompareNeedTwoNotice from '../components/screening/ScreeningAiCompareNeedTwoNotice.jsx';
 import MobilePinchPanViewport from '../components/MobilePinchPanViewport.jsx';
+import DeferredScreeningBanner from '../components/DeferredScreeningBanner.jsx';
 import StageEvalShareButton from '../components/screening/StageEvalShareButton.jsx';
 import { useStageEvalDeepLink } from '../hooks/useStageEvalDeepLink.js';
 import {
@@ -519,6 +520,7 @@ const WrittenInterview = () => {
 
             <MobilePinchPanViewport className="mobile-pinch-pan-viewport--dashboard-shell">
             <div className="container dashboard-visual-container">
+                <DeferredScreeningBanner />
                 <div className="dashboard-grid">
                     <div className="dashboard-card dashboard-card--page-active platform-features-card">
                         {loading ? (

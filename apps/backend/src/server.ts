@@ -67,6 +67,7 @@ import {
 } from './services/stage1WrittenEvaluationGate.js';
 import { normalizeRubricResultsFromWebhook } from './services/stage1RubricResults.js';
 import { processPendingStage1EvaluationOutbox } from './services/stage1EvaluationOutboxService.js';
+import { chargeScreeningEvaluation } from './services/screeningBilling.js';
 import crypto from 'crypto';
 import { dispatchDomainEvent, enqueueDomainEvent } from './services/domainEventService.js';
 import { handleEventsWsConnection } from './realtime/eventsGateway.js';
@@ -689,6 +690,17 @@ async function dualWriteStageEvaluationUpdate(
     // Publish only after commit: without this the row waits for the 60s retry
     // sweep, which is what made evaluation results reach the UI a minute late.
     if (enqueuedOutboxId) void dispatchDomainEvent(enqueuedOutboxId);
+
+    // The organization is billed only once the analysis it paid for exists in the
+    // database — never at submission time, so a candidate is never turned away.
+    if (opts.mode === 'stage1') {
+        await chargeScreeningEvaluation({
+            organizationId: String(app.organizationId),
+            applicationId: String(app._id),
+            candidateId,
+            campaignId: opts.campaignId ?? app.campaignId ?? null,
+        });
+    }
 
     // Timeline event is non-critical → best-effort, outside the transaction.
     await pushApplicationEvent(String(app._id), eventType, {

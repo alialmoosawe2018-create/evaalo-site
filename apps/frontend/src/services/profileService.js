@@ -169,6 +169,24 @@ export async function deleteMyAccount() {
 }
 
 /**
+ * Every device signed in to this account, from the Clerk Backend API.
+ * `clerkConfigured: false` means the server cannot enumerate sessions (local dev
+ * without Clerk keys) and the caller should fall back to the current browser.
+ */
+export async function listMySessions() {
+    const data = await apiClient.get('/api/users/me/sessions');
+    return {
+        sessions: Array.isArray(data?.sessions) ? data.sessions : [],
+        clerkConfigured: data?.clerkConfigured !== false,
+    };
+}
+
+/** Sign a specific device out. Revoking the current session ends this browser too. */
+export async function revokeMySession(sessionId) {
+    await apiClient.delete(`/api/users/me/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+/**
  * Hide recent interviews from dashboard widget (persistent per-user preference).
  * Does not delete candidates. Returns updated preferences.
  */
@@ -221,6 +239,8 @@ export default {
     getMyProfile,
     updateMyProfile,
     deleteMyAccount,
+    listMySessions,
+    revokeMySession,
     clearDashboardRecentInterviews,
     syncProfileAfterSignup,
     storePendingSignupProfile,

@@ -5,6 +5,7 @@ import '../design-styles.css';
 import NewInterviewSidebar from '../components/NewInterviewSidebar';
 import RecentInterviewsCard from '../components/RecentInterviewsCard';
 import FreePlanBanner from '../components/FreePlanBanner';
+import DeferredScreeningBanner from '../components/DeferredScreeningBanner';
 import PhoneCallOutlineIcon from '../components/PhoneCallOutlineIcon.jsx';
 import { serviceIconTones } from '../utils/brandColor';
 
@@ -265,6 +266,7 @@ const Dashboard = () => {
                     minHeight: 'calc(100vh - 250px)'
                 }}>
                     <FreePlanBanner />
+                    <DeferredScreeningBanner />
                     {/* Main Content Grid */}
                     <div className="dashboard-grid" style={{ 
                         marginBottom: '40px'

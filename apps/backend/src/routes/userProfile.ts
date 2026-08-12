@@ -4,8 +4,15 @@
 // ============================================
 
 import express, { type Request, type Response } from 'express';
+import { getAuth } from '@clerk/express';
 import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
 import { getAuthContext, getClerkUserId, getOrgId } from '../middleware/auth.js';
+import {
+    ClerkNotConfiguredError,
+    SessionNotOwnedError,
+    listUserSessions,
+    revokeUserSession,
+} from '../services/userSessionsService.js';
 import {
     getProfileForClerkUser,
     updateProfileForClerkUser,
@@ -138,6 +145,68 @@ router.post(
             }
             console.error('[userProfile] POST clear-recent-interviews error:', err);
             return res.status(500).json({ success: false, message: 'clear_recent_interviews_failed' });
+        }
+    }
+);
+
+// ============================================
+// GET/DELETE /me/sessions — الأجهزة المسجّل دخولها عبر Clerk Backend API
+// ============================================
+
+/** Clerk's session id for the calling browser, used to flag the current row. */
+function currentClerkSessionId(req: Request): string | undefined {
+    try {
+        return getAuth(req)?.sessionId || undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+router.get('/me/sessions', conditionalRequireAuth(), async (req: Request, res: Response) => {
+    const clerkUserId = resolveClerkUserId(req);
+    if (!clerkUserId.startsWith('user_')) {
+        // Dev/anonymous fallback: no Clerk user → the client keeps its local row.
+        return res.json({ success: true, sessions: [], clerkConfigured: false });
+    }
+
+    try {
+        const sessions = await listUserSessions(clerkUserId, currentClerkSessionId(req));
+        return res.json({ success: true, sessions, clerkConfigured: true });
+    } catch (err) {
+        if (err instanceof ClerkNotConfiguredError) {
+            return res.json({ success: true, sessions: [], clerkConfigured: false });
+        }
+        console.error('[userProfile] GET /me/sessions error:', err);
+        return res.status(500).json({ success: false, message: 'sessions_fetch_failed' });
+    }
+});
+
+router.delete(
+    '/me/sessions/:sessionId',
+    conditionalRequireAuth(),
+    async (req: Request, res: Response) => {
+        const clerkUserId = resolveClerkUserId(req);
+        if (!clerkUserId.startsWith('user_')) {
+            return res.status(401).json({ success: false, message: 'unauthorized' });
+        }
+
+        const sessionId = String(req.params.sessionId || '').trim();
+        if (!sessionId) {
+            return res.status(400).json({ success: false, message: 'session_id_required' });
+        }
+
+        try {
+            await revokeUserSession(clerkUserId, sessionId);
+            return res.json({ success: true });
+        } catch (err) {
+            if (err instanceof SessionNotOwnedError) {
+                return res.status(403).json({ success: false, message: 'session_not_owned' });
+            }
+            if (err instanceof ClerkNotConfiguredError) {
+                return res.status(503).json({ success: false, message: 'CLERK_NOT_CONFIGURED' });
+            }
+            console.error('[userProfile] DELETE /me/sessions error:', err);
+            return res.status(500).json({ success: false, message: 'session_revoke_failed' });
         }
     }
 );

@@ -1,6 +1,33 @@
 /**
- * Helpers for Account → Active Sessions (browser-only until server session registry exists).
+ * Helpers for Account → Active Sessions.
+ *
+ * Sessions come from the Clerk Backend API (`GET /api/users/me/sessions`); the
+ * User-Agent helper below is only the fallback for environments where the server
+ * cannot enumerate sessions.
  */
+
+/**
+ * Device label for a session row returned by the server.
+ */
+export function formatServerSessionLabel(session) {
+    const browser = String(session?.browserName ?? '').trim();
+    const rawType = String(session?.deviceType ?? '').trim();
+    const kind = rawType
+        ? rawType.charAt(0).toUpperCase() + rawType.slice(1)
+        : session?.isMobile
+          ? 'Mobile'
+          : 'Desktop';
+    return browser ? `${browser} (${kind})` : kind;
+}
+
+/**
+ * "City, Country" when geo-location resolved, otherwise the IP, otherwise empty.
+ */
+export function formatSessionLocation(session) {
+    const parts = [session?.city, session?.country].map((v) => String(v ?? '').trim()).filter(Boolean);
+    if (parts.length > 0) return parts.join(', ');
+    return String(session?.ipAddress ?? '').trim();
+}
 
 /**
  * Short label from User-Agent only (no server-side device binding).
