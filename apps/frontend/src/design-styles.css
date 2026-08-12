@@ -23266,7 +23266,9 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
         flex-direction: column;
     }
 
-    .recent-interviews-card--dashboard {
+    /* الخليّة أيضاً، وإلا بقيت صفّاً فارغاً بفجوة تحت كارت الخدمات */
+    .recent-interviews-card--dashboard,
+    .dashboard-grid__notifications-cell {
         display: none !important;
     }
 
@@ -23689,6 +23691,25 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
 @media (min-width: 769px) {
     .recent-interviews-card--notifications {
         display: none !important;
+    }
+}
+
+/* في العمودين (‎993px+‎) كان طول قائمة الإشعارات يحدّد ارتفاع صفّ الشبكة، فيتمدّد
+   كارت «خدماتنا» بنفس المقدار. إخراج البطاقة من قياس الصف (absolute داخل خلية
+   ممدَّدة) يجعل الارتفاع من كارت الخدمات وحده، وتمرّر القائمة داخله بلا سقف رقمي. */
+@media (min-width: 993px) {
+    .dashboard-grid__notifications-cell {
+        position: relative;
+        min-height: 0;
+    }
+
+    .dashboard-grid__notifications-cell > .recent-interviews-card {
+        position: absolute;
+        inset: 0;
+    }
+
+    .dashboard-grid__notifications-cell > .recent-interviews-card .dashboard-card-body.recent-interviews-scroll {
+        max-height: none;
     }
 }
 

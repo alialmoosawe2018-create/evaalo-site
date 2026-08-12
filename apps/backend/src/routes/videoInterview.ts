@@ -9,6 +9,8 @@ import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import VideoInterviewSession from '../models/VideoInterviewSession.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
 import { DEFAULT_ORG_ID } from '../config/multiTenant.js';
+import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
+import { getOrgId } from '../middleware/auth.js';
 import { checkCredits } from '../services/billingRuntimeService.js';
 import {
     finalizeUsageReservation,
@@ -1753,29 +1755,16 @@ router.get('/history/:sessionId', async (req, res) => {
 
 /**
  * GET /api/video-interview/sessions/recent
- * قائمة جلسات المقابلات لصفحة الاستخدام.
- * إن وُضِع VIDEO_INTERVIEW_SESSIONS_API_KEY في البيئة، يُطلب تمريره عبر X-API-Key أو Authorization: Bearer.
+ * قائمة جلسات الفيديو لهذه المؤسسة فقط.
+ *
+ * Requires a signed-in caller: an API key carries no organization identity, so
+ * key-only access could not be scoped and returned every tenant's sessions.
  */
-router.get('/sessions/recent', async (req, res) => {
+router.get('/sessions/recent', conditionalRequireAuth(), async (req, res) => {
     try {
-        const requiredKey = typeof process.env.VIDEO_INTERVIEW_SESSIONS_API_KEY === 'string'
-            ? process.env.VIDEO_INTERVIEW_SESSIONS_API_KEY.trim()
-            : '';
-        if (requiredKey) {
-            const xKey = req.headers['x-api-key'];
-            const fromHeader = typeof xKey === 'string' ? xKey.trim() : '';
-            const auth = req.headers.authorization;
-            const bearer =
-                typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
-            const ok = fromHeader === requiredKey || bearer === requiredKey;
-            if (!ok) {
-                return res.status(401).json({ success: false, message: 'Unauthorized' });
-            }
-        }
-
         const raw = parseInt(String(req.query.limit ?? '50'), 10);
         const limit = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 200) : 50;
-        const sessions = await VideoInterviewSession.find({})
+        const sessions = await VideoInterviewSession.find({ organizationId: getOrgId(req) })
             .sort({ startedAt: -1 })
             .limit(limit)
             .select('sessionId startedAt endedAt status interviewMode')

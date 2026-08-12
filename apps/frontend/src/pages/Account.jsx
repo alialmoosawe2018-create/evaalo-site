@@ -16,8 +16,6 @@ import {
 import { formatDateSafe, localeForBillingLang } from '../utils/billingPortalDisplay';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const SESSIONS_API_KEY = import.meta.env.VITE_VIDEO_INTERVIEW_SESSIONS_API_KEY || '';
 const DAY_MS = 86400000;
 
 /** @param {string|Date|null|undefined} value */
@@ -366,19 +364,16 @@ const Account = () => {
 
     const [activitySessions, setActivitySessions] = useState([]);
 
+    // Goes through apiClient so the request carries the session and the server can
+    // scope the result to this organization. The previous direct fetch had no org
+    // context, so every account was shown the same global interview list.
     useEffect(() => {
         let cancelled = false;
-        const headers = { Accept: 'application/json' };
-        if (SESSIONS_API_KEY.trim()) {
-            headers['X-API-Key'] = SESSIONS_API_KEY.trim();
-        }
-        const url = `${API_BASE.replace(/\/$/, '')}/api/video-interview/sessions/recent?limit=500`;
-        fetch(url, { headers })
-            .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        apiClient
+            .get('/api/users/me/interview-activity?limit=500')
             .then((data) => {
                 if (cancelled || !data?.success || !Array.isArray(data.sessions)) return;
-                const mapped = data.sessions.map(normalizeOverviewSession).filter(Boolean);
-                setActivitySessions(mapped);
+                setActivitySessions(data.sessions.map(normalizeOverviewSession).filter(Boolean));
             })
             .catch(() => {
                 /* keep empty — heatmap stays flat until data exists */

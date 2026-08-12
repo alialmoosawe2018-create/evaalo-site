@@ -378,7 +378,11 @@ const Dashboard = () => {
                             </div>
                         </div>
 
-                        <RecentInterviewsCard variant="dashboard" />
+                        {/* The cell exists so a growing notification list cannot stretch the
+                            grid row and drag the services card down with it — see CSS. */}
+                        <div className="dashboard-grid__notifications-cell">
+                            <RecentInterviewsCard variant="dashboard" />
+                        </div>
                     </div>
                 </div>
             </div>

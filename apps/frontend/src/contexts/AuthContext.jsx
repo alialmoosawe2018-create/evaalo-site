@@ -152,6 +152,23 @@ function ClerkAuthProvider({ children }) {
         setLoading(false);
     }, [userLoaded, sessionLoaded, clerkUser?.id, clerkSession?.id, clerkSession?.lastActiveAt]);
 
+    // Revoking a session from another device is invisible here until Clerk next
+    // refreshes, which for a backgrounded tab can be a long time. Re-reading when
+    // the tab comes back drops a revoked device on its next glance.
+    useEffect(() => {
+        if (!userLoaded || !sessionLoaded) return undefined;
+        const sync = () => {
+            if (document.visibilityState === 'hidden') return;
+            setSession(authService.getCurrentSession());
+        };
+        window.addEventListener('focus', sync);
+        document.addEventListener('visibilitychange', sync);
+        return () => {
+            window.removeEventListener('focus', sync);
+            document.removeEventListener('visibilitychange', sync);
+        };
+    }, [userLoaded, sessionLoaded]);
+
     useEffect(() => {
         if (!userLoaded || !sessionLoaded || !clerkUser?.id) return;
         const user = authService.getCurrentSession()?.user;

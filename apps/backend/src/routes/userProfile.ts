@@ -25,8 +25,21 @@ import { isBillingActive } from '../services/billingRuntimeService.js';
 import { normalizeClerkRole } from '../config/rbacRoles.js';
 import User from '../models/User.js';
 import OrgPlanState from '../models/OrgPlanState.js';
+import DomainEventOutbox from '../models/DomainEventOutbox.js';
+import type { DomainEventType } from '../services/domainEventService.js';
 
 const router = express.Router();
+
+/**
+ * Stage completion events → the mode filters the activity view offers. Keyed by
+ * DomainEventType so renaming an event breaks the build instead of silently
+ * turning the count to zero.
+ */
+const INTERVIEW_ACTIVITY_MODES: Partial<Record<DomainEventType, 'screen' | 'voice' | 'video'>> = {
+    ScreeningEvaluationCompleted: 'screen',
+    VoiceEvaluationCompleted: 'voice',
+    VideoEvaluationCompleted: 'video',
+};
 
 function headerString(req: Request, name: string): string | undefined {
     const raw = req.headers[name];
@@ -51,6 +64,45 @@ function resolveDevEmail(req: Request): string | undefined {
     const headerEmail = headerString(req, 'x-user-email');
     return headerEmail?.toLowerCase();
 }
+
+/**
+ * GET /api/users/me/interview-activity
+ *
+ * Completed interviews for the caller's own organization, newest first, across all
+ * three stages. Read from the domain-event outbox because those rows are committed
+ * in the same transaction as the evaluation, so this count cannot drift from what
+ * actually happened — unlike the application timeline, whose push is best-effort.
+ */
+router.get('/me/interview-activity', conditionalRequireAuth(), async (req: Request, res: Response) => {
+    try {
+        const organizationId = getOrgId(req);
+        const raw = parseInt(String(req.query.limit ?? '500'), 10);
+        const limit = Number.isFinite(raw) ? Math.min(Math.max(raw, 1), 2000) : 500;
+
+        const rows = await DomainEventOutbox.find({
+            organizationId,
+            type: { $in: Object.keys(INTERVIEW_ACTIVITY_MODES) },
+        })
+            .sort({ occurredAt: -1 })
+            .limit(limit)
+            .select('type occurredAt')
+            .lean();
+
+        return res.json({
+            success: true,
+            sessions: rows.map((row) => ({
+                startedAt: row.occurredAt,
+                interviewMode: INTERVIEW_ACTIVITY_MODES[row.type as DomainEventType] ?? 'video',
+            })),
+        });
+    } catch (error: any) {
+        console.error('Error in /me/interview-activity:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load interview activity',
+        });
+    }
+});
 
 router.get('/me', conditionalRequireAuth(), async (req: Request, res: Response) => {
     try {

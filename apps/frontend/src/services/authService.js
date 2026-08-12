@@ -486,6 +486,14 @@ export function getCurrentSession() {
     if (clerk?.session && clerk?.user) {
         return clerkSessionToSession(clerk, { remember: true });
     }
+    // `getClerk()` only returns an instance once Clerk has loaded, so reaching here
+    // with one means Clerk is authoritative and says there is no session: signed out
+    // elsewhere, or revoked from Active Sessions. Falling back to the local snapshot
+    // would keep this device looking signed in and make revoking appear to do nothing.
+    if (clerk) {
+        authStorage.clear();
+        return null;
+    }
     const s = authStorage.getSession();
     if (!s) return null;
     if (typeof s.expiresAt === 'number' && s.expiresAt < Date.now()) {
