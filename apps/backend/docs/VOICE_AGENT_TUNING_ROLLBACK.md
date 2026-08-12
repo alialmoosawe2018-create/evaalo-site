@@ -176,7 +176,7 @@ When reverting, apply **all three** sections below in order:
 
 **Ship:** commit → `npm run deploy:backend`
 
-**Note:** `apps/backend/src/evaalo-only-voice/voiceWs.ts` holds a duplicate of the old logic but is **dead code** (not imported anywhere) — intentionally left untouched.
+**Note:** `voiceWs.ts` used to sit beside `voiceSessionCore.ts` holding a duplicate of the old logic. It was dead code (imported nowhere) and has been deleted — `voiceSessionCore.ts`, reached through `voiceInterviewWs.ts`, is the only voice-interview session handler.
 
 ---
 

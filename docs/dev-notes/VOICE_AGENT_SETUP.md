@@ -76,7 +76,7 @@ SPEECHMATICS_API_KEY=...
 ```
 Frontend (Interview.jsx)
     ↓ WebSocket /ws/voice-interview
-Backend (voiceWs.ts)
+Backend (voiceSessionCore.ts)
     ├─ STT Router (sttRouterService.ts)
     │     ├─ LID (languageDetection.ts)  → Whisper على عينة قصيرة
     │     ├─ English → Deepgram (deepgramPreRecordedService.ts)
@@ -89,7 +89,7 @@ Backend (voiceWs.ts)
 ## الملفات ذات الصلة
 
 - `apps/frontend/src/pages/Interview.jsx` — صفحة المقابلة الصوتية
-- `apps/backend/src/voice/voiceWs.ts` — معالج WebSocket للصوت
+- `apps/backend/src/evaalo-only-voice/voiceSessionCore.ts` — معالج جلسة الصوت (نقطة الدخول: `voiceInterviewWs.ts`)
 - `apps/backend/src/services/sttRouterService.ts` — توجيه STT حسب اللغة
 - `apps/backend/src/services/languageDetection.ts` — كشف اللغة (Whisper LID)
 - `apps/backend/src/services/deepgramPreRecordedService.ts` — STT للإنجليزية

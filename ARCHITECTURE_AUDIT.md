@@ -156,7 +156,7 @@ This is the **best-engineered** part of the codebase — and also the part with 
 
 **Finding: realtime here is a *streaming/compute* concern, essentially decoupled from the database — so Mongo is neither an advantage nor a limitation.**
 
-- WebSockets are used heavily for **audio/video interview streaming** (`voiceWs.ts`, `videoStreamService.ts`, `deepgramStreamingService.ts`, `avatarAudioService.ts`, reception WS) bridging LiveKit / Deepgram / Speechmatics / ElevenLabs. Frontend uses `new WebSocket` only inside the interview/reception call pages.
+- WebSockets are used heavily for **audio/video interview streaming** (`voiceSessionCore.ts`, `videoStreamService.ts`, `deepgramStreamingService.ts`, `avatarAudioService.ts`, reception WS) bridging LiveKit / Deepgram / Speechmatics / ElevenLabs. Frontend uses `new WebSocket` only inside the interview/reception call pages.
 - Session state lives in **in-process `Map`s** (`sessionStore.ts`) — not in Mongo, and **not in a shared store**. This is the real realtime scaling constraint: it requires sticky sessions and blocks multi-instance scale-out.
 - **No MongoDB change streams** are used; there is **no in-app notification collection** (candidate/interview status changes appear to fan out via n8n/email, not a DB-backed feed — *evidence for a DB notification store is missing*).
 
