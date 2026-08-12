@@ -1208,7 +1208,16 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     void (async () => {
       if (!historyCopy?.length) return;
 
+      const durationSec = Math.ceil(Math.max(0, Date.now() - sessionStartedAt) / 1000);
+      const { assessVoiceInterviewEvidence } = await import(
+        "../services/voiceInterviewEvidenceGate.js"
+      );
+      const evidence = assessVoiceInterviewEvidence(historyCopy, durationSec);
+
+      // Only lock the share link after a session that is thick enough to score.
+      // Thin/cut-off calls stay reusable so the candidate can retry.
       if (
+        evidence.ok &&
         candidateId &&
         /^[a-fA-F0-9]{24}$/.test(candidateId) &&
         hasMeaningfulConversation(historyCopy)
@@ -1241,6 +1250,8 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           campaignId: resolvedCampaignId,
           jobAdvertisement,
           evalContext,
+          durationSec,
+          applicationId: applicationIdParam,
         });
       } catch (err: any) {
         console.warn(`[VOICE TRANSCRIPT] n8n send failed: ${err?.message || err}`);

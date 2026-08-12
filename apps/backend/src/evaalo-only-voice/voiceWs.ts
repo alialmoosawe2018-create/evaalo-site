@@ -2,7 +2,7 @@ import type { IncomingMessage } from "http";
 import { randomUUID } from "crypto";
 import type { WebSocket } from "ws";
 import { createRateLimiter } from "./rateLimiter.js";
-import { createSession, removeSession, touchSession, updateState } from "./sessionStore.js";
+import { createSession, getSession, removeSession, touchSession, updateState } from "./sessionStore.js";
 import { createInterviewState, getInterviewState, removeInterviewState, onExchangeComplete } from "./interviewState.js";
 import { getControllerOutput } from "./interviewController.js";
 import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair } from "./questionEngine.js";
@@ -936,6 +936,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           englishQuestionsAsked: interviewState.englishQuestionsAsked,
         }
       : undefined;
+    const sessionCreatedAt = getSession(sessionId)?.createdAt ?? Date.now();
     conversationHistory.delete(sessionId);
     removeInterviewState(sessionId);
     removeSession(sessionId);
@@ -951,6 +952,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       }
 
       try {
+        const durationSec = Math.ceil(Math.max(0, Date.now() - sessionCreatedAt) / 1000);
         await finalizeAndSendVoiceTranscriptToN8N({
           sessionId,
           candidateId,
@@ -961,6 +963,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           campaignId: resolvedCampaignId,
           jobAdvertisement,
           evalContext,
+          durationSec,
         });
       } catch (err: any) {
         console.warn(`[VOICE TRANSCRIPT] n8n send failed: ${err?.message || err}`);

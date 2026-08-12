@@ -80,8 +80,8 @@ export interface ICandidate extends Document {
         strengths?: string[];
         weaknesses?: string[];
         final_hr_evaluation?: string;
-        overall_score: number;
-        recommendation: 'Hire' | 'Consider' | 'Reject';
+        overall_score?: number;
+        recommendation?: 'Hire' | 'Consider' | 'Reject' | 'Incomplete';
         summary?: string;
     };
     videoInterviewEvaluation?: {
@@ -419,7 +419,8 @@ const CandidateSchema = new Schema<ICandidate>({
         },
         recommendation: {
             type: String,
-            enum: ['Hire', 'Consider', 'Reject']
+            // Incomplete = evidence gate failed (short/thin session) — not a Hire/Reject judgment
+            enum: ['Hire', 'Consider', 'Reject', 'Incomplete']
         },
         summary: String
     },

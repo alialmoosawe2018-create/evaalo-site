@@ -1,4 +1,4 @@
-/** Maps API/text recommendation to Hire | Consider | Reject | N/A | other verbatim */
+/** Maps API/text recommendation to Hire | Consider | Reject | Incomplete | N/A | other verbatim */
 export function canonicalStageRecommendation(rec) {
     if (rec == null || String(rec).trim() === '') return 'N/A';
     const s = String(rec).trim();
@@ -6,6 +6,7 @@ export function canonicalStageRecommendation(rec) {
     if (lower === 'hire') return 'Hire';
     if (lower === 'consider') return 'Consider';
     if (lower === 'reject') return 'Reject';
+    if (lower === 'incomplete') return 'Incomplete';
     return s;
 }
 

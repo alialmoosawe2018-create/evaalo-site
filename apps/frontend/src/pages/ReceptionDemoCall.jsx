@@ -2587,10 +2587,13 @@ const ReceptionDemoCall = () => {
 
             if (!startData.success) {
                 if (startData.code === 'DEMO_LIMIT_REACHED' || startResponse.status === 429) {
+                    const limit = startData.limit || 3;
                     const limitMsg =
                         currentLang === 'en'
-                            ? `You've enjoyed the demo ${startData.limit || 3} times today 😊 — sign up for the full experience, or come back tomorrow!`
-                            : `جربت الديمو ${startData.limit || 3} مرات اليوم 😊 — سجّل حساباً للتجربة الكاملة، أو عد غداً!`;
+                            ? `You've reached today's Evaalo demo limit (${limit}). Please try again later — thanks for your interest!`
+                            : currentLang === 'ku'
+                              ? `گەیشتیت بە سنووری ڕۆژانەی تاقیکردنەوەی ئیڤالو (${limit}). تکایە دواتر دووبارە هەوڵ بدەوە — سوپاس بۆ گرنگیدانت!`
+                              : `وصلت للحد اليومي لتجربة إيفالو (${limit}). رجاءً جرّب مرة ثانية في وقت لاحق — شكراً لاهتمامك!`;
                     throw new Error(limitMsg);
                 }
                 throw new Error(startData.message || 'Failed to start interview');

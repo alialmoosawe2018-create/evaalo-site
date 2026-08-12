@@ -117,6 +117,8 @@ const VoiceInterview = () => {
                 return t('stageEval_recConsider');
             case 'Reject':
                 return t('stageEval_recReject');
+            case 'Incomplete':
+                return t('stageEval_recIncomplete');
             case 'N/A':
                 return t('stageEval_recNa');
             default:
@@ -477,6 +479,8 @@ const VoiceInterview = () => {
                 return { bg: 'rgba(245, 158, 11, 0.2)', border: 'rgba(245, 158, 11, 0.4)', text: '#F59E0B' };
             case 'Reject':
                 return { bg: 'rgba(239, 68, 68, 0.2)', border: 'rgba(239, 68, 68, 0.4)', text: '#EF4444' };
+            case 'Incomplete':
+                return { bg: 'rgba(100, 116, 139, 0.2)', border: 'rgba(100, 116, 139, 0.45)', text: '#64748B' };
             default:
                 return { bg: 'rgba(148, 163, 184, 0.2)', border: 'rgba(148, 163, 184, 0.4)', text: '#94A3B8' };
         }
@@ -853,9 +857,16 @@ const VoiceInterview = () => {
                                         const evaluation = candidate.voiceInterviewEvaluation;
                                         const strengthItems = normalizeVoiceBulletList(evaluation?.strengths);
                                         const weaknessItems = normalizeVoiceBulletList(evaluation?.weaknesses);
-                                        const scoreColors = getScoreColor(evaluation?.overall_score || 0);
                                         const recCanon = canonicalStageRecommendation(evaluation?.recommendation);
                                         const recColors = getRecommendationColor(recCanon);
+                                        const scoreValue =
+                                            recCanon === 'Incomplete' || evaluation?.overall_score == null
+                                                ? null
+                                                : Number(evaluation.overall_score);
+                                        const scoreColors =
+                                            scoreValue == null
+                                                ? { bg: 'rgba(100, 116, 139, 0.2)', text: '#64748B' }
+                                                : getScoreColor(scoreValue);
                                         const candidateId = candidate._id || candidate.id;
                                         const isExpanded = expandedRows.has(candidateId);
                                         const photoUrl = candidatePhotoUrl(candidate);
@@ -1093,7 +1104,7 @@ const VoiceInterview = () => {
                                                             fontSize: '14px',
                                                             lineHeight: 1.15
                                                         }}>
-                                                            {evaluation?.overall_score || 0}%
+                                                            {scoreValue == null ? '—' : `${scoreValue}%`}
                                                         </div>
                                                         <div style={{
                                                             display: 'inline-block',

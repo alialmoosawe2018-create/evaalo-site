@@ -787,7 +787,31 @@ export const finalizeAndSendVoiceTranscriptToN8N = async (payload: {
     campaignId?: string;
     jobAdvertisement?: string;
     evalContext?: VoiceInterviewEvalContext;
+    /** Wall-clock session length (seconds). Required for the evidence gate. */
+    durationSec?: number;
+    applicationId?: string | null;
 }): Promise<boolean> => {
+    const {
+        assessVoiceInterviewEvidence,
+        persistInsufficientVoiceEvidence,
+    } = await import('./voiceInterviewEvidenceGate.js');
+
+    const assessment = assessVoiceInterviewEvidence(
+        payload.conversationHistory,
+        payload.durationSec ?? 0
+    );
+    if (!assessment.ok) {
+        await persistInsufficientVoiceEvidence({
+            candidateId: payload.candidateId,
+            applicationId: payload.applicationId,
+            campaignId: payload.campaignId,
+            language: payload.language,
+            assessment,
+            sessionId: payload.sessionId,
+        });
+        return false;
+    }
+
     let evaluation = await evaluateVoiceInterview(payload.conversationHistory, payload.evalContext);
     if (!evaluation) {
         console.warn('[n8n voice] evaluateVoiceInterview returned null — using fallback metrics');

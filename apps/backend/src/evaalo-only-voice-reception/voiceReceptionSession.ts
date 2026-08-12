@@ -503,10 +503,13 @@ export function handleVoiceReceptionWsConnection(ws: WebSocket, req: IncomingMes
                                 console.log(
                                     `[RECEPTION CAP] ${sessionId.substring(0, 8)}... reception_voice_quota_exceeded ip=${clientIp} limit=${quotaErr.limit}`
                                 );
+                                const lang = String(language || '').toLowerCase().trim();
                                 const quotaMsg =
-                                    language === 'en'
-                                        ? "You've reached today's demo limit. Please come back tomorrow — thanks for your interest in Evaalo!"
-                                        : 'وصلت للحد اليومي لتجربة إيفالو. رجاءً جرّب مرة ثانية بكرة — شكراً لاهتمامك!';
+                                    lang === 'en' || lang === 'english'
+                                        ? "You've reached today's Evaalo demo limit. Please try again later — thanks for your interest!"
+                                        : lang === 'ku' || lang === 'ckb' || lang === 'kurdish'
+                                          ? 'گەیشتیت بە سنووری ڕۆژانەی تاقیکردنەوەی ئیڤالو. تکایە دواتر دووبارە هەوڵ بدەوە — سوپاس بۆ گرنگیدانت!'
+                                          : 'وصلت للحد اليومي لتجربة إيفالو. رجاءً جرّب مرة ثانية في وقت لاحق — شكراً لاهتمامك!';
                                 send(ws, { type: 'agent_reply', text: quotaMsg });
                                 send(ws, { type: 'error', message: 'daily demo limit reached' });
                                 setTimeout(() => {

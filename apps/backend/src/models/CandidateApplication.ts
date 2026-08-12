@@ -353,7 +353,10 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
             weaknesses: [String],
             final_hr_evaluation: String,
             overall_score: { type: Number, min: 0, max: 100 },
-            recommendation: { type: String, enum: ['Hire', 'Consider', 'Reject'] },
+            recommendation: {
+                type: String,
+                enum: ['Hire', 'Consider', 'Reject', 'Incomplete'],
+            },
             summary: String,
         },
         videoInterviewEvaluation: {
