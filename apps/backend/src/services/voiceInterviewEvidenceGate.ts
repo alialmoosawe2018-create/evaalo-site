@@ -7,7 +7,7 @@ import CandidateApplication from '../models/CandidateApplication.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
 import type { ConversationEntry } from './interviewLinkAccess.js';
 
-export const VOICE_EVAL_MIN_DURATION_SEC = Number(process.env.VOICE_EVAL_MIN_DURATION_SEC) || 90;
+export const VOICE_EVAL_MIN_DURATION_SEC = Number(process.env.VOICE_EVAL_MIN_DURATION_SEC) || 75;
 export const VOICE_EVAL_MIN_USER_TURNS = Number(process.env.VOICE_EVAL_MIN_USER_TURNS) || 3;
 export const VOICE_EVAL_MIN_USER_CHARS = Number(process.env.VOICE_EVAL_MIN_USER_CHARS) || 150;
 

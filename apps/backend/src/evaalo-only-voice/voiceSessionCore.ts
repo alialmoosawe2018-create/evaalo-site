@@ -89,7 +89,25 @@ async function resolveVoiceSessionOrgId(
 }
 
 const conversationHistory = new Map<string, Array<{ role: "user" | "assistant"; content: string }>>();
-const speechBuffers = new Map<string, { parts: string[]; timeout?: NodeJS.Timeout }>();
+type SpeechBuffer = {
+  /** النتائج النهائية فقط — هذا هو النص الذي يُرسَل للـ LLM */
+  parts: string[];
+  /** آخر نتيجة جزئية: ذيل لم يُثبَّت بعد. تُستبدل مع كل جزئية وتُمسح عند وصول نهائية */
+  partial?: string;
+  timeout?: NodeJS.Timeout;
+};
+const speechBuffers = new Map<string, SpeechBuffer>();
+
+/**
+ * نص الدور الحالي = النتائج النهائية + الذيل الجزئي إن لم يُثبَّت بعد.
+ * Speechmatics يصفّر فرضيته الجزئية بعد كل نتيجة نهائية، فخلط الاثنين في مصفوفة
+ * واحدة كان يكرّر الكلمات مرتين وثلاثاً في النص الذاهب للتقييم.
+ */
+function bufferedSentence(buffer: SpeechBuffer): string {
+  const tail = buffer.partial?.trim();
+  const parts = tail ? [...buffer.parts, tail] : buffer.parts;
+  return parts.join(" ").trim();
+}
 const lastSentBySession = new Map<string, { text: string; time: number }>();
 const DUPLICATE_GUARD_MS = 1200;
 /** كشف نهاية التشغيل: الخادم ينتظر playback_ended من العميل قبل إعادة STT */
@@ -363,9 +381,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           handleTranscript(t, isFinal, confidence);
           // إرسال النص المتراكم (تدفقي) للعرض - وليس آخر chunk فقط
           const buffer = speechBuffers.get(sessionId);
-          let displayText = buffer && buffer.parts.length > 0
-            ? buffer.parts.join(" ").trim()
-            : t;
+          let displayText = (buffer ? bufferedSentence(buffer) : "") || t;
           displayText = dedupeRepeats(displayText);
           send(ws, { type: "transcript", text: displayText, isFinal });
         }
@@ -416,9 +432,10 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   // 4) دمج الجمل: buffer += partial؛ إذا صمت → sendToLLM(buffer) فقط
   const sendCompleteSentence = () => {
     const buffer = speechBuffers.get(sessionId);
-    if (!buffer || buffer.parts.length === 0) return;
+    if (!buffer) return;
 
-    let completeSentence = buffer.parts.join(' ').trim();
+    let completeSentence = bufferedSentence(buffer);
+    if (!completeSentence) return;
     completeSentence = dedupeRepeats(completeSentence);
     speechBuffers.delete(sessionId);
 
@@ -449,27 +466,33 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       speechBuffers.set(sessionId, buffer);
     }
 
-    const last = buffer.parts[buffer.parts.length - 1];
-    const lastNorm = last !== undefined ? normalizeForMerge(last) : "";
-    const cleanedNorm = normalizeForMerge(cleaned);
-    // استبدال عند: امتداد (cleaned يبدأ بـ last) أو تصحيح (last يبدأ بـ cleaned) - يمنع تكرار الكلمات
-    const isExtensionOrCorrection =
-      last !== undefined &&
-      (cleaned === last ||
-        cleaned.startsWith(last) ||
-        last.startsWith(cleaned) ||
-        (lastNorm.length > 0 && cleanedNorm.length > 0 &&
-          (cleanedNorm.startsWith(lastNorm) || lastNorm.startsWith(cleanedNorm))));
+    if (isFinal) {
+      const last = buffer.parts[buffer.parts.length - 1];
+      const lastNorm = last !== undefined ? normalizeForMerge(last) : "";
+      const cleanedNorm = normalizeForMerge(cleaned);
+      // استبدال عند: امتداد (cleaned يبدأ بـ last) أو تصحيح (last يبدأ بـ cleaned) - يمنع تكرار الكلمات
+      const isExtensionOrCorrection =
+        last !== undefined &&
+        (cleaned === last ||
+          cleaned.startsWith(last) ||
+          last.startsWith(cleaned) ||
+          (lastNorm.length > 0 && cleanedNorm.length > 0 &&
+            (cleanedNorm.startsWith(lastNorm) || lastNorm.startsWith(cleanedNorm))));
 
-    if (isExtensionOrCorrection) {
-      buffer.parts[buffer.parts.length - 1] = cleaned;
+      if (isExtensionOrCorrection) {
+        buffer.parts[buffer.parts.length - 1] = cleaned;
+      } else {
+        buffer.parts.push(cleaned);
+      }
+      buffer.partial = undefined;
     } else {
-      buffer.parts.push(cleaned);
+      buffer.partial = cleaned;
     }
 
+    // الجزئيات تعيد ضبط مؤقت الصمت أيضاً — فهي دليل أن المرشح ما زال يتكلم
     if (buffer.timeout) clearTimeout(buffer.timeout);
 
-    const completeSentence = buffer.parts.join(" ").trim();
+    const completeSentence = bufferedSentence(buffer);
     // مع علامة ترقيم (. ? ! ؟): صمت أقصر. بدونها: صمت أطول لتجنب القطع وسط الجملة
     const silenceMs = endsWithSemanticEnd(completeSentence)
       ? USER_STOPPED_WITH_PUNCTUATION_MS
@@ -736,7 +759,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       const recentAssistantQuestions = history
         .filter((m) => m.role === 'assistant')
         .map((m) => m.content)
-        .slice(-2);
+        .slice(-4);
 
       // المتابعة — قواعد صارمة: سقف FOLLOW_UP_MAX_PER_INTERVIEW للمقابلة كلها، وفاصل
       // FOLLOW_UP_MIN_GAP_TURNS أدوار (سؤالان عاديان) بين متابعتين. طلب التوضيح أو تغيير
@@ -894,8 +917,11 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         const llmTime = Date.now() - llmStartTime;
         console.log(`[LLM TIME] ${sessionId.substring(0, 8)}... ${llmTime}ms`);
 
-        // Hybrid Intelligence: Engine يتحقق من اقتراح الـ LLM
-        if (!validateLLMQuestion(llmReply)) {
+        // Hybrid Intelligence: Engine يتحقق من اقتراح الـ LLM.
+        // المتابعة وطلب الإعادة يعودان لنفس الموضوع بقصد، فلا يخضعان لحارس التكرار.
+        const duplicateGuard =
+          clarificationRequested || followUpNext ? undefined : recentAssistantQuestions;
+        if (!validateLLMQuestion(llmReply, duplicateGuard)) {
           // احتياطيات المواضيع مكتوبة بالعراقية فقط — الجلسة الإنجليزية تأخذ
           // بديلاً إنجليزياً محايداً بدلاً من كسر قفل اللغة عند أول فشل تحقق.
           const genericFallback =
@@ -906,6 +932,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
             interviewLanguage === 'en'
               ? genericFallback
               : getFallbackForTopic(topic, candidateProfile?.gender);
+          // بلا موضوع محدد (وضع rephrase): ننتقل لموضوع لم يُطرح بعد بدل إعادة
+          // آخر سؤال — هذا كان مصدر تكرار السؤال على المرشح.
+          const unaskedTopic = getAvailableTopicsForPhase1(interviewState)[0];
           const fallback = clarificationRequested && lastAssistantMessage
             ? lastAssistantMessage
             : followUpNext
@@ -914,6 +943,8 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
                 ? topicFallback(selectedQuestion.topic)
                 : selectedQuestion?.availableTopics?.length
                 ? topicFallback(selectedQuestion.availableTopics[0])
+                : unaskedTopic
+                ? topicFallback(unaskedTopic)
                 : selectedQuestion?.text ?? genericFallback;
           console.warn(`[ENGINE VALIDATE] ${sessionId.substring(0, 8)}... LLM reply invalid, using fallback`);
           llmReply = polishVoiceArabicReply(fallback, {
@@ -923,7 +954,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         }
       }
 
-      console.log(`[AGENT] ${sessionId.substring(0, 8)}... "${llmReply.substring(0, 80)}${llmReply.length > 80 ? '...' : ''}"`);
+      console.log(`[AGENT] ${sessionId.substring(0, 8)}... "${llmReply.substring(0, 160)}${llmReply.length > 160 ? '...' : ''}"`);
       history.push({ role: "user", content: cleaned });
       history.push({ role: "assistant", content: llmReply });
       conversationHistory.set(sessionId, history);

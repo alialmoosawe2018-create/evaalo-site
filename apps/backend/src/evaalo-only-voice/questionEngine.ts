@@ -17,7 +17,12 @@ import {
   isVoiceTopicMemoryEnabled,
   type InterviewEvaluationIntent,
 } from './interviewConfig.js';
-import { normalizeCandidateGender, applyIraqiGenderPhrasing, type CandidateGender } from '../services/iraqiDialectReference.js';
+import {
+  normalizeCandidateGender,
+  applyIraqiGenderPhrasing,
+  IRAQI_ACKNOWLEDGMENT_PHRASES,
+  type CandidateGender,
+} from '../services/iraqiDialectReference.js';
 
 export type { SelectedQuestion };
 
@@ -235,14 +240,22 @@ export function classifyInterviewPolicyIntent(transcript: string): InterviewPoli
   return null;
 }
 
-/** Hybrid Intelligence: Engine يتحقق من اقتراح الـ LLM — هل هو سؤال صالح؟ */
-export function validateLLMQuestion(reply: string, questionPool?: string[]): boolean {
+/**
+ * Hybrid Intelligence: Engine يتحقق من اقتراح الـ LLM — هل هو سؤال صالح؟
+ *
+ * `recentQuestions` هي أسئلة الوكيل الأخيرة. تُمرَّر فقط عند توليد سؤال جديد،
+ * ولا تُمرَّر للمتابعة أو طلب الإعادة لأن الاثنين يعودان لنفس الموضوع بقصد.
+ */
+export function validateLLMQuestion(reply: string, recentQuestions?: string[]): boolean {
   const t = reply.trim();
   if (!t || t.length < 10) return false;
   const wordCount = t.split(/\s+/).length;
   if (wordCount > 80) return false;
   const isQuestion = /[?؟]/.test(t) || /\b(شنو|شو|شلون|مين|متى|وين|ليش|how|what|why|when|where|which|who)\b/i.test(t);
   if (!isQuestion) return false;
+  for (const prev of recentQuestions ?? []) {
+    if (prev && isRepeatedQuestion(t, prev)) return false;
+  }
   return true;
 }
 
@@ -363,6 +376,58 @@ function detectQuestionIntent(text: string): string | null {
   if (/(problem|challenge|تحدي|مشكلة|decision|قرار|ضغط)/i.test(t)) return 'problem-solving';
   if (/(tools|software|digital|برامج|أدوات|مهارة|learn|تعلم)/i.test(t)) return 'digital-learning';
   return null;
+}
+
+/**
+ * كلمات صياغة السؤال — مشتركة بين كل أسئلة الوكيل تقريباً، فلا تدل على تشابه.
+ * إبقاؤها كان يجعل «تگدر تحچيلي شنو مستواك…» و«تگدر تحچيلي شنو خبرتك…» متشابهين.
+ */
+const QUESTION_FRAMING_WORDS = new Set([
+  'شنو', 'شو', 'شلون', 'وشلون', 'شكد', 'وشكد', 'كيف', 'وكيف', 'ليش', 'وين', 'متى', 'مين', 'ماذا', 'هل',
+  'تگدر', 'تكدر', 'تقدر', 'ممكن', 'تحچيلي', 'تحجيلي', 'حچيلي', 'حجيلي', 'احچيلي', 'احجيلي',
+  'اللي', 'الي', 'كان', 'كانت', 'يعني', 'بكل', 'منهن', 'منها', 'خلال', 'عندك', 'عندج', 'وياك',
+  'هاي', 'هذا', 'هذه', 'ذلك', 'عن', 'من', 'في', 'على', 'حتى', 'بين',
+  'what', 'how', 'why', 'when', 'where', 'which', 'who', 'tell', 'about', 'your', 'you',
+  'can', 'could', 'would', 'the', 'and', 'for', 'with', 'that', 'this', 'any', 'some',
+  'please', 'describe', 'share', 'give', 'more',
+]);
+
+const ACKNOWLEDGMENT_OPENER = new RegExp(
+  `^(?:${IRAQI_ACKNOWLEDGMENT_PHRASES.join('|')}|great|alright|thanks|understood|good|okay|ok)[،,\\s]+`,
+  'iu'
+);
+
+/**
+ * السؤال الفعلي = آخر جملة بعد تجريد عبارة التأكيد. ما قبلها تأكيد أو جملة يضخّها
+ * النظام (مثل تنبيه مرحلة الإنجليزية)، ووجودها كان يميّع أي مقياس تشابه.
+ */
+function questionCore(text: string): string {
+  const sentences = text
+    .split(/[.!?؟]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const core = sentences[sentences.length - 1] ?? text;
+  return core.replace(ACKNOWLEDGMENT_OPENER, '').trim();
+}
+
+function contentTokens(text: string): Set<string> {
+  return new Set(tokenize(questionCore(text)).filter((w) => !QUESTION_FRAMING_WORDS.has(w)));
+}
+
+/**
+ * هل السؤال الجديد إعادة لسؤال سابق؟ يقارن الكلمات المضمونية فقط.
+ * مساران: تطابق عالٍ بين سؤالين متقاربي الطول، أو احتواء سؤال قصير داخل صياغة أطول
+ * (الحالة التي تحدث عندما يُعاد السؤال مع مقدمة أو تأكيد إضافي).
+ */
+function isRepeatedQuestion(a: string, b: string): boolean {
+  const ta = contentTokens(a);
+  const tb = contentTokens(b);
+  if (ta.size < 2 || tb.size < 2) return false;
+  let overlap = 0;
+  for (const w of ta) if (tb.has(w)) overlap++;
+  if (overlap < 2) return false;
+  if (overlap / Math.max(ta.size, tb.size) >= 0.55) return true;
+  return overlap / Math.min(ta.size, tb.size) >= 0.75;
 }
 
 function isSemanticallySimilarQuestion(a: string, b: string): boolean {
