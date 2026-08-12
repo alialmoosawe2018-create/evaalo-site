@@ -1243,6 +1243,31 @@ body.rtl-text
     font-weight: 500;
 }
 
+/* Recommended vs other levels — used wherever the Job Level dropdown appears */
+.language-style-single-select-group {
+    padding: 8px 14px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.job-role-level-hint {
+    display: block;
+    margin-top: 4px;
+    padding-inline-start: 2px;
+    font-size: 11px;
+    line-height: 1.45;
+    font-weight: 500;
+    color: #fcd34d;
+}
+
+html[data-app-theme='light'] .job-role-level-hint {
+    color: #b45309;
+}
+
 /* Job Level — match head-hunter form-input / select trigger shell */
 .ai-head-hunter-page .head-hunter-design-field .career-level-select,
 .ai-head-hunter-page .head-hunter-design-field .ni-career-level-select {

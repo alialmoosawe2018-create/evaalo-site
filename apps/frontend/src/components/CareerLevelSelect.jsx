@@ -1,16 +1,22 @@
 import React, { useMemo } from 'react';
 import {
     fromJobLevelUiValue,
-    getLevelsForRoleUI,
+    getLevelOptionsForRoleUI,
     toJobLevelUiValue,
     UI_CAREER_LEVELS,
 } from '@evaalo/job-catalog';
 import { useLanguage } from '../contexts/LanguageContext';
 import LanguageStyleSingleSelect from './LanguageStyleSingleSelect.jsx';
 
+/** Sentinel for clearing back to the implicit default, which stores as ''. */
+const CLEAR_VALUE = '__none__';
+
 /**
  * Job Level dropdown — careerLevel only (mid is implicit, not listed).
- * Uses the same menu UI as other site dropdowns (LanguageStyleSingleSelect).
+ *
+ * Every level stays selectable: the ones the catalog defines for the role are
+ * grouped as recommended, the rest below them. Uses the same menu UI as other
+ * site dropdowns (LanguageStyleSingleSelect).
  */
 export default function CareerLevelSelect({
     id,
@@ -36,18 +42,30 @@ export default function CareerLevelSelect({
         return toJobLevelUiValue(rk, careerLevel);
     }, [roleKey, careerLevel]);
 
-    const availableLevels = useMemo(
-        () => (roleKey ? getLevelsForRoleUI(roleKey) : UI_CAREER_LEVELS),
-        [roleKey]
-    );
-
     const levelOptions = useMemo(() => {
-        const levels = availableLevels.length > 0 ? availableLevels : UI_CAREER_LEVELS;
-        return levels.map((level) => ({
+        const toOption = (level, group) => ({
             value: level,
             label: t(`careerLevel_${level}`) || level,
-        }));
-    }, [availableLevels, t]);
+            group,
+        });
+
+        if (!roleKey) {
+            return UI_CAREER_LEVELS.map((level) => toOption(level, ''));
+        }
+
+        const { recommended, other } = getLevelOptionsForRoleUI(roleKey);
+        const grouped = recommended.length > 0;
+        const options = [
+            ...recommended.map((l) => toOption(l, grouped ? t('jobRole_level_group_recommended') : '')),
+            ...other.map((l) => toOption(l, grouped ? t('jobRole_level_group_other') : '')),
+        ];
+
+        if (uiValue) {
+            options.unshift({ value: CLEAR_VALUE, label: t('jobRole_level_none'), group: '' });
+        }
+
+        return options;
+    }, [roleKey, uiValue, t]);
 
     const mergedClassName = ['ni-career-level-select', 'career-level-select', className]
         .filter(Boolean)
@@ -59,9 +77,10 @@ export default function CareerLevelSelect({
             value={uiValue}
             onChange={(picked) => {
                 if (!onChange) return;
+                const uiPicked = picked === CLEAR_VALUE ? '' : picked;
                 const rk = String(roleKey || '').trim();
-                const nextLevel = rk ? fromJobLevelUiValue(rk, picked) : picked || 'mid';
-                onChange(nextLevel, picked);
+                const nextLevel = rk ? fromJobLevelUiValue(rk, uiPicked) : uiPicked || 'mid';
+                onChange(nextLevel, uiPicked);
             }}
             options={levelOptions}
             placeholder={placeholder || t('jobRole_level_placeholder')}

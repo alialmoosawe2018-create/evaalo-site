@@ -12,6 +12,7 @@ import type {
     CareerLevel,
     CatalogSection,
     JobCatalogEntry,
+    ManagementTrack,
     RoleDefinition,
     RoleResolution,
 } from './types.js';
@@ -43,6 +44,25 @@ export const CAREER_LEVEL_RANK: Record<string, number> = {
     head: 8,
     director: 9,
     executive: 10,
+};
+
+/**
+ * Track implied by a level alone, for role and level pairs the catalog does not
+ * define. Mirrors the convention the catalog already follows, where head maps to
+ * director rather than manager.
+ */
+const LEVEL_MANAGEMENT_TRACK: Record<CareerLevel, ManagementTrack> = {
+    intern: 'ic',
+    graduate: 'ic',
+    junior: 'ic',
+    mid: 'ic',
+    senior: 'ic',
+    lead: 'ic',
+    supervisor: 'supervisor',
+    manager: 'manager',
+    head: 'director',
+    director: 'director',
+    executive: 'executive',
 };
 
 export interface RoleOption {
@@ -143,6 +163,37 @@ export function getLevelsForRoleUI(roleKey: string): CareerLevel[] {
     );
 }
 
+/**
+ * Whether a level is one the catalog defines for the role.
+ *
+ * The catalog guides rather than restricts: any level stays selectable, and this
+ * only drives the recommended grouping and the soft hint. An empty level is the
+ * implicit default, so it never counts as uncommon.
+ */
+export function isRecommendedLevelForRole(
+    roleKey: string,
+    careerLevel: CareerLevel | string | null | undefined
+): boolean {
+    const cl = String(careerLevel || '').trim();
+    if (!cl) return true;
+    const def = getRoleDefinition(roleKey);
+    if (!def) return true;
+    return def.levels.some((l) => l.careerLevel === cl);
+}
+
+/** Job Level options split into the role's recommended levels and the rest. */
+export function getLevelOptionsForRoleUI(roleKey: string): {
+    recommended: CareerLevel[];
+    other: CareerLevel[];
+} {
+    const recommended = roleKey ? getLevelsForRoleUI(roleKey) : [];
+    const taken = new Set(recommended);
+    const other = UI_CAREER_LEVELS.filter((l) => !taken.has(l)).sort(
+        (a, b) => (CAREER_LEVEL_RANK[a] ?? 99) - (CAREER_LEVEL_RANK[b] ?? 99)
+    );
+    return { recommended, other };
+}
+
 /** Whether careerLevel should appear empty in Job Level UI (implicit mid). */
 export function isImplicitDefaultLevel(
     roleKey: string,
@@ -223,15 +274,29 @@ export function composeRoleResolution(
         ? (String(careerLevel).trim() as CareerLevel)
         : getDefaultCareerLevelForRole(rk);
 
-    const entry =
-        resolveCatalogEntry(rk, cl, catalog) ??
-        getRepresentativeEntry(rk, catalog);
+    const entry = resolveCatalogEntry(rk, cl, catalog);
 
-    if (!entry) {
+    if (entry) {
+        return {
+            roleKey: entry.roleKey,
+            careerLevel: entry.careerLevel,
+            managementTrack: entry.managementTrack,
+            displayTitle: entry.displayTitle,
+            labelKey: entry.labelKey,
+            domain: entry.domain,
+            specialization: entry.specialization,
+            confidence: 0.98,
+            matchSource: 'exact_catalog',
+        };
+    }
+
+    const representative = getRepresentativeEntry(rk, catalog);
+
+    if (!representative) {
         return {
             roleKey: rk,
             careerLevel: cl,
-            managementTrack: 'ic',
+            managementTrack: LEVEL_MANAGEMENT_TRACK[cl] ?? 'ic',
             displayTitle: rk.replace(/_/g, ' '),
             labelKey: `${rk}.${cl}`,
             confidence: 0.5,
@@ -239,15 +304,18 @@ export function composeRoleResolution(
         };
     }
 
+    // Level the catalog does not pair with this role. The company's own naming
+    // wins: keep the chosen level, show the neutral role title rather than
+    // inventing a composed one, and borrow only the taxonomy.
     return {
-        roleKey: entry.roleKey,
-        careerLevel: entry.careerLevel,
-        managementTrack: entry.managementTrack,
-        displayTitle: entry.displayTitle,
-        labelKey: entry.labelKey,
-        domain: entry.domain,
-        specialization: entry.specialization,
-        confidence: 0.98,
+        roleKey: representative.roleKey,
+        careerLevel: cl,
+        managementTrack: LEVEL_MANAGEMENT_TRACK[cl] ?? representative.managementTrack,
+        displayTitle: getRolePositionTitle(rk),
+        labelKey: `${rk}.${cl}`,
+        domain: representative.domain,
+        specialization: representative.specialization,
+        confidence: 0.75,
         matchSource: 'exact_catalog',
     };
 }

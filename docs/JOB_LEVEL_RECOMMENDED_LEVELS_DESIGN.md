@@ -1,6 +1,6 @@
 # Job Level — من Allowed Levels إلى Recommended Levels
 
-**الحالة: تصميم فقط، غير منفّذ.** هذه الوثيقة تسجّل القرارات المحسومة والأسئلة المفتوحة لمرحلة لاحقة.
+**الحالة: منفّذ.** هذه الوثيقة تسجّل التصميم والقرارات التي بُني عليها.
 
 ## الخلفية
 
@@ -37,7 +37,7 @@
 - **توليد المقابلة**: `CAREER_LEVEL_OVERLAYS` في [apps/shared/jobCatalog/careerLevelOverlays.ts](../apps/shared/jobCatalog/careerLevelOverlays.ts) تغطي المستويات الأحد عشر كلها، فصعوبة الأسئلة وتوقعات القيادة وتركيز الـ rubric تُضبط تلقائياً لأي مستوى يختاره المستخدم.
 - **بيانات الترشيح**: لا حاجة لحقل `recommendedLevels` جديد ولا لأي إدخال بيانات. الـ `levels` الحالية **هي** قائمة الموصى به؛ يتغير معناها فقط لا محتواها.
 
-## التعديلات المطلوبة
+## التعديلات المنفّذة
 
 ### 1. احترام المستوى المختار في `composeRoleResolution`
 
@@ -45,29 +45,31 @@
 
 الفرع الحالي هو مصدر السلوك الذي يمحو اختيار المستخدم: حين لا يجد مدخلاً مطابقاً يرجع إلى `getRepresentativeEntry` ويعيد `entry.careerLevel` الخاص بالمدخل البديل، فينقلب اختيار "Receptionist + Manager" إلى `mid` بصمت.
 
-المطلوب: عند غياب المدخل، الاحتفاظ بـ `careerLevel` المختار واستعارة العنوان المحايد و`domain` و`specialization` من المدخل التمثيلي فقط.
+المنفَّذ: عند غياب المدخل، يُحتفظ بـ `careerLevel` المختار ويُستعار العنوان المحايد من `getRolePositionTitle` و`domain` و`specialization` من المدخل التمثيلي فقط، و`managementTrack` يُشتق من المستوى عبر `LEVEL_MANAGEMENT_TRACK` (`head` تتبع اتفاق الكتالوج فتُعطي `director`). الثقة `0.75` بدل `0.98` للتمييز بين تركيبة من الكتالوج وتركيبة اختارها المستخدم.
 
-**هذا الملف مشترك مع الباك إند، لذا هذه المرحلة تستلزم `npm run deploy:backend` بالإضافة إلى `git push origin master` (الذي ينشر الواجهة عبر Cloudflare Pages).**
+**هذا الملف له نسختان يجب أن تبقيا متطابقتين:** `apps/shared/jobCatalog/` و`apps/backend/src/shared/jobCatalog/`. لذلك يستلزم `npm run deploy:backend` بالإضافة إلى `git push origin master` (الذي ينشر الواجهة عبر Cloudflare Pages).
 
 ### 2. توسيع قائمة الخيارات في الواجهة
 
 الملفان: [apps/frontend/src/components/CareerLevelSelect.jsx](../apps/frontend/src/components/CareerLevelSelect.jsx) و[apps/frontend/src/components/JobRoleFields.jsx](../apps/frontend/src/components/JobRoleFields.jsx).
 
-عرض المستويات كلها مع فصل بصري بين مجموعة Recommended (من `getLevelsForRoleUI`) والبقية، وإظهار التنبيه الناعم عند الاختيار خارج التوصية. يتطلب دعم مجموعات في `LanguageStyleSingleSelect` أو بديلاً عنه.
+`getLevelOptionsForRoleUI` تعيد `{ recommended, other }`: الموصى به من `getLevelsForRoleUI`، والبقية من `UI_CAREER_LEVELS` مرتّبة بالرتبة. و`isRecommendedLevelForRole` تقيس على `def.levels` **لا** على قائمة الواجهة، حتى لا يُعَدّ `mid` الضمني خارج التوصية.
 
-هذا يُلغي الحاجة إلى تعطيل الحقل للوظائف الـ 25 ذات المستوى الواحد، لأن قائمتها لن تكون فارغة بعد اليوم.
+`LanguageStyleSingleSelect` صار يقبل حقل `group` اختيارياً على كل خيار ويرسم عنوان مجموعة عند تغيّره. القائمة تبقى مسطّحة فلم تتأثر أي من مواضع الاستخدام الأخرى.
 
-## أسئلة مفتوحة تُحسم قبل التنفيذ
+هذا يُلغي الحاجة إلى تعطيل الحقل للوظائف الـ 25 ذات المستوى الواحد، لأن قائمتها لم تعد فارغة.
 
-1. **`labelKey` للتركيبات خارج الكتالوج**: يُترك فارغاً أم يُبنى بصيغة اصطلاحية `${roleKey}.${careerLevel}` رغم عدم وجود مدخل؟ يؤثر على `findCatalogEntryByLabelKey` وعلى استعلامات الحملات القديمة.
-2. **إظهار `mid` وتسميته**: المفتاح `careerLevel_mid` **غير موجود** في [apps/frontend/src/translations.js](../apps/frontend/src/translations.js) في أي من اللغات الثلاث، لأن `mid` مستوى ضمني لا يُعرض. التصميم يفرض إظهاره، وبالتالي يفرض حسم التسمية: `Mid` أم `Entry Level`؟ هذا قرار كان مؤجلاً وأصبح شرطاً مسبقاً.
-3. **`graduate`**: مستوى أم Job Title؟ "Graduate Civil Engineer" و"Graduate Mechanical Engineer" و"Graduate Trainee" مسميات وظيفية فعلية لا مجرد درجة، وهي حالياً غير قابلة للاختيار لأن `graduate` خارج `UI_CAREER_LEVELS`.
-4. **`graduate_trainee`**: عنوانه في قائمة الوظائف "Graduate Trainee" عبر `POSITION_TITLE_OVERRIDES` في [apps/shared/jobCatalog/positionTitle.ts](../apps/shared/jobCatalog/positionTitle.ts) بينما مستواه الافتراضي `mid` يعطي "Junior Specialist". يُراجع التعريف ليتطابقا.
-5. **شكل التنبيه الناعم**: نص تحت الحقل، أم أيقونة بجانب الخيار، أم مجرد فصل المجموعتين في القائمة دون نص.
+## القرارات المحسومة عند التنفيذ
 
-## خطة التحقق
+1. **`labelKey` للتركيبات خارج الكتالوج**: يُبنى بالصيغة الاصطلاحية `${roleKey}.${careerLevel}` — وهو سلوك الفرع القائم أصلاً. `findCatalogEntryByLabelKey` تعيد `undefined` له فيسقط `resolutionFromCriteriaFields` إلى فرع `roleKey` الذي صار يعطي النتيجة الصحيحة بعد البند الأول، فتدور الحملات القديمة دورة كاملة سليمة.
+2. **`mid`**: يبقى **ضمنياً وغير معروض**، ولا حاجة لمفتاح `careerLevel_mid`. أُضيف بدله خيار `jobRole_level_none` («بلا تحديد») يظهر في رأس القائمة حين يكون هناك مستوى مختار، فيعيد الحقل إلى الافتراضي. هذا يحفظ الثابت الذي أرساه `fa80b7c`: أي وظيفة تعرّف `mid` تبقى `mid` افتراضياً.
+3. **`graduate`**: لم يُضَف إلى القائمة الموسّعة. يبقى كما هو ويُبحث كمسألة كتالوج مستقلة (هل هو مستوى أم Job Title؟).
+4. **`graduate_trainee`**: تعارض عنوانه مع مستواه الافتراضي خارج نطاق هذه المرحلة — تصحيح بيانات كتالوج مستقل.
+5. **شكل التنبيه الناعم**: نص صغير تحت الحقل (`job-role-level-hint`) بنمط تحذيرات الموقع، بلا منع.
 
-- توسيع [apps/backend/src/scripts/role-resolution-matrix-test.ts](../apps/backend/src/scripts/role-resolution-matrix-test.ts): `composeRoleResolution('receptionist', 'manager')` يجب أن يعيد `careerLevel: 'manager'` و`displayTitle: 'Receptionist'`.
-- الحفاظ على الثابت القائم: أي وظيفة تعرّف `mid` تبقى `mid` افتراضياً.
-- `npx tsx src/scripts/validate-job-catalog.ts` للتأكد من سلامة الكتالوج.
-- فحص الترجمة العربية والكردية لتركيبة خارج الكتالوج للتأكد من عمل مسار `positionRole_*`.
+## التحقق المنفَّذ
+
+- `role-resolution-matrix-test.ts` وُسِّع: `composeRoleResolution('receptionist', 'manager')` يعيد `careerLevel: 'manager'` و`displayTitle: 'Receptionist'` و`managementTrack: 'manager'`؛ و`credit_controller + manager` يبقى "Credit Control Manager" لأنه في الكتالوج؛ وكل مستويات `UI_CAREER_LEVELS` متاحة لكل وظيفة بلا تكرار.
+- الثابت القائم محفوظ: أي وظيفة تعرّف `mid` تبقى `mid` افتراضياً.
+- `validate-job-catalog.ts` ✅ (626 مدخلاً، 179 وظيفة) و`tsc --noEmit` ✅ وبناء Vite ✅.
+- تطابق نسختي `catalogOptions.ts` مؤكَّد بـ `diff`.

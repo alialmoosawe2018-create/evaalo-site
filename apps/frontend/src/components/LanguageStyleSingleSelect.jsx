@@ -74,22 +74,32 @@ export default function LanguageStyleSingleSelect({
                 role="listbox"
                 hidden={!open}
             >
-                {options.map((opt) => (
-                    <button
-                        key={opt.value}
-                        type="button"
-                        role="option"
-                        aria-selected={value === opt.value}
-                        className={`language-option ${value === opt.value ? 'active' : ''}`}
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => {
-                            onChange(opt.value);
-                            setOpen(false);
-                        }}
-                    >
-                        <span className="language-name">{opt.label}</span>
-                    </button>
-                ))}
+                {options.map((opt, i) => {
+                    const group = opt.group || '';
+                    const startsGroup = group && group !== (options[i - 1]?.group || '');
+                    return (
+                        <React.Fragment key={opt.value}>
+                            {startsGroup ? (
+                                <div className="language-style-single-select-group" role="presentation">
+                                    {group}
+                                </div>
+                            ) : null}
+                            <button
+                                type="button"
+                                role="option"
+                                aria-selected={value === opt.value}
+                                className={`language-option ${value === opt.value ? 'active' : ''}`}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                    onChange(opt.value);
+                                    setOpen(false);
+                                }}
+                            >
+                                <span className="language-name">{opt.label}</span>
+                            </button>
+                        </React.Fragment>
+                    );
+                })}
             </div>
         </div>
     );

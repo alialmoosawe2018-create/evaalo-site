@@ -3,6 +3,7 @@ import {
     composeRoleResolution,
     fromJobLevelUiValue,
     getRepresentativeEntry,
+    isRecommendedLevelForRole,
     toJobLevelUiValue,
 } from '@evaalo/job-catalog';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -61,6 +62,9 @@ export default function JobRoleFields({
     }, [roleKey, showSectionHint, t]);
 
     const showResearchDomain = showResearchDomainField || roleKey === 'researcher';
+
+    const showUncommonLevelHint =
+        showLevelField && !!roleKey && !isRecommendedLevelForRole(roleKey, careerLevel);
 
     const emitResolution = useCallback(
         (resolution) => {
@@ -168,6 +172,11 @@ export default function JobRoleFields({
                 onFocus={levelOnFocus}
                 onBlur={levelOnBlur}
             />
+            {showUncommonLevelHint ? (
+                <span className="job-role-level-hint" role="status">
+                    {t('jobRole_level_uncommon')}
+                </span>
+            ) : null}
         </div>
     ) : null;
 

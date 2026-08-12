@@ -5,12 +5,15 @@
 import {
     composeRoleResolution,
     getDefaultCareerLevelForRole,
+    getLevelOptionsForRoleUI,
     getLevelsForRoleUI,
     getRepresentativeEntry,
     getRoleOptionsBySection,
     isImplicitDefaultLevel,
+    isRecommendedLevelForRole,
     resolveCatalogEntry,
     toJobLevelUiValue,
+    UI_CAREER_LEVELS,
 } from '../shared/jobCatalog/catalogOptions.js';
 import { getRolePositionTitle, HIDDEN_FROM_ROLE_PICKER } from '../shared/jobCatalog/positionTitle.js';
 import { ROLE_DEFINITIONS } from '../shared/jobCatalog/roleDefinitions.js';
@@ -185,6 +188,42 @@ function main(): void {
             const res = composeRoleResolution(def.roleKey);
             assertEq(res.careerLevel, 'mid', `role defining mid must default to mid: ${def.roleKey}`);
         }
+    }
+
+    // Recommended Levels: a level the catalog does not pair with the role is kept,
+    // and the neutral role title is used instead of a composed one.
+    {
+        assert(!resolveCatalogEntry('receptionist', 'manager'), 'receptionist manager is off-catalog');
+        const res = composeRoleResolution('receptionist', 'manager');
+        assertEq(res.roleKey, 'receptionist', 'off-catalog keeps roleKey');
+        assertEq(res.careerLevel, 'manager', 'off-catalog keeps chosen level');
+        assertEq(res.displayTitle, 'Receptionist', 'off-catalog keeps neutral title');
+        assertEq(res.managementTrack, 'manager', 'off-catalog track implied by level');
+
+        const senior = composeRoleResolution('credit_controller', 'senior');
+        assertEq(senior.careerLevel, 'senior', 'credit_controller senior kept');
+        assertEq(senior.displayTitle, 'Credit Controller', 'credit_controller keeps neutral title');
+
+        // In-catalog pairs must still win over the neutral title
+        const manager = composeRoleResolution('credit_controller', 'manager');
+        assertEq(manager.displayTitle, 'Credit Control Manager', 'in-catalog title still composed');
+    }
+
+    // Every UI level stays selectable, split into recommended and the rest
+    {
+        for (const roleKey of ['receptionist', 'hr_specialist', 'backend_developer']) {
+            const { recommended, other } = getLevelOptionsForRoleUI(roleKey);
+            const all = [...recommended, ...other];
+            assertEq(new Set(all).size, all.length, `${roleKey} level options are unique`);
+            for (const level of UI_CAREER_LEVELS) {
+                assert(all.includes(level), `${roleKey} exposes ${level}`);
+            }
+        }
+
+        assert(isRecommendedLevelForRole('hr_specialist', 'senior'), 'senior recommended for hr_specialist');
+        assert(isRecommendedLevelForRole('hr_specialist', 'mid'), 'implicit mid never flagged uncommon');
+        assert(isRecommendedLevelForRole('hr_specialist', ''), 'empty level never flagged uncommon');
+        assert(!isRecommendedLevelForRole('receptionist', 'manager'), 'manager uncommon for receptionist');
     }
 
     console.log('role-resolution-matrix-test: all assertions passed');
