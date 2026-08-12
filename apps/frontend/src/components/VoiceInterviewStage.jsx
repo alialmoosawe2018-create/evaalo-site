@@ -95,6 +95,8 @@ const profileCardStyle = {
  * @param {Object} props.session - useVoiceInterview() return value.
  * @param {boolean} [props.canStart] - Whether the Start button is enabled.
  * @param {string|null} [props.startHint] - Hint shown when Start is disabled.
+ * @param {string} [props.audioBlockedMessage] - Shown when playback needs a tap.
+ * @param {string} [props.audioBlockedAction] - Label of the resume-audio button.
  */
 const VoiceInterviewStage = ({
   title = 'Voice Interview',
@@ -104,6 +106,8 @@ const VoiceInterviewStage = ({
   canStart = true,
   startHint = null,
   recordingNotice = null,
+  audioBlockedMessage = 'Sound is paused on this device.',
+  audioBlockedAction = 'Tap to hear the interviewer',
 }) => {
   const {
     connectionStatus,
@@ -118,6 +122,8 @@ const VoiceInterviewStage = ({
     userAudioLevel,
     agentAudioLevel,
     interviewTimeLeft,
+    audioBlocked,
+    resumeAudio,
     connect,
     disconnect,
   } = session;
@@ -281,6 +287,47 @@ const VoiceInterviewStage = ({
             <p style={{ margin: '8px 0 0', fontSize: '0.85rem', color: '#64748b' }}>
               Please add OPENAI_API_KEY and ELEVENLABS_API_KEY to the .env file in apps/backend
             </p>
+          </div>
+        )}
+
+        {/* Playback refused or interrupted (iOS does this on calls, screen lock
+            and app switches). Only a real tap can restart it, so ask for one
+            instead of leaving the candidate in silence. */}
+        {audioBlocked && (
+          <div
+            style={{
+              marginBottom: '16px',
+              padding: '14px 18px',
+              background: 'rgba(245, 158, 11, 0.1)',
+              borderRadius: '10px',
+              border: '1px solid rgba(245, 158, 11, 0.4)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              textAlign: 'center',
+            }}
+          >
+            <span style={{ fontSize: '0.9rem', color: '#92400e', fontWeight: 600 }}>
+              {audioBlockedMessage}
+            </span>
+            <button
+              type="button"
+              onClick={resumeAudio}
+              style={{
+                padding: '10px 20px',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                color: '#fff',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+              }}
+            >
+              {audioBlockedAction}
+            </button>
           </div>
         )}
 

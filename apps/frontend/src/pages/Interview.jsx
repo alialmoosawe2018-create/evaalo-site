@@ -137,6 +137,8 @@ const Interview = () => {
       canStart={!!resolvedPersonId && !session.linkConsumed}
       startHint={!resolvedPersonId ? 'Add candidateId to the URL to start the interview' : null}
       recordingNotice={t('voiceInterview_recordingNotice')}
+      audioBlockedMessage={t('voiceInterview_audioBlocked')}
+      audioBlockedAction={t('voiceInterview_audioBlockedAction')}
     />
   );
 };

@@ -143,6 +143,8 @@ const PublicScreeningCall = () => {
         canStart={!session.linkConsumed}
         startHint={null}
         recordingNotice={t('voiceInterview_recordingNotice')}
+        audioBlockedMessage={t('voiceInterview_audioBlocked')}
+        audioBlockedAction={t('voiceInterview_audioBlockedAction')}
       />
     );
   }

@@ -38,61 +38,154 @@ function base64ToArrayBuffer(base64) {
   return bytes.buffer;
 }
 
-/** Fallback player for iOS/Safari without MediaSource: يجمّع مقاطع MP3 ويشغّلها كـ Blob عند اكتمال الرد */
-function createBlobAudioPlayer(onError, onPlaybackEnded) {
-  const chunks = [];
+/**
+ * The single <audio> element that plays the agent for the whole session.
+ *
+ * iOS Safari grants playback permission per element, only from inside a user
+ * gesture, and never re-grants it afterwards. A fresh element per agent turn
+ * therefore plays the greeting (still close to the Start tap) and is muted for
+ * every turn after it, while the transcript keeps arriving over the same
+ * socket — the candidate hears silence and thinks the call dropped.
+ */
+function createAgentAudioElement() {
   const audio = document.createElement('audio');
   audio.setAttribute('playsinline', '');
+  audio.preload = 'auto';
+  // ManagedMediaSource is the only MSE flavour iPhone has, and it refuses to
+  // fire `sourceopen` unless remote playback is disabled or an AirPlay source
+  // alternative exists.
+  if ('disableRemotePlayback' in audio) audio.disableRemotePlayback = true;
+  // Deliberately not display:none — some iOS builds refuse to play hidden media.
   document.body.appendChild(audio);
+  return audio;
+}
+
+/** 50ms of silence, built inline so unlocking needs no bundled asset. */
+function createSilentWavUrl() {
+  const sampleRate = 8000;
+  const samples = 400;
+  const buffer = new ArrayBuffer(44 + samples * 2);
+  const view = new DataView(buffer);
+  const ascii = (offset, text) => {
+    for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + samples * 2, true);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, 'data');
+  view.setUint32(40, samples * 2, true);
+  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+}
+
+/**
+ * Starts the shared element and reports *why* it did not start.
+ *
+ * A rejected play() used to be swallowed, which is why a muted interview left
+ * no trace anywhere: no log, no server signal, nothing shown to the candidate.
+ */
+function startPlayback(audio, onBlocked, onError) {
+  let promise;
+  try {
+    promise = audio.play();
+  } catch (e) {
+    onBlocked?.(e);
+    return;
+  }
+  if (!promise?.catch) return;
+  promise.catch((err) => {
+    // Routine when a new turn replaces the src mid-playback.
+    if (err?.name === 'AbortError') return;
+    if (err?.name === 'NotAllowedError') onBlocked?.(err);
+    else onError?.(err?.message || 'Audio playback failed');
+  });
+}
+
+/** Detaches a turn's source without discarding the (unlocked) element. */
+function releaseAudioElement(audio) {
+  try { audio.pause(); } catch (_) {}
+  try {
+    audio.removeAttribute('src');
+    audio.load();
+  } catch (_) {}
+}
+
+/** Fallback player for iOS without MediaSource: buffers MP3 and plays one Blob. */
+function createBlobAudioPlayer(audio, { onError, onPlaybackEnded, onBlocked }) {
+  const chunks = [];
+  const listeners = [];
+  const on = (type, fn) => {
+    audio.addEventListener(type, fn);
+    listeners.push([type, fn]);
+  };
   let url = null;
   let done = false;
-  const cleanup = () => {
-    try { audio.pause(); audio.remove(); } catch (_) {}
-    if (url) { try { URL.revokeObjectURL(url); } catch (_) {} url = null; }
-  };
   const finish = () => {
     if (done) return;
     done = true;
     onPlaybackEnded?.();
-    cleanup();
   };
-  audio.addEventListener('ended', finish);
-  audio.addEventListener('error', () => { onError?.('Audio playback failed'); finish(); });
+  on('ended', finish);
+  on('error', () => {
+    onError?.('Audio playback failed');
+    finish();
+  });
   return {
     appendChunk(buf) { chunks.push(buf); },
     endStream() {
       if (chunks.length === 0) { finish(); return; }
-      const blob = new Blob(chunks, { type: 'audio/mpeg' });
-      url = URL.createObjectURL(blob);
+      url = URL.createObjectURL(new Blob(chunks, { type: 'audio/mpeg' }));
       audio.src = url;
-      audio.play().catch(() => {});
+      startPlayback(audio, onBlocked, onError);
     },
+    retry() { startPlayback(audio, onBlocked, onError); },
     getAudioElement() { return audio; },
-    destroy: cleanup,
+    destroy() {
+      listeners.forEach(([type, fn]) => {
+        try { audio.removeEventListener(type, fn); } catch (_) {}
+      });
+      releaseAudioElement(audio);
+      if (url) { try { URL.revokeObjectURL(url); } catch (_) {} url = null; }
+    },
   };
 }
 
-/** MediaSource streaming player - supports MP3 chunks without decodeAudioData.
- *  onPlaybackEnded: called when audio playback actually ends (end-of-speech detection). */
-function createMediaSourcePlayer(onError, onPlaybackEnded) {
-  // iOS 17.1+ يوفر ManagedMediaSource بدل MediaSource؛ الأقدم لا يوفر أياً منهما
+/** MediaSource streaming player — plays MP3 chunks without decodeAudioData. */
+function createStreamingAudioPlayer(audio, handlers) {
+  const { onError, onPlaybackEnded, onBlocked } = handlers;
+  // iOS 17.1+ exposes ManagedMediaSource instead of MediaSource; older iOS has neither.
   const MSE = window.MediaSource || window.ManagedMediaSource;
   if (!MSE || (typeof MSE.isTypeSupported === 'function' && !MSE.isTypeSupported('audio/mpeg') && !MSE.isTypeSupported('audio/mp4'))) {
-    return createBlobAudioPlayer(onError, onPlaybackEnded);
+    return createBlobAudioPlayer(audio, handlers);
   }
   const mediaSource = new MSE();
-  const audio = document.createElement('audio');
-  audio.autoplay = true;
-  audio.setAttribute('playsinline', '');
-  if ('disableRemotePlayback' in audio) audio.disableRemotePlayback = true;
-  document.body.appendChild(audio);
   const url = URL.createObjectURL(mediaSource);
-  audio.src = url;
+  const listeners = [];
+  const on = (target, type, fn) => {
+    target.addEventListener(type, fn);
+    listeners.push([target, type, fn]);
+  };
 
-  audio.addEventListener('ended', () => {
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
     onPlaybackEnded?.();
-    audio.remove();
-    URL.revokeObjectURL(url);
+  };
+
+  on(audio, 'ended', finish);
+  on(audio, 'pause', () => {
+    // An iOS interruption (incoming call, screen lock, app switch) pauses the
+    // element silently; the interview would otherwise continue unheard.
+    if (finished || audio.ended || !audio.src) return;
+    onBlocked?.(new Error('paused'));
   });
 
   const chunkQueue = [];
@@ -125,7 +218,7 @@ function createMediaSourcePlayer(onError, onPlaybackEnded) {
     }
   }
 
-  mediaSource.addEventListener('sourceopen', () => {
+  on(mediaSource, 'sourceopen', () => {
     if (sourceBuffer) return;
     try {
       if (MSE.isTypeSupported('audio/mpeg')) {
@@ -141,7 +234,7 @@ function createMediaSourcePlayer(onError, onPlaybackEnded) {
         isAppending = false;
         if (!hasStartedPlay) {
           hasStartedPlay = true;
-          audio.play().catch(() => {});
+          startPlayback(audio, onBlocked, onError);
         }
         appendNext();
       });
@@ -151,10 +244,7 @@ function createMediaSourcePlayer(onError, onPlaybackEnded) {
     }
   });
 
-  mediaSource.addEventListener('sourceended', () => {
-    // Don't remove audio here — sourceended = transmission ended, playback may still be ongoing.
-    // Removal only in audio.ended (when playback actually ends).
-  });
+  audio.src = url;
 
   return {
     appendChunk(buf) {
@@ -167,16 +257,16 @@ function createMediaSourcePlayer(onError, onPlaybackEnded) {
       tryEndStream();
       appendNext();
     },
-    getAudioElement() {
-      return audio;
-    },
+    retry() { startPlayback(audio, onBlocked, onError); },
+    getAudioElement() { return audio; },
     destroy() {
-      try {
-        mediaSource.endOfStream();
-      } catch (_) {}
-      audio.remove();
-      URL.revokeObjectURL(url);
-    }
+      listeners.forEach(([target, type, fn]) => {
+        try { target.removeEventListener(type, fn); } catch (_) {}
+      });
+      try { if (mediaSource.readyState === 'open') mediaSource.endOfStream(); } catch (_) {}
+      releaseAudioElement(audio);
+      try { URL.revokeObjectURL(url); } catch (_) {}
+    },
   };
 }
 
@@ -216,7 +306,10 @@ export default function useVoiceInterview(options = {}) {
   const [streamingAgentReply, setStreamingAgentReply] = useState('');
   const [apiKeysReady, setApiKeysReady] = useState(null);
   const [userAudioLevel, setUserAudioLevel] = useState(0);
-  const [agentAudioLevel, setAgentAudioLevel] = useState(0);
+  // Kept for API compatibility: the agent waveform animates off serverState.
+  const agentAudioLevel = 0;
+  /** Playback was refused or interrupted — the candidate must tap to resume. */
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
   /** عداد وقت المقابلة: يبدأ من المدة وينزل إلى 00:00 */
   const [interviewTimeLeft, setInterviewTimeLeft] = useState(durationSeconds);
@@ -231,10 +324,14 @@ export default function useVoiceInterview(options = {}) {
   const mediaStreamRef = useRef(null);
   const captureContextRef = useRef(null);
   const analyserRef = useRef(null);
-  const agentAnalyserRef = useRef(null);
   const workletNodeRef = useRef(null);
   const audioSeqRef = useRef(0);
   const mediaSourcePlayerRef = useRef(null);
+  /** Last player created, kept past LISTENING so its listeners can be removed. */
+  const activePlayerRef = useRef(null);
+  /** The one element every agent turn reuses, plus its unlock artefacts. */
+  const agentAudioElRef = useRef(null);
+  const silentUnlockUrlRef = useRef(null);
   const audioChunkBufferRef = useRef([]);
   const lastChunkTimeRef = useRef(0);
   const playbackEndedSentRef = useRef(false);
@@ -245,13 +342,85 @@ export default function useVoiceInterview(options = {}) {
   const paramsRef = useRef({ candidateId, language, mode, position, campaignId, applicationId });
   paramsRef.current = { candidateId, language, mode, position, campaignId, applicationId };
 
+  const ensureAgentAudioElement = () => {
+    if (!agentAudioElRef.current?.isConnected) {
+      agentAudioElRef.current = createAgentAudioElement();
+    }
+    return agentAudioElRef.current;
+  };
+
+  /**
+   * Must run synchronously inside a real user gesture. Playing a moment of
+   * silence there is what buys the element permission to speak for the rest of
+   * the interview on iOS.
+   */
+  const unlockAgentAudio = () => {
+    const audio = ensureAgentAudioElement();
+    if (silentUnlockUrlRef.current) {
+      try { URL.revokeObjectURL(silentUnlockUrlRef.current); } catch (_) {}
+    }
+    silentUnlockUrlRef.current = createSilentWavUrl();
+    audio.src = silentUnlockUrlRef.current;
+    // A failed silent clip is only worth reporting when the browser refused it;
+    // the greeting replacing the src mid-clip is normal and must stay quiet.
+    startPlayback(audio, () => setAudioBlocked(true), () => {});
+  };
+
+  /** Retry from a user tap after playback was refused or interrupted. */
+  const resumeAudio = () => {
+    const audio = agentAudioElRef.current;
+    if (!audio) return;
+    setAudioBlocked(false);
+    const player = mediaSourcePlayerRef.current;
+    if (player?.retry) {
+      player.retry();
+    } else if (audio.src) {
+      startPlayback(audio, () => setAudioBlocked(true), () => setAudioBlocked(true));
+    } else {
+      // Between turns there is nothing to replay, but the tap still re-grants
+      // the element permission so the next agent turn is audible.
+      unlockAgentAudio();
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
+      if (activePlayerRef.current) {
+        try { activePlayerRef.current.destroy(); } catch (_) {}
+        activePlayerRef.current = null;
+      }
+      mediaSourcePlayerRef.current = null;
+      if (agentAudioElRef.current) {
+        try { agentAudioElRef.current.remove(); } catch (_) {}
+        agentAudioElRef.current = null;
+      }
+      if (silentUnlockUrlRef.current) {
+        try { URL.revokeObjectURL(silentUnlockUrlRef.current); } catch (_) {}
+        silentUnlockUrlRef.current = null;
+      }
     };
+  }, []);
+
+  // iOS silently pauses media on interruptions (call, screen lock, app switch)
+  // and never resumes it, so recover as soon as the page is in front again.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const audio = agentAudioElRef.current;
+      if (!audio || !audio.src || audio.ended) return;
+      if (serverStateRef.current !== 'SPEAKING') return;
+      startPlayback(
+        audio,
+        () => setAudioBlocked(true),
+        () => setAudioBlocked(true),
+      );
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
   // عداد وقت المقابلة: يبدأ عند الاتصال وينزل كل ثانية
@@ -420,25 +589,10 @@ export default function useVoiceInterview(options = {}) {
     return () => cancelAnimationFrame(rafId);
   }, [isListening]);
 
-  // تحديث مستوى صوت الإيجنت من AnalyserNode
-  useEffect(() => {
-    if (serverState !== 'SPEAKING' || !agentAnalyserRef.current?.analyser) return;
-    const dataArray = new Uint8Array(agentAnalyserRef.current.analyser.frequencyBinCount);
-    let rafId;
-    const update = () => {
-      const a = agentAnalyserRef.current?.analyser;
-      if (!a) return;
-      a.getByteFrequencyData(dataArray);
-      const avg = dataArray.reduce((x, y) => x + y, 0) / dataArray.length;
-      setAgentAudioLevel(Math.min(1, avg / 80));
-      rafId = requestAnimationFrame(update);
-    };
-    rafId = requestAnimationFrame(update);
-    return () => {
-      cancelAnimationFrame(rafId);
-      setAgentAudioLevel(0);
-    };
-  }, [serverState]);
+  // NOTE: the agent waveform animates off `serverState === 'SPEAKING'` and
+  // ignores its `level` prop, so there is no AnalyserNode for the agent here on
+  // purpose: routing the element through Web Audio only to measure an unused
+  // level is what muted mobile playback whenever the context was suspended.
 
   // مزامنة ترانسكريبت الإيجنت مع التشغيل (كلمة عند نطقها)
   useEffect(() => {
@@ -470,10 +624,26 @@ export default function useVoiceInterview(options = {}) {
     if (serverState !== 'LISTENING') setStreamingTranscript('');
   }, [serverState]);
 
+  const notifyPlaybackEnded = () => {
+    if (playbackEndedSentRef.current) return;
+    playbackEndedSentRef.current = true;
+    if (playbackEndedFallbackRef.current) {
+      clearTimeout(playbackEndedFallbackRef.current);
+      playbackEndedFallbackRef.current = null;
+    }
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'playback_ended' }));
+    }
+  };
+
   const connect = () => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    // First statement on purpose: this runs inside the Start tap, the only
+    // moment iOS will hand out playback permission for the session.
+    unlockAgentAudio();
     setConnectionStatus('connecting');
     setLastError(null);
+    setAudioBlocked(false);
     const { candidateId: cid, language: lang, mode: m, position: pos, campaignId: camp, applicationId: appId } =
       paramsRef.current;
     const params = new URLSearchParams();
@@ -527,18 +697,7 @@ export default function useVoiceInterview(options = {}) {
             clearTimeout(playbackEndedFallbackRef.current);
             playbackEndedFallbackRef.current = null;
           }
-          const sendPlaybackEnded = () => {
-            if (playbackEndedSentRef.current) return;
-            playbackEndedSentRef.current = true;
-            if (playbackEndedFallbackRef.current) {
-              clearTimeout(playbackEndedFallbackRef.current);
-              playbackEndedFallbackRef.current = null;
-            }
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-              wsRef.current.send(JSON.stringify({ type: 'playback_ended' }));
-            }
-          };
-          playbackEndedFallbackRef.current = setTimeout(sendPlaybackEnded, 12000);
+          playbackEndedFallbackRef.current = setTimeout(notifyPlaybackEnded, 12000);
           if (mediaSourcePlayerRef.current) {
             const SILENCE_MS = 250;
             const check = () => {
@@ -552,14 +711,18 @@ export default function useVoiceInterview(options = {}) {
           } else if (audioChunkBufferRef.current.length > 0) {
             const chunks = audioChunkBufferRef.current;
             audioChunkBufferRef.current = [];
-            const blob = new Blob(chunks, { type: 'audio/mpeg' });
-            const url = URL.createObjectURL(blob);
-            const fallbackAudio = new Audio(url);
-            fallbackAudio.onended = () => {
+            const audioEl = ensureAgentAudioElement();
+            const url = URL.createObjectURL(new Blob(chunks, { type: 'audio/mpeg' }));
+            audioEl.src = url;
+            audioEl.onended = () => {
               URL.revokeObjectURL(url);
-              sendPlaybackEnded();
+              notifyPlaybackEnded();
             };
-            fallbackAudio.play().catch(() => {});
+            startPlayback(
+              audioEl,
+              () => setAudioBlocked(true),
+              (err) => setLastError(err || 'Audio playback error'),
+            );
           }
         }
         if (msg.type === 'error') {
@@ -585,51 +748,22 @@ export default function useVoiceInterview(options = {}) {
           lastChunkTimeRef.current = Date.now();
           const buf = new Uint8Array(base64ToArrayBuffer(msg.chunkBase64));
           if (!mediaSourcePlayerRef.current) {
-            const player = createMediaSourcePlayer(
-              (err) => {
-                setLastError(err || 'Audio playback error');
-                mediaSourcePlayerRef.current = null;
-              },
-              () => {
-                if (playbackEndedSentRef.current) return;
-                playbackEndedSentRef.current = true;
-                if (playbackEndedFallbackRef.current) {
-                  clearTimeout(playbackEndedFallbackRef.current);
-                  playbackEndedFallbackRef.current = null;
-                }
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                  wsRef.current.send(JSON.stringify({ type: 'playback_ended' }));
-                }
-              }
-            );
-            mediaSourcePlayerRef.current = player;
-            if (player?.getAudioElement) {
-              try {
-                const audioEl = player.getAudioElement();
-                const AC = window.AudioContext || window.webkitAudioContext;
-                const agentCtx = new AC();
-                // Mobile browsers start the AudioContext "suspended"; try to wake it.
-                agentCtx.resume?.().catch(() => {});
-                // CRITICAL (mobile audio): createMediaElementSource reroutes the
-                // <audio> element's output INTO the Web Audio graph. If the context
-                // is suspended (mobile autoplay policy), that graph outputs NO sound
-                // → the agent voice is silent (exactly the "ماكو صوت" report). Only
-                // reroute for the visualizer when the context is actually running;
-                // otherwise leave the element playing straight to the speakers.
-                if (agentCtx.state === 'running') {
-                  const agentSrc = agentCtx.createMediaElementSource(audioEl);
-                  const agentAnalyser = agentCtx.createAnalyser();
-                  agentAnalyser.fftSize = 256;
-                  agentAnalyser.smoothingTimeConstant = 0.8;
-                  agentSrc.connect(agentAnalyser);
-                  agentAnalyser.connect(agentCtx.destination);
-                  agentAnalyserRef.current = { ctx: agentCtx, analyser: agentAnalyser };
-                } else {
-                  agentCtx.close?.().catch(() => {});
-                }
-              } catch (_) {}
+            const audioEl = ensureAgentAudioElement();
+            audioEl.onended = null;
+            // The previous turn's listeners still sit on the shared element;
+            // drop them before the new source replaces it.
+            if (activePlayerRef.current) {
+              try { activePlayerRef.current.destroy(); } catch (_) {}
+              activePlayerRef.current = null;
             }
-            if (player && audioChunkBufferRef.current.length > 0) {
+            const player = createStreamingAudioPlayer(audioEl, {
+              onError: (err) => setLastError(err || 'Audio playback error'),
+              onPlaybackEnded: notifyPlaybackEnded,
+              onBlocked: () => setAudioBlocked(true),
+            });
+            mediaSourcePlayerRef.current = player;
+            activePlayerRef.current = player;
+            if (audioChunkBufferRef.current.length > 0) {
               audioChunkBufferRef.current.forEach((b) => player.appendChunk(b));
               audioChunkBufferRef.current = [];
             }
@@ -672,11 +806,13 @@ export default function useVoiceInterview(options = {}) {
       wsRef.current.close();
       wsRef.current = null;
     }
-    if (mediaSourcePlayerRef.current) {
-      mediaSourcePlayerRef.current.destroy();
-      mediaSourcePlayerRef.current = null;
+    if (activePlayerRef.current) {
+      try { activePlayerRef.current.destroy(); } catch (_) {}
+      activePlayerRef.current = null;
     }
+    mediaSourcePlayerRef.current = null;
     audioChunkBufferRef.current = [];
+    setAudioBlocked(false);
     setConnectionStatus('idle');
     setServerState(null);
     setSessionId(null);
@@ -707,6 +843,8 @@ export default function useVoiceInterview(options = {}) {
     userAudioLevel,
     agentAudioLevel,
     interviewTimeLeft,
+    audioBlocked,
+    resumeAudio,
     connect,
     disconnect,
   };
