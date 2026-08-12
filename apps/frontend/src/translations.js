@@ -626,6 +626,8 @@ export const translations = {
         aiHeadHunterYearsLabel: "Years of experience",
         aiHeadHunterAgeLabel: "Age",
         aiHeadHunterOptional: "(optional)",
+        aiHeadHunterArabicInputWarning:
+            "You entered Arabic text. Most professional profiles are written in English, so searching in English gives more accurate results.",
         aiHeadHunterPositionPh: "e.g. HR Generalist",
         aiHeadHunterLocationPh: "e.g. Baghdad, Iraq",
         aiHeadHunterYearsPh: "e.g. 3–5 years",
@@ -2120,6 +2122,8 @@ export const translations = {
         aiHeadHunterYearsLabel: "سنوات الخبرة",
         aiHeadHunterAgeLabel: "العمر",
         aiHeadHunterOptional: "(اختياري)",
+        aiHeadHunterArabicInputWarning:
+            "أدخلت نصاً بالعربية. معظم الملفات المهنية مكتوبة بالإنجليزية، لذا البحث بالإنجليزية يعطي نتائج أدق.",
         aiHeadHunterPositionPh: "مثال: أخصائي موارد بشرية",
         aiHeadHunterLocationPh: "مثال: بغداد، العراق",
         aiHeadHunterYearsPh: "مثال: 3–5 سنوات",
@@ -3607,6 +3611,8 @@ export const translations = {
         aiHeadHunterYearsLabel: "ساڵانی ئەزموون",
         aiHeadHunterAgeLabel: "تەمەن",
         aiHeadHunterOptional: "( ئارەزوومەندانە )",
+        aiHeadHunterArabicInputWarning:
+            "دەقێکی عەرەبیت نووسیوە. زۆربەی پرۆفایلە پیشەییەکان بە ئینگلیزی نووسراون، بۆیە گەڕان بە ئینگلیزی ئەنجامی وردتر دەداتەوە.",
         aiHeadHunterPositionPh: "نموونە: ڕاوێژکاری کارمەندی مرۆیی",
         aiHeadHunterLocationPh: "نموونە: بەغدا، عێراق",
         aiHeadHunterYearsPh: "نموونە: 3–5 ساڵ",

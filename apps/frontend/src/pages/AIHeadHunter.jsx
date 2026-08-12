@@ -14,6 +14,7 @@ import HeadHunterResultsWorkspace from '../components/headhunter/HeadHunterResul
 import JobRoleFields from '../components/JobRoleFields.jsx';
 import { mergeRoleResolution, roleResolutionCriteriaFields } from '../utils/jobCatalogRole.js';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
+import { isArabicText } from '../utils/textScript.js';
 import {
     OPTIONAL_FILTER_FIELDS,
     buildOptionalFiltersPayload,
@@ -149,6 +150,20 @@ export default function AIHeadHunter() {
             })),
         []
     );
+
+    /**
+     * Sourcing runs against LinkedIn profiles, which are overwhelmingly written in
+     * English — Arabic free text narrows the match pool. Picking from the suggestion
+     * lists stores the English value, so only hand-typed Arabic trips this.
+     */
+    const hasArabicSearchInput = useMemo(() => {
+        const typed = [position, location, query];
+        for (const { key } of OPTIONAL_FILTER_FIELDS) {
+            const row = optionalFilters[key];
+            if (row?.enabled) typed.push(row.value);
+        }
+        return typed.some(isArabicText);
+    }, [position, location, query, optionalFilters]);
 
     const optionalFilterSuggestionOptions = useMemo(
         () => buildOptionalFilterSuggestionOptions(t, currentLang),
@@ -754,6 +769,33 @@ export default function AIHeadHunter() {
                                             ))}
                                         </div>
                                     </div>
+
+                                    {hasArabicSearchInput ? (
+                                        <p
+                                            role="status"
+                                            aria-live="polite"
+                                            className="head-hunter-feedback head-hunter-feedback--warn"
+                                        >
+                                            <svg
+                                                className="head-hunter-feedback__icon"
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                aria-hidden="true"
+                                            >
+                                                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+                                                <path
+                                                    d="M12 8v5"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                />
+                                                <circle cx="12" cy="16.25" r="1.15" fill="currentColor" />
+                                            </svg>
+                                            <span>{t('aiHeadHunterArabicInputWarning')}</span>
+                                        </p>
+                                    ) : null}
 
                                     {feedback.text ? (
                                         <p
