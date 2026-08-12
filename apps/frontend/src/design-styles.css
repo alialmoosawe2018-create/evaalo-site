@@ -8762,10 +8762,12 @@ html[data-app-theme='light'] .account-system-alert {
     padding-inline: 16px;
 }
 
+/* البطاقة عنصر شبكة ممدَّد، و flex: 1 1 auto يملأ ارتفاعها. السقف حدّ أعلى فقط
+   يمنع قائمة طويلة من تكبير صف الشبكة وإلغاء التمرير الداخلي. */
 .recent-interviews-card .dashboard-card-body.recent-interviews-scroll {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: 600px;
+    max-height: 900px;
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: none;
@@ -8794,6 +8796,12 @@ html[data-app-theme='light'] .account-system-alert {
 
 .recent-interviews-card .recent-interviews-scroll::-webkit-scrollbar-thumb:hover {
     background: rgba(6, 182, 212, 0.8);
+}
+
+/* يُضاف الصنف من JS فقط حين يتبقّى محتوى أسفل منطقة الرؤية */
+.recent-interviews-card .recent-interviews-scroll--more {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent 100%);
 }
 
 .recent-interviews-card .interview-item {

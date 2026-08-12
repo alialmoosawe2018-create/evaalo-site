@@ -125,6 +125,7 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
     const [analysisReleaseAt, setAnalysisReleaseAt] = useState(null);
     const clearedAtRef = useRef(null);
     const scrollRef = useRef(null);
+    const [hasMoreBelow, setHasMoreBelow] = useState(false);
 
     const clampRecentInterviewsScrollWheel = useCallback((e) => {
         const el = scrollRef.current;
@@ -145,6 +146,23 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
         el.addEventListener('wheel', clampRecentInterviewsScrollWheel, { passive: false });
         return () => el.removeEventListener('wheel', clampRecentInterviewsScrollWheel);
     }, [clampRecentInterviewsScrollWheel]);
+
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return undefined;
+        const update = () => {
+            setHasMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+        };
+        update();
+        el.addEventListener('scroll', update, { passive: true });
+        const observer =
+            typeof ResizeObserver === 'function' ? new ResizeObserver(update) : null;
+        observer?.observe(el);
+        return () => {
+            el.removeEventListener('scroll', update);
+            observer?.disconnect();
+        };
+    }, [recentInterviews, loadingInterviews]);
 
     const mockRecentInterviews = useMemo(() => buildMockRecentInterviews(t), [t]);
     const mockRecentInterviewsRef = useRef(mockRecentInterviews);
@@ -423,7 +441,9 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
             ) : null}
             <div
                 ref={scrollRef}
-                className="dashboard-card-body recent-interviews-scroll"
+                className={`dashboard-card-body recent-interviews-scroll${
+                    hasMoreBelow ? ' recent-interviews-scroll--more' : ''
+                }`}
             >
                 {loadingInterviews ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
