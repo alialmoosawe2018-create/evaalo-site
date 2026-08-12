@@ -51,6 +51,13 @@ export function getVoiceResponseTiming(): {
   playbackFallbackMs: number;
   /** بعد انتهاء التشغيل قبل استئناف الاستماع */
   postPlaybackResumeMs: number;
+  /**
+   * نافذة إسقاط أي transcript يصل مباشرة بعد فتح الاستماع.
+   * الحماية الأساسية من تسرّب الدور السابق هي إغلاق اتصال STT وإعادة فتحه أثناء كلام
+   * الإيجنت (sttPurgeToken)؛ هذه النافذة طبقة ثانية فقط، لذلك تبقى قصيرة كي لا تبتلع
+   * أول كلمة يقولها الزائر.
+   */
+  lateTranscriptIgnoreMs: number;
 } {
   const n = (v: string | undefined, def: number, min: number) => {
     const x = Number(v);
@@ -72,5 +79,6 @@ export function getVoiceResponseTiming(): {
     playbackEndedTimeoutMs: n(process.env.VOICE_PLAYBACK_ENDED_TIMEOUT_MS, 30000, 5000),
     playbackFallbackMs: n(process.env.VOICE_PLAYBACK_FALLBACK_MS, 15000, 3000),
     postPlaybackResumeMs: n(process.env.VOICE_POST_PLAYBACK_RESUME_MS, 600, 0),
+    lateTranscriptIgnoreMs: n(process.env.VOICE_LATE_TRANSCRIPT_IGNORE_MS, 300, 0),
   };
 }

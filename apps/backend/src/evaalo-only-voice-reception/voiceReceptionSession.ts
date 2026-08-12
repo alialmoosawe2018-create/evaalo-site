@@ -138,7 +138,9 @@ export function handleVoiceReceptionWsConnection(ws: WebSocket, req: IncomingMes
 
     let voiceState: 'IDLE' | 'LISTENING' | 'SPEAKING' = 'IDLE';
     let lastListeningStartedAt = 0;
-    const LATE_TRANSCRIPT_IGNORE_MS = 800;
+    const LATE_TRANSCRIPT_IGNORE_MS = voiceTiming.lateTranscriptIgnoreMs;
+    /** يُقاس مرة واحدة لكل نافذة استماع: الفجوة بين فتح الميك وأول كلمة تُلتقط */
+    let firstTranscriptLogged = false;
     let sttTokenAtCurrentListen = 0;
     let initialGreetingSent = false;
     let quotaConsumed = false;
@@ -155,6 +157,7 @@ export function handleVoiceReceptionWsConnection(ws: WebSocket, req: IncomingMes
             if (buffer?.timeout) clearTimeout(buffer.timeout);
             speechBuffers.delete(sessionId);
             sttTokenAtCurrentListen = bumpSttPurgeToken(sessionId);
+            firstTranscriptLogged = false;
         }
         createSTTRouterConnection(
             sessionId,
@@ -168,6 +171,12 @@ export function handleVoiceReceptionWsConnection(ws: WebSocket, req: IncomingMes
                     return;
                 const t = text.trim();
                 if (t) {
+                    if (!firstTranscriptLogged && lastListeningStartedAt > 0) {
+                        firstTranscriptLogged = true;
+                        console.log(
+                            `[RECEPTION LISTEN LATENCY] ${sessionId.substring(0, 8)}... first transcript ${Date.now() - lastListeningStartedAt}ms after LISTENING`
+                        );
+                    }
                     handleTranscript(t, isFinal, confidence);
                     const buffer = speechBuffers.get(sessionId);
                     let displayText =
