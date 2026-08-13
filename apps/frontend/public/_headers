@@ -12,6 +12,14 @@
   Permissions-Policy: camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=()
   Cross-Origin-Opener-Policy: same-origin-allow-popups
 
-# Vite emits content-hashed filenames here, so these are safe to cache forever.
+# Vite emits content-hashed filenames here, so these are safe to cache for a year.
+#
+# Deliberately without `immutable`: a request for an asset that is missing during a
+# deploy is answered with index.html at status 200, and this rule stamps that HTML
+# with a year of caching under the asset's URL. `immutable` additionally forbids
+# revalidating even on a forced reload, which turns a few seconds of bad timing into
+# a permanently broken page for every client behind that cache. Without it, a
+# forced reload heals it, and normal navigation still never refetches, because
+# max-age alone keeps the asset fresh and Pages answers revalidation with a 304.
 /assets/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=31536000
