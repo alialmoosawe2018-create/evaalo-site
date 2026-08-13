@@ -15541,14 +15541,35 @@ html[data-app-theme='light'] .screening-ai-compare-card__name {
 
 html[data-app-theme='light'] .screening-ai-compare-card__email,
 html[data-app-theme='light'] .screening-ai-compare-card__conf-rationale,
+html[data-app-theme='light'] .screening-ai-compare-card__metric-label,
 html[data-app-theme='light'] .screening-ai-compare-card__section p {
     color: var(--app-text-secondary) !important;
 }
 
 html[data-app-theme='light'] .screening-ai-compare-card__comment,
+html[data-app-theme='light'] .screening-ai-compare-card__rec-line,
+html[data-app-theme='light'] .screening-ai-compare-card__metric-value,
 html[data-app-theme='light'] .screening-ai-compare-card__section h5,
 html[data-app-theme='light'] .screening-ai-compare-card__list {
     color: var(--app-text) !important;
+}
+
+html[data-app-theme='light']
+    .screening-ai-compare-card__metric--conf
+    .screening-ai-compare-card__metric-value {
+    color: #0284c7 !important;
+}
+
+html[data-app-theme='light'] .screening-ai-compare-card__conf-bar {
+    background: rgba(2, 132, 199, 0.16) !important;
+}
+
+html[data-app-theme='light'] .screening-ai-compare-card__conf-bar > span {
+    background: #0284c7 !important;
+}
+
+html[data-app-theme='light'] .screening-ai-compare-card__conf-rationale {
+    border-inline-start-color: rgba(2, 132, 199, 0.3) !important;
 }
 
 html[data-app-theme='light'] .screening-ai-compare-card__rank {
@@ -15898,11 +15919,78 @@ html[data-app-theme='light'] .screening-ai-compare-card__rank {
     word-break: break-all;
 }
 
-.screening-ai-compare-card__badges {
+.screening-ai-compare-card__identity > .screening-ai-compare-badge {
+    margin-top: 6px;
+}
+
+/**
+ * Score and confidence read as one aligned pair, apart from the recommendation.
+ * They used to be pills in a row that also carried a paragraph, which centred the
+ * score against the middle of that text and made confidence look like it was
+ * floating. Prose now lives in its own full-width rows below.
+ */
+.screening-ai-compare-card__metrics {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
+    align-items: flex-start;
+    gap: 18px;
+    margin-inline-start: auto;
+    flex-shrink: 0;
+}
+
+.screening-ai-compare-card__metric {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    min-width: 54px;
+}
+
+.screening-ai-compare-card__metric-value {
+    color: #f8fafc;
+    font-weight: 800;
+    font-size: 20px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.screening-ai-compare-card__metric-label {
+    color: #94a3b8;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.screening-ai-compare-card__metric--conf .screening-ai-compare-card__metric-value {
+    color: #7dd3fc;
+    font-size: 17px;
+}
+
+/** A bar makes the percentage legible at a glance without competing with the score. */
+.screening-ai-compare-card__conf-bar {
+    display: block;
+    width: 100%;
+    height: 3px;
+    margin-top: 3px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.25);
+    overflow: hidden;
+}
+
+.screening-ai-compare-card__conf-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: #38bdf8;
+}
+
+/* Own row, full width: a sentence never sits inside the badge line again. */
+.screening-ai-compare-card__rec-line {
+    flex: 0 0 100%;
+    margin: 2px 0 0;
+    color: #cbd5e1;
+    font-size: 13px;
+    line-height: 1.55;
 }
 
 .screening-ai-compare-badge {
@@ -15940,29 +16028,14 @@ html[data-app-theme='light'] .screening-ai-compare-card__rank {
     color: #cbd5e1;
 }
 
-.screening-ai-compare-badge--conf {
-    background: rgba(56, 189, 248, 0.12);
-    border-color: rgba(56, 189, 248, 0.3);
-    color: #7dd3fc;
-}
-
-.screening-ai-compare-badge--score {
-    background: rgba(52, 211, 153, 0.12);
-    border-color: rgba(52, 211, 153, 0.3);
-    color: #6ee7b7;
-}
-
-.screening-ai-compare-card__conf {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
 .screening-ai-compare-card__conf-rationale {
+    flex: 0 0 100%;
+    margin: 0;
+    padding-inline-start: 10px;
+    border-inline-start: 2px solid rgba(56, 189, 248, 0.35);
     color: #94a3b8;
-    font-size: 11px;
-    line-height: 1.45;
-    max-width: 220px;
+    font-size: 12px;
+    line-height: 1.55;
 }
 
 .screening-ai-compare-card__comment {

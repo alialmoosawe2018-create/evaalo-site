@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { scriptTextProps } from '../../utils/textScript.js';
 
 /**
  * لوحة عرض نتيجة "مقارنة أفضل المرشحين" داخل صفحة المرحلة 1.
@@ -37,6 +38,34 @@ function recommendationTone(recommendation) {
     if (recommendation === 'Reject') return 'negative';
     if (recommendation === 'Consider') return 'neutral';
     return 'default';
+}
+
+/**
+ * A pill holds a word, not a sentence.
+ *
+ * The badge used to render `overallRecommendation`, which the model writes as a
+ * full sentence, so it grew to half the card and pushed the metrics out of line.
+ * The enum is the one part that belongs in a pill, and the app already localizes
+ * it under these keys elsewhere.
+ */
+function recommendationBadgeLabel(recommendation, t) {
+    if (recommendation === 'Hire') return t('stageEval_recHire');
+    if (recommendation === 'Consider') return t('stageEval_recConsider');
+    if (recommendation === 'Reject') return t('stageEval_recReject');
+    return (recommendation || '').trim();
+}
+
+/**
+ * The sentence usually opens with the same enum word the badge now shows. Drop
+ * that opening — and only an exact match of it — so the two don't read as a
+ * stutter; anything else the model wrote is left verbatim.
+ */
+function recommendationSentence(overallRecommendation, recommendation) {
+    const text = (overallRecommendation || '').trim();
+    const token = (recommendation || '').trim();
+    if (!text || !token) return text;
+    if (!text.toLowerCase().startsWith(token.toLowerCase())) return text;
+    return text.slice(token.length).replace(/^[\s:—–-]+/, '').trim();
 }
 
 export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
@@ -172,12 +201,18 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
                                 const risks = toList(row.risks ?? row.weaknesses);
                                 const rank = row.rank ?? i + 1;
                                 const isLast = i === ranking.length - 1;
-                                const recommendationLabel = (
-                                    row.overallRecommendation || row.recommendation || ''
-                                ).trim();
+                                const badgeLabel = recommendationBadgeLabel(row.recommendation, t);
+                                const recLine = recommendationSentence(
+                                    row.overallRecommendation,
+                                    row.recommendation
+                                );
                                 const executiveComment = (row.executiveComment || '').trim();
                                 const hasConfidence =
                                     row.confidence != null && Number.isFinite(Number(row.confidence));
+                                const confidencePct = hasConfidence
+                                    ? Math.max(0, Math.min(100, Math.round(Number(row.confidence))))
+                                    : null;
+                                const confidenceRationale = (row.confidence_rationale || '').trim();
                                 // نصّ حرّ قديم كبديل عند غياب الحقول الغنية
                                 const fallbackReason = (row.reason || '').trim();
 
@@ -189,7 +224,12 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
                                         <header className="screening-ai-compare-card__head">
                                             <span className="screening-ai-compare-card__rank">{rank}</span>
                                             <div className="screening-ai-compare-card__identity">
-                                                <div className="screening-ai-compare-card__name">
+                                                <div
+                                                    {...scriptTextProps(
+                                                        row.candidateName,
+                                                        'screening-ai-compare-card__name'
+                                                    )}
+                                                >
                                                     {row.candidateName || '—'}
                                                 </div>
                                                 {row.candidateEmail ? (
@@ -197,35 +237,65 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
                                                         {row.candidateEmail}
                                                     </div>
                                                 ) : null}
-                                            </div>
-                                            <div className="screening-ai-compare-card__badges">
-                                                {recommendationLabel ? (
+                                                {badgeLabel ? (
                                                     <span
                                                         className={`screening-ai-compare-badge screening-ai-compare-badge--rec screening-ai-compare-badge--rec-${recommendationTone(
                                                             row.recommendation
                                                         )}`}
                                                     >
-                                                        {recommendationLabel}
-                                                    </span>
-                                                ) : null}
-                                                {hasConfidence ? (
-                                                    <div className="screening-ai-compare-card__conf">
-                                                        <span className="screening-ai-compare-badge screening-ai-compare-badge--conf">
-                                                            {t('aiCompareTop_confidence')}: {Math.round(Number(row.confidence))}%
-                                                        </span>
-                                                        {(row.confidence_rationale || '').trim() ? (
-                                                            <span className="screening-ai-compare-card__conf-rationale">
-                                                                {row.confidence_rationale}
-                                                            </span>
-                                                        ) : null}
-                                                    </div>
-                                                ) : null}
-                                                {row.score != null ? (
-                                                    <span className="screening-ai-compare-badge screening-ai-compare-badge--score">
-                                                        {t('aiCompareTop_colScore')}: {row.score}
+                                                        {badgeLabel}
                                                     </span>
                                                 ) : null}
                                             </div>
+                                            {/* Score and confidence share one baseline so neither reads as the other. */}
+                                            <div className="screening-ai-compare-card__metrics">
+                                                {row.score != null ? (
+                                                    <div className="screening-ai-compare-card__metric">
+                                                        <span className="screening-ai-compare-card__metric-value">
+                                                            {row.score}
+                                                        </span>
+                                                        <span className="screening-ai-compare-card__metric-label">
+                                                            {t('aiCompareTop_colScore')}
+                                                        </span>
+                                                    </div>
+                                                ) : null}
+                                                {confidencePct != null ? (
+                                                    <div className="screening-ai-compare-card__metric screening-ai-compare-card__metric--conf">
+                                                        <span className="screening-ai-compare-card__metric-value">
+                                                            {confidencePct}%
+                                                        </span>
+                                                        <span className="screening-ai-compare-card__metric-label">
+                                                            {t('aiCompareTop_confidence')}
+                                                        </span>
+                                                        <span
+                                                            className="screening-ai-compare-card__conf-bar"
+                                                            aria-hidden="true"
+                                                        >
+                                                            <span style={{ width: `${confidencePct}%` }} />
+                                                        </span>
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                            {recLine ? (
+                                                <p
+                                                    {...scriptTextProps(
+                                                        recLine,
+                                                        'screening-ai-compare-card__rec-line'
+                                                    )}
+                                                >
+                                                    {recLine}
+                                                </p>
+                                            ) : null}
+                                            {confidencePct != null && confidenceRationale ? (
+                                                <p
+                                                    {...scriptTextProps(
+                                                        confidenceRationale,
+                                                        'screening-ai-compare-card__conf-rationale'
+                                                    )}
+                                                >
+                                                    {confidenceRationale}
+                                                </p>
+                                            ) : null}
                                         </header>
 
                                         {executiveComment ? (
