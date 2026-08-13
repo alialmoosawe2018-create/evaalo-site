@@ -16,7 +16,10 @@ export default function HeadHunterCampaignPage() {
     const hh = useHeadHunterPersistence();
     const { getById } = useHeadHunterSearchHistory();
 
-    const campaign = id ? getById(id) : null;
+    // `getById` reads + JSON.parses the whole campaign history from localStorage,
+    // so it must not run on every render: an unstable `campaign.payload` also
+    // re-triggers candidate normalization and defeats memoization down the tree.
+    const campaign = useMemo(() => (id ? getById(id) : null), [getById, id]);
 
     const receivedAtFormatted = useMemo(() => {
         const raw = campaign?.receivedAt;
@@ -51,6 +54,28 @@ export default function HeadHunterCampaignPage() {
         [campaign?.payload, campaign?.receivedAt],
     );
 
+    const searchContext = useMemo(
+        () => ({
+            position: campaign?.position,
+            location: campaign?.location,
+            yearsExperience: campaign?.yearsExperience,
+            ageRange: campaign?.ageRange,
+            query: campaign?.query,
+        }),
+        [
+            campaign?.position,
+            campaign?.location,
+            campaign?.yearsExperience,
+            campaign?.ageRange,
+            campaign?.query,
+        ],
+    );
+
+    const nCandidates = useMemo(
+        () => (campaign?.payload ? normalizeHeadHunterPayload(campaign.payload).candidates.length : 0),
+        [campaign?.payload],
+    );
+
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [id]);
@@ -83,8 +108,6 @@ export default function HeadHunterCampaignPage() {
             </div>
         );
     }
-
-    const nCandidates = normalizeHeadHunterPayload(campaign.payload).candidates.length;
 
     return (
         <div
@@ -148,13 +171,7 @@ export default function HeadHunterCampaignPage() {
                                             hh={hh}
                                             n8nInbound={n8nInbound}
                                             campaignPosition={campaign?.position}
-                                            searchContext={{
-                                                position: campaign?.position,
-                                                location: campaign?.location,
-                                                yearsExperience: campaign?.yearsExperience,
-                                                ageRange: campaign?.ageRange,
-                                                query: campaign?.query,
-                                            }}
+                                            searchContext={searchContext}
                                             t={t}
                                         />
                                     </div>

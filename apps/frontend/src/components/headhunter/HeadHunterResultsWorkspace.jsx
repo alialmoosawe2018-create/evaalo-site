@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { normalizeHeadHunterPayload } from '../../utils/headHunterNormalize.js';
 import { candidateRevealKey, isContactFullyRevealed, mergeRevealRecord } from '../../utils/headHunterContactReveal.js';
@@ -97,7 +97,10 @@ export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, campaign
         };
     }, [selectedId]);
 
-    const visibleList = sortedFiltered.slice(0, visibleCount);
+    const visibleList = useMemo(
+        () => sortedFiltered.slice(0, visibleCount),
+        [sortedFiltered, visibleCount],
+    );
     const selectedCandidate =
         sortedFiltered.find((c) => c.id === selectedId) ??
         normalized.candidates.find((c) => c.id === selectedId) ??
@@ -148,10 +151,23 @@ export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, campaign
         };
     }, [visibleKeysSig]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Read through refs so the handler identity survives reveal-state updates —
+    // otherwise every revealed contact re-renders the whole card list.
+    const revealedFieldStateRef = useRef(revealedFieldState);
+    revealedFieldStateRef.current = revealedFieldState;
+    const revealPendingKeyRef = useRef(revealPendingKey);
+    revealPendingKeyRef.current = revealPendingKey;
+
     const handleRevealContact = useCallback(
         async (candidate) => {
             const key = candidateRevealKey(candidate);
-            if (!key || isContactFullyRevealed(candidate, revealedFieldState) || revealPendingKey) return;
+            if (
+                !key ||
+                isContactFullyRevealed(candidate, revealedFieldStateRef.current) ||
+                revealPendingKeyRef.current
+            ) {
+                return;
+            }
             setRevealPendingKey(key);
             setRevealErrorKey(null);
             try {
@@ -189,7 +205,7 @@ export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, campaign
                 setRevealPendingKey(null);
             }
         },
-        [revealedFieldState, revealPendingKey, applyLocalBalance, refetchBilling, t],
+        [applyLocalBalance, refetchBilling, t],
     );
 
     return (

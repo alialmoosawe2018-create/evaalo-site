@@ -333,6 +333,11 @@ export default function AIHeadHunter() {
 
     const submitBusy = loading || awaitingPollResult;
 
+    const searchContext = useMemo(
+        () => ({ position, location, yearsExperience, ageRange, query }),
+        [position, location, yearsExperience, ageRange, query],
+    );
+
     useEffect(() => {
         if (!searchId || !awaitingPollResult) return;
         requestAnimationFrame(() => {
@@ -905,13 +910,7 @@ export default function AIHeadHunter() {
                                         <HeadHunterResultsWorkspace
                                             hh={hh}
                                             n8nInbound={n8nInbound}
-                                            searchContext={{
-                                                position,
-                                                location,
-                                                yearsExperience,
-                                                ageRange,
-                                                query,
-                                            }}
+                                            searchContext={searchContext}
                                             t={t}
                                         />
                                     </div>

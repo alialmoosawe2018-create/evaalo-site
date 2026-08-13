@@ -11962,6 +11962,12 @@ html[data-app-theme='light'] .headhunter-campaign-snapshot-meta__value--accent {
     transition:
         border-color 0.15s ease,
         box-shadow 0.15s ease;
+    /* Result lists reach ~65 cards, each one paint-heavy: skip layout/paint for
+       cards far from the viewport instead of virtualizing. `auto` in
+       contain-intrinsic-size keeps each card's last measured height, so scrolling
+       does not jump once a card is skipped again. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 208px;
 }
 
 .ai-head-hunter-page .headhunter-card--selected {

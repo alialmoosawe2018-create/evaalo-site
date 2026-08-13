@@ -5,6 +5,7 @@ import { countRevealPieces } from '../../utils/headHunterContactReveal.js';
 import HeadHunterCandidateMainBrief from './HeadHunterCandidateMainBrief.jsx';
 import HeadHunterContactGate, { RevealContactLockIcon } from './HeadHunterContactGate.jsx';
 import HeadHunterCardVideoInvite from './HeadHunterCardVideoInvite.jsx';
+import { useFontsSettled } from '../../hooks/useFontsSettled.js';
 
 /**
  * @typedef {import('../../utils/headHunterNormalize.js').HeadHunterCandidate} HeadHunterCandidate
@@ -33,7 +34,7 @@ function cardAboutText(c) {
  * @param {object} [props.searchContext]
  * @param {(key: string) => string} props.t
  */
-export default function HeadHunterCandidateCard({
+function HeadHunterCandidateCard({
     candidate,
     selected,
     onSelect,
@@ -70,54 +71,20 @@ export default function HeadHunterCandidateCard({
 
     const articleRef = useRef(null);
     const [photoBroken, setPhotoBroken] = useState(false);
-    const [tailDecorSettled, setTailDecorSettled] = useState(() => {
-        if (typeof window === 'undefined') return true;
-        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    });
 
     useEffect(() => {
         setPhotoBroken(false);
     }, [candidate.id, candidate.photo_url]);
 
     /**
-     * Light reveal guard for the ribbon pseudo-elements. The old "crossed/mirrored"
-     * look was a structural RTL bug (fixed in CSS — RTL now matches LTR), so the
-     * heavy settle-delay is no longer needed. We keep only a small guard: wait for
-     * web fonts to load (the Arabic font swap reflows the card's green bar, which
-     * is width:185%) then reveal on the next frame. A short fallback guarantees it.
+     * Reveal guard for the ribbon pseudo-elements. The old "crossed/mirrored" look
+     * was a structural RTL bug (fixed in CSS — RTL now matches LTR), so the heavy
+     * settle-delay is no longer needed. All that remains is waiting for web fonts,
+     * because the Arabic font swap reflows the card's green bar (width: 185%). The
+     * signal is shared across cards so it latches once per page rather than
+     * restarting — and flashing — for every card that mounts later.
      */
-    useEffect(() => {
-        const reduced =
-            typeof window !== 'undefined' &&
-            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (reduced) {
-            setTailDecorSettled(true);
-            return undefined;
-        }
-        setTailDecorSettled(false);
-        let done = false;
-        let raf = 0;
-        const reveal = () => {
-            if (done) return;
-            done = true;
-            setTailDecorSettled(true);
-        };
-        const fontsPromise =
-            typeof document !== 'undefined' && document.fonts && document.fonts.ready
-                ? document.fonts.ready
-                : Promise.resolve();
-        fontsPromise
-            .then(() => {
-                raf = requestAnimationFrame(() => requestAnimationFrame(reveal));
-            })
-            .catch(reveal);
-        const fallback = window.setTimeout(reveal, 800);
-        return () => {
-            done = true;
-            if (raf) cancelAnimationFrame(raf);
-            window.clearTimeout(fallback);
-        };
-    }, [candidate.id]);
+    const tailDecorSettled = useFontsSettled();
 
     const showPhoto = Boolean(candidate.photo_url) && !photoBroken;
 
@@ -268,3 +235,5 @@ export default function HeadHunterCandidateCard({
         </article>
     );
 }
+
+export default React.memo(HeadHunterCandidateCard);
