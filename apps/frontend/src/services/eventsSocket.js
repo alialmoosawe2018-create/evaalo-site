@@ -28,14 +28,22 @@ let reconnectAttempts = 0;
 let reconnectTimer = null;
 let started = false;
 let lastAckedSeq = -1;
+/** Set when the next connect must not reuse the cached (possibly stale) token. */
+let forceFreshToken = false;
 
 /** type → Set<handler> */
 const typeHandlers = new Map();
 const anyHandlers = new Set();
 
-async function getToken() {
+/**
+ * `skipCache` matters on every attempt that follows a failure: getToken() serves a
+ * cached token that lives ~60s, so a socket retrying after a frozen or offline
+ * stretch would keep presenting the same expired token and keep being refused.
+ */
+async function getToken(forceFresh) {
     try {
-        return (await window.Clerk?.session?.getToken?.()) || null;
+        const options = forceFresh ? { skipCache: true } : undefined;
+        return (await window.Clerk?.session?.getToken?.(options)) || null;
     } catch {
         return null;
     }
@@ -85,7 +93,8 @@ async function connect() {
         return;
     }
 
-    const token = await getToken();
+    const token = await getToken(forceFreshToken || reconnectAttempts > 0);
+    forceFreshToken = false;
     if (!token) {
         // Not authenticated yet — retry until a session exists.
         scheduleReconnect();
@@ -153,6 +162,8 @@ async function connect() {
  */
 function onPageShow(event) {
     if (!event?.persisted || intentionalClose) return;
+    // The token cached before the freeze has almost certainly expired by now.
+    forceFreshToken = true;
     reconnectAttempts = 0;
     if (reconnectTimer) {
         clearTimeout(reconnectTimer);

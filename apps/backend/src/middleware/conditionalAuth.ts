@@ -60,11 +60,19 @@ const enforceApiAuth: RequestHandler = (req: Request, res: Response, next: NextF
     }
 
     if (!userId) {
-        res.status(401).set('Cache-Control', 'no-store').json({
-            success: false,
-            error: 'authentication_required',
-            message: 'Sign in again to continue.',
-        });
+        // clerkMiddleware records *why* it treated the caller as signed out
+        // (token absent vs expired vs unverifiable). Echoing that header — already
+        // visible to this client — turns a bare 401 into something diagnosable
+        // without shipping a new build to reproduce it.
+        const reason = res.getHeader('x-clerk-auth-reason');
+        res.status(401)
+            .set('Cache-Control', 'no-store')
+            .json({
+                success: false,
+                error: 'authentication_required',
+                message: 'Sign in again to continue.',
+                reason: typeof reason === 'string' ? reason : null,
+            });
         return;
     }
 
