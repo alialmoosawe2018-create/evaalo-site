@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AccountPageLayout from '../components/AccountPageLayout';
 import { useAuth } from '../contexts/AuthContext';
@@ -42,16 +42,36 @@ function SectionLabel({ children }) {
     return <div className={ACCOUNT_SECTION_LABEL_CLASS}>{children}</div>;
 }
 
+/**
+ * The stored session already carries name/company/description/email, so the form
+ * can paint filled on the very first render and treat `GET /api/users/me` as a
+ * background refresh. Waiting for that request instead left the fields empty and
+ * disabled for as long as a Clerk token mint plus an API round trip, which reads
+ * as a broken form rather than as loading.
+ */
+function profileSnapshotFromUser(user) {
+    return {
+        fullName: user?.name || '',
+        company: user?.companyName || '',
+        companyDescription: user?.companyDescription || '',
+        email: user?.email || '',
+    };
+}
+
 const AccountSettings = () => {
     const navigate = useNavigate();
     const { session, user, logout, refreshSession } = useAuth();
     const { currentLang, t } = useLanguage();
-    const [fullName, setFullName] = useState('');
-    const [company, setCompany] = useState('');
-    const [companyDescription, setCompanyDescription] = useState('');
-    const [email, setEmail] = useState('');
-    const [initialSnapshot, setInitialSnapshot] = useState(null);
-    const [profileLoading, setProfileLoading] = useState(true);
+    const [sessionSeed] = useState(() => profileSnapshotFromUser(user));
+    const [fullName, setFullName] = useState(sessionSeed.fullName);
+    const [company, setCompany] = useState(sessionSeed.company);
+    const [companyDescription, setCompanyDescription] = useState(sessionSeed.companyDescription);
+    const [email, setEmail] = useState(sessionSeed.email);
+    const [initialSnapshot, setInitialSnapshot] = useState(sessionSeed);
+    /** Only true when the session held nothing to show, so the form must wait. */
+    const [awaitingFirstProfile, setAwaitingFirstProfile] = useState(
+        !(sessionSeed.fullName || sessionSeed.email),
+    );
     const [saving, setSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState(null);
     const [serverSessions, setServerSessions] = useState(null);
@@ -63,9 +83,19 @@ const AccountSettings = () => {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [deleteError, setDeleteError] = useState(null);
 
+    /** Values the form was last known to agree with, read without re-running the load. */
+    const cleanSnapshotRef = useRef(initialSnapshot);
+    useEffect(() => {
+        cleanSnapshotRef.current = initialSnapshot;
+    }, [initialSnapshot]);
+
     const loadProfile = useCallback(async () => {
-        setProfileLoading(true);
         setSaveStatus(null);
+        const clean = cleanSnapshotRef.current;
+        /** A field the user has already edited must survive the refresh landing. */
+        const applyIfUntouched = (setter, wasValue, nextValue) => {
+            setter((current) => (current === wasValue ? nextValue : current));
+        };
         try {
             const profile = await getMyProfile();
             const snapshot = {
@@ -74,37 +104,31 @@ const AccountSettings = () => {
                 companyDescription: profile.companyDescription || '',
                 email: profile.email || user?.email || '',
             };
-            setFullName(snapshot.fullName);
-            setCompany(snapshot.company);
-            setCompanyDescription(snapshot.companyDescription);
+            applyIfUntouched(setFullName, clean.fullName, snapshot.fullName);
+            applyIfUntouched(setCompany, clean.company, snapshot.company);
+            applyIfUntouched(setCompanyDescription, clean.companyDescription, snapshot.companyDescription);
             setEmail(snapshot.email);
             setInitialSnapshot(snapshot);
         } catch {
-            const fallback = {
-                fullName: user?.name || '',
-                company: user?.companyName || '',
-                companyDescription: user?.companyDescription || '',
-                email: user?.email || '',
-            };
-            setFullName(fallback.fullName);
-            setCompany(fallback.company);
-            setCompanyDescription(fallback.companyDescription);
+            const fallback = profileSnapshotFromUser(user);
+            applyIfUntouched(setFullName, clean.fullName, fallback.fullName);
+            applyIfUntouched(setCompany, clean.company, fallback.company);
+            applyIfUntouched(setCompanyDescription, clean.companyDescription, fallback.companyDescription);
             setEmail(fallback.email);
             setInitialSnapshot(fallback);
         } finally {
-            setProfileLoading(false);
+            setAwaitingFirstProfile(false);
         }
-    }, [user?.name, user?.companyName, user?.email]);
+    }, [user?.name, user?.companyName, user?.companyDescription, user?.email]);
 
     useEffect(() => {
         loadProfile();
     }, [loadProfile]);
 
     const isDirty =
-        initialSnapshot &&
-        (fullName !== initialSnapshot.fullName ||
-            company !== initialSnapshot.company ||
-            companyDescription !== (initialSnapshot.companyDescription ?? ''));
+        fullName !== initialSnapshot.fullName ||
+        company !== initialSnapshot.company ||
+        companyDescription !== (initialSnapshot.companyDescription ?? '');
 
     const handleSaveProfile = async () => {
         if (!isDirty || saving) return;
@@ -306,7 +330,7 @@ const AccountSettings = () => {
                                     value={fullName}
                                     onChange={(e) => setFullName(e.target.value)}
                                     autoComplete="name"
-                                    disabled={profileLoading || saving}
+                                    disabled={awaitingFirstProfile || saving}
                                 />
                             </div>
                             <div>
@@ -319,7 +343,7 @@ const AccountSettings = () => {
                                     value={company}
                                     onChange={(e) => setCompany(e.target.value)}
                                     autoComplete="organization"
-                                    disabled={profileLoading || saving}
+                                    disabled={awaitingFirstProfile || saving}
                                 />
                             </div>
                             <div>
@@ -333,7 +357,7 @@ const AccountSettings = () => {
                                     onChange={(e) => setCompanyDescription(e.target.value.slice(0, 2000))}
                                     placeholder={t('account_settingsCompanyDescription_ph')}
                                     rows={4}
-                                    disabled={profileLoading || saving}
+                                    disabled={awaitingFirstProfile || saving}
                                     style={{ resize: 'vertical', minHeight: 96, lineHeight: 1.6 }}
                                 />
                             </div>
@@ -350,7 +374,7 @@ const AccountSettings = () => {
                                     aria-readonly="true"
                                     autoComplete="email"
                                     inputMode="email"
-                                    disabled={profileLoading}
+                                    disabled={awaitingFirstProfile}
                                     style={{ opacity: 0.85, cursor: 'not-allowed' }}
                                 />
                             </div>
@@ -374,7 +398,7 @@ const AccountSettings = () => {
                             <button
                                 type="button"
                                 className="workflow-btn-primary account-btn-compact"
-                                disabled={profileLoading || saving || !isDirty}
+                                disabled={awaitingFirstProfile || saving || !isDirty}
                                 onClick={() => handleSaveProfile()}
                             >
                                 {saving ? t('account_settingsSaving') : t('account_settingsSave')}
