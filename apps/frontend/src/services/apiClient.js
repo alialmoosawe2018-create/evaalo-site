@@ -197,11 +197,16 @@ async function send(path, options) {
     if (isRecoverableAuthFailure(response.status, data)) {
         const reason = data?.reason || 'unknown';
         ({ response, data } = await sendOnce(url, options, true));
+        // DevTools keeps showing the rejected first attempt no matter what we do here,
+        // so name the outcome either way: a recovered call must not read as a failure,
+        // and a call that a freshly minted token could not save must say why.
         if (response.ok) {
-            // DevTools keeps showing the rejected first attempt no matter what we do
-            // here, so say plainly that it was recovered — otherwise a healthy page
-            // looks broken in the console.
             console.info(`[evaalo] stale session token (${reason}) — refreshed and retried ${path}`);
+        } else {
+            const retryReason = data?.reason || 'unknown';
+            console.warn(
+                `[evaalo] session rejected on ${path} — first: ${reason}, after refresh: ${retryReason}`
+            );
         }
     }
 
