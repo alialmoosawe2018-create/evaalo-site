@@ -195,7 +195,14 @@ async function send(path, options) {
 
     let { response, data } = await sendOnce(url, options, false);
     if (isRecoverableAuthFailure(response.status, data)) {
+        const reason = data?.reason || 'unknown';
         ({ response, data } = await sendOnce(url, options, true));
+        if (response.ok) {
+            // DevTools keeps showing the rejected first attempt no matter what we do
+            // here, so say plainly that it was recovered — otherwise a healthy page
+            // looks broken in the console.
+            console.info(`[evaalo] stale session token (${reason}) — refreshed and retried ${path}`);
+        }
     }
 
     if (response.status === 401) {
