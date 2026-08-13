@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    API_BASE,
     PdfCvLink,
     candidateAvatarImageProps,
+    candidateCvFileName,
+    candidateCvUrl,
     candidatePhotoUrl,
-    stage1FilesFromCandidate,
 } from '../utils/candidateAssets';
 import { absoluteAppUrl } from '../config/apiBase.js';
 import { useLiveRefresh } from '../hooks/useLiveRefresh';
@@ -806,9 +806,8 @@ const WrittenInterview = () => {
                                         const recColors = getRecommendationColor(recCanon);
                                         const candidateId = candidate._id || candidate.id;
                                         const isExpanded = expandedRows.has(candidateId);
-                                        const { cv } = stage1FilesFromCandidate(candidate);
                                         const photoUrl = candidatePhotoUrl(candidate);
-                                        const cvUrl = cv ? `${API_BASE}/uploads/${encodeURIComponent(cv.filename)}` : null;
+                                        const cvUrl = candidateCvUrl(candidate);
                                         
                                         const toggleRow = (e) => {
                                             // Don't expand if clicking on share button
@@ -978,7 +977,7 @@ const WrittenInterview = () => {
                                                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', minHeight: '48px' }}>
                                                             <PdfCvLink
                                                                 href={cvUrl}
-                                                                fileName={cv?.originalName}
+                                                                fileName={candidateCvFileName(candidate)}
                                                                 size={46}
                                                             />
                                                         </div>

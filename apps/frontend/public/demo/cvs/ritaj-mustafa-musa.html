@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ritaj Mustafa Musa — CV</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1a2332;
+      --muted: #5a6578;
+      --line: #d8dee8;
+      --accent: #0b5f8a;
+      --accent-soft: #e5f2f8;
+      --side: #12263a;
+      --paper: #f6f8fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Manrope, sans-serif;
+      color: var(--ink);
+      background: #e8ecf1;
+      line-height: 1.45;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .sheet {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 24px auto;
+      background: #fff;
+      display: grid;
+      grid-template-columns: 72mm 1fr;
+      box-shadow: 0 12px 40px rgba(44, 34, 28, 0.12);
+    }
+    aside {
+      background: var(--side);
+      color: #e8eef5;
+      padding: 28px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .avatar {
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid rgba(255,255,255,0.25);
+      background: #2a4560;
+    }
+    .name {
+      font-family: Fraunces, serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+    .role {
+      color: #8ec8e6;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .side-block h3 {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #8ec8e6;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .side-block p, .side-block li {
+      font-size: 0.78rem;
+      color: #c5d0dc;
+    }
+    .side-block ul { list-style: none; display: grid; gap: 5px; }
+    .contact-row { display: grid; gap: 7px; }
+    .contact-row span { display: block; word-break: break-word; }
+    main { padding: 28px 28px 32px; background: var(--paper); }
+    .summary {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    section { margin-bottom: 18px; }
+    section h2 {
+      font-family: Fraunces, serif;
+      font-size: 0.95rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .job { margin-bottom: 14px; }
+    .job-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 2px;
+    }
+    .job-head h3 { font-size: 0.88rem; font-weight: 700; }
+    .job-head time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+    .company { font-size: 0.78rem; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+    .job ul { padding-left: 1.1rem; display: grid; gap: 4px; }
+    .job li { font-size: 0.8rem; color: #3a4556; }
+    .edu-item { margin-bottom: 8px; }
+    .edu-item strong { display: block; font-size: 0.85rem; }
+    .edu-item span { font-size: 0.75rem; color: var(--muted); }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 9px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 4px;
+    }
+    @media print {
+      body { background: #fff; }
+      .sheet { margin: 0; box-shadow: none; width: 100%; min-height: auto; }
+      @page { size: A4; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <article class="sheet">
+    <aside>
+      <img class="avatar" src="/images/demo/ritaj-mustafa-musa.jpg" alt="Ritaj Mustafa Musa" onerror="this.style.display='none'" />
+      <div>
+        <h1 class="name">Ritaj Mustafa Musa</h1>
+        <p class="role">HR Assistant</p>
+      </div>
+      <div class="side-block">
+        <h3>Contact</h3>
+        <div class="contact-row">
+          <span>ritaj.mustafa.musa@example.com</span>
+          <span>+964 770 123 4567</span>
+          <span>Baghdad, Iraq</span>
+          <span>linkedin.com/in/ritaj-mustafa</span>
+        </div>
+      </div>
+      <div class="side-block">
+        <h3>Skills</h3>
+        <ul>
+          <li>Recruitment support</li>
+          <li>HRIS administration</li>
+          <li>Employee relations</li>
+          <li>Onboarding programs</li>
+          <li>Document control</li>
+          <li>Interview scheduling</li>
+        </ul>
+      </div>
+      <div class="side-block">
+        <h3>Languages</h3>
+        <ul>
+          <li>Arabic — Native</li>
+          <li>English — Professional</li>
+        </ul>
+      </div>
+      <div class="side-block">
+        <h3>Tools</h3>
+        <ul>
+          <li>BambooHR</li>
+          <li>Google Workspace</li>
+          <li>MS Office</li>
+          <li>Notion</li>
+        </ul>
+      </div>
+    </aside>
+    <main>
+      <p class="summary">
+        HR assistant with 4 years of experience supporting recruitment, onboarding, and day-to-day employee
+        relations in creative and professional services environments. Reliable with HRIS data accuracy and
+        candidate communication.
+      </p>
+
+      <section>
+        <h2>Experience</h2>
+        <div class="job">
+          <div class="job-head">
+            <h3>HR Assistant</h3>
+            <time>2022 — Present</time>
+          </div>
+          <p class="company">Design Studio · Baghdad</p>
+          <ul>
+            <li>Coordinates end-to-end screening calendars for hiring managers; average time-to-first-interview under 5 days.</li>
+            <li>Maintains employee records in BambooHR; owns onboarding checklists for new joiners across design and ops.</li>
+            <li>First point of contact for leave requests, policy questions, and basic employee relations routing.</li>
+          </ul>
+        </div>
+        <div class="job">
+          <div class="job-head">
+            <h3>People Operations Coordinator</h3>
+            <time>2020 — 2022</time>
+          </div>
+          <p class="company">Al-Noor Consulting · Erbil</p>
+          <ul>
+            <li>Supported campus and open-market hiring: posting roles, screening CVs, and scheduling assessments.</li>
+            <li>Prepared offer letters and employment contracts under senior HR supervision.</li>
+            <li>Organized orientation sessions and collected feedback to improve the first-week experience.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>Education</h2>
+        <div class="edu-item">
+          <strong>B.A. Business Administration — HR track</strong>
+          <span>University of Baghdad · 2016 — 2020</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Core strengths</h2>
+        <div class="tags">
+          <span class="tag">Recruitment Support</span>
+          <span class="tag">HRIS</span>
+          <span class="tag">Onboarding</span>
+          <span class="tag">Employee Relations</span>
+          <span class="tag">Confidentiality</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Professional notes</h2>
+        <ul style="padding-left:1.1rem;display:grid;gap:4px;font-size:0.8rem;color:#3a4556;">
+          <li>Comfortable handling sensitive employee data with strict confidentiality.</li>
+          <li>Available for hybrid office support; immediate start for the right team.</li>
+        </ul>
+      </section>
+    </main>
+  </article>
+</body>
+</html>

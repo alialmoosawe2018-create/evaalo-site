@@ -26,6 +26,14 @@ const DEMO_PHOTOS = {
     ritaj: '/images/demo/ritaj-mustafa-musa.jpg',
 };
 
+/** Print-ready demo CVs served from `public/demo/cvs/`. */
+const DEMO_CVS = {
+    yousef: '/demo/cvs/yousef-haider-mazen.html',
+    ahmed: '/demo/cvs/ahmed-abdullah-hussein.html',
+    mohammed: '/demo/cvs/mohammed-hassan.html',
+    ritaj: '/demo/cvs/ritaj-mustafa-musa.html',
+};
+
 /**
  * @param {(key: string) => string} t
  * @returns {Array<object>}
@@ -43,6 +51,8 @@ export function buildSampleCandidates(t) {
             highest_education_level: "Bachelor's Degree",
             gender: 'male',
             photo: DEMO_PHOTOS.yousef,
+            cv: DEMO_CVS.yousef,
+            cvFileName: 'Yousef_Haider_Mazen_CV.html',
             skills: ['CAD', 'SolidWorks', 'Thermodynamics', 'Maintenance'],
             languages: ['Arabic', 'English'],
             coverLetter:
@@ -70,6 +80,8 @@ export function buildSampleCandidates(t) {
             highest_education_level: "Master's Degree",
             gender: 'male',
             photo: DEMO_PHOTOS.ahmed,
+            cv: DEMO_CVS.ahmed,
+            cvFileName: 'Ahmed_Abdullah_Hussein_CV.html',
             skills: ['B2B Sales', 'CRM', 'Negotiation', 'Team Leadership'],
             languages: ['Arabic', 'English'],
             coverLetter: 'Sales manager with extensive experience in B2B growth and team leadership...',
@@ -95,6 +107,8 @@ export function buildSampleCandidates(t) {
             highest_education_level: "Bachelor's Degree",
             gender: 'male',
             photo: DEMO_PHOTOS.mohammed,
+            cv: DEMO_CVS.mohammed,
+            cvFileName: 'Mohammed_Hassan_CV.html',
             skills: ['Financial Analysis', 'Budgeting', 'Excel', 'Reporting'],
             languages: ['Arabic', 'English', 'French'],
             coverLetter: 'Finance specialist focused on budgeting, reporting, and financial analysis...',
@@ -121,6 +135,8 @@ export function buildSampleCandidates(t) {
             highest_education_level: "Bachelor's Degree",
             gender: 'female',
             photo: DEMO_PHOTOS.ritaj,
+            cv: DEMO_CVS.ritaj,
+            cvFileName: 'Ritaj_Mustafa_Musa_CV.html',
             skills: ['Recruitment Support', 'HRIS', 'Employee Relations', 'Onboarding'],
             languages: ['Arabic', 'English'],
             coverLetter: 'HR assistant experienced in recruitment support, onboarding, and employee relations...',

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mohammed Hassan — CV</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1a1f1c;
+      --muted: #5a645c;
+      --line: #dbe3dc;
+      --accent: #3d6b4f;
+      --accent-soft: #e8f2eb;
+      --side: #1a2a22;
+      --paper: #f7faf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Manrope, sans-serif;
+      color: var(--ink);
+      background: #e8ecf1;
+      line-height: 1.45;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .sheet {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 24px auto;
+      background: #fff;
+      display: grid;
+      grid-template-columns: 72mm 1fr;
+      box-shadow: 0 12px 40px rgba(26, 42, 34, 0.12);
+    }
+    aside {
+      background: var(--side);
+      color: #e8eef5;
+      padding: 28px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .avatar {
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid rgba(255,255,255,0.25);
+      background: #2a4036;
+    }
+    .name {
+      font-family: Fraunces, serif;
+      font-size: 1.45rem;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+    .role {
+      color: #a3c9b2;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .side-block h3 {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #a3c9b2;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .side-block p, .side-block li {
+      font-size: 0.78rem;
+      color: #c5d0dc;
+    }
+    .side-block ul { list-style: none; display: grid; gap: 5px; }
+    .contact-row { display: grid; gap: 7px; }
+    .contact-row span { display: block; word-break: break-word; }
+    main { padding: 28px 28px 32px; background: var(--paper); }
+    .summary {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    section { margin-bottom: 18px; }
+    section h2 {
+      font-family: Fraunces, serif;
+      font-size: 0.95rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .job { margin-bottom: 14px; }
+    .job-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 2px;
+    }
+    .job-head h3 { font-size: 0.88rem; font-weight: 700; }
+    .job-head time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+    .company { font-size: 0.78rem; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+    .job ul { padding-left: 1.1rem; display: grid; gap: 4px; }
+    .job li { font-size: 0.8rem; color: #3a4556; }
+    .edu-item { margin-bottom: 8px; }
+    .edu-item strong { display: block; font-size: 0.85rem; }
+    .edu-item span { font-size: 0.75rem; color: var(--muted); }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 9px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 4px;
+    }
+    @media print {
+      body { background: #fff; }
+      .sheet { margin: 0; box-shadow: none; width: 100%; min-height: auto; }
+      @page { size: A4; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <article class="sheet">
+    <aside>
+      <img class="avatar" src="/images/demo/mohammed-hassan.jpg" alt="Mohammed Hassan" onerror="this.style.display='none'" />
+      <div>
+        <h1 class="name">Mohammed Hassan</h1>
+        <p class="role">Finance Specialist</p>
+      </div>
+      <div class="side-block">
+        <h3>Contact</h3>
+        <div class="contact-row">
+          <span>mohammed.hassan@example.com</span>
+          <span>+971 50 987 6543</span>
+          <span>Abu Dhabi, UAE</span>
+          <span>linkedin.com/in/mohammed-hassan-fin</span>
+        </div>
+      </div>
+      <div class="side-block">
+        <h3>Skills</h3>
+        <ul>
+          <li>Financial analysis</li>
+          <li>Budgeting &amp; forecasting</li>
+          <li>Management reporting</li>
+          <li>Advanced Excel</li>
+          <li>Variance analysis</li>
+          <li>Cost control</li>
+        </ul>
+      </div>
+      <div class="side-block">
+        <h3>Languages</h3>
+        <ul>
+          <li>Arabic — Native</li>
+          <li>English — Fluent</li>
+          <li>French — Intermediate</li>
+        </ul>
+      </div>
+      <div class="side-block">
+        <h3>Certifications</h3>
+        <ul>
+          <li>CMA (in progress)</li>
+          <li>IFRS fundamentals</li>
+        </ul>
+      </div>
+    </aside>
+    <main>
+      <p class="summary">
+        Finance specialist with 3 years of experience in budgeting, reporting, and financial analysis.
+        Known for clean Excel models, clear board packs, and partnering with operations to keep spend on plan.
+      </p>
+
+      <section>
+        <h2>Experience</h2>
+        <div class="job">
+          <div class="job-head">
+            <h3>Finance Specialist</h3>
+            <time>2023 — Present</time>
+          </div>
+          <p class="company">Data Solutions Inc · Abu Dhabi</p>
+          <ul>
+            <li>Owns monthly management reports and KPI packs for leadership; shortened close-to-report cycle by 3 days.</li>
+            <li>Built driver-based budget models in Excel for three business units; improved forecast accuracy vs. prior year.</li>
+            <li>Runs variance deep-dives with department heads and tracks corrective actions.</li>
+          </ul>
+        </div>
+        <div class="job">
+          <div class="job-head">
+            <h3>Junior Financial Analyst</h3>
+            <time>2022 — 2023</time>
+          </div>
+          <p class="company">Data Solutions Inc · Abu Dhabi</p>
+          <ul>
+            <li>Supported AP/AR reconciliations and cash-flow tracking for weekly treasury updates.</li>
+            <li>Automated recurring pivot reports, reducing manual prep time by ~6 hours per week.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>Education</h2>
+        <div class="edu-item">
+          <strong>B.Sc. Finance</strong>
+          <span>United Arab Emirates University · 2018 — 2022</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Tools</h2>
+        <div class="tags">
+          <span class="tag">Excel / Power Query</span>
+          <span class="tag">Power BI</span>
+          <span class="tag">SAP FI (basic)</span>
+          <span class="tag">QuickBooks</span>
+          <span class="tag">SQL (basic)</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Highlights</h2>
+        <ul style="padding-left:1.1rem;display:grid;gap:4px;font-size:0.8rem;color:#3a4556;">
+          <li>Designed a rolling 12-month forecast template now used company-wide.</li>
+          <li>Partnered with HR on headcount cost modeling for annual planning.</li>
+        </ul>
+      </section>
+    </main>
+  </article>
+</body>
+</html>

@@ -5,12 +5,12 @@ import {
     PdfCvLink,
     candidateAvatarImageProps,
     candidateCertificates,
+    candidateCvFileName,
     candidateCvUrl,
     candidatePhotoUrl,
     GenderAvatar,
     inferGenderFromName,
     shouldUseGenderAvatar,
-    stage1FilesFromCandidate,
 } from '../utils/candidateAssets';
 import { apiClient } from '../services/apiClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -1836,7 +1836,6 @@ const Candidates = () => {
                                                 );
                                             const photoUrl = candidatePhotoUrl(candidate);
                                             const cvUrl = candidateCvUrl(candidate);
-                                            const { cv } = stage1FilesFromCandidate(candidate);
                                             const candEval = resolveCandidateEvaluation(candidate);
                                             
                                             return (
@@ -2020,7 +2019,7 @@ const Candidates = () => {
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', minHeight: '48px' }}>
                                                     {cvUrl ? (
-                                                        <PdfCvLink href={cvUrl} fileName={cv?.originalName} size={44} />
+                                                        <PdfCvLink href={cvUrl} fileName={candidateCvFileName(candidate)} size={44} />
                                                     ) : (
                                                         <span className="candidates-cell-muted" style={{ fontSize: '11px' }}>—</span>
                                                     )}
@@ -2156,7 +2155,6 @@ const Candidates = () => {
             {showCandidateModal && selectedCandidateDetails && (() => {
                 const modalPhotoUrl = candidatePhotoUrl(selectedCandidateDetails);
                 const modalCvUrl = candidateCvUrl(selectedCandidateDetails);
-                const { cv: modalCv } = stage1FilesFromCandidate(selectedCandidateDetails);
                 const modalCertificates = candidateCertificates(selectedCandidateDetails);
                 const modalEval = resolveCandidateEvaluation(selectedCandidateDetails);
                 const modalYearsRaw =
@@ -2357,7 +2355,7 @@ const Candidates = () => {
                                     {modalCvUrl ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
                                             <strong>{t('candidates_modalCv')}</strong>
-                                            <PdfCvLink href={modalCvUrl} fileName={modalCv?.originalName} size={40} />
+                                            <PdfCvLink href={modalCvUrl} fileName={candidateCvFileName(selectedCandidateDetails)} size={40} />
                                         </div>
                                     ) : null}
                                 </div>

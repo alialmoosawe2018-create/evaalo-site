@@ -127,11 +127,27 @@ export function candidateAvatarImageProps(url, layoutCssPx) {
     };
 }
 
-/** عنوان ملف الـ CV */
+/** عنوان ملف الـ CV (رفع حقيقي عبر /uploads، أو مسار عام لعينات أول تسجيل دخول) */
 export function candidateCvUrl(candidate) {
     const { cv } = stage1FilesFromCandidate(candidate);
-    if (!cv?.filename) return null;
-    return `${API_BASE}/uploads/${encodeURIComponent(cv.filename)}`;
+    if (cv?.filename) {
+        const name = String(cv.filename);
+        if (name.startsWith('/') || /^https?:\/\//i.test(name)) return name;
+        if (cv.url && (String(cv.url).startsWith('/') || /^https?:\/\//i.test(String(cv.url)))) {
+            return String(cv.url);
+        }
+        return `${API_BASE}/uploads/${encodeURIComponent(cv.filename)}`;
+    }
+    const direct = candidate?.cv || candidate?.cvUrl || null;
+    return direct ? String(direct) : null;
+}
+
+/** اسم عرض ملف الـ CV (للعينات التجريبية أو المرفوعات) */
+export function candidateCvFileName(candidate) {
+    const { cv } = stage1FilesFromCandidate(candidate);
+    if (cv?.originalName) return cv.originalName;
+    if (cv?.filename && !String(cv.filename).startsWith('/')) return cv.filename;
+    return candidate?.cvFileName || candidate?.cvOriginalName || null;
 }
 
 /* ------------------------------------------------------------------ */

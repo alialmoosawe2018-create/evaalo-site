@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Yousef Haider Mazen — CV</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1a2332;
+      --muted: #5a6578;
+      --line: #d8dee8;
+      --accent: #0f6b5c;
+      --accent-soft: #e6f3f0;
+      --side: #14212e;
+      --paper: #f7f8fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Manrope, sans-serif;
+      color: var(--ink);
+      background: #e8ecf1;
+      line-height: 1.45;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .sheet {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 24px auto;
+      background: #fff;
+      display: grid;
+      grid-template-columns: 72mm 1fr;
+      box-shadow: 0 12px 40px rgba(20, 33, 46, 0.12);
+    }
+    aside {
+      background: var(--side);
+      color: #e8eef5;
+      padding: 28px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+    .avatar {
+      width: 92px;
+      height: 92px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid rgba(255,255,255,0.25);
+      background: #2a3b4f;
+    }
+    .name {
+      font-family: Fraunces, serif;
+      font-size: 1.45rem;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+    .role {
+      color: #8fd4c4;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .side-block h3 {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #8fd4c4;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .side-block p, .side-block li {
+      font-size: 0.78rem;
+      color: #c5d0dc;
+    }
+    .side-block ul { list-style: none; display: grid; gap: 5px; }
+    .contact-row { display: grid; gap: 7px; }
+    .contact-row span { display: block; word-break: break-word; }
+    main { padding: 28px 28px 32px; background: var(--paper); }
+    .summary {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 22px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    section { margin-bottom: 18px; }
+    section h2 {
+      font-family: Fraunces, serif;
+      font-size: 0.95rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .job { margin-bottom: 14px; }
+    .job-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 2px;
+    }
+    .job-head h3 { font-size: 0.88rem; font-weight: 700; }
+    .job-head time { font-size: 0.72rem; color: var(--muted); white-space: nowrap; }
+    .company { font-size: 0.78rem; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+    .job ul { padding-left: 1.1rem; display: grid; gap: 4px; }
+    .job li { font-size: 0.8rem; color: #3a4556; }
+    .edu-item { margin-bottom: 8px; }
+    .edu-item strong { display: block; font-size: 0.85rem; }
+    .edu-item span { font-size: 0.75rem; color: var(--muted); }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tag {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 9px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 4px;
+    }
+    @media print {
+      body { background: #fff; }
+      .sheet { margin: 0; box-shadow: none; width: 100%; min-height: auto; }
+      @page { size: A4; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <article class="sheet">
+    <aside>
+      <img class="avatar" src="/images/demo/yousef-haider-mazen.jpg" alt="Yousef Haider Mazen" onerror="this.style.display='none'" />
+      <div>
+        <h1 class="name">Yousef Haider Mazen</h1>
+        <p class="role">Mechanical Engineer</p>
+      </div>
+      <div class="side-block">
+        <h3>Contact</h3>
+        <div class="contact-row">
+          <span>ali.mahmoud.najm@example.com</span>
+          <span>+966 50 123 4567</span>
+          <span>Riyadh, Saudi Arabia</span>
+          <span>linkedin.com/in/yousef-haider</span>
+        </div>
+      </div>
+      <div class="side-block">
+        <h3>Skills</h3>
+        <ul>
+          <li>CAD / SolidWorks</li>
+          <li>Thermodynamics</li>
+          <li>Preventive Maintenance</li>
+          <li>FEA basics</li>
+          <li>GD&amp;T</li>
+          <li>Project coordination</li>
+        </ul>
+      </div>
+      <div class="side-block">
+        <h3>Languages</h3>
+        <ul>
+          <li>Arabic — Native</li>
+          <li>English — Professional</li>
+        </ul>
+      </div>
+      <div class="side-block">
+        <h3>Certifications</h3>
+        <ul>
+          <li>SolidWorks CSWA</li>
+          <li>ISO 9001 Awareness</li>
+        </ul>
+      </div>
+    </aside>
+    <main>
+      <p class="summary">
+        Mechanical engineer with 5 years of experience in product design, plant maintenance, and
+        cross-functional delivery. Strong in SolidWorks-based detailing, thermal system troubleshooting,
+        and turning field feedback into reliable design improvements.
+      </p>
+
+      <section>
+        <h2>Experience</h2>
+        <div class="job">
+          <div class="job-head">
+            <h3>Mechanical Design Engineer</h3>
+            <time>2022 — Present</time>
+          </div>
+          <p class="company">Tech Corp · Riyadh</p>
+          <ul>
+            <li>Owned CAD models and drawings for rotating equipment upgrades; cut rework by ~18% via clearer GD&amp;T.</li>
+            <li>Led preventive-maintenance reviews with operations; reduced unplanned downtime on two production lines.</li>
+            <li>Collaborated with procurement and vendors on material specs and prototype validation.</li>
+          </ul>
+        </div>
+        <div class="job">
+          <div class="job-head">
+            <h3>Junior Mechanical Engineer</h3>
+            <time>2020 — 2022</time>
+          </div>
+          <p class="company">Gulf Industrial Services · Dammam</p>
+          <ul>
+            <li>Supported installation and commissioning of HVAC and utility systems on commercial sites.</li>
+            <li>Prepared as-built documentation and maintenance checklists for handover packages.</li>
+            <li>Assisted senior engineers with thermal load calculations and equipment sizing.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section>
+        <h2>Education</h2>
+        <div class="edu-item">
+          <strong>B.Sc. Mechanical Engineering</strong>
+          <span>King Fahd University of Petroleum &amp; Minerals · 2016 — 2020</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Selected tools</h2>
+        <div class="tags">
+          <span class="tag">SolidWorks</span>
+          <span class="tag">AutoCAD</span>
+          <span class="tag">ANSYS (basic)</span>
+          <span class="tag">MS Project</span>
+          <span class="tag">Excel</span>
+        </div>
+      </section>
+    </main>
+  </article>
+</body>
+</html>

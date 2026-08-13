@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo CVs — Evaalo sample candidates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "IBM Plex Sans Arabic", Manrope, sans-serif;
+      background: #0f1419;
+      color: #e8eef5;
+      min-height: 100vh;
+      padding: 40px 24px 64px;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header { margin-bottom: 28px; }
+    header p {
+      color: #8b98a8;
+      font-size: 0.95rem;
+      margin-top: 8px;
+      max-width: 36rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    a.card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      background: #1a222c;
+      border: 1px solid #2a3542;
+      border-radius: 10px;
+      padding: 18px 16px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    a.card:hover {
+      border-color: #3d9b88;
+      background: #1e2833;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #3d9b88;
+      margin-bottom: 8px;
+    }
+    .card h2 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
+    .card .en { font-family: Manrope, sans-serif; font-size: 0.78rem; color: #8b98a8; direction: ltr; text-align: right; }
+    .card .role { margin-top: 10px; font-size: 0.85rem; color: #c5d0dc; }
+    .hint {
+      margin-top: 28px;
+      font-size: 0.85rem;
+      color: #8b98a8;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>السير الذاتية التجريبية</h1>
+      <p>
+        أربع سير احترافية جاهزة للطباعة (A4 / PDF) للأشخاص الوهميين في قائمة الإشعارات وبيانات العرض التوضيحي.
+      </p>
+    </header>
+    <div class="grid">
+      <a class="card" href="yousef-haider-mazen.html">
+        <span class="badge">01</span>
+        <h2>يوسف حيدر مازن</h2>
+        <div class="en">Yousef Haider Mazen</div>
+        <p class="role">مهندس ميكانيك · Mechanical Engineer</p>
+      </a>
+      <a class="card" href="ahmed-abdullah-hussein.html">
+        <span class="badge">02</span>
+        <h2>احمد عبدالله حسين</h2>
+        <div class="en">Ahmed Abdullah Hussein</div>
+        <p class="role">مدير مبيعات · Sales Manager</p>
+      </a>
+      <a class="card" href="mohammed-hassan.html">
+        <span class="badge">03</span>
+        <h2>محمد حسن</h2>
+        <div class="en">Mohammed Hassan</div>
+        <p class="role">أخصائي مالية · Finance Specialist</p>
+      </a>
+      <a class="card" href="ritaj-mustafa-musa.html">
+        <span class="badge">04</span>
+        <h2>رتاج مصطفى موسى</h2>
+        <div class="en">Ritaj Mustafa Musa</div>
+        <p class="role">مساعد موارد بشرية · HR Assistant</p>
+      </a>
+    </div>
+    <p class="hint">
+      لفتح أي سيرة: انقر البطاقة. لحفظ PDF: Ctrl+P → Save as PDF (بدون هوامش إن أمكن).
+      الملفات في: <span dir="ltr" style="font-family:Manrope,monospace;font-size:0.8rem">apps/frontend/public/demo/cvs/</span>
+    </p>
+  </div>
+</body>
+</html>

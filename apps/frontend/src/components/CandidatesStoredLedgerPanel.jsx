@@ -2,12 +2,12 @@ import React from 'react';
 import {
     PdfCvLink,
     candidateAvatarImageProps,
+    candidateCvFileName,
     candidateCvUrl,
     candidatePhotoUrl,
     GenderAvatar,
     inferGenderFromName,
     shouldUseGenderAvatar,
-    stage1FilesFromCandidate,
 } from '../utils/candidateAssets';
 import { onHorizontalDragScrollPointerDown } from '../utils/candidatesHorizontalDragScroll.js';
 import { resolveCandidateEvaluation, evaluationSourceLabelKey } from '../utils/candidateEvaluation.js';
@@ -210,7 +210,6 @@ export default function CandidatesStoredLedgerPanel({
                                 selectedIds.some((sid) => idsMatch(sid, rowPrimaryId));
                             const photoUrl = candidatePhotoUrl(candidate);
                             const cvUrl = candidateCvUrl(candidate);
-                            const { cv } = stage1FilesFromCandidate(candidate);
                             const candEval = resolveCandidateEvaluation(candidate);
 
                             return (
@@ -379,7 +378,7 @@ export default function CandidatesStoredLedgerPanel({
                                             }}
                                         >
                                             {cvUrl ? (
-                                                <PdfCvLink href={cvUrl} fileName={cv?.originalName} size={44} />
+                                                <PdfCvLink href={cvUrl} fileName={candidateCvFileName(candidate)} size={44} />
                                             ) : (
                                                 <span className="candidates-cell-muted" style={{ fontSize: '11px' }}>—</span>
                                             )}
