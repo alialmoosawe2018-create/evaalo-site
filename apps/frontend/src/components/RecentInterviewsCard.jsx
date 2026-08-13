@@ -58,20 +58,15 @@ function filterCandidatesByClearedAt(candidates, clearedAtIso) {
     return filterDismissedNotifications(filtered);
 }
 
-function mapCandidateToInterview(candidate, metaByCampaignId = {}) {
+function mapCandidateToInterview(candidate) {
     const name =
         ((candidate.full_name || candidate.fullName) || '').trim() ||
         candidate.candidate ||
         candidate.email?.split('@')[0] ||
         DASHBOARD_UNKNOWN;
     const stage = resolveDashboardInterviewStage(candidate);
-    const campId = candidate.campaignId;
-    const company =
-        (campId && metaByCampaignId[campId]
-            ? resolveCompanyFromMeta(metaByCampaignId[campId])
-            : '') ||
-        (candidate.company_applied_to || candidate.companyAppliedTo || '').trim() ||
-        '';
+    /** Campaign metadata refines this after the first paint — see hydrateCompanyNames. */
+    const company = (candidate.company_applied_to || candidate.companyAppliedTo || '').trim();
     return {
         id: candidate._id || candidate.id,
         candidate: name,
@@ -169,10 +164,10 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
     const mockRecentInterviewsRef = useRef(mockRecentInterviews);
     mockRecentInterviewsRef.current = mockRecentInterviews;
 
-    const buildRecentInterviewsList = (candidates, clearedAtIso, metaByCampaignId = {}) => {
+    const buildRecentInterviewsList = (candidates, clearedAtIso) => {
         const filtered = filterCandidatesByClearedAt(candidates, clearedAtIso ?? clearedAtRef.current);
         const interviews = filtered
-            .map((c) => mapCandidateToInterview(c, metaByCampaignId))
+            .map((c) => mapCandidateToInterview(c))
             .sort((a, b) => new Date(b.date) - new Date(a.date));
         const hasClearedAt = toTime(clearedAtIso ?? clearedAtRef.current) > 0;
         if (interviews.length === 0 && !hasClearedAt) {
@@ -180,6 +175,35 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
         }
         return interviews;
     };
+
+    /**
+     * Company names live in campaign metadata, which nothing in the list renders —
+     * only the share text reads them. Fetching it before the first paint held every
+     * row behind a third round trip, so it now lands afterwards and patches the
+     * rows that are already on screen.
+     */
+    const hydrateCompanyNames = useCallback(async (campaignIds) => {
+        try {
+            const metaRes = await apiClient.get(
+                `/api/recruitment-campaigns?ids=${encodeURIComponent(campaignIds.join(','))}`
+            );
+            if (!metaRes?.success || !Array.isArray(metaRes.data)) return;
+            const metaByCampaignId = {};
+            for (const row of metaRes.data) {
+                if (row?.campaignId) metaByCampaignId[row.campaignId] = row;
+            }
+            setRecentInterviews((prev) =>
+                prev.map((row) => {
+                    const meta = row.campaignId ? metaByCampaignId[row.campaignId] : null;
+                    if (!meta) return row;
+                    const company = resolveCompanyFromMeta(meta) || row.company;
+                    return company === row.company ? row : { ...row, company };
+                })
+            );
+        } catch (metaErr) {
+            console.warn('[RecentInterviewsCard] campaign metadata fetch failed:', metaErr);
+        }
+    }, []);
 
     const fetchRecentInterviews = useCallback(async ({ background = false } = {}) => {
         try {
@@ -204,24 +228,12 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
             const { visible: candidates, nextReleaseAt } = withoutPendingAnalysis(allCandidates);
             setAnalysisReleaseAt(nextReleaseAt);
 
-            const campaignIds = collectCampaignIdsFromCandidates(candidates, []);
-            const metaByCampaignId = {};
-            if (campaignIds.length > 0) {
-                try {
-                    const metaRes = await apiClient.get(
-                        `/api/recruitment-campaigns?ids=${encodeURIComponent(campaignIds.join(','))}`
-                    );
-                    if (metaRes?.success && Array.isArray(metaRes.data)) {
-                        for (const row of metaRes.data) {
-                            if (row?.campaignId) metaByCampaignId[row.campaignId] = row;
-                        }
-                    }
-                } catch (metaErr) {
-                    console.warn('[RecentInterviewsCard] campaign metadata fetch failed:', metaErr);
-                }
-            }
+            setRecentInterviews(buildRecentInterviewsList(candidates, clearedAtIso));
 
-            setRecentInterviews(buildRecentInterviewsList(candidates, clearedAtIso, metaByCampaignId));
+            const campaignIds = collectCampaignIdsFromCandidates(candidates, []);
+            if (campaignIds.length > 0) {
+                void hydrateCompanyNames(campaignIds);
+            }
         } catch (error) {
             console.error('Error fetching recent interviews:', error);
             const hasClearedAt = toTime(clearedAtRef.current) > 0;
@@ -229,7 +241,7 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
         } finally {
             if (!background) setLoadingInterviews(false);
         }
-    }, []);
+    }, [hydrateCompanyNames]);
 
     useEffect(() => {
         fetchRecentInterviews();
