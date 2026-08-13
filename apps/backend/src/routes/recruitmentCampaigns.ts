@@ -5,6 +5,7 @@ import { generateJobAdvertisement, translateJobAdvertisement } from '../services
 import { getProfileForClerkUser } from '../services/userProfileService.js';
 import { orgScopedQuery, orgScopedDefaults } from '../middleware/orgScope.js';
 import { requirePermission } from '../middleware/rbac.js';
+import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
 import { getOrgId, getClerkUserId, isMissingProductionOrg } from '../middleware/auth.js';
 import { logAudit } from '../services/auditService.js';
 import { cacheGetOrSet } from '../services/cache.js';
@@ -410,8 +411,13 @@ router.get('/:campaignId', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/recruitment-campaigns/:campaignId/status - فتح/إغلاق استلام الطلبات
+// Closing a campaign turns applicants away, so a signed-out caller must be told
+// "sign in" (401) rather than reach RBAC — where an anonymous request inherits the
+// default role's permissions and is stopped only by an empty org id, which reads
+// as a 404 "campaign not found".
 router.patch(
     '/:campaignId/status',
+    conditionalRequireAuth(),
     requirePermission('campaign.write'),
     async (req: Request, res: Response) => {
         try {
