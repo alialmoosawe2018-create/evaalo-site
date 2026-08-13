@@ -8,7 +8,12 @@ import HeadHunterCandidatePanel from './HeadHunterCandidatePanel.jsx';
 import HeadHunterResultsSkeleton from './HeadHunterResultsSkeleton.jsx';
 import { apiClient } from '../../services/apiClient';
 
-export const HEADHUNTER_RESULTS_PAGE_SIZE = 30;
+/**
+ * Cards are paint-heavy, so a batch of 30 mounted in one task and stalled the
+ * page on every "show more". Smaller batches trade extra clicks for a click that
+ * stays responsive.
+ */
+export const HEADHUNTER_RESULTS_PAGE_SIZE = 12;
 
 /**
  * عمود النتائج + اللوحة المنزلقة — مستخدَم في الصفحة الرئيسية وصفحة حملة محفوظة.

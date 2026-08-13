@@ -12178,11 +12178,11 @@ html[data-app-theme='light'] .headhunter-campaign-snapshot-meta__value--accent {
     z-index: 7;
     pointer-events: auto;
     color: #fff;
+    /* No backdrop-filter: the gradient below is opaque, so a blurred backdrop is
+       fully covered and never visible. It only bought a compositing layer and a
+       blur pass per card — 65 of them in a full result list. */
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(34, 211, 238, 0.4);
-    position: relative;
     overflow: hidden;
     transition:
         transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
@@ -12899,9 +12899,8 @@ body.rtl-text .ai-head-hunter-page .headhunter-card__tail--contact-locked::after
     pointer-events: none;
     border: none;
     color: #fff;
+    /* Opaque gradient — a blurred backdrop behind it can never show. */
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 1px rgba(34, 211, 238, 0.4);
     position: relative;
     overflow: hidden;
