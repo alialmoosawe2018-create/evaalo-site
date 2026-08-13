@@ -16,6 +16,8 @@ import CreditLedger from '../../models/CreditLedger.js';
 import Candidate from '../../models/Candidate.js';
 import * as balRepo from '../../repositories/creditBalanceRepository.js';
 import * as ledRepo from '../../repositories/creditLedgerRepository.js';
+import DomainEventOutbox from '../../models/DomainEventOutbox.js';
+import { enqueueDomainEvent } from '../../services/domainEventService.js';
 
 let pass = 0;
 let fail = 0;
@@ -126,6 +128,72 @@ async function main(): Promise<void> {
         const ledgerCount = await CreditLedger.countDocuments({ organizationId: 'orgD' });
         assert.equal(bal!.balanceMicro, 700, 'balance committed');
         assert.equal(ledgerCount, 1, 'ledger committed');
+    });
+
+    // Mode A (grant/refresh, Phase B) — the balance snapshot + ledger row + the
+    // CreditBalanceRefreshed outbox row commit or roll back as ONE unit, so a grant
+    // event can never diverge from the money it describes.
+    const grantSet = (micro: number) => ({
+        balanceMicro: micro,
+        monthlyCredits: micro,
+        periodStart: new Date(),
+        periodEnd: new Date(),
+        refreshedFromPlanAt: new Date(),
+    });
+
+    await test('Mode A commit: upsertPeriod + ledger + CreditBalanceRefreshed persist together', async () => {
+        await CreditBalance.deleteMany({});
+        await CreditLedger.deleteMany({});
+        await DomainEventOutbox.deleteMany({});
+        const session = await mongoose.startSession();
+        await session.withTransaction(async () => {
+            await balRepo.upsertPeriod('orgE', grantSet(5000), { session });
+            await ledRepo.create(
+                { organizationId: 'orgE', amountMicro: 5000, balanceBeforeMicro: 0, balanceAfterMicro: 5000, source: 'monthly_refresh', idempotencyKey: 'grant-commit-k' },
+                session,
+            );
+            await enqueueDomainEvent(
+                { organizationId: 'orgE', type: 'CreditBalanceRefreshed', payload: { balanceAfterMicro: 5000, reason: 'seed' }, idempotencyKey: 'balance-refresh:grant-commit-k' },
+                session,
+            );
+        });
+        await session.endSession();
+        const bal = await CreditBalance.findOne({ organizationId: 'orgE' });
+        const led = await CreditLedger.countDocuments({ organizationId: 'orgE' });
+        const evt = await DomainEventOutbox.countDocuments({ organizationId: 'orgE', type: 'CreditBalanceRefreshed' });
+        assert.equal(bal!.balanceMicro, 5000, 'balance committed');
+        assert.equal(led, 1, 'ledger committed');
+        assert.equal(evt, 1, 'CreditBalanceRefreshed event committed');
+    });
+
+    await test('Mode A abort: a failure rolls back the balance, ledger AND the event together', async () => {
+        await CreditBalance.deleteMany({});
+        await CreditLedger.deleteMany({});
+        await DomainEventOutbox.deleteMany({});
+        const session = await mongoose.startSession();
+        try {
+            await session.withTransaction(async () => {
+                await balRepo.upsertPeriod('orgF', grantSet(5000), { session });
+                await ledRepo.create(
+                    { organizationId: 'orgF', amountMicro: 5000, balanceBeforeMicro: 0, balanceAfterMicro: 5000, source: 'monthly_refresh', idempotencyKey: 'grant-abort-k' },
+                    session,
+                );
+                await enqueueDomainEvent(
+                    { organizationId: 'orgF', type: 'CreditBalanceRefreshed', payload: { balanceAfterMicro: 5000, reason: 'seed' }, idempotencyKey: 'balance-refresh:grant-abort-k' },
+                    session,
+                );
+                throw new Error('force abort');
+            });
+        } catch {
+            /* aborted as intended */
+        }
+        await session.endSession();
+        const bal = await CreditBalance.countDocuments({ organizationId: 'orgF' });
+        const led = await CreditLedger.countDocuments({ organizationId: 'orgF' });
+        const evt = await DomainEventOutbox.countDocuments({ organizationId: 'orgF' });
+        assert.equal(bal, 0, 'balance upsert rolled back (no row)');
+        assert.equal(led, 0, 'ledger rolled back');
+        assert.equal(evt, 0, 'event rolled back');
     });
 
     // 0.2 — tenant isolation guard in strict mode.
