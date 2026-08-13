@@ -63,6 +63,9 @@ export async function sweepStalledVideoEvaluations(): Promise<void> {
         endedAt: { $lt: cutoff },
         evaluationAlertSentAt: { $exists: false },
     })
+        // System health sweep: intentionally cross-org (scans every org for
+        // stalled evaluations to alert). Bypass the tenant guard.
+        .setOptions({ skipTenantGuard: true })
         .sort({ endedAt: 1 })
         .limit(20)
         .lean();
