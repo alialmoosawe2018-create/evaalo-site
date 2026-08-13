@@ -118,8 +118,32 @@ set, since Vite gives `process.env` precedence.)
   Pages `404.html` trick.
 - `_headers` — HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`,
   `Permissions-Policy` (camera/mic allowed — the interview flows need them), and
-  immutable caching for `/assets/*`.
+  a year of caching for `/assets/*` — deliberately **without `immutable`**, see below.
 - `robots.txt` / `sitemap.xml` — candidate session routes are `Disallow`ed.
+
+Plus one Pages Function, at the **repo root** (`functions/`) because the Pages root
+directory is the monorepo root:
+- `functions/assets/[[path]].js` — returns a real `404` for a missing `/assets/*`
+  file.
+
+> ### Why a function guards `/assets/*`
+> The SPA fallback matches asset paths too, so a request for a content-hashed
+> chunk that a deploy has just replaced is answered with `index.html` at status
+> **200**. The browser refuses the stylesheet on MIME grounds
+> (`Refused to apply style … MIME type ('text/html')`) and the page renders
+> unstyled — and the `/assets/*` caching rule then pins that HTML under the
+> asset's URL for a year in every cache along the way, the browser's *and*
+> Cloudflare's edge. One badly timed request during a deploy broke the live site
+> for every client behind that edge node, and `immutable` forbade even a forced
+> reload from repairing it. `_redirects` cannot fix this — rewrites to a non-200
+> status are unsupported, so the fallback cannot be made to skip asset paths.
+> Hence: the function returns 404 (`no-store`) so nothing is cached, `immutable`
+> is gone so a forced reload can always recover, and `src/main.jsx` reloads a tab
+> once on `vite:preloadError` so a stale tab heals itself.
+>
+> Recovering a poisoned cache needs a **Purge Everything** in the Cloudflare
+> dashboard (Caching → Configuration); a redeploy does not clear it, because the
+> URL is unchanged and the cached entry claims to be fresh for a year.
 
 **Staging.** `staging.evaalo.com` is served from branch `staging` and points at
 the **production** API. Do NOT repoint the backend at it — see the rule below.

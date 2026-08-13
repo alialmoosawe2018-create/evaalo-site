@@ -1,3 +1,4 @@
-# SPA routes — asset paths first so missing *.css is not rewritten to index.html.
-/assets/*  /assets/:splat  200
-/*        /index.html     200
+# SPA fallback. It matches asset paths too, so a missing /assets/* file is answered
+# with this HTML at status 200; `_redirects` cannot rewrite to a 404 to prevent that.
+# `functions/assets/[[path]].js` catches it and returns a real 404 instead.
+/*  /index.html  200
