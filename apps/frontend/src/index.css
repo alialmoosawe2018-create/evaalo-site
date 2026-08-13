@@ -5245,6 +5245,32 @@ body.rtl-text .nav-links {
     z-index: 0;
 }
 
+/* Slow diagonal light sweep across the hero — very subtle premium sheen */
+.hero-background::after {
+    content: '';
+    position: absolute;
+    inset: -40%;
+    background: linear-gradient(115deg,
+        transparent 44%,
+        rgba(125, 211, 252, 0.06) 50%,
+        transparent 56%);
+    pointer-events: none;
+    z-index: 0;
+    animation: heroSheen 16s ease-in-out infinite;
+}
+
+@keyframes heroSheen {
+    0%   { transform: translateX(-22%); opacity: 0; }
+    35%  { opacity: 1; }
+    65%  { opacity: 1; }
+    100% { transform: translateX(22%); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-background::after { animation: none; opacity: 0; }
+    .gradient-orb { animation: none; }
+}
+
 /* Background Logo */
 .background-logo {
     position: absolute;
@@ -5267,8 +5293,17 @@ body.rtl-text .nav-links {
 }
 
 /* Circuit Pattern Background */
+/* Static dot-grid — subtle "data structure" texture, faded away from the headline */
 .circuit-pattern {
-    display: none !important;
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(125, 211, 252, 0.22) 1px, transparent 1.6px);
+    background-size: 26px 26px;
+    -webkit-mask-image: radial-gradient(ellipse 72% 62% at 50% 42%, transparent 20%, #000 80%);
+    mask-image: radial-gradient(ellipse 72% 62% at 50% 42%, transparent 20%, #000 80%);
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 0;
 }
 
 @keyframes circuitMove {
@@ -5283,8 +5318,8 @@ body.rtl-text .nav-links {
 .gradient-orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(100px);
-    opacity: 0.6;
+    filter: blur(120px);
+    opacity: 0.5;
     animation: float 20s ease-in-out infinite;
 }
 
@@ -5345,6 +5380,7 @@ body.rtl-text .nav-links {
 
 /* AI Particles */
 .ai-particles {
+    display: none !important; /* removed: glowing dots read as dated/busy */
     position: absolute;
     width: 100%;
     height: 100%;
@@ -5398,6 +5434,7 @@ body.rtl-text .nav-links {
 
 /* Floating AI Icons */
 .floating-ai-icons {
+    display: none !important; /* removed: generic AI clip-art added visual noise */
     position: absolute;
     width: 100%;
     height: 100%;
@@ -7231,12 +7268,12 @@ body.rtl-text #features .icon-description {
 /* Space Section Title - Bold gradient on white */
 #features .section-title {
     font-weight: 800;
-    letter-spacing: 0.5px;
-    line-height: 1.2;
-    color: #000000 !important;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    color: #0F172A !important;
     background: none !important;
     -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: #000000 !important;
+    -webkit-text-fill-color: #0F172A !important;
     background-clip: unset !important;
     animation: none !important;
     filter: none !important;
@@ -7251,8 +7288,8 @@ body.rtl-text #features .icon-description {
 #features.features--demo .section-title {
     font-size: 2.5rem;
     font-weight: 800;
-    letter-spacing: 0.5px;
-    line-height: 1.3;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
     margin: 0 auto 24px;
     position: relative;
     display: block;
@@ -7289,12 +7326,12 @@ body.rtl-text #features .icon-description {
 
 #process .section-title {
     font-weight: 800;
-    letter-spacing: 0.5px;
-    line-height: 1.2;
-    color: #000000 !important;
+    letter-spacing: -0.5px;
+    line-height: 1.15;
+    color: #0F172A !important;
     background: none !important;
     -webkit-background-clip: unset !important;
-    -webkit-text-fill-color: #000000 !important;
+    -webkit-text-fill-color: #0F172A !important;
     background-clip: unset !important;
     animation: none !important;
     filter: none !important;
@@ -9254,7 +9291,8 @@ body.rtl-text .hero-badge span {
     color: #ffffff;
     margin-bottom: 28px;
     margin-top: 0;
-    line-height: 1.3;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
     text-shadow: 0 2px 20px rgba(56, 189, 248, 0.3);
     background: linear-gradient(135deg, 
         #ffffff 0%, 
@@ -9275,11 +9313,8 @@ body.rtl-text .hero-badge span {
     font-size: 2.8rem;
     font-weight: 700;
     background: linear-gradient(135deg,
-        #0ea5e9 0%,
-        #22d3ee 32%,
-        #67e8f9 58%,
-        #a5b4fc 72%,
-        #38bdf8 100%);
+        #22d3ee 0%,
+        #a5b4fc 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -9312,11 +9347,8 @@ body.rtl-text .hero-badge span {
         margin-bottom: 0;
         vertical-align: baseline;
         background: linear-gradient(135deg,
-            #0ea5e9 0%,
-            #22d3ee 32%,
-            #67e8f9 58%,
-            #a5b4fc 72%,
-            #38bdf8 100%);
+            #22d3ee 0%,
+            #a5b4fc 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -9384,11 +9416,8 @@ body.rtl-text .hero-badge span {
         margin-bottom: 0;
         vertical-align: baseline;
         background: linear-gradient(135deg,
-            #0ea5e9 0%,
-            #22d3ee 32%,
-            #67e8f9 58%,
-            #a5b4fc 72%,
-            #38bdf8 100%);
+            #22d3ee 0%,
+            #a5b4fc 100%);
         background-size: 200% auto;
         -webkit-background-clip: text;
         background-clip: text;
@@ -9471,15 +9500,15 @@ body.rtl-text .hero-badge span {
     font-size: 1.2rem;
     font-weight: 700;
     border-radius: 16px;
-    box-shadow: 0 12px 40px rgba(56, 189, 248, 0.5), 
-                0 6px 20px rgba(168, 85, 247, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    box-shadow: 0 12px 32px rgba(56, 189, 248, 0.28),
+                0 3px 10px rgba(15, 23, 42, 0.14),
+                inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .hero-actions .btn-primary.btn-large:hover {
-    box-shadow: 0 20px 60px rgba(56, 189, 248, 0.7), 
-                0 10px 30px rgba(168, 85, 247, 0.6),
-                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    box-shadow: 0 18px 44px rgba(56, 189, 248, 0.36),
+                0 6px 16px rgba(15, 23, 42, 0.16),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .hero-features {
@@ -9774,17 +9803,17 @@ body.rtl-text .hero-badge span {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, 
-        #38bdf8 0%, 
+    background: linear-gradient(135deg,
+        #38bdf8 0%,
         #22d3ee 25%,
-        #c084fc 50%, 
+        #c084fc 50%,
         #c084fc 75%,
         #38bdf8 100%);
     background-size: 200% auto;
     color: #ffffff;
-    box-shadow: 0 8px 32px rgba(56, 189, 248, 0.5), 
-                0 4px 16px rgba(168, 85, 247, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    box-shadow: 0 10px 30px rgba(56, 189, 248, 0.28),
+                0 2px 8px rgba(15, 23, 42, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.3);
     position: relative;
     overflow: hidden;
@@ -9828,14 +9857,14 @@ body.rtl-text .hero-badge span {
 
 .btn-primary:hover {
     transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 16px 48px rgba(56, 189, 248, 0.6), 
-                0 8px 24px rgba(168, 85, 247, 0.5),
-                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    box-shadow: 0 16px 40px rgba(56, 189, 248, 0.34),
+                0 5px 14px rgba(15, 23, 42, 0.16),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
     border-color: rgba(255, 255, 255, 0.4);
 }
 
 .btn-primary:hover::after {
-    opacity: 1;
+    opacity: 0.5;
 }
 
 .btn-primary:active {

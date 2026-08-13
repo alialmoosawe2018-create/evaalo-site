@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
-import NeuralNetwork from './NeuralNetwork';
 
 const Hero = () => {
     const { t } = useLanguage();
@@ -33,8 +32,6 @@ const Hero = () => {
                     <div className="ai-particle" style={{left: '50%', top: '40%'}}></div>
                     <div className="ai-particle" style={{left: '30%', top: '55%'}}></div>
                 </div>
-                
-                <NeuralNetwork />
                 
                 <div className="floating-ai-icons">
                     <div className="ai-icon" style={{left: '15%', top: '20%'}}>
