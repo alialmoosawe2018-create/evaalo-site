@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     candidateAvatarImageProps,
     candidatePhotoUrl,
@@ -31,6 +31,12 @@ import {
     buildShareCompanyLine,
     resolveShareAdvertisingCompany,
 } from '../utils/shareInterviewLink.js';
+import {
+    fetchCampaignMetaByIds,
+    fetchStageBoardCandidates,
+    readStageBoardSnapshot,
+    writeStageBoardSnapshot,
+} from '../utils/stageBoard.js';
 import { absoluteAppUrl } from '../config/apiBase.js';
 import { useLiveRefresh } from '../hooks/useLiveRefresh';
 import { onEvent } from '../services/eventsSocket';
@@ -47,6 +53,22 @@ import {
 
 /** المرحلة لمسار المقارنة (Stage 3). */
 const AI_COMPARE_STAGE = 'video';
+
+function campaignLabels(t) {
+    return {
+        uncategorized: t('screeningCampaignUncategorized'),
+        deleted: t('screeningCampaignDeleted'),
+        unknownCampaign: t('videoInterviewPageTitle'),
+    };
+}
+
+/** Rebuilds the board from the cached payload, so a restored view is shaped exactly like a fetched one. */
+function groupsFromSnapshot(snapshot, t) {
+    const { evaluated, pending } = splitVideoCandidates(snapshot.candidates);
+    return buildScreeningCampaignGroups(evaluated, pending, snapshot.meta, campaignLabels(t), {
+        metaPending: !snapshot.metaComplete,
+    });
+}
 
 const VideoInterview = () => {
     const { t, currentLang } = useLanguage();
@@ -79,10 +101,18 @@ const VideoInterview = () => {
         </div>
     );
 
-    const [campaignGroups, setCampaignGroups] = useState({ active: [], uncategorized: null });
+    const restoredSnapshot = useMemo(() => readStageBoardSnapshot(), []);
+    const [campaignGroups, setCampaignGroups] = useState(() =>
+        restoredSnapshot
+            ? groupsFromSnapshot(restoredSnapshot, t)
+            : { active: [], uncategorized: null }
+    );
     /** null = campaign list; string = drill-down selection key */
     const [selectedCampaignKey, setSelectedCampaignKey] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(restoredSnapshot == null);
+    /** Discards a slow response once a newer fetch has started. */
+    const fetchSeqRef = useRef(0);
+    const paintedFromSnapshotRef = useRef(restoredSnapshot != null);
     const [filter, setFilter] = useState('all'); // all, hire, consider, reject
     const [expandedRows, setExpandedRows] = useState(new Set());
 
@@ -254,7 +284,11 @@ const VideoInterview = () => {
     };
 
     useEffect(() => {
-        fetchCandidates();
+        // The snapshot is already on screen, so the opening fetch must not replace it
+        // with a loading line. A later run (language switch, manual refresh) still does.
+        const silent = paintedFromSnapshotRef.current;
+        paintedFromSnapshotRef.current = false;
+        fetchCandidates({ background: silent });
     }, [currentLang]);
 
     useEffect(() => {
@@ -367,45 +401,43 @@ const VideoInterview = () => {
     // - recommendation (string: "Hire", "Consider", "Reject")
     const fetchCandidates = async (opts = {}) => {
         const { background = false } = opts || {};
+        const seq = ++fetchSeqRef.current;
+        const isCurrent = () => seq === fetchSeqRef.current;
         try {
             if (!background) setLoading(true);
-            const result = await apiClient.get('/api/candidates');
-            
-            if (result.success && result.data) {
-                const { evaluated, pending } = splitVideoCandidates(result.data);
-                const campaignIds = collectCampaignIdsFromCandidates(evaluated, pending);
+            const candidates = await fetchStageBoardCandidates();
+            if (!isCurrent()) return;
 
-                const metaByCampaignId = {};
-                if (campaignIds.length > 0) {
-                    try {
-                        const metaJson = await apiClient.get(
-                            `/api/recruitment-campaigns?ids=${encodeURIComponent(campaignIds.join(','))}`
-                        );
-                        if (metaJson.success && Array.isArray(metaJson.data)) {
-                            for (const row of metaJson.data) {
-                                if (row?.campaignId) metaByCampaignId[row.campaignId] = row;
-                            }
-                        }
-                    } catch (metaErr) {
-                        console.warn('⚠️ Campaign metadata batch fetch failed:', metaErr);
-                    }
-                }
-
-                const groups = buildScreeningCampaignGroups(evaluated, pending, metaByCampaignId, {
-                    uncategorized: t('screeningCampaignUncategorized'),
-                    deleted: t('screeningCampaignDeleted'),
-                    unknownCampaign: t('videoInterviewPageTitle'),
-                });
-                setCampaignGroups(groups);
-            } else {
+            if (!candidates) {
                 console.warn('⚠️ No candidates data received');
                 setCampaignGroups({ active: [], uncategorized: null });
+                return;
             }
-        } catch (error) {
-            console.error('❌ Error fetching candidates:', error);
-            setCampaignGroups({ active: [], uncategorized: null });
-        } finally {
+
+            const { evaluated, pending } = splitVideoCandidates(candidates);
+            const campaignIds = collectCampaignIdsFromCandidates(evaluated, pending);
+            const labels = campaignLabels(t);
+
+            // Show the board now. Campaign titles are one more round trip away, and
+            // waiting for a label kept every row hidden for twice as long as needed.
+            setCampaignGroups(
+                buildScreeningCampaignGroups(evaluated, pending, {}, labels, {
+                    metaPending: campaignIds.length > 0,
+                })
+            );
             if (!background) setLoading(false);
+
+            const { meta, complete } = await fetchCampaignMetaByIds(campaignIds);
+            if (!isCurrent() || !complete) return;
+            setCampaignGroups(buildScreeningCampaignGroups(evaluated, pending, meta, labels));
+            writeStageBoardSnapshot({ candidates, meta, metaComplete: true });
+        } catch (error) {
+            // The board keeps whatever it was showing: emptying it on a dropped
+            // request throws away the rows the user is reading, and the next refresh
+            // or live event retries anyway. Stages 1 and 2 behave the same way.
+            console.error('❌ Error fetching candidates:', error);
+        } finally {
+            if (!background && isCurrent()) setLoading(false);
         }
     };
 

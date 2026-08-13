@@ -117,8 +117,14 @@ export default function ScreeningCampaignList({
 
     const renderRow = (row) => {
         const dateLabel = formatDate(row.lastActivityAt || row.campaignCreatedAt);
+        // `metaPending` rows are painted before the campaign's open/closed state is
+        // known, so the toggle would offer to close one that is already closed.
         const canToggleStatus =
-            Boolean(onToggleCampaignStatus) && Boolean(row.campaignId) && !row.isDeleted && !row.isUncategorized;
+            Boolean(onToggleCampaignStatus) &&
+            Boolean(row.campaignId) &&
+            !row.isDeleted &&
+            !row.isUncategorized &&
+            !row.metaPending;
         return (
             <li
                 key={row.selectionKey}

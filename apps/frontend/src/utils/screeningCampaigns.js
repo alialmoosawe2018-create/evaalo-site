@@ -170,8 +170,17 @@ function resolveTitleFromMeta(meta) {
  * @param {object[]} pending
  * @param {Record<string, object>} metaByCampaignId — from batch API
  * @param {object} labels — i18n strings for deleted/uncategorized fallbacks
+ * @param {{ metaPending?: boolean }} [options] — `metaPending` when the batch above
+ *   has not answered yet: a campaign absent from an empty map says nothing about
+ *   whether it exists, so it must not be labelled deleted or reported as open.
  */
-export function buildScreeningCampaignGroups(evaluated, pending, metaByCampaignId = {}, labels = {}) {
+export function buildScreeningCampaignGroups(
+    evaluated,
+    pending,
+    metaByCampaignId = {},
+    labels = {},
+    { metaPending = false } = {}
+) {
     const buckets = new Map();
 
     const ensureBucket = (key) => {
@@ -210,7 +219,7 @@ export function buildScreeningCampaignGroups(evaluated, pending, metaByCampaignI
 
         const meta = key !== SCREENING_UNCATEGORIZED_KEY ? metaByCampaignId[key] : null;
         const isDeleted =
-            key !== SCREENING_UNCATEGORIZED_KEY && !meta && totalCount > 0;
+            !metaPending && key !== SCREENING_UNCATEGORIZED_KEY && !meta && totalCount > 0;
         const isUncategorized = key === SCREENING_UNCATEGORIZED_KEY;
 
         let title = resolveTitleFromMeta(meta) || modePosition(allInBucket);
@@ -242,6 +251,8 @@ export function buildScreeningCampaignGroups(evaluated, pending, metaByCampaignI
             company,
             isDeleted,
             isUncategorized,
+            /** Titles and open/closed state are still unknown for this row. */
+            metaPending: metaPending && !isUncategorized,
             status,
             isClosed: status === 'closed',
             closedAt: meta?.closedAt ? new Date(meta.closedAt) : null,

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
     candidateAvatarImageProps,
     candidatePhotoUrl,
@@ -37,9 +37,31 @@ import {
     buildShareCompanyLine,
     resolveShareAdvertisingCompany,
 } from '../utils/shareInterviewLink.js';
+import {
+    fetchCampaignMetaByIds,
+    fetchStageBoardCandidates,
+    readStageBoardSnapshot,
+    writeStageBoardSnapshot,
+} from '../utils/stageBoard.js';
 
 /** المرحلة لمسار المقارنة (Stage 2). */
 const AI_COMPARE_STAGE = 'voice';
+
+function campaignLabels(t) {
+    return {
+        uncategorized: t('screeningCampaignUncategorized'),
+        deleted: t('screeningCampaignDeleted'),
+        unknownCampaign: t('voiceInterviewPageTitle'),
+    };
+}
+
+/** Rebuilds the board from the cached payload, so a restored view is shaped exactly like a fetched one. */
+function groupsFromSnapshot(snapshot, t) {
+    const { evaluated, pending } = splitVoiceCandidates(snapshot.candidates);
+    return buildScreeningCampaignGroups(evaluated, pending, snapshot.meta, campaignLabels(t), {
+        metaPending: !snapshot.metaComplete,
+    });
+}
 
 /** نص من n8n قد يكون "undefined" حرفياً — لا نعرض كائنات أو undefined */
 function displayVoiceText(v, fallback = 'N/A') {
@@ -132,10 +154,18 @@ const VoiceInterview = () => {
         return n === filterVal;
     };
 
-    const [campaignGroups, setCampaignGroups] = useState({ active: [], uncategorized: null });
+    const restoredSnapshot = useMemo(() => readStageBoardSnapshot(), []);
+    const [campaignGroups, setCampaignGroups] = useState(() =>
+        restoredSnapshot
+            ? groupsFromSnapshot(restoredSnapshot, t)
+            : { active: [], uncategorized: null }
+    );
     /** null = campaign list; string = drill-down selection key */
     const [selectedCampaignKey, setSelectedCampaignKey] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(restoredSnapshot == null);
+    /** Discards a slow response once a newer fetch has started. */
+    const fetchSeqRef = useRef(0);
+    const paintedFromSnapshotRef = useRef(restoredSnapshot != null);
     const [filter, setFilter] = useState('all'); // all, hire, consider, reject
     const [expandedRows, setExpandedRows] = useState(new Set());
     // كاش روابط التسجيل الموقّتة لكل مرشح: { url, expiresAt } + حالات التحميل/الخطأ.
@@ -320,7 +350,11 @@ const VoiceInterview = () => {
     };
 
     useEffect(() => {
-        fetchCandidates();
+        // The snapshot is already on screen, so the opening fetch must not replace it
+        // with a loading line. A later run (language switch, manual refresh) still does.
+        const silent = paintedFromSnapshotRef.current;
+        paintedFromSnapshotRef.current = false;
+        fetchCandidates({ background: silent });
     }, [currentLang]);
 
     useEffect(() => {
@@ -424,44 +458,40 @@ const VoiceInterview = () => {
     // communication / problem_solving: number أو نص | strengths / weaknesses: مصفوفة أو سطر
     const fetchCandidates = async (opts = {}) => {
         const { background = false } = opts || {};
+        const seq = ++fetchSeqRef.current;
+        const isCurrent = () => seq === fetchSeqRef.current;
         try {
             if (!background) setLoading(true);
-            const result = await apiClient.get('/api/candidates');
+            const candidates = await fetchStageBoardCandidates();
+            if (!isCurrent()) return;
 
-            if (result.success && result.data) {
-                const { evaluated, pending } = splitVoiceCandidates(result.data);
-                const campaignIds = collectCampaignIdsFromCandidates(evaluated, pending);
-
-                const metaByCampaignId = {};
-                if (campaignIds.length > 0) {
-                    try {
-                        const metaJson = await apiClient.get(
-                            `/api/recruitment-campaigns?ids=${encodeURIComponent(campaignIds.join(','))}`
-                        );
-                        if (metaJson.success && Array.isArray(metaJson.data)) {
-                            for (const row of metaJson.data) {
-                                if (row?.campaignId) metaByCampaignId[row.campaignId] = row;
-                            }
-                        }
-                    } catch (metaErr) {
-                        console.warn('⚠️ Campaign metadata batch fetch failed:', metaErr);
-                    }
-                }
-
-                const groups = buildScreeningCampaignGroups(evaluated, pending, metaByCampaignId, {
-                    uncategorized: t('screeningCampaignUncategorized'),
-                    deleted: t('screeningCampaignDeleted'),
-                    unknownCampaign: t('voiceInterviewPageTitle'),
-                });
-                setCampaignGroups(groups);
-            } else {
+            if (!candidates) {
                 console.warn('⚠️ No candidates data received');
                 setCampaignGroups({ active: [], uncategorized: null });
+                return;
             }
+
+            const { evaluated, pending } = splitVoiceCandidates(candidates);
+            const campaignIds = collectCampaignIdsFromCandidates(evaluated, pending);
+            const labels = campaignLabels(t);
+
+            // Show the board now. Campaign titles are one more round trip away, and
+            // waiting for a label kept every row hidden for twice as long as needed.
+            setCampaignGroups(
+                buildScreeningCampaignGroups(evaluated, pending, {}, labels, {
+                    metaPending: campaignIds.length > 0,
+                })
+            );
+            if (!background) setLoading(false);
+
+            const { meta, complete } = await fetchCampaignMetaByIds(campaignIds);
+            if (!isCurrent() || !complete) return;
+            setCampaignGroups(buildScreeningCampaignGroups(evaluated, pending, meta, labels));
+            writeStageBoardSnapshot({ candidates, meta, metaComplete: true });
         } catch (error) {
             console.error('❌ Error fetching candidates:', error);
         } finally {
-            if (!background) setLoading(false);
+            if (!background && isCurrent()) setLoading(false);
         }
     };
 
