@@ -279,6 +279,9 @@ export async function sweepStaleCompareEmails(): Promise<void> {
             [`${field}.status`]: { $in: ['pending', 'processing'] },
             [`${field}.deadlineAt`]: { $lt: now },
         })
+            // System billing sweep: intentionally cross-org (scans every org for
+            // stale compare requests to refund). Bypass the tenant guard.
+            .setOptions({ skipTenantGuard: true })
             .select(`campaignId organizationId ${field}`)
             .lean()
             .exec();
