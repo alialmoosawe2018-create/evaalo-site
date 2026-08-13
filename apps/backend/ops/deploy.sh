@@ -16,6 +16,10 @@ BRANCH="main"
 SVC="api"
 CONTAINER="evaalo-api"
 HEALTH_URL="https://api.evaalo.com/health"
+# Local, so the reading is the container's own truth even if the tunnel is down.
+BUSY_URL="http://127.0.0.1:5000/api/health"
+MAX_POSTPONE_SEC="${MAX_POSTPONE_SEC:-600}"
+POSTPONE_STATE="/tmp/evaalo-backend-deploy.postponed"
 LOG="$REPO/ops/deploy.log"
 LOCK="/tmp/evaalo-backend-deploy.lock"
 
@@ -79,6 +83,35 @@ if [ "$LOCAL" = "$REMOTE" ]; then
   fi
   exit 0   # nothing new to deploy
 fi
+
+# --- Live-interview gate -----------------------------------------------------
+# replace_container() SIGKILLs the process, so a running voice interview dies
+# mid-sentence and the candidate loses it (their reconnect starts an empty
+# session that the evidence gate then rejects). Wait for the call to finish.
+# The repo is deliberately NOT advanced here: leaving HEAD on the old commit is
+# what makes the next tick retry the whole deploy. The ceiling exists so a busy
+# day cannot starve a deploy forever.
+# Fail-open on purpose: if the count cannot be read the deploy proceeds, because
+# an unreachable container is exactly the case that most needs replacing.
+LIVE="$(curl -s --max-time 5 "$BUSY_URL" 2>/dev/null \
+  | grep -o '"activeVoiceInterviews":[0-9]*' | cut -d: -f2 || true)"
+if [ -n "${LIVE:-}" ] && [ "$LIVE" -gt 0 ] 2>/dev/null; then
+  if [ "$(cut -d' ' -f1 "$POSTPONE_STATE" 2>/dev/null || true)" != "$REMOTE" ]; then
+    echo "$REMOTE $(date +%s)" > "$POSTPONE_STATE"
+  fi
+  SINCE="$(cut -d' ' -f2 "$POSTPONE_STATE" 2>/dev/null || true)"
+  # A missing or corrupt marker must not abort the tick — restart the clock.
+  case "${SINCE:-}" in
+    ''|*[!0-9]*) SINCE="$(date +%s)"; echo "$REMOTE $SINCE" > "$POSTPONE_STATE" ;;
+  esac
+  WAITED=$(( $(date +%s) - SINCE ))
+  if [ "$WAITED" -lt "$MAX_POSTPONE_SEC" ]; then
+    log "POSTPONED: $LIVE live voice interview(s) — waited ${WAITED}s/${MAX_POSTPONE_SEC}s, retry next tick"
+    exit 0
+  fi
+  log "WARN: $LIVE live interview(s) but waited ${WAITED}s — ceiling reached, deploying anyway"
+fi
+rm -f "$POSTPONE_STATE"
 
 PREV="$LOCAL"
 log "=== deploy start: ${LOCAL:0:9} -> ${REMOTE:0:9} ==="

@@ -523,6 +523,8 @@ ${langRule}`;
             : '';
         return `You are EVAALO, a professional interviewer. Rephrase this question naturally and ask it. You may add a brief transition if it feels natural. One main question.
 Do NOT narrow a broad question into a single sub-topic unless the original question is already specific.
+After the optional short acknowledgment, the question itself must OPEN with an explicit interrogative (شنو / شلون / وين / ليش / منو / شكد / هل — What / How / Why / Where / Which / Can you in English). A statement carrying only a question mark at the end is not acceptable — it is spoken aloud, so it must sound like a question.
+Output clean punctuation: never leave a lone "؟" or "?" in the middle of the sentence; the only question mark belongs at the very end.
 ${changeNote ? changeNote + '\n' : ''}
 ${langRule}
 Question to rephrase: "${selectedQuestion.text}"
@@ -754,6 +756,10 @@ function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string 
             /(?:^|\s)(حبيبي|حبيبتي|عزيزي|عزيزتي|حياتي|يا\s+عيني|يا\s+بعدي|يا\s+روحي)(?=\s|[،,.!?؟]|$)/gi,
             ' '
         );
+    // يترك الموديل أحياناً علامة استفهام معلّقة وسط الجملة («طيب، ؟ تگدر تحچيلي…»)
+    // فينطقها TTS وقفةً غريبة. تُحذف المفردة داخل النص فقط؛ أما علامة نهاية السؤال
+    // (لا يتبعها كلام) فتبقى كما هي.
+    s = s.replace(/(^|[\s،,])[؟?](?=\s+[^\s؟?!.،,])/g, '$1');
     // عراقي: "شنو تحچيلي" بلا "تحب" — الصيغة: "شنو تحب تحچيلي" (أو "ممكن تحچيلي شويه")
     s = s.replace(/(شنو|شو|أش|اش)\s+تح([چج])يلي/gi, (_full, w: string, g: string) => {
         const wUse = w === 'أش' || w === 'اش' ? 'شنو' : w;

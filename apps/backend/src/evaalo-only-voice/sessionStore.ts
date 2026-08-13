@@ -43,3 +43,18 @@ export function touchSession(id: string) {
 export function removeSession(id: string) {
   sessions.delete(id);
 }
+
+/**
+ * Sessions plausibly still on a live call. `lastSeen` gates the count so a
+ * leaked entry cannot report a phantom interview forever — this number decides
+ * whether a deploy is allowed to replace the container, and a stuck count would
+ * block every deploy.
+ */
+export function countLiveSessions(maxIdleMs = 120_000): number {
+  const cutoff = Date.now() - maxIdleMs;
+  let live = 0;
+  for (const session of sessions.values()) {
+    if (session.lastSeen >= cutoff) live += 1;
+  }
+  return live;
+}
