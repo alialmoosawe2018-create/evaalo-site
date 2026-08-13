@@ -68,14 +68,33 @@ export function isChangeQuestionRequest(transcript: string): boolean {
 }
 
 /** أدنى عدد كلمات في إجابة المرشح ليُعتد بها كموقف قابل للمتابعة */
-const CHALLENGE_MIN_WORDS = 15;
+const CHALLENGE_MIN_WORDS = 10;
+
+/** إجابة بهذا الطول مفصّلة بما يكفي لتستحق تعمّقاً ولو خلت من كلمة «تحدي» */
+const SUBSTANTIVE_MIN_WORDS = 25;
+
+function wordCount(t: string): number {
+  return t.split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * إجابة مسترسلة تستحق سؤالاً أعمق بذاتها.
+ *
+ * كشف الكلمات المفتاحية وحده كان يربط العمق بمفردات المرشح لا بجودة إجابته:
+ * من يصف تجربته بتفصيل دون أن ينطق «تحدي» أو «مشكلة» كان لا يُسأل أبداً.
+ * الطول هنا كافٍ وحده لأن سقف المتابعات والفاصل بينها يمنعان الإفراط.
+ */
+export function isSubstantiveAnswer(transcript: string): boolean {
+  const t = transcript.trim();
+  return t.length > 0 && wordCount(t) >= SUBSTANTIVE_MIN_WORDS;
+}
 
 /** STAR Probing: كشف ذكر المرشح لتحدي أو موقف صعب */
 export function isChallengeMention(transcript: string): boolean {
   const t = transcript.trim().toLowerCase();
   if (!t) return false;
   // إجابة قصيرة لا تحمل موقفاً يستحق التعمّق — تمنع المتابعة على عبارات عابرة.
-  if (t.split(/\s+/).filter(Boolean).length < CHALLENGE_MIN_WORDS) return false;
+  if (wordCount(t) < CHALLENGE_MIN_WORDS) return false;
   // الكلمات العامة (صار/قدرت/كدرت/hard/difficult) مستبعدة: تَرِد في كلام عادي ولا تدل على تحدٍّ.
   return /(تحدي|تحديات|موقف|مواقف|مشكلة|مشاكل|صعوبة|مو\s+سهل|ضغط|واجهت|واجهنا|مريت|challenge|situation|problem|issue|difficulty|faced|struggled|pressure)/i.test(
     t
@@ -95,12 +114,15 @@ export type TurnIntent = 'change_question' | 'clarification' | 'challenge' | 'no
 
 /**
  * كشف نية الرسالة بترتيب أولوية واضح:
- * تغيير السؤال > توضيح > تحدي/موقف > عادي
+ * تغيير السؤال > توضيح > يستحق تعمّقاً > عادي
+ *
+ * «challenge» تعني هنا «تستحق متابعة»، سواء ذكر المرشح موقفاً صريحاً أو أفاض
+ * في إجابته. ما بعدها في التدفق واحد في الحالتين: سؤال أعمق في الموضوع نفسه.
  */
 export function detectIntent(transcript: string): TurnIntent {
   if (isChangeQuestionRequest(transcript)) return 'change_question';
   if (isClarificationRequest(transcript)) return 'clarification';
-  if (isChallengeMention(transcript)) return 'challenge';
+  if (isChallengeMention(transcript) || isSubstantiveAnswer(transcript)) return 'challenge';
   return 'normal';
 }
 

@@ -40,6 +40,8 @@ export interface InterviewState {
 export const FOLLOW_UP_MAX_PER_INTERVIEW = 5;
 /** أدنى فاصل بين متابعتين بالأدوار: 2 = سؤال عادي واحد بينهما (متابعة لكل سؤالين) */
 export const FOLLOW_UP_MIN_GAP_TURNS = 2;
+/** أقصى عدد أدوار متابعة لا تُحتسب في تقدّم المراحل */
+export const PHASE_FOLLOW_UP_CREDIT_MAX = 3;
 /** قيمة أولية تضمن السماح بأول متابعة دون قيد الفاصل */
 const NO_FOLLOW_UP_YET = -FOLLOW_UP_MIN_GAP_TURNS;
 
@@ -128,8 +130,13 @@ export function onExchangeComplete(
     state.lastFollowUpTurn = newUserCount;
   }
 
-  // تحديد المرحلة من userMessageCount (منطق حتمي)
-  const phase: InterviewPhase = newUserCount < 9 ? 1 : newUserCount < 13 ? 2 : 3;
+  // تحديد المرحلة من userMessageCount (منطق حتمي). المتابعة تعمّق في الموضوع
+  // نفسه لا موضوع جديد، فاحتسابها كانت تُقلّص عدد المواضيع المغطّاة قبل انتقال
+  // المرحلة. الائتمان مسقوف لأن وقت المقابلة ثابت (12 دقيقة): تأخيرٌ أكبر قد
+  // يدفع اختبار الإنكليزية إلى ما بعد انتهاء الوقت فلا يجري أصلاً.
+  const followUpCredit = Math.min(state.totalFollowUps ?? 0, PHASE_FOLLOW_UP_CREDIT_MAX);
+  const phaseTurns = newUserCount - followUpCredit;
+  const phase: InterviewPhase = phaseTurns < 9 ? 1 : phaseTurns < 13 ? 2 : 3;
 
   if (phase !== state.phase) {
     state.phase = phase;
