@@ -97,10 +97,12 @@ const AccountMembers = () => {
                 <div
                     className="dashboard-card"
                     style={{
+                        position: 'relative',
                         padding: '28px 28px 24px',
                         marginBottom: 16,
                     }}
                 >
+                    <span className="badge-coming-soon">{t('account_members_soonBadge')}</span>
                     <div
                         style={{
                             display: 'grid',
@@ -126,24 +128,21 @@ const AccountMembers = () => {
                             </div>
                         ))}
                     </div>
-                    {canManageMembers ? (
-                        <button
-                            type="button"
-                            className="workflow-btn-primary account-btn-compact"
-                            onClick={() => setCreateTeamOpen(true)}
-                        >
-                            {t('account_members_createBtn')}
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            className="workflow-btn-primary account-btn-compact"
-                            disabled
-                            title={t('rbacPermissionDenied')}
-                        >
-                            {t('account_members_createBtn')}
-                        </button>
-                    )}
+                    {/*
+                      * Teams has not shipped yet, so the button stays disabled for
+                      * everyone; the click handler and modal are left wired for when
+                      * it does. A member who also lacks the permission is told that
+                      * instead, since it outlives the launch.
+                      */}
+                    <button
+                        type="button"
+                        className="workflow-btn-primary account-btn-compact"
+                        disabled
+                        title={canManageMembers ? t('account_members_soonHint') : t('rbacPermissionDenied')}
+                        onClick={() => setCreateTeamOpen(true)}
+                    >
+                        {t('account_members_createBtn')}
+                    </button>
                 </div>
             </main>
 
