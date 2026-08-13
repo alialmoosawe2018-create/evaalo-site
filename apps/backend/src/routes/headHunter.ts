@@ -34,6 +34,12 @@ import {
     getInternalHeadHunterSourcingContext,
     isValidHeadHunterContextId,
 } from '../services/headHunterSourcingContextService.js';
+import {
+    headHunterPhotoObjectKey,
+    isHeadHunterPhotoHash,
+    mirrorHeadHunterPhotos,
+} from '../services/headHunterPhotoMirror.js';
+import { getObjectBuffer } from '../services/r2Service.js';
 
 const router = Router();
 
@@ -448,16 +454,23 @@ async function billNewHeadHunterCandidates(
     return { billed };
 }
 
-function applyHeadHunterInboundMerge(
+async function applyHeadHunterInboundMerge(
     searchId: string,
     payload: unknown
-): { merged: unknown; rowCount: number; complete: boolean; receivedAt: string } {
+): Promise<{ merged: unknown; rowCount: number; complete: boolean; receivedAt: string }> {
     const existing = headHunterResultsById.get(searchId);
     if (!existing) {
         throw new Error('Unknown searchId');
     }
     const receivedAt = new Date().toISOString();
-    const merged = mergeHeadHunterInbound(existing.payload ?? null, payload);
+    /**
+     * Photos are copied to our own storage before the record is stored, because the
+     * client mirrors whatever it first polls into localStorage and would keep the
+     * provider's expiring URLs forever. Falls back to those URLs on any failure.
+     */
+    const merged = await mirrorHeadHunterPhotos(
+        mergeHeadHunterInbound(existing.payload ?? null, payload)
+    );
     const complete = isSearchComplete(payload);
     const rowCount = extractCandidateRows(merged).length;
     const inboundError = pickInboundErrorMessage(payload);
@@ -792,6 +805,39 @@ function parseMinCandidateCount(v: unknown): number | undefined {
     if (!Number.isFinite(n) || !ALLOWED_MIN_CANDIDATE_COUNTS.has(n)) return undefined;
     return n;
 }
+
+/**
+ * GET /api/head-hunter/photo/:hash — صورة مرشح نسخناها إلى R2.
+ *
+ * بلا مصادقة بقصد: الرابط يوضع في وسم `<img>`، ووسم الصورة لا يستطيع إرسال
+ * رأس `Authorization`. البديلان المتاحان كانا رابطاً موقّتاً قصير العمر — وهو
+ * يُعيد المشكلة التي جئنا نحلّها إذ ينتهي — أو مسار عامّ كما هو `/uploads`.
+ * الحماية هنا أن المفتاح بصمة sha256 لا تُخمّن، والمحتوى صورة كانت أصلاً
+ * منشورة علناً على الشبكة المهنية.
+ */
+router.get('/photo/:hash', async (req: Request, res: Response) => {
+    const hash = typeof req.params.hash === 'string' ? req.params.hash.trim().toLowerCase() : '';
+    if (!isHeadHunterPhotoHash(hash)) {
+        return res.status(400).set('Cache-Control', 'no-store').json({ ok: false, error: 'Bad key' });
+    }
+
+    try {
+        const object = await getObjectBuffer(headHunterPhotoObjectKey(hash));
+        if (!object) {
+            // لا تُخزَّن: نسخة قد تنجح لاحقاً لنفس المفتاح إن أعاد بحثٌ سحب الصورة.
+            return res.status(404).set('Cache-Control', 'no-store').json({ ok: false, error: 'Not found' });
+        }
+        res.setHeader('Content-Type', object.contentType);
+        res.setHeader('Content-Length', String(object.body.byteLength));
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        // المفتاح مشتقّ من رابط المصدر والبايتات لا تتغيّر بعد الرفع.
+        res.setHeader('Cache-Control', 'public, max-age=604800');
+        return res.end(object.body);
+    } catch (err) {
+        console.error('[head-hunter] photo read failed:', err);
+        return res.status(502).set('Cache-Control', 'no-store').json({ ok: false, error: 'Upstream error' });
+    }
+});
 
 /** GET /api/head-hunter/last-result?searchId= — نتيجة بحث معزولة للمستخدم الحالي */
 router.get(

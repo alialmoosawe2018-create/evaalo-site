@@ -66,6 +66,41 @@ export async function uploadBuffer(
   );
 }
 
+function isNotFoundError(err: unknown): boolean {
+  if (err == null || typeof err !== 'object') return false;
+  const e = err as { name?: unknown; $metadata?: { httpStatusCode?: unknown } };
+  if (e.name === 'NoSuchKey' || e.name === 'NotFound') return true;
+  return e.$metadata?.httpStatusCode === 404;
+}
+
+/**
+ * قراءة كائن من R2 كـ buffer، أو `null` إن لم يوجد المفتاح.
+ *
+ * للأصول الصغيرة التي نبثّها بأنفسنا عبر مسار من الخلفية (مثل صور المرشحين)،
+ * لا للملفات الكبيرة: المحتوى كلّه يُحمَّل في الذاكرة. الملفات الكبيرة تُقدَّم
+ * برابط موقّت عبر `getPresignedDownloadUrl` كما تفعل تسجيلات الصوت.
+ */
+export async function getObjectBuffer(
+  key: string
+): Promise<{ body: Buffer; contentType: string } | null> {
+  if (!isR2Configured()) return null;
+  const client = getClient();
+  try {
+    const res = await client.send(
+      new GetObjectCommand({ Bucket: getBucket(), Key: key })
+    );
+    if (!res.Body) return null;
+    const bytes = await res.Body.transformToByteArray();
+    return {
+      body: Buffer.from(bytes),
+      contentType: res.ContentType?.trim() || 'application/octet-stream',
+    };
+  } catch (err) {
+    if (isNotFoundError(err)) return null;
+    throw err;
+  }
+}
+
 /**
  * توليد رابط تنزيل موقّت (Presigned GET URL) لمفتاح موجود.
  * @param key مفتاح الكائن
