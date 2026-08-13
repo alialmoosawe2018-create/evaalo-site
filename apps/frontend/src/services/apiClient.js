@@ -66,8 +66,38 @@ async function resolveClerkHeaders() {
     return extra;
 }
 
+const CLERK_EXPECTED =
+    String(import.meta.env.VITE_USE_CLERK || 'true').toLowerCase() !== 'false' &&
+    Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
+const CLERK_LOAD_TIMEOUT_MS = 4000;
+
+/** Set once Clerk failed to appear, so only the first request pays the wait. */
+let clerkLoadUnavailable = false;
+
+/**
+ * Waits for Clerk to finish loading before a token is read.
+ *
+ * `window.Clerk` is attached asynchronously, and the first API calls of a page
+ * fire from mount effects that usually win that race. Reading the token
+ * synchronously therefore sent the opening request of every page load with no
+ * usable token: the API answered 401, and the page only recovered on the retry.
+ * `loaded` turns true whether or not anyone is signed in, so a signed-out
+ * visitor is not made to wait.
+ */
+async function waitForClerkLoaded() {
+    if (!CLERK_EXPECTED || clerkLoadUnavailable || typeof window === 'undefined') return;
+    if (window.Clerk?.loaded) return;
+    const deadline = Date.now() + CLERK_LOAD_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        if (window.Clerk?.loaded) return;
+    }
+    clerkLoadUnavailable = true;
+}
+
 async function resolveAuthToken({ forceFresh = false } = {}) {
     try {
+        await waitForClerkLoaded();
         const clerk = typeof window !== 'undefined' ? window.Clerk : undefined;
         const session = clerk?.session;
         if (session && typeof session.getToken === 'function') {
