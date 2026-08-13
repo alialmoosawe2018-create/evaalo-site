@@ -36,9 +36,82 @@ import {
     isMockRecentInterviewId,
 } from '../utils/demoSampleData.js';
 import { useLiveRefresh } from '../hooks/useLiveRefresh.js';
+import { getUserStorageKeySuffix, userScopedStorageKey } from '../utils/userStorageKey';
 
 const DASHBOARD_UNKNOWN = 'Unknown';
 const DASHBOARD_NA = 'N/A';
+
+/**
+ * The rows last painted, and the cut-off that filters them.
+ *
+ * Even with the campaign fetch out of the way, the first paint still waited on a
+ * token handshake and two round trips, so the card sat empty for seconds on every
+ * visit. These rows are a view of server data with no authority of their own, so
+ * showing yesterday's copy for a moment costs nothing — the fetch that follows
+ * replaces it. Snapshots are per user and skipped entirely until the session
+ * resolves, so one account never paints another's candidates.
+ */
+const RECENT_SNAPSHOT_KEY_BASE = 'evaalo-dashboard-recent-interviews-v1';
+const RECENT_CLEARED_AT_KEY_BASE = 'evaalo-dashboard-recent-cleared-at-v1';
+
+/** Several screenfuls; the rest arrives with the fetch moments later. */
+const RECENT_SNAPSHOT_MAX_ROWS = 15;
+
+function hasResolvedUser() {
+    return getUserStorageKeySuffix() !== 'anonymous';
+}
+
+function readRecentSnapshot() {
+    try {
+        if (typeof localStorage === 'undefined' || !hasResolvedUser()) return null;
+        const raw = localStorage.getItem(userScopedStorageKey(RECENT_SNAPSHOT_KEY_BASE));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length === 0) return null;
+        // A row dismissed after the snapshot was written must not reappear.
+        const rows = filterDismissedNotifications(parsed);
+        return rows.length > 0 ? rows : null;
+    } catch {
+        return null;
+    }
+}
+
+function writeRecentSnapshot(rows) {
+    try {
+        if (typeof localStorage === 'undefined' || !hasResolvedUser()) return;
+        const key = userScopedStorageKey(RECENT_SNAPSHOT_KEY_BASE);
+        // Demo rows are rebuilt from translations on every mount, and an empty list
+        // is a real state (everything cleared) that must not restore stale rows.
+        const real = rows.filter((row) => !isMockRecentInterviewId(row.id));
+        if (real.length === 0) {
+            localStorage.removeItem(key);
+            return;
+        }
+        localStorage.setItem(key, JSON.stringify(real.slice(0, RECENT_SNAPSHOT_MAX_ROWS)));
+    } catch {
+        /* quota or private mode — the card just loses its instant paint */
+    }
+}
+
+function readCachedClearedAt() {
+    try {
+        if (typeof localStorage === 'undefined' || !hasResolvedUser()) return null;
+        return localStorage.getItem(userScopedStorageKey(RECENT_CLEARED_AT_KEY_BASE)) || null;
+    } catch {
+        return null;
+    }
+}
+
+function writeCachedClearedAt(iso) {
+    try {
+        if (typeof localStorage === 'undefined' || !hasResolvedUser()) return;
+        const key = userScopedStorageKey(RECENT_CLEARED_AT_KEY_BASE);
+        if (iso) localStorage.setItem(key, iso);
+        else localStorage.removeItem(key);
+    } catch {
+        /* ignore */
+    }
+}
 
 function toTime(value) {
     if (!value) return 0;
@@ -114,14 +187,26 @@ function formatDashboardInterviewDate(raw, locale) {
 const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
     const { t, currentLang } = useLanguage();
     const navigate = useNavigate();
-    const [recentInterviews, setRecentInterviews] = useState([]);
-    const [loadingInterviews, setLoadingInterviews] = useState(true);
+    const restoredRows = useMemo(() => readRecentSnapshot(), []);
+    const [recentInterviews, setRecentInterviews] = useState(restoredRows ?? []);
+    const [loadingInterviews, setLoadingInterviews] = useState(restoredRows == null);
     const [clearingRecent, setClearingRecent] = useState(false);
     const [clearRecentError, setClearRecentError] = useState(null);
     const [analysisReleaseAt, setAnalysisReleaseAt] = useState(null);
-    const clearedAtRef = useRef(null);
+    const clearedAtRef = useRef(readCachedClearedAt());
     const scrollRef = useRef(null);
     const [hasMoreBelow, setHasMoreBelow] = useState(false);
+    const hasRowsRef = useRef(recentInterviews.length > 0);
+
+    /**
+     * One place to persist, so every path that changes the list — a fetch, the
+     * company-name hydration, a dismissal, a clear — leaves the next mount an
+     * accurate snapshot without having to remember to write one.
+     */
+    useEffect(() => {
+        hasRowsRef.current = recentInterviews.length > 0;
+        writeRecentSnapshot(recentInterviews);
+    }, [recentInterviews]);
 
     const clampRecentInterviewsScrollWheel = useCallback((e) => {
         const el = scrollRef.current;
@@ -206,29 +291,35 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
     }, []);
 
     const fetchRecentInterviews = useCallback(async ({ background = false } = {}) => {
+        // A spinner drawn over rows that are already on screen would undo the snapshot.
+        if (!background && !hasRowsRef.current) setLoadingInterviews(true);
+        setClearRecentError(null);
+
+        /**
+         * Both requests start together, but the list no longer waits on the profile.
+         * All it carries here is the "cleared at" cut-off — one timestamp that only
+         * changes when the user clears the card — so the cached copy decides the first
+         * paint and the response is merely confirmation.
+         */
+        const profileRequest = getMyProfile().catch(() => null);
+        const candidatesRequest = apiClient.get('/api/candidates').catch(() => null);
+
+        let candidates = [];
+        let candidatesLoaded = false;
         try {
-            if (!background) setLoadingInterviews(true);
-            setClearRecentError(null);
-
-            const [profileResult, candidatesResult] = await Promise.all([
-                getMyProfile().catch(() => null),
-                apiClient.get('/api/candidates').catch(() => null),
-            ]);
-
-            const clearedAtIso =
-                profileResult?.preferences?.dashboardRecentInterviewsClearedAt ?? null;
-            clearedAtRef.current = clearedAtIso;
-
+            const candidatesResult = await candidatesRequest;
             const allCandidates =
                 candidatesResult?.success && Array.isArray(candidatesResult.data)
                     ? candidatesResult.data
                     : [];
+            candidatesLoaded = Boolean(candidatesResult?.success);
 
             // لا إشعار قبل جهوزية البطاقة كاملة — نفس مهلة تحليل المرحلة الأولى.
-            const { visible: candidates, nextReleaseAt } = withoutPendingAnalysis(allCandidates);
+            const { visible, nextReleaseAt } = withoutPendingAnalysis(allCandidates);
+            candidates = visible;
             setAnalysisReleaseAt(nextReleaseAt);
 
-            setRecentInterviews(buildRecentInterviewsList(candidates, clearedAtIso));
+            setRecentInterviews(buildRecentInterviewsList(candidates, clearedAtRef.current));
 
             const campaignIds = collectCampaignIdsFromCandidates(candidates, []);
             if (campaignIds.length > 0) {
@@ -241,6 +332,17 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
         } finally {
             if (!background) setLoadingInterviews(false);
         }
+
+        const profileResult = await profileRequest;
+        const clearedAtIso =
+            profileResult?.preferences?.dashboardRecentInterviewsClearedAt ?? null;
+        if (!profileResult || clearedAtIso === clearedAtRef.current) return;
+        clearedAtRef.current = clearedAtIso;
+        writeCachedClearedAt(clearedAtIso);
+        // Rebuilding from a failed candidates fetch would wipe the list on a cut-off
+        // that only moved because the cache was cold.
+        if (!candidatesLoaded) return;
+        setRecentInterviews(buildRecentInterviewsList(candidates, clearedAtIso));
     }, [hydrateCompanyNames]);
 
     useEffect(() => {
@@ -326,6 +428,7 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
             const preferences = await clearDashboardRecentInterviews();
             const clearedAtIso = preferences?.dashboardRecentInterviewsClearedAt ?? null;
             clearedAtRef.current = clearedAtIso;
+            writeCachedClearedAt(clearedAtIso);
             setRecentInterviews([]);
             window.dispatchEvent(new CustomEvent('evaalo:notifications-cleared'));
         } catch (err) {

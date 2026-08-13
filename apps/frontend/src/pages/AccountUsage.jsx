@@ -94,6 +94,14 @@ function formatDetails(row, t) {
  * @param {(k: string) => string} t
  */
 function operationLabel(row, t) {
+    // A compare report bills its candidates as SCREENING, since comparing a
+    // candidate costs what screening one costs. Naming the row by usage type alone
+    // made that charge read as an ordinary screening, so the report looked like it
+    // had cost only the single credit on its email row. `source` is what tells them
+    // apart.
+    if (row.usageType === 'SCREENING' && row.source === 'ai_compare_email') {
+        return t('pricing_usage_compare_candidate');
+    }
     const key = USAGE_TYPE_LABEL_KEYS[row.usageType];
     return key ? t(key) : row.usageType;
 }
