@@ -204,6 +204,80 @@ export async function findOrgByStripeCustomerId(
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Mode A: transactional balance-refresh (grant / seed / Stripe-period)
+// ────────────────────────────────────────────────────────────────────────────
+
+interface RefreshLedgerInput {
+    amountMicro: number;
+    balanceBeforeMicro: number;
+    balanceAfterMicro: number;
+    sourceId?: string;
+    idempotencyKey: string;
+    metadata?: Record<string, unknown>;
+}
+
+/**
+ * Persist a balance-period snapshot + its ledger row + the `CreditBalanceRefreshed`
+ * event ATOMICALLY (single `withTransaction` on a replica set) so a grant/refresh can
+ * never leave the balance and its ledger/event divergent (Mode A — matches the locked
+ * "money is transactional" contract already used by consumeCredits). On standalone
+ * Mongo (no transactions) it falls back to the legacy best-effort sequence — byte-for
+ * -behavior identical to the pre-Mode-A code. Idempotent via the ledger's unique
+ * idempotencyKey: a duplicate (retry / Stripe redelivery) is treated as already-applied
+ * and returns the existing balance (the first grant already set it).
+ */
+async function refreshBalanceAtomically(
+    organizationId: string,
+    balanceSet: Record<string, unknown>,
+    upsertOpts: { unset?: Record<string, unknown>; setDefaultsOnInsert?: boolean },
+    ledger: RefreshLedgerInput,
+    eventPayload: Record<string, unknown>,
+): Promise<ICreditBalance | null> {
+    const eventKey = `balance-refresh:${ledger.idempotencyKey}`;
+    const ledgerRow = { organizationId, source: 'monthly_refresh' as const, ...ledger };
+
+    const mongoSession = await mongoose.startSession();
+    try {
+        let balance: ICreditBalance | null = null;
+        await mongoSession.withTransaction(async () => {
+            balance = await creditBalanceRepo.upsertPeriod(organizationId, balanceSet, {
+                ...upsertOpts,
+                session: mongoSession,
+            });
+            await creditLedgerRepo.create(ledgerRow, mongoSession);
+            await enqueueDomainEvent(
+                { organizationId, type: 'CreditBalanceRefreshed', payload: eventPayload, idempotencyKey: eventKey },
+                mongoSession,
+            );
+        });
+        return balance;
+    } catch (err) {
+        // Already applied (retry / Stripe redelivery) — the first grant set the balance.
+        if (isDuplicateKeyError(err)) return getCreditBalance(organizationId);
+
+        if (isTransactionUnsupported(err)) {
+            // Standalone Mongo (local dev): legacy best-effort sequence, unchanged.
+            const balance = await creditBalanceRepo.upsertPeriod(organizationId, balanceSet, upsertOpts);
+            try {
+                await creditLedgerRepo.create(ledgerRow);
+                void emitDomainEventBestEffort({
+                    organizationId,
+                    type: 'CreditBalanceRefreshed',
+                    payload: eventPayload,
+                    idempotencyKey: eventKey,
+                });
+            } catch (e) {
+                if (!isDuplicateKeyError(e)) throw e;
+            }
+            return balance;
+        }
+        throw err;
+    } finally {
+        await mongoSession.endSession();
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Manual seed (Phase 2a — kept for admin / dev tooling)
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -239,37 +313,29 @@ export async function seedOrgBilling(
         { upsert: true, new: true, setDefaultsOnInsert: true },
     ).exec();
 
-    const creditBalance = await creditBalanceRepo.upsertPeriod(organizationId, {
-        balanceMicro,
-        monthlyCredits,
-        includedVideoSeconds,
-        // New billing period (seed/new org): reset consumed included minutes.
-        usedIncludedVideoSeconds: 0,
-        periodStart: start,
-        periodEnd: end,
-        refreshedFromPlanAt: now,
-    });
-
     const idempotencyKey = `seed:${organizationId}:${now.toISOString()}`;
-    try {
-        await creditLedgerRepo.create({
-            organizationId,
+    const creditBalance = await refreshBalanceAtomically(
+        organizationId,
+        {
+            balanceMicro,
+            monthlyCredits,
+            includedVideoSeconds,
+            // New billing period (seed/new org): reset consumed included minutes.
+            usedIncludedVideoSeconds: 0,
+            periodStart: start,
+            periodEnd: end,
+            refreshedFromPlanAt: now,
+        },
+        {},
+        {
             amountMicro: balanceMicro,
             balanceBeforeMicro: 0,
             balanceAfterMicro: balanceMicro,
-            source: 'monthly_refresh',
             idempotencyKey,
             metadata: mergeLedgerMetadata({ seeded: true }, orgPlanState),
-        });
-        void emitDomainEventBestEffort({
-            organizationId,
-            type: 'CreditBalanceRefreshed',
-            payload: { balanceAfterMicro: balanceMicro, monthlyCredits, reason: 'seed' },
-            idempotencyKey: `balance-refresh:${idempotencyKey}`,
-        });
-    } catch (err) {
-        if (!isDuplicateKeyError(err)) throw err;
-    }
+        },
+        { balanceAfterMicro: balanceMicro, monthlyCredits, reason: 'seed' },
+    );
 
     if (!creditBalance) {
         // upsert:true + new:true guarantees a row; guard keeps the non-null contract.
@@ -294,7 +360,8 @@ export async function refreshBalanceFromPlan(
     const before = await getCreditBalance(organizationId);
     const balanceBeforeMicro = before?.balanceMicro ?? 0;
 
-    const creditBalance = await creditBalanceRepo.upsertPeriod(
+    const idempotencyKey = `refresh:${organizationId}:${now.getTime()}`;
+    const creditBalance = await refreshBalanceAtomically(
         organizationId,
         {
             balanceMicro,
@@ -308,28 +375,15 @@ export async function refreshBalanceFromPlan(
             refreshedFromPlanAt: now,
         },
         { setDefaultsOnInsert: false },
-    );
-
-    const idempotencyKey = `refresh:${organizationId}:${now.getTime()}`;
-    try {
-        await creditLedgerRepo.create({
-            organizationId,
+        {
             amountMicro: balanceMicro - balanceBeforeMicro,
             balanceBeforeMicro,
             balanceAfterMicro: balanceMicro,
-            source: 'monthly_refresh',
             idempotencyKey,
             metadata: mergeLedgerMetadata({}, state),
-        });
-        void emitDomainEventBestEffort({
-            organizationId,
-            type: 'CreditBalanceRefreshed',
-            payload: { balanceAfterMicro: balanceMicro, monthlyCredits, reason: 'plan_refresh' },
-            idempotencyKey: `balance-refresh:${idempotencyKey}`,
-        });
-    } catch (err) {
-        if (!isDuplicateKeyError(err)) throw err;
-    }
+        },
+        { balanceAfterMicro: balanceMicro, monthlyCredits, reason: 'plan_refresh' },
+    );
 
     return creditBalance;
 }
@@ -1465,21 +1519,6 @@ async function seedBalanceForStripe(
     const previous = await getCreditBalance(organizationId);
     const balanceBeforeMicro = previous?.balanceMicro ?? 0;
 
-    await creditBalanceRepo.upsertPeriod(
-        organizationId,
-        {
-            balanceMicro,
-            monthlyCredits,
-            includedVideoSeconds,
-            // checkout / invoice.paid mark a NEW billing period → reset usage.
-            usedIncludedVideoSeconds: 0,
-            periodStart,
-            periodEnd,
-            refreshedFromPlanAt: now,
-        },
-        { unset: { balances: 1 } },
-    );
-
     const state = stateOverride ?? (await getOrgPlanState(organizationId));
     const idempotencyKey =
         context.source === 'migrate' && context.stripeSubscriptionId && context.planId
@@ -1494,13 +1533,24 @@ async function seedBalanceForStripe(
                     ? `stripe:checkout:${context.stripeSubscriptionId}:${periodStart.getTime()}`
                     : `stripe:refresh:${organizationId}:${periodStart.getTime()}`;
 
-    try {
-        await creditLedgerRepo.create({
-            organizationId,
+    // Mode A: balance snapshot + ledger + CreditBalanceRefreshed commit atomically.
+    await refreshBalanceAtomically(
+        organizationId,
+        {
+            balanceMicro,
+            monthlyCredits,
+            includedVideoSeconds,
+            // checkout / invoice.paid mark a NEW billing period → reset usage.
+            usedIncludedVideoSeconds: 0,
+            periodStart,
+            periodEnd,
+            refreshedFromPlanAt: now,
+        },
+        { unset: { balances: 1 } },
+        {
             amountMicro: balanceMicro - balanceBeforeMicro,
             balanceBeforeMicro,
             balanceAfterMicro: balanceMicro,
-            source: 'monthly_refresh',
             sourceId: context.stripeInvoiceId || context.stripeSubscriptionId,
             idempotencyKey,
             metadata: mergeLedgerMetadata(
@@ -1511,17 +1561,9 @@ async function seedBalanceForStripe(
                 },
                 state,
             ),
-        });
-        // Grant emitted only on a fresh ledger write (duplicates throw → caught below).
-        void emitDomainEventBestEffort({
-            organizationId,
-            type: 'CreditBalanceRefreshed',
-            payload: { balanceAfterMicro: balanceMicro, monthlyCredits, reason: context.source },
-            idempotencyKey: `balance-refresh:${idempotencyKey}`,
-        });
-    } catch (err) {
-        if (!isDuplicateKeyError(err)) throw err;
-    }
+        },
+        { balanceAfterMicro: balanceMicro, monthlyCredits, reason: context.source },
+    );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
