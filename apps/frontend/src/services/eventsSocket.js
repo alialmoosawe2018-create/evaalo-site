@@ -143,12 +143,31 @@ async function connect() {
     };
 }
 
+/**
+ * A page restored from the back/forward cache comes back without its socket: the
+ * browser closes it on entry, since a frozen page may not hold one open (that is
+ * the "Page entered Back-Forward Cache" close, not a server failure). The retry
+ * scheduled by onclose can be up to MAX_BACKOFF_MS away by then, so live updates
+ * would lag for no reason. Reconnect at once, keeping `lastAckedSeq` so the server
+ * replays whatever arrived while the page was frozen.
+ */
+function onPageShow(event) {
+    if (!event?.persisted || intentionalClose) return;
+    reconnectAttempts = 0;
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+    void connect();
+}
+
 /** Start the shared socket (idempotent). Call once the app is authenticated. */
 export function startEventsSocket() {
     if (typeof window === 'undefined') return;
     if (!started) {
         started = true;
         window.addEventListener('online', () => void connect());
+        window.addEventListener('pageshow', onPageShow);
     }
     void connect();
 }

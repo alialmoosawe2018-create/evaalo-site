@@ -1,7 +1,7 @@
 // Fail-closed authentication for Campaign Compare API routes only.
 
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
-import { requireAuth } from '@clerk/express';
+import { getAuth } from '@clerk/express';
 import { SYSTEM_ACTOR_ID } from '../config/multiTenant.js';
 import { getOrgId } from './auth.js';
 import {
@@ -63,26 +63,30 @@ export function assertCampaignCompareApiInfrastructure(
     };
 }
 
-const clerkRequireAuth = requireAuth();
-
+/**
+ * Fail closed with 401 JSON. This used to delegate to `requireAuth()` and map its
+ * `next(err)` to a 401, but Clerk answers a missing session with `302 → /`
+ * instead of erroring, so a signed-out caller followed the redirect and read the
+ * API root banner as a 200. Reading the session directly keeps the rejection
+ * inside this middleware, where it can stay JSON.
+ */
 export const requireCampaignCompareStrictClerkAuth: RequestHandler = (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
-    clerkRequireAuth(req, res, (err?: unknown) => {
-        if (err) {
-            res.status(401).json({ ok: false, error: 'authentication_required' });
-            return;
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const userId = String((req as any).auth?.userId ?? '').trim();
-        if (!userId || userId === SYSTEM_ACTOR_ID) {
-            res.status(401).json({ ok: false, error: 'authentication_required' });
-            return;
-        }
-        next();
-    });
+    let userId = '';
+    try {
+        userId = String(getAuth(req).userId ?? '').trim();
+    } catch {
+        res.status(401).json({ ok: false, error: 'authentication_required' });
+        return;
+    }
+    if (!userId || userId === SYSTEM_ACTOR_ID) {
+        res.status(401).json({ ok: false, error: 'authentication_required' });
+        return;
+    }
+    next();
 };
 
 export function assertCampaignCompareOrgAllowlist(): RequestHandler {

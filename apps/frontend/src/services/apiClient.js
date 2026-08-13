@@ -110,6 +110,18 @@ function emitInsufficientCredits(status, data) {
     }
 }
 
+/**
+ * A redirect is never a valid answer for these endpoints, and following one is
+ * worse than failing: a signed-out request bounced to the API root arrives as a
+ * 200 whose body carries no `success`/`data`, which callers read as "no rows" and
+ * render an empty page while the session stays broken. Treat it as the 401 it is.
+ */
+function assertNotRedirected(response) {
+    if (!response.redirected) return;
+    authStorage.clear();
+    throw new ApiError('authentication_required', { status: 401 });
+}
+
 async function request(path, { method = 'GET', body, headers = {}, signal } = {}) {
     const url = path.startsWith('http') ? path : `${DEFAULT_BASE_URL}${path}`;
     const token = await resolveAuthToken();
@@ -134,6 +146,8 @@ async function request(path, { method = 'GET', body, headers = {}, signal } = {}
     } catch (networkErr) {
         throw new ApiError(networkErr?.message || 'network_error', { status: 0 });
     }
+
+    assertNotRedirected(response);
 
     const text = await response.text();
     let data = null;
@@ -177,6 +191,8 @@ async function requestForm(path, { method = 'POST', formData, headers = {}, sign
     } catch (networkErr) {
         throw new ApiError(networkErr?.message || 'network_error', { status: 0 });
     }
+
+    assertNotRedirected(response);
 
     const text = await response.text();
     let data = null;
