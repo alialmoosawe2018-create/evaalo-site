@@ -76,6 +76,8 @@ const WrittenInterview = () => {
     const [loading, setLoading] = useState(restoredSnapshot == null);
     /** Discards a slow response once a newer fetch has started. */
     const fetchSeqRef = useRef(0);
+    /** Blocking fetch that currently owns the loading line; background fetches never take it. */
+    const loadingOwnerRef = useRef(0);
     const paintedFromSnapshotRef = useRef(restoredSnapshot != null);
     const getLabels = useCallback(() => campaignLabels(t), [t]);
     const { hideCampaign, undoHide, hideUndo, rememberPayload, payloadRef, keepPendingHide } = useStageCampaignHide({
@@ -339,8 +341,17 @@ const WrittenInterview = () => {
         const { background = false, skipInterim = false } = opts || {};
         const seq = ++fetchSeqRef.current;
         const isCurrent = () => seq === fetchSeqRef.current;
+        const ownsLoading = !background;
+        const releaseLoadingIfOwned = () => {
+            if (loadingOwnerRef.current !== seq) return;
+            loadingOwnerRef.current = 0;
+            setLoading(false);
+        };
         try {
-            if (!background) setLoading(true);
+            if (ownsLoading) {
+                loadingOwnerRef.current = seq;
+                setLoading(true);
+            }
             const loaded = await fetchStageBoardCandidates();
             if (!isCurrent()) return;
 
@@ -376,7 +387,7 @@ const WrittenInterview = () => {
                     })
                 );
             }
-            if (!background) setLoading(false);
+            if (ownsLoading) releaseLoadingIfOwned();
 
             const { meta, complete } = await fetchCampaignMetaByIds(campaignIds);
             if (!isCurrent() || !complete) return;
@@ -386,7 +397,7 @@ const WrittenInterview = () => {
         } catch (error) {
             console.error('❌ Error fetching candidates:', error);
         } finally {
-            if (!background && isCurrent()) setLoading(false);
+            if (ownsLoading) releaseLoadingIfOwned();
         }
     };
 
@@ -1107,7 +1118,11 @@ const WrittenInterview = () => {
                                                             interviewLinkReset={{
                                                                 stage: 'voice',
                                                                 consumedAt: candidate.voiceInterviewLinkConsumedAt,
-                                                                onReset: fetchCandidates,
+                                                                onReset: () =>
+                                                                    fetchCandidates({
+                                                                        background: true,
+                                                                        skipInterim: true,
+                                                                    }),
                                                             }}
                                                         />
                                                     </div>
