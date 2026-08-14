@@ -5293,6 +5293,12 @@ body.rtl-text .nav-links {
     .ev-skeleton { animation: none; }
 }
 
+/* Spin for the stage refresh button icon while a refresh is in flight */
+@keyframes stageRefreshSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
 /* Background Logo */
 .background-logo {
     position: absolute;

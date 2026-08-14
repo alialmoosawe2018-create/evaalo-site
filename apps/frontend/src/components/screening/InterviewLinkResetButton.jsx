@@ -29,6 +29,11 @@ export default function InterviewLinkResetButton({
         if (loading) return;
         if (!window.confirm(t('interviewLinkReset_confirm'))) return;
         setLoading(true);
+        // Safari can stall a POST (aggressive keep-alive / caching) so the promise
+        // never settles and the button sticks on '…' until a manual page refresh.
+        // A hard timeout guarantees the request always resolves and loading resets.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         try {
             const data = await apiClient.post(
                 `/api/candidates/${encodeURIComponent(String(candidateId))}/interview-link-reset`,
@@ -37,6 +42,7 @@ export default function InterviewLinkResetButton({
                     applicationId: candidate?.applicationId || undefined,
                     campaignId: candidate?.campaignId || undefined,
                 },
+                { signal: controller.signal },
             );
             if (!data?.success) {
                 window.alert(data?.message || data?.error || t('interviewLinkReset_fail'));
@@ -47,6 +53,7 @@ export default function InterviewLinkResetButton({
         } catch (err) {
             window.alert(err?.message || t('interviewLinkReset_fail'));
         } finally {
+            clearTimeout(timeoutId);
             setLoading(false);
         }
     };

@@ -181,16 +181,16 @@ const WrittenInterview = () => {
 
     const selectedCampaignId = selectedGroup?.campaignId ?? null;
 
-    const applyAiCompareFromResult = (r) => {
+    const applyAiCompareFromResult = (r, autoOpen = true) => {
         if (!r) return;
         setAiCompareResult(r);
         setAiCompareRequestId(r.requestId || null);
         if (r.status === 'completed') {
             setAiCompareStatus('completed');
-            setAiComparePanelOpen(true);
+            if (autoOpen) setAiComparePanelOpen(true);
         } else if (r.status === 'failed' || r.status === 'refunded' || r.status === 'expired') {
             setAiCompareStatus('failed');
-            setAiComparePanelOpen(true);
+            if (autoOpen) setAiComparePanelOpen(true);
         } else if (r.status === 'pending' || r.status === 'processing') {
             setAiCompareStatus('pending');
             setAiComparePanelOpen(true);
@@ -246,7 +246,9 @@ const WrittenInterview = () => {
                     `/api/recruitment-campaigns/${encodeURIComponent(selectedCampaignId)}/ai-compare-top`
                 );
                 if (cancelled || !json?.success || !json.result) return;
-                applyAiCompareFromResult(json.result);
+                // Restore a past result on load WITHOUT auto-opening the panel — the
+                // "view last comparison" button lets HR open it on demand.
+                applyAiCompareFromResult(json.result, false);
             } catch (err) {
                 console.warn('⚠️ AI compare hydrate failed:', err);
             }
@@ -586,7 +588,7 @@ const WrittenInterview = () => {
                                 activeCampaigns={campaignGroups.active}
                                 uncategorized={campaignGroups.uncategorized}
                                 onSelect={(key) => setSelectedCampaignKey(key)}
-                                onRefresh={fetchCandidates}
+                                onRefresh={() => fetchCandidates({ background: true })}
                                 onHideCampaign={hideCampaign}
                                 onToggleCampaignStatus={handleToggleCampaignStatus}
                                 hideUndo={hideUndo}
