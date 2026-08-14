@@ -19911,6 +19911,27 @@ html[data-app-theme='light'] .account-dashboard-page .account-spending-amount-in
     color: #ffffff;
 }
 
+.account-billing-cancel-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.account-billing-cancel-dialog__card {
+    width: 100%;
+    max-width: 420px;
+    padding: 24px;
+}
+
+.account-billing-cancel-dialog__card h3 {
+    color: #ffffff;
+}
+
 .account-billing-page .account-billing-plan-price {
     color: #94a3b8;
     font-weight: 600;
@@ -19994,6 +20015,20 @@ html[data-app-theme='light'] .account-billing-page .account-billing-credits-blur
 }
 
 html[data-app-theme='light'] .account-billing-page .dashboard-card h2 {
+    color: var(--app-text) !important;
+}
+
+html[data-app-theme='light'] .account-billing-cancel-dialog {
+    background: rgba(15, 23, 42, 0.28);
+}
+
+html[data-app-theme='light'] .account-billing-cancel-dialog__card {
+    background: var(--app-container-bg) !important;
+    border-color: var(--app-container-border) !important;
+    box-shadow: var(--app-container-shadow), var(--app-container-inset) !important;
+}
+
+html[data-app-theme='light'] .account-billing-cancel-dialog__card h3 {
     color: var(--app-text) !important;
 }
 
@@ -20152,6 +20187,33 @@ html[data-app-theme='light'] .account-dashboard-page .account-btn-accent.workflo
         rgba(99, 102, 241, 0.4) 0%,
         rgba(129, 140, 248, 0.38) 50%,
         rgba(167, 139, 250, 0.42) 100%
+    ) !important;
+}
+
+/* Danger must beat the compact-primary light override — same pairing as dark (keep vs cancel). */
+html[data-app-theme='light'] .account-dashboard-page .account-btn-compact.account-btn-danger.workflow-btn-primary {
+    background: linear-gradient(135deg, #b91c1c 0%, #dc2626 42%, #ef4444 100%) !important;
+    border-color: rgba(185, 28, 28, 0.5) !important;
+    color: #ffffff !important;
+    box-shadow:
+        0 6px 18px rgba(239, 68, 68, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+html[data-app-theme='light'] .account-dashboard-page .account-btn-compact.account-btn-danger.workflow-btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #991b1b 0%, #b91c1c 45%, #dc2626 100%) !important;
+    border-color: rgba(153, 27, 27, 0.55) !important;
+    box-shadow:
+        0 8px 22px rgba(239, 68, 68, 0.36),
+        inset 0 1px 0 rgba(255, 255, 255, 0.42) !important;
+}
+
+html[data-app-theme='light'] .account-dashboard-page .account-btn-compact.account-btn-danger.workflow-btn-primary::after {
+    background: linear-gradient(
+        135deg,
+        rgba(185, 28, 28, 0.4) 0%,
+        rgba(220, 38, 38, 0.38) 50%,
+        rgba(239, 68, 68, 0.42) 100%
     ) !important;
 }
 

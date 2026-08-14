@@ -104,28 +104,12 @@ export default function BillingCancelSection({ summary, onSummaryChange, isSumma
                     role="dialog"
                     aria-modal="true"
                     aria-labelledby="billing-cancel-confirm-title"
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        zIndex: 10000,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: 20,
-                        background: 'rgba(0,0,0,0.55)',
-                    }}
+                    className="account-billing-cancel-dialog"
                     onClick={() => !actionLoading && setConfirmOpen(false)}
                 >
                     <div
-                        className="dashboard-card"
+                        className="dashboard-card account-billing-cancel-dialog__card"
                         dir={mainDir}
-                        style={{
-                            width: '100%',
-                            maxWidth: 420,
-                            padding: '24px',
-                            background: 'rgba(15, 23, 42, 0.98)',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                        }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <h3 id="billing-cancel-confirm-title" style={{ margin: '0 0 10px', fontSize: 18, fontWeight: 700 }}>
@@ -137,7 +121,7 @@ export default function BillingCancelSection({ summary, onSummaryChange, isSumma
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                             <button
                                 type="button"
-                                className="workflow-btn-primary account-btn-compact"
+                                className="btn btn-secondary account-btn-compact"
                                 onClick={() => setConfirmOpen(false)}
                                 disabled={Boolean(actionLoading)}
                             >

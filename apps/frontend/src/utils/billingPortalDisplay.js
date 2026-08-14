@@ -91,12 +91,19 @@ export function invoiceStatusStyle(status) {
     }
 }
 
+/** Stripe line copy: "1 × Plan (at $99.00 / month)" → "Plan ($99.00 / month)". */
+function tidyStripeLineDescription(raw) {
+    return raw
+        .replace(/^\d+\s*[×xX]\s*/, '')
+        .replace(/\(\s*at\s+/i, '(');
+}
+
 /**
  * Human-readable invoice description — Stripe line item when available,
  * otherwise a plan + cycle fallback for audit-friendly display.
  */
 export function buildInvoiceDescription(inv, planDisplayName, t, locale = 'en-US') {
-    if (inv?.description?.trim()) return inv.description.trim();
+    if (inv?.description?.trim()) return tidyStripeLineDescription(inv.description.trim());
     const periodLabel = formatDateSafe(inv?.periodStart || inv?.createdAt, locale);
     if (planDisplayName && periodLabel && t) {
         return t('account_billing_invoice_desc_fallback')
