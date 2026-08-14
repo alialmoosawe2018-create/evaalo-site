@@ -2095,7 +2095,7 @@ export async function evaluateVoiceInterview(
                     role: 'system',
                     content: `You are an expert interviewer evaluator. From the transcript, score the CANDIDATE only:
 - communicationSkills (1-10): clarity, coherence, expressing ideas in whatever language they used.
-- englishFluency (0-10): ONLY English the candidate actually speaks. Grammar, vocabulary, fluency for those English parts. Use 0 if they never speak English, only Arabic/other, or there is no English answer to score. Never infer English level from non-English dialogue. Never use a default mid score without English evidence.
+- englishFluency (0-10): score ONLY the English the candidate actually speaks, weighing four things together — grammar (correctness), vocabulary (range and appropriateness), sentence construction (complete, well-formed sentences vs. fragments), and coherence of those English answers (a full, understandable idea). Use 0 if they never speak English, speak only Arabic/other, or there is no English answer to score. Never infer English level from non-English dialogue, and never use a default mid score without real English evidence; when the English sample is short, score conservatively.
 - confidenceLevel (1-10): poise, assertiveness, hesitation (10=very confident).
 Use lower scores when evidence is thin; do not invent English proficiency.`
                 },
