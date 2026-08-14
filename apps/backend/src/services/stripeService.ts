@@ -530,27 +530,49 @@ export async function listPaymentCheckoutReceipts(
 }
 
 /** Subscription invoices + one-time payment receipts, newest first, de-duplicated. */
+// Short-lived per-customer cache for the receipts view. Invoices and payment
+// receipts come from live Stripe API calls (slow, ~0.5–1.5s each) but change
+// rarely (subscriptions bill monthly), so a brief cache turns repeat loads instant
+// without risking meaningfully stale data. Keyed by customer+limit so orgs never
+// share entries; a just-created invoice appears within RECEIPTS_CACHE_TTL_MS.
+const receiptsCache = new Map<string, { rows: BillingReceiptRow[]; ts: number }>();
+const RECEIPTS_CACHE_TTL_MS = 60_000;
+
+/** Drop cached receipts for a customer (e.g. after a webhook signals a new invoice). */
+export function invalidateBillingReceiptsCache(customerId: string): void {
+    for (const key of [...receiptsCache.keys()]) {
+        if (key.startsWith(`${customerId}:`)) receiptsCache.delete(key);
+    }
+}
+
 export async function listBillingReceipts(
     customerId: string,
     limit = 24,
 ): Promise<BillingReceiptRow[]> {
+    const cacheKey = `${customerId}:${limit}`;
+    const cached = receiptsCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < RECEIPTS_CACHE_TTL_MS) {
+        return cached.rows;
+    }
+
     const fetchLimit = Math.min(50, Math.max(limit, 10));
-    const [invoices] = await Promise.all([
-        listInvoices(customerId, fetchLimit),
-    ]);
+    const invoices = await listInvoices(customerId, fetchLimit);
 
     const invoiceRows = invoices.map(mapStripeInvoiceToReceiptRow);
     const invoiceIds = new Set(invoiceRows.map((r) => r.id));
 
     const paymentRows = await listPaymentCheckoutReceipts(customerId, fetchLimit, invoiceIds);
 
-    return [...invoiceRows, ...paymentRows]
+    const rows = [...invoiceRows, ...paymentRows]
         .sort((a, b) => {
             const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
             const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
             return tb - ta;
         })
         .slice(0, limit);
+
+    receiptsCache.set(cacheKey, { rows, ts: Date.now() });
+    return rows;
 }
 
 function stripeKeyFingerprint(key: string): string | null {

@@ -163,9 +163,9 @@ const AccountUsage = () => {
     const mainDir = currentLang === 'ar' || currentLang === 'ku' ? 'rtl' : 'ltr';
     const dateLocale = currentLang === 'ar' ? 'ar' : currentLang === 'ku' ? 'ku' : 'en-US';
 
-    const [rangePreset, setRangePreset] = useState('30d');
-    const [rows, setRows] = useState(/** @type {ActivityRow[]} */ (() => getCached(usageCacheKey(presetToDays('30d'))) ?? []));
-    const [loading, setLoading] = useState(() => !hasCached(usageCacheKey(presetToDays('30d'))));
+    const [rangePreset, setRangePreset] = useState('7d');
+    const [rows, setRows] = useState(/** @type {ActivityRow[]} */ (() => getCached(usageCacheKey(presetToDays('7d'))) ?? []));
+    const [loading, setLoading] = useState(() => !hasCached(usageCacheKey(presetToDays('7d'))));
     const [loadError, setLoadError] = useState(null);
 
     const days = presetToDays(rangePreset);

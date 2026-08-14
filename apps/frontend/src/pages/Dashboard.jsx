@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useOrganization } from '../contexts/OrganizationContext';
+import { PERMISSIONS } from '../contexts/rbacRoles';
+import { getUserStorageKeySuffix } from '../utils/userStorageKey';
+import { prefetchCandidates, prefetchUsageActivity, prefetchInvoices } from '../services/dashboardPrefetch';
 import '../design-styles.css';
 import NewInterviewSidebar from '../components/NewInterviewSidebar';
 import RecentInterviewsCard from '../components/RecentInterviewsCard';
@@ -185,9 +190,26 @@ const DASHBOARD_SERVICE_THEMES = {
 
 const Dashboard = () => {
     const { t, currentLang } = useLanguage();
+    const { user } = useAuth();
+    const { hasPermission } = useOrganization();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    // Warm the data tables the user is most likely to open next, once the dashboard
+    // has painted. Guarded by permissions and hasCached() (see dashboardPrefetch),
+    // so this fetches at most once per session and never for pages the user can't see.
+    useEffect(() => {
+        const userKey = user?.id || user?.email || getUserStorageKeySuffix();
+        const timer = window.setTimeout(() => {
+            if (hasPermission(PERMISSIONS.CANDIDATE_READ)) prefetchCandidates(userKey);
+            if (hasPermission(PERMISSIONS.BILLING_READ)) {
+                prefetchUsageActivity(7);
+                prefetchInvoices();
+            }
+        }, 500);
+        return () => window.clearTimeout(timer);
+    }, [user, hasPermission]);
 
     useEffect(() => {
         if (searchParams.get('open') !== 'newCampaign') return;

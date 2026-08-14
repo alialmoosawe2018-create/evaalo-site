@@ -33,7 +33,7 @@ import {
     findOrgByStripeCustomerId,
     isBillingActive,
 } from './billingRuntimeService.js';
-import { listCheckoutSessionLineItems, retrieveSubscription, getSubscriptionPeriodBounds } from './stripeService.js';
+import { listCheckoutSessionLineItems, retrieveSubscription, getSubscriptionPeriodBounds, invalidateBillingReceiptsCache } from './stripeService.js';
 
 // Stripe TS types omit some optional fields available at runtime; cast surface area
 // is intentionally tiny and lives only in this translator file.
@@ -403,6 +403,9 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> 
         currentPeriodEnd: periodEnd,
         stripeInvoiceId: invoice.id ?? undefined,
     });
+
+    // A new paid invoice just landed — drop the receipts cache so it shows at once.
+    invalidateBillingReceiptsCache(stripeCustomerId);
 
     console.log(`[stripe] invoice.paid applied — invoice=${invoice.id} cust=${stripeCustomerId}`);
 }
