@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Candidate, { ICandidate } from '../models/Candidate.js';
+import * as candidateRepo from '../repositories/candidateRepository.js';
 import CandidateApplication from '../models/CandidateApplication.js';
 import {
     upsertCandidateApplication,
@@ -158,9 +159,10 @@ router.get('/', conditionalRequireAuth(), requirePermission('candidate.read'), a
             });
         }
 
-        const candidates = await Candidate.find(
-            orgScopedQuery(req, { ...campaignFilter, ...viewFilter })
-        ).sort({ createdAt: -1 });
+        const candidates = await candidateRepo.listLegacyScoped(getOrgId(req), {
+            ...campaignFilter,
+            ...viewFilter,
+        });
         res.json({
             success: true,
             count: candidates.length,
@@ -219,7 +221,9 @@ router.get('/:id', async (req: Request, res: Response) => {
         }
         const asApp = await CandidateApplication.findOne(appQuery).lean();
         if (asApp) {
-            const person = await Candidate.findById(asApp.candidateId).lean();
+            const person = await candidateRepo.findByIdLean(
+                asApp.candidateId as string | mongoose.Types.ObjectId,
+            );
             if (
                 isPublicInterviewLookup &&
                 String((person as { sourceType?: string } | null)?.sourceType || '').toLowerCase() !==
