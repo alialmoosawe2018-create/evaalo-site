@@ -16467,6 +16467,59 @@ html[data-app-theme='light'] .ai-compare-top-email-modal .ai-compare-modal__canc
     position: relative;
 }
 
+.screening-campaign-row-wrap--undo {
+    list-style: none;
+}
+
+.screening-campaign-undo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.35);
+    border: 1px dashed rgba(34, 211, 238, 0.35);
+    box-sizing: border-box;
+}
+
+.screening-campaign-undo__text {
+    font-size: 0.92rem;
+    color: rgba(226, 232, 240, 0.88);
+}
+
+.screening-campaign-undo__btn {
+    flex-shrink: 0;
+    border: 1px solid rgba(34, 211, 238, 0.45);
+    background: rgba(34, 211, 238, 0.12);
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.screening-campaign-undo__btn:hover {
+    background: rgba(34, 211, 238, 0.22);
+}
+
+html[data-app-theme='light'] .screening-campaign-undo {
+    background: rgba(241, 245, 249, 0.9);
+    border-color: rgba(14, 116, 144, 0.35);
+}
+
+html[data-app-theme='light'] .screening-campaign-undo__text {
+    color: #334155;
+}
+
+html[data-app-theme='light'] .screening-campaign-undo__btn {
+    border-color: rgba(14, 116, 144, 0.4);
+    background: rgba(14, 116, 144, 0.08);
+    color: #0f172a;
+}
+
 .screening-campaign-delete-btn {
     position: absolute;
     top: 10px;

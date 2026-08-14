@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     candidateAvatarImageProps,
     candidatePhotoUrl,
@@ -27,6 +27,7 @@ import MobilePinchPanViewport from '../components/MobilePinchPanViewport.jsx';
 import StageEvalShareButton from '../components/screening/StageEvalShareButton.jsx';
 import VoiceRecordingCell from '../components/screening/VoiceRecordingCell.jsx';
 import { useStageEvalDeepLink } from '../hooks/useStageEvalDeepLink.js';
+import { useStageCampaignHide } from '../hooks/useStageCampaignHide.js';
 import {
     buildScreeningCampaignGroups,
     collectCampaignIdsFromCandidates,
@@ -166,6 +167,15 @@ const VoiceInterview = () => {
     /** Discards a slow response once a newer fetch has started. */
     const fetchSeqRef = useRef(0);
     const paintedFromSnapshotRef = useRef(restoredSnapshot != null);
+    const getLabels = useCallback(() => campaignLabels(t), [t]);
+    const { hideCampaign, undoHide, hideUndo, rememberPayload, payloadRef, keepPendingHide } = useStageCampaignHide({
+        stage: 'voice',
+        split: splitVoiceCandidates,
+        getLabels,
+        setCampaignGroups,
+        setSelectedCampaignKey,
+        initialSnapshot: restoredSnapshot,
+    });
     const [filter, setFilter] = useState('all'); // all, hire, consider, reject
     const [expandedRows, setExpandedRows] = useState(new Set());
     // كاش روابط التسجيل الموقّتة لكل مرشح: { url, expiresAt } + حالات التحميل/الخطأ.
@@ -316,24 +326,6 @@ const VoiceInterview = () => {
         }
     };
 
-    const handleHideCampaign = async (row) => {
-        const ids = [...(row?.evaluated || []), ...(row?.pending || [])]
-            .map((c) => c._id || c.id)
-            .filter(Boolean);
-        if (ids.length === 0) {
-            await fetchCandidates();
-            return;
-        }
-        try {
-            await apiClient.post('/api/candidates/bulk-hide', { ids, stage: 'voice' });
-        } catch (err) {
-            console.error('❌ Campaign hide failed:', err);
-        } finally {
-            setSelectedCampaignKey(null);
-            await fetchCandidates();
-        }
-    };
-
     const handleToggleCampaignStatus = async (row, nextStatus) => {
         const campaignId = row?.campaignId;
         if (!campaignId) return;
@@ -345,7 +337,7 @@ const VoiceInterview = () => {
         } catch (err) {
             console.error('❌ Campaign status update failed:', err);
         } finally {
-            await fetchCandidates();
+            await fetchCandidates({ background: true, skipInterim: true });
         }
     };
 
@@ -457,35 +449,49 @@ const VoiceInterview = () => {
     // Stage 2: POST /webhook/n8n/stage2 — voiceInterviewEvaluation
     // communication / problem_solving: number أو نص | strengths / weaknesses: مصفوفة أو سطر
     const fetchCandidates = async (opts = {}) => {
-        const { background = false } = opts || {};
+        const { background = false, skipInterim = false } = opts || {};
         const seq = ++fetchSeqRef.current;
         const isCurrent = () => seq === fetchSeqRef.current;
         try {
             if (!background) setLoading(true);
-            const candidates = await fetchStageBoardCandidates();
+            const loaded = await fetchStageBoardCandidates();
             if (!isCurrent()) return;
 
-            if (!candidates) {
+            if (!loaded) {
                 console.warn('⚠️ No candidates data received');
                 setCampaignGroups({ active: [], uncategorized: null });
                 return;
             }
 
+            const candidates = keepPendingHide(loaded);
+
             const { evaluated, pending } = splitVoiceCandidates(candidates);
             const campaignIds = collectCampaignIdsFromCandidates(evaluated, pending);
             const labels = campaignLabels(t);
+            rememberPayload({
+                candidates,
+                meta: skipInterim ? payloadRef.current.meta : {},
+                metaComplete: false,
+            });
 
-            // Show the board now. Campaign titles are one more round trip away, and
-            // waiting for a label kept every row hidden for twice as long as needed.
-            setCampaignGroups(
-                buildScreeningCampaignGroups(evaluated, pending, {}, labels, {
-                    metaPending: campaignIds.length > 0,
-                })
-            );
+            if (!skipInterim) {
+                setCampaignGroups(
+                    buildScreeningCampaignGroups(evaluated, pending, {}, labels, {
+                        metaPending: campaignIds.length > 0,
+                    })
+                );
+            } else {
+                setCampaignGroups(
+                    buildScreeningCampaignGroups(evaluated, pending, payloadRef.current.meta, labels, {
+                        metaPending: true,
+                    })
+                );
+            }
             if (!background) setLoading(false);
 
             const { meta, complete } = await fetchCampaignMetaByIds(campaignIds);
             if (!isCurrent() || !complete) return;
+            rememberPayload({ candidates, meta, metaComplete: true });
             setCampaignGroups(buildScreeningCampaignGroups(evaluated, pending, meta, labels));
             writeStageBoardSnapshot({ candidates, meta, metaComplete: true });
         } catch (error) {
@@ -504,7 +510,7 @@ const VoiceInterview = () => {
             'CandidateApplied',
             'InterviewLinkAccessChanged',
         ],
-        () => fetchCandidates({ background: true }),
+        () => fetchCandidates({ background: true, skipInterim: true }),
     );
 
     const getRecommendationColor = (recommendation) => {
@@ -603,8 +609,10 @@ const VoiceInterview = () => {
                                 uncategorized={campaignGroups.uncategorized}
                                 onSelect={(key) => setSelectedCampaignKey(key)}
                                 onRefresh={fetchCandidates}
-                                onHideCampaign={handleHideCampaign}
+                                onHideCampaign={hideCampaign}
                                 onToggleCampaignStatus={handleToggleCampaignStatus}
+                                hideUndo={hideUndo}
+                                onUndoHide={undoHide}
                                 titleKey="voiceInterviewCampaignsTitle"
                                 emptyKey="voiceInterviewCampaignsEmpty"
                                 activeSectionKey="voiceInterviewCampaignsActiveSection"

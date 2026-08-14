@@ -87,6 +87,36 @@ export function writeStageBoardSnapshot({ candidates, meta, metaComplete }) {
     }
 }
 
+/** The candidate ids a campaign card stands for, hidden and pending alike. */
+export function collectRowCandidateIds(row) {
+    return [...(row?.evaluated || []), ...(row?.pending || [])]
+        .map((c) => c._id || c.id)
+        .filter(Boolean);
+}
+
+/**
+ * The same payload with `ids` marked hidden from (or restored to) one stage.
+ *
+ * This is the local half of the hide button: applying the change the server is
+ * about to make lets the card go the moment it is confirmed, and keeping the
+ * original array untouched is what makes putting it back — on undo, or when the
+ * request fails — a matter of repainting from the copy we still hold.
+ */
+export function withStageHidden(candidates, ids, stage, hidden) {
+    const target = new Set(ids);
+    return candidates.map((candidate) => {
+        const id = candidate?._id || candidate?.id;
+        if (!id || !target.has(id)) return candidate;
+        const current = Array.isArray(candidate.hiddenFromStages) ? candidate.hiddenFromStages : [];
+        if (hidden) {
+            if (current.includes(stage)) return candidate;
+            return { ...candidate, hiddenFromStages: [...current, stage] };
+        }
+        if (!current.includes(stage)) return candidate;
+        return { ...candidate, hiddenFromStages: current.filter((s) => s !== stage) };
+    });
+}
+
 /** The candidate list every board starts from, or null when the API returned none. */
 export async function fetchStageBoardCandidates() {
     const result = await apiClient.get('/api/candidates');

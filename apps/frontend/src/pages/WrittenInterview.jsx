@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     PdfCvLink,
     candidateAvatarImageProps,
@@ -25,6 +25,7 @@ import MobilePinchPanViewport from '../components/MobilePinchPanViewport.jsx';
 import DeferredScreeningBanner from '../components/DeferredScreeningBanner.jsx';
 import StageEvalShareButton from '../components/screening/StageEvalShareButton.jsx';
 import { useStageEvalDeepLink } from '../hooks/useStageEvalDeepLink.js';
+import { useStageCampaignHide } from '../hooks/useStageCampaignHide.js';
 import {
     buildScreeningCampaignGroups,
     collectCampaignIdsFromCandidates,
@@ -76,6 +77,15 @@ const WrittenInterview = () => {
     /** Discards a slow response once a newer fetch has started. */
     const fetchSeqRef = useRef(0);
     const paintedFromSnapshotRef = useRef(restoredSnapshot != null);
+    const getLabels = useCallback(() => campaignLabels(t), [t]);
+    const { hideCampaign, undoHide, hideUndo, rememberPayload, payloadRef, keepPendingHide } = useStageCampaignHide({
+        stage: 'screening',
+        split: splitScreeningCandidates,
+        getLabels,
+        setCampaignGroups,
+        setSelectedCampaignKey,
+        initialSnapshot: restoredSnapshot,
+    });
     const [filter, setFilter] = useState('all'); // all, hire, consider, reject
     const [expandedRows, setExpandedRows] = useState(new Set());
     /** أقرب لحظة تنتهي فيها مهلة انتظار تقييم مرشح مخفي (ms epoch)، أو null */
@@ -156,14 +166,14 @@ const WrittenInterview = () => {
             'CandidateApplied',
             'InterviewLinkAccessChanged',
         ],
-        () => fetchCandidates({ background: true }),
+        () => fetchCandidates({ background: true, skipInterim: true }),
     );
 
     // تعذّر التقييم لا يُصدر حدثاً، فنُعيد الحساب عند انتهاء المهلة لكشف المرشح المخفي.
     useEffect(() => {
         if (analysisReleaseAt == null) return undefined;
         const delay = Math.max(0, analysisReleaseAt - Date.now()) + 1000;
-        const timerId = setTimeout(() => fetchCandidates({ background: true }), delay);
+        const timerId = setTimeout(() => fetchCandidates({ background: true, skipInterim: true }), delay);
         return () => clearTimeout(timerId);
     }, [analysisReleaseAt]);
 
@@ -326,37 +336,51 @@ const WrittenInterview = () => {
     }, [t, currentLang]);
 
     const fetchCandidates = async (opts = {}) => {
-        const { background = false } = opts || {};
+        const { background = false, skipInterim = false } = opts || {};
         const seq = ++fetchSeqRef.current;
         const isCurrent = () => seq === fetchSeqRef.current;
         try {
             if (!background) setLoading(true);
-            const candidates = await fetchStageBoardCandidates();
+            const loaded = await fetchStageBoardCandidates();
             if (!isCurrent()) return;
 
-            if (!candidates) {
+            if (!loaded) {
                 console.warn('⚠️ No candidates data received');
                 setAnalysisReleaseAt(null);
                 setCampaignGroups({ active: [], uncategorized: null });
                 return;
             }
 
+            const candidates = keepPendingHide(loaded);
+
             const { evaluated, pending, nextReleaseAt } = splitScreeningCandidates(candidates);
             setAnalysisReleaseAt(nextReleaseAt);
             const campaignIds = collectCampaignIdsFromCandidates(evaluated, pending);
             const labels = campaignLabels(t);
+            rememberPayload({
+                candidates,
+                meta: skipInterim ? payloadRef.current.meta : {},
+                metaComplete: false,
+            });
 
-            // Show the board now. Campaign titles are one more round trip away, and
-            // waiting for a label kept every row hidden for twice as long as needed.
-            setCampaignGroups(
-                buildScreeningCampaignGroups(evaluated, pending, {}, labels, {
-                    metaPending: campaignIds.length > 0,
-                })
-            );
+            if (!skipInterim) {
+                setCampaignGroups(
+                    buildScreeningCampaignGroups(evaluated, pending, {}, labels, {
+                        metaPending: campaignIds.length > 0,
+                    })
+                );
+            } else {
+                setCampaignGroups(
+                    buildScreeningCampaignGroups(evaluated, pending, payloadRef.current.meta, labels, {
+                        metaPending: true,
+                    })
+                );
+            }
             if (!background) setLoading(false);
 
             const { meta, complete } = await fetchCampaignMetaByIds(campaignIds);
             if (!isCurrent() || !complete) return;
+            rememberPayload({ candidates, meta, metaComplete: true });
             setCampaignGroups(buildScreeningCampaignGroups(evaluated, pending, meta, labels));
             writeStageBoardSnapshot({ candidates, meta, metaComplete: true });
         } catch (error) {
@@ -413,24 +437,6 @@ const WrittenInterview = () => {
         }
     };
 
-    const handleHideCampaign = async (row) => {
-        const ids = [...(row?.evaluated || []), ...(row?.pending || [])]
-            .map((c) => c._id || c.id)
-            .filter(Boolean);
-        if (ids.length === 0) {
-            await fetchCandidates();
-            return;
-        }
-        try {
-            await apiClient.post('/api/candidates/bulk-hide', { ids, stage: 'screening' });
-        } catch (err) {
-            console.error('❌ Campaign hide failed:', err);
-        } finally {
-            setSelectedCampaignKey(null);
-            await fetchCandidates();
-        }
-    };
-
     const handleToggleCampaignStatus = async (row, nextStatus) => {
         const campaignId = row?.campaignId;
         if (!campaignId) return;
@@ -442,7 +448,7 @@ const WrittenInterview = () => {
         } catch (err) {
             console.error('❌ Campaign status update failed:', err);
         } finally {
-            await fetchCandidates();
+            await fetchCandidates({ background: true, skipInterim: true });
         }
     };
 
@@ -570,8 +576,10 @@ const WrittenInterview = () => {
                                 uncategorized={campaignGroups.uncategorized}
                                 onSelect={(key) => setSelectedCampaignKey(key)}
                                 onRefresh={fetchCandidates}
-                                onHideCampaign={handleHideCampaign}
+                                onHideCampaign={hideCampaign}
                                 onToggleCampaignStatus={handleToggleCampaignStatus}
+                                hideUndo={hideUndo}
+                                onUndoHide={undoHide}
                             />
                         )}
                     </div>

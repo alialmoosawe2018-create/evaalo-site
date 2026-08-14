@@ -24,6 +24,8 @@ export default function ScreeningCampaignList({
     onRefresh,
     onHideCampaign,
     onToggleCampaignStatus,
+    hideUndo = null,
+    onUndoHide,
     titleKey = 'screeningCampaignsTitle',
     emptyKey = 'screeningCampaignsEmpty',
     activeSectionKey = 'screeningCampaignsActiveSection',
@@ -38,18 +40,15 @@ export default function ScreeningCampaignList({
     const [statusRow, setStatusRow] = useState(null);
     const [togglingStatus, setTogglingStatus] = useState(false);
 
-    const handleConfirmHide = async () => {
+    const handleConfirmHide = () => {
         if (!confirmRow || !onHideCampaign) {
             setConfirmRow(null);
             return;
         }
-        setHiding(true);
-        try {
-            await onHideCampaign(confirmRow);
-            setConfirmRow(null);
-        } finally {
-            setHiding(false);
-        }
+        const row = confirmRow;
+        setConfirmRow(null);
+        setHiding(false);
+        onHideCampaign(row);
     };
 
     const handleConfirmStatus = async () => {
@@ -88,7 +87,27 @@ export default function ScreeningCampaignList({
         return `${month}/${day}/${year}, ${h12}:${minutes} ${period}`;
     };
 
-    const hasAny = activeCampaigns.length > 0 || Boolean(uncategorized?.totalCount);
+    const hasAny =
+        activeCampaigns.length > 0 ||
+        Boolean(uncategorized?.totalCount) ||
+        Boolean(hideUndo);
+
+    const renderUndoRow = (row) => (
+        <li key={`undo-${row.selectionKey}`} className="screening-campaign-row-wrap screening-campaign-row-wrap--undo">
+            <div className="headhunter-campaign-history-row screening-campaign-undo" role="status">
+                <span className="screening-campaign-undo__text">
+                    {localizeCatalogLabel(row.title, currentLang)}
+                    <span aria-hidden="true"> · </span>
+                    {t('stageCampaignHideUndoHint')}
+                </span>
+                {onUndoHide ? (
+                    <button type="button" className="screening-campaign-undo__btn" onClick={onUndoHide}>
+                        {t('stageCampaignHideUndo')}
+                    </button>
+                ) : null}
+            </div>
+        </li>
+    );
 
     const renderStats = (row) => (
         <span className="screening-campaign-row__stats">
@@ -297,24 +316,30 @@ export default function ScreeningCampaignList({
                     </p>
                 ) : (
                     <>
-                        {activeCampaigns.length > 0 ? (
+                        {activeCampaigns.length > 0 || (hideUndo && !hideUndo.row?.isUncategorized) ? (
                             <>
                                 <h3 className="screening-campaign-section-title">
                                     {t(activeSectionKey)}
                                 </h3>
                                 <ul className={listClass} role="list">
+                                    {hideUndo && !hideUndo.row?.isUncategorized
+                                        ? renderUndoRow(hideUndo.row)
+                                        : null}
                                     {activeCampaigns.map(renderRow)}
                                 </ul>
                             </>
                         ) : null}
 
-                        {uncategorized && uncategorized.totalCount > 0 ? (
+                        {(uncategorized && uncategorized.totalCount > 0) || hideUndo?.row?.isUncategorized ? (
                             <>
                                 <hr className="screening-campaign-section-divider" aria-hidden="true" />
                                 <h3 className="screening-campaign-section-title">
                                     {t(uncategorizedSectionKey)}
                                 </h3>
-                                <ul className={listClass} role="list">{renderRow(uncategorized)}</ul>
+                                <ul className={listClass} role="list">
+                                    {hideUndo?.row?.isUncategorized ? renderUndoRow(hideUndo.row) : null}
+                                    {uncategorized && uncategorized.totalCount > 0 ? renderRow(uncategorized) : null}
+                                </ul>
                             </>
                         ) : null}
                     </>
@@ -327,10 +352,10 @@ export default function ScreeningCampaignList({
                     if (!hiding) setConfirmRow(null);
                 }}
                 onConfirm={handleConfirmHide}
-                title={t('screeningCampaignHideTitle')}
+                title={t('stageCampaignHideTitle')}
                 description={
                     confirmRow
-                        ? fillI18nTemplate(t('screeningCampaignHideConfirm'), {
+                        ? fillI18nTemplate(t('stageCampaignHideConfirm'), {
                               title: confirmRow.title,
                               n: confirmRow.totalCount,
                           })
