@@ -12,8 +12,32 @@ import {
     monthKeyFromIso,
 } from '../utils/billingPortalDisplay';
 import { ACCOUNT_TEXT_MUTED_CLASS } from '../utils/accountTypography';
+import { getCached, setCached, hasCached, isStale } from '../utils/swrCache';
 
 const GRID_COLS = 'minmax(96px, 0.85fr) minmax(140px, 2.2fr) minmax(56px, 0.6fr) minmax(72px, 0.75fr) minmax(48px, 0.55fr)';
+
+const INVOICES_CACHE_KEY = 'billing:invoices:24';
+
+/** Shimmer placeholder rows shown while invoices load for the first time. */
+function InvoicesTableSkeleton({ rows = 4 }) {
+    return (
+        <div aria-hidden="true">
+            {Array.from({ length: rows }).map((_, i) => (
+                <div
+                    key={i}
+                    className="account-billing-invoices-table account-billing-invoices-table-row"
+                    style={{ gridTemplateColumns: GRID_COLS }}
+                >
+                    <span className="ev-skeleton" style={{ height: 12, width: '70%' }} />
+                    <span className="ev-skeleton" style={{ height: 12, width: '86%' }} />
+                    <span className="ev-skeleton" style={{ height: 12, width: '52%' }} />
+                    <span className="ev-skeleton" style={{ height: 12, width: '60%' }} />
+                    <span className="ev-skeleton" style={{ height: 12, width: '40%' }} />
+                </div>
+            ))}
+        </div>
+    );
+}
 
 function IconExternalLink(props) {
     return (
@@ -36,8 +60,8 @@ export default function BillingInvoicesSection() {
     const mainDir = currentLang === 'ar' || currentLang === 'ku' ? 'rtl' : 'ltr';
     const locale = localeForBillingLang(currentLang);
 
-    const [invoices, setInvoices] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [invoices, setInvoices] = useState(() => getCached(INVOICES_CACHE_KEY) ?? []);
+    const [isLoading, setIsLoading] = useState(() => !hasCached(INVOICES_CACHE_KEY));
     const [loadError, setLoadError] = useState(null);
     const [monthFilter, setMonthFilter] = useState('all');
 
@@ -53,29 +77,38 @@ export default function BillingInvoicesSection() {
     useEffect(() => {
         let cancelled = false;
 
-        const loadInvoices = () => {
-            setIsLoading(true);
+        const loadInvoices = ({ background = false } = {}) => {
+            // Only flip to the loading skeleton when we have nothing to show yet.
+            // Background revalidation (mount-with-cache, tab refocus) keeps the
+            // current rows on screen instead of flashing "Loading".
+            if (!background && !hasCached(INVOICES_CACHE_KEY)) setIsLoading(true);
             setLoadError(null);
             return apiClient
                 .get('/api/billing/portal/invoices?limit=24')
                 .then((res) => {
                     if (cancelled) return;
-                    setInvoices(res?.ok && Array.isArray(res.invoices) ? res.invoices : []);
+                    const list = res?.ok && Array.isArray(res.invoices) ? res.invoices : [];
+                    setInvoices(list);
+                    setCached(INVOICES_CACHE_KEY, list);
                 })
                 .catch((err) => {
                     if (cancelled) return;
-                    setLoadError(err?.message || t('billing_portal_action_failed'));
-                    setInvoices([]);
+                    if (!hasCached(INVOICES_CACHE_KEY)) {
+                        setLoadError(err?.message || t('billing_portal_action_failed'));
+                        setInvoices([]);
+                    }
                 })
                 .finally(() => {
                     if (!cancelled) setIsLoading(false);
                 });
         };
 
-        loadInvoices();
+        loadInvoices({ background: hasCached(INVOICES_CACHE_KEY) });
 
         const onFocus = () => {
-            loadInvoices();
+            // Quietly revalidate on tab focus — never re-shows the loader, and only
+            // hits the API if the cached copy is older than 30s (invoices change rarely).
+            if (isStale(INVOICES_CACHE_KEY, 30000)) loadInvoices({ background: true });
         };
         window.addEventListener('focus', onFocus);
 
@@ -151,9 +184,7 @@ export default function BillingInvoicesSection() {
                     </div>
 
                     {isLoading ? (
-                        <div className={ACCOUNT_TEXT_MUTED_CLASS} style={{ padding: '24px 0', fontSize: 14 }}>
-                            {t('billing_portal_summary_loading')}
-                        </div>
+                        <InvoicesTableSkeleton />
                     ) : loadError ? (
                         <div role="alert" style={{ padding: '24px 0', fontSize: 14, color: '#f87171' }}>
                             {loadError}

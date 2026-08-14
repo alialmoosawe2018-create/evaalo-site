@@ -13,6 +13,7 @@ import {
     shouldUseGenderAvatar,
 } from '../utils/candidateAssets';
 import { apiClient } from '../services/apiClient';
+import { getCached, setCached, hasCached } from '../utils/swrCache';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserStorageKeySuffix, userScopedStorageKey } from '../utils/userStorageKey';
 import PositionSuggestCombobox from '../components/PositionSuggestCombobox.jsx';
@@ -206,8 +207,8 @@ const Candidates = () => {
     const canDeleteCandidates = hasPermission(PERMISSIONS.CANDIDATE_DELETE);
     void canDeleteCandidates;
     const canWriteCandidates = hasPermission(PERMISSIONS.CANDIDATE_WRITE);
-    const [candidates, setCandidates] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [candidates, setCandidates] = useState(() => getCached(`candidates:list:${userKey}`) ?? []);
+    const [loading, setLoading] = useState(() => !hasCached(`candidates:list:${userKey}`));
     const [error, setError] = useState(null);
     const [selectedCandidates, setSelectedCandidates] = useState([]);
     const [selectedEmployees, setSelectedEmployees] = useState([]);
@@ -378,26 +379,35 @@ const Candidates = () => {
 
     // جلب البيانات من API
     const fetchCandidates = useCallback(async ({ background = false } = {}) => {
+        const key = `candidates:list:${userKey}`;
         try {
-            if (!background) setLoading(true);
+            if (!background && !hasCached(key)) setLoading(true);
             setError(null);
             const result = await apiClient.get('/api/candidates?forView=candidates');
 
             if (result.success) {
                 setCandidates(result.data || []);
-            } else if (!background) {
+                setCached(key, result.data || []);
+            } else if (!background && !hasCached(key)) {
                 setError(result.error || t('candidates_fetchError'));
             }
         } catch (err) {
             console.error('Error fetching candidates:', err);
-            if (!background) setError(err.message || t('candidates_fetchError'));
+            if (!background && !hasCached(key)) setError(err.message || t('candidates_fetchError'));
         } finally {
             if (!background) setLoading(false);
         }
-    }, [t]);
+    }, [t, userKey]);
 
     useEffect(() => {
-        fetchCandidates();
+        // Show any cached list for this user instantly, then revalidate in the
+        // background (no loading flash). First-ever load has no cache → skeleton.
+        const cached = getCached(`candidates:list:${userKey}`);
+        if (cached) {
+            setCandidates(cached);
+            setLoading(false);
+        }
+        fetchCandidates({ background: !!cached });
     }, [fetchCandidates, userKey]);
 
     // Live: refresh the list in the background (no loading flash) when candidate
@@ -1807,11 +1817,18 @@ const Candidates = () => {
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr>
-                                            <td colSpan={tableColSpan} style={{ textAlign: 'center', padding: '40px', color: '#94A3B8' }}>
-                                                {t('candidates_loadingRows')}
-                                            </td>
-                                        </tr>
+                                        Array.from({ length: 6 }).map((_, i) => (
+                                            <tr key={`candidate-skeleton-${i}`} aria-hidden="true">
+                                                <td colSpan={tableColSpan} style={{ padding: '14px 16px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                                        <span className="ev-skeleton ev-skeleton--circle" style={{ width: 44, height: 44, flexShrink: 0 }} />
+                                                        <span className="ev-skeleton" style={{ height: 12, width: 150 }} />
+                                                        <span className="ev-skeleton" style={{ height: 12, width: 190, marginInlineStart: 'auto' }} />
+                                                        <span className="ev-skeleton" style={{ height: 12, width: 70 }} />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
                                     ) : error ? (
                                         <tr>
                                             <td colSpan={tableColSpan} style={{ textAlign: 'center', padding: '40px', color: '#EF4444' }}>

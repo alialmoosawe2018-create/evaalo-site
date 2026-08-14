@@ -5271,6 +5271,28 @@ body.rtl-text .nav-links {
     .gradient-orb { animation: none; }
 }
 
+/* ── Data-table skeleton loaders (dashboard) ── */
+@keyframes evSkeletonShimmer {
+    0%   { background-position: -220px 0; }
+    100% { background-position: 220px 0; }
+}
+.ev-skeleton {
+    display: block;
+    border-radius: 6px;
+    background-color: rgba(148, 163, 184, 0.14);
+    background-image: linear-gradient(90deg,
+        rgba(148, 163, 184, 0) 0%,
+        rgba(203, 213, 225, 0.28) 50%,
+        rgba(148, 163, 184, 0) 100%);
+    background-size: 220px 100%;
+    background-repeat: no-repeat;
+    animation: evSkeletonShimmer 1.25s ease-in-out infinite;
+}
+.ev-skeleton--circle { border-radius: 50%; }
+@media (prefers-reduced-motion: reduce) {
+    .ev-skeleton { animation: none; }
+}
+
 /* Background Logo */
 .background-logo {
     position: absolute;

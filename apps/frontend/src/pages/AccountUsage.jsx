@@ -6,6 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
 import { accountPageH1Style, ACCOUNT_PAGE_H1_CLASS, ACCOUNT_TEXT_MUTED_CLASS } from '../utils/accountTypography';
 import { apiClient } from '../services/apiClient';
+import { getCached, setCached, hasCached } from '../utils/swrCache';
 
 /** @typedef {'VOICE_SECONDS'|'VIDEO_SECONDS'|'SEARCH_CANDIDATE'|'SCREENING'|'TOP_CANDIDATES'|'CV_ANALYSIS'|'JOB_AD'|'CONTACT_REVEAL'|'COMPARE_EMAIL'} UsageType */
 
@@ -20,6 +21,33 @@ import { apiClient } from '../services/apiClient';
  * }} ActivityRow */
 
 const GRID_COLS = 'minmax(168px,1.5fr) minmax(140px,1.25fr) minmax(96px,0.85fr) minmax(72px,0.7fr)';
+
+const usageCacheKey = (days) => `usage:activity:${days}`;
+
+/** Shimmer placeholder rows shown while the activity ledger loads for the first time. */
+function UsageTableSkeleton({ rows = 6 }) {
+    return (
+        <div aria-hidden="true">
+            {Array.from({ length: rows }).map((_, i) => (
+                <div
+                    key={i}
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: GRID_COLS,
+                        gap: 12,
+                        alignItems: 'center',
+                        padding: '14px 0',
+                    }}
+                >
+                    <span className="ev-skeleton" style={{ height: 12, width: '82%' }} />
+                    <span className="ev-skeleton" style={{ height: 12, width: '66%' }} />
+                    <span className="ev-skeleton" style={{ height: 12, width: '44%' }} />
+                    <span className="ev-skeleton" style={{ height: 12, width: '36%', justifySelf: 'end' }} />
+                </div>
+            ))}
+        </div>
+    );
+}
 
 /** @type {Record<string, string>} */
 const USAGE_TYPE_LABEL_KEYS = {
@@ -136,26 +164,37 @@ const AccountUsage = () => {
     const dateLocale = currentLang === 'ar' ? 'ar' : currentLang === 'ku' ? 'ku' : 'en-US';
 
     const [rangePreset, setRangePreset] = useState('30d');
-    const [rows, setRows] = useState(/** @type {ActivityRow[]} */ ([]));
-    const [loading, setLoading] = useState(true);
+    const [rows, setRows] = useState(/** @type {ActivityRow[]} */ (() => getCached(usageCacheKey(presetToDays('30d'))) ?? []));
+    const [loading, setLoading] = useState(() => !hasCached(usageCacheKey(presetToDays('30d'))));
     const [loadError, setLoadError] = useState(null);
 
     const days = presetToDays(rangePreset);
 
     const fetchActivity = useCallback(async () => {
-        setLoading(true);
+        const key = usageCacheKey(days);
+        const cached = getCached(key);
+        // Show cached rows instantly (also on range switch); only skeleton if nothing cached.
+        if (cached) {
+            setRows(cached);
+            setLoading(false);
+        } else {
+            setLoading(true);
+        }
         setLoadError(null);
         try {
             const res = await apiClient.get(`/api/billing/activity?days=${days}&limit=200`);
             if (res?.ok && Array.isArray(res.entries)) {
                 setRows(res.entries);
-            } else {
+                setCached(key, res.entries);
+            } else if (!cached) {
                 setRows([]);
                 setLoadError(res?.message || t('account_usage_loadError'));
             }
         } catch (err) {
-            setRows([]);
-            setLoadError(err instanceof Error ? err.message : t('account_usage_loadError'));
+            if (!cached) {
+                setRows([]);
+                setLoadError(err instanceof Error ? err.message : t('account_usage_loadError'));
+            }
         } finally {
             setLoading(false);
         }
@@ -294,12 +333,7 @@ const AccountUsage = () => {
                         </div>
                         <div style={{ padding: '0 22px 8px' }}>
                             {loading ? (
-                                <div
-                                    className={ACCOUNT_TEXT_MUTED_CLASS}
-                                    style={{ padding: '28px 22px', fontSize: 14, textAlign: 'center' }}
-                                >
-                                    {t('account_usage_loading')}
-                                </div>
+                                <UsageTableSkeleton />
                             ) : loadError ? (
                                 <div
                                     className={ACCOUNT_TEXT_MUTED_CLASS}
