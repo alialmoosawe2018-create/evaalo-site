@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { scriptTextProps } from '../../utils/textScript.js';
+import { candidatePhotoUrl } from '../../utils/candidateAssets.jsx';
 
 /**
  * لوحة عرض نتيجة "مقارنة أفضل المرشحين" داخل صفحة المرحلة 1.
@@ -68,8 +69,21 @@ function recommendationSentence(overallRecommendation, recommendation) {
     return text.slice(token.length).replace(/^[\s:—–-]+/, '').trim();
 }
 
-export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
+export default function ScreeningAiComparePanel({ status, result, onDismiss, candidates = [] }) {
     const { t } = useLanguage();
+
+    // Ranking rows carry only name/email, so match each to the campaign candidate
+    // (by email first, then name) to pull the profile photo — keyed once per render.
+    const candidateByKey = useMemo(() => {
+        const map = new Map();
+        for (const c of Array.isArray(candidates) ? candidates : []) {
+            const email = String(c?.email || '').trim().toLowerCase();
+            if (email && !map.has(email)) map.set(email, c);
+            const name = String(c?.full_name || c?.fullName || c?.name || '').trim().toLowerCase();
+            if (name && !map.has(name)) map.set(name, c);
+        }
+        return map;
+    }, [candidates]);
 
     const ranking = Array.isArray(result?.ranking) ? result.ranking : [];
     const summary = (result?.summary || '').trim();
@@ -215,6 +229,13 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
                                 const confidenceRationale = (row.confidence_rationale || '').trim();
                                 // نصّ حرّ قديم كبديل عند غياب الحقول الغنية
                                 const fallbackReason = (row.reason || '').trim();
+                                const matchedCandidate =
+                                    candidateByKey.get(String(row.candidateEmail || '').trim().toLowerCase()) ||
+                                    candidateByKey.get(String(row.candidateName || '').trim().toLowerCase()) ||
+                                    null;
+                                const photoUrl = matchedCandidate ? candidatePhotoUrl(matchedCandidate) : null;
+                                const avatarInitial =
+                                    String(row.candidateName || row.candidateEmail || '?').trim().charAt(0).toUpperCase() || '?';
 
                                 return (
                                     <article
@@ -222,7 +243,24 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
                                         key={`${row.candidateEmail || row.candidateName || 'row'}-${i}`}
                                     >
                                         <header className="screening-ai-compare-card__head">
-                                            <span className="screening-ai-compare-card__rank">{rank}</span>
+                                            <div className="screening-ai-compare-card__avatar">
+                                                {photoUrl ? (
+                                                    <img
+                                                        className="screening-ai-compare-card__avatar-img"
+                                                        src={photoUrl}
+                                                        alt=""
+                                                        loading="lazy"
+                                                    />
+                                                ) : (
+                                                    <span
+                                                        className="screening-ai-compare-card__avatar-fallback"
+                                                        aria-hidden="true"
+                                                    >
+                                                        {avatarInitial}
+                                                    </span>
+                                                )}
+                                                <span className="screening-ai-compare-card__rank-chip">{rank}</span>
+                                            </div>
                                             <div className="screening-ai-compare-card__identity">
                                                 <div
                                                     {...scriptTextProps(
@@ -237,6 +275,38 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
                                                         {row.candidateEmail}
                                                     </div>
                                                 ) : null}
+                                                {/* Score + confidence sit directly under the name, so they read
+                                                    beside the candidate — not detached to the far side in RTL. */}
+                                                {row.score != null || confidencePct != null ? (
+                                                    <div className="screening-ai-compare-card__metrics-inline">
+                                                        {row.score != null ? (
+                                                            <span className="screening-ai-compare-card__metric-chip">
+                                                                <span className="screening-ai-compare-card__metric-chip-value">
+                                                                    {row.score}
+                                                                </span>
+                                                                <span className="screening-ai-compare-card__metric-chip-label">
+                                                                    {t('aiCompareTop_colScore')}
+                                                                </span>
+                                                            </span>
+                                                        ) : null}
+                                                        {confidencePct != null ? (
+                                                            <span className="screening-ai-compare-card__metric-chip screening-ai-compare-card__metric-chip--conf">
+                                                                <span className="screening-ai-compare-card__metric-chip-value">
+                                                                    {confidencePct}%
+                                                                </span>
+                                                                <span className="screening-ai-compare-card__metric-chip-label">
+                                                                    {t('aiCompareTop_confidence')}
+                                                                </span>
+                                                                <span
+                                                                    className="screening-ai-compare-card__conf-bar"
+                                                                    aria-hidden="true"
+                                                                >
+                                                                    <span style={{ width: `${confidencePct}%` }} />
+                                                                </span>
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                ) : null}
                                                 {badgeLabel ? (
                                                     <span
                                                         className={`screening-ai-compare-badge screening-ai-compare-badge--rec screening-ai-compare-badge--rec-${recommendationTone(
@@ -245,35 +315,6 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss }) {
                                                     >
                                                         {badgeLabel}
                                                     </span>
-                                                ) : null}
-                                            </div>
-                                            {/* Score and confidence share one baseline so neither reads as the other. */}
-                                            <div className="screening-ai-compare-card__metrics">
-                                                {row.score != null ? (
-                                                    <div className="screening-ai-compare-card__metric">
-                                                        <span className="screening-ai-compare-card__metric-value">
-                                                            {row.score}
-                                                        </span>
-                                                        <span className="screening-ai-compare-card__metric-label">
-                                                            {t('aiCompareTop_colScore')}
-                                                        </span>
-                                                    </div>
-                                                ) : null}
-                                                {confidencePct != null ? (
-                                                    <div className="screening-ai-compare-card__metric screening-ai-compare-card__metric--conf">
-                                                        <span className="screening-ai-compare-card__metric-value">
-                                                            {confidencePct}%
-                                                        </span>
-                                                        <span className="screening-ai-compare-card__metric-label">
-                                                            {t('aiCompareTop_confidence')}
-                                                        </span>
-                                                        <span
-                                                            className="screening-ai-compare-card__conf-bar"
-                                                            aria-hidden="true"
-                                                        >
-                                                            <span style={{ width: `${confidencePct}%` }} />
-                                                        </span>
-                                                    </div>
                                                 ) : null}
                                             </div>
                                             {recLine ? (

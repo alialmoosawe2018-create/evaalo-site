@@ -741,6 +741,7 @@ const WrittenInterview = () => {
                 {aiComparePanelOpen && aiCompareStatus !== 'idle' ? (
                     <div style={{ marginBottom: '24px' }}>
                         <ScreeningAiComparePanel
+                            candidates={campaignCandidates}
                             status={aiCompareStatus}
                             result={aiCompareResult}
                             onDismiss={() => setAiComparePanelOpen(false)}
