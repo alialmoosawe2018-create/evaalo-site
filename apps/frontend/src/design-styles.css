@@ -15517,6 +15517,28 @@ html[data-app-theme='light'] .compare-section__text {
     color: var(--app-text) !important;
 }
 
+html[data-app-theme='light'] .compare-snapshot {
+    background: #ffffff !important;
+    border-color: rgba(99, 102, 241, 0.22) !important;
+}
+
+html[data-app-theme='light'] .compare-snapshot__k {
+    color: #64748b !important;
+}
+
+html[data-app-theme='light'] .compare-snapshot__v {
+    color: #0f172a !important;
+}
+
+html[data-app-theme='light'] .compare-snapshot-table__row--lead td {
+    background: rgba(251, 191, 36, 0.12) !important;
+}
+
+html[data-app-theme='light'] .compare-snapshot-table__photo--fallback {
+    background: rgba(99, 102, 241, 0.12) !important;
+    color: #4338ca !important;
+}
+
 html[data-app-theme='light'] .compare-insights__dim {
     color: var(--app-text-secondary) !important;
 }
@@ -15826,6 +15848,97 @@ html[data-app-theme='light'] .screening-ai-compare-card__rank {
     line-height: 1.65;
     font-size: 14px;
     white-space: pre-wrap;
+    text-align: start;
+}
+
+.compare-snapshot {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    border-radius: 14px;
+    padding: 16px 18px;
+}
+
+.compare-snapshot__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px 16px;
+    margin-bottom: 16px;
+}
+
+.compare-snapshot__stat {
+    min-width: 0;
+}
+
+.compare-snapshot__stat--wide {
+    grid-column: 1 / -1;
+}
+
+.compare-snapshot__k {
+    display: block;
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.compare-snapshot__v {
+    display: block;
+    color: #f8fafc;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.35;
+    text-align: start;
+}
+
+.compare-snapshot__v--text {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.compare-snapshot-table-wrap {
+    overflow-x: auto;
+}
+
+.compare-snapshot-table th,
+.compare-snapshot-table td {
+    vertical-align: middle;
+}
+
+.compare-snapshot-table__row--lead td {
+    background: rgba(251, 191, 36, 0.08);
+}
+
+.compare-snapshot-table__person {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.compare-snapshot-table__photo {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex-shrink: 0;
+    display: block;
+}
+
+.compare-snapshot-table__photo--fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(56, 189, 248, 0.2);
+    color: #7dd3fc;
+    font-weight: 800;
+    font-size: 15px;
+}
+
+.compare-section__label--profiles {
+    margin: 4px 0 -4px;
 }
 
 .compare-insights {
@@ -15970,27 +16083,27 @@ html[data-app-theme='light'] .screening-ai-compare-card__rank {
 .screening-ai-compare-card__avatar {
     position: relative;
     flex-shrink: 0;
-    width: 52px;
-    height: 52px;
+    width: 88px;
+    height: 88px;
 }
 .screening-ai-compare-card__avatar-img {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
+    width: 88px;
+    height: 88px;
+    border-radius: 16px;
     object-fit: cover;
     display: block;
     background: rgba(15, 23, 42, 0.6);
     box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35);
 }
 .screening-ai-compare-card__avatar-fallback {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
+    width: 88px;
+    height: 88px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 800;
-    font-size: 20px;
+    font-size: 32px;
     color: #7dd3fc;
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(168, 85, 247, 0.25));
     box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
@@ -16064,6 +16177,8 @@ html[data-app-theme='light'] .screening-ai-compare-card__rank {
 .screening-ai-compare-card__rec-line,
 .screening-ai-compare-card__conf-rationale {
     flex-basis: 100%;
+    text-align: start;
+    unicode-bidi: isolate;
 }
 
 /* Light theme */

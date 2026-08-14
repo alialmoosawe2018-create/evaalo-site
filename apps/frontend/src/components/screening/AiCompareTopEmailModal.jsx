@@ -1,7 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { fillI18nTemplate } from '../../utils/i18nTemplate.js';
-import { computeCompareTopCredits } from '../../utils/compareTopCreditCost.js';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -13,7 +11,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  *   submitting?: boolean,
  *   onClose: () => void,
  *   onSubmit: (emails: string[]) => void,
- *   compareCandidateCount?: number,
  * }} props
  */
 export default function AiCompareTopEmailModal({
@@ -21,21 +18,10 @@ export default function AiCompareTopEmailModal({
     submitting = false,
     onClose,
     onSubmit,
-    compareCandidateCount = 0,
 }) {
     const { t } = useLanguage();
     const [rows, setRows] = useState(['']);
     const [error, setError] = useState('');
-
-    const validCount = useMemo(() => {
-        const unique = [...new Set(rows.map((r) => (r || '').trim()).filter(Boolean))];
-        return unique.filter((e) => EMAIL_RE.test(e)).length;
-    }, [rows]);
-
-    const cost = useMemo(
-        () => computeCompareTopCredits(validCount, compareCandidateCount),
-        [validCount, compareCandidateCount],
-    );
 
     useEffect(() => {
         if (open) {
@@ -141,13 +127,7 @@ export default function AiCompareTopEmailModal({
                 </button>
 
                 <div className="ai-compare-modal__cost-hint">
-                    {fillI18nTemplate(t('aiCompareTop_costHint'), {
-                        emailCredits: cost.emailCredits,
-                        emailCount: cost.emailCount,
-                        candidateCredits: cost.candidateCredits,
-                        candidateCount: cost.candidateCount,
-                        n: cost.totalCredits,
-                    })}
+                    {t('aiCompareTop_costHint')}
                 </div>
 
                 {error ? <div className="ai-compare-modal__error">{error}</div> : null}

@@ -742,6 +742,11 @@ const WrittenInterview = () => {
                     <div style={{ marginBottom: '24px' }}>
                         <ScreeningAiComparePanel
                             candidates={campaignCandidates}
+                            campaignTitle={
+                                selectedGroup?.title
+                                    ? localizeCatalogLabel(selectedGroup.title, currentLang)
+                                    : ''
+                            }
                             status={aiCompareStatus}
                             result={aiCompareResult}
                             onDismiss={() => setAiComparePanelOpen(false)}

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { scriptTextProps } from '../../utils/textScript.js';
+import { getScriptFontClass } from '../../utils/textScript.js';
 import { candidatePhotoUrl } from '../../utils/candidateAssets.jsx';
 
 /**
@@ -69,7 +69,25 @@ function recommendationSentence(overallRecommendation, recommendation) {
     return text.slice(token.length).replace(/^[\s:—–-]+/, '').trim();
 }
 
-export default function ScreeningAiComparePanel({ status, result, onDismiss, candidates = [] }) {
+function confidencePct(row) {
+    if (row?.confidence == null || !Number.isFinite(Number(row.confidence))) return null;
+    return Math.max(0, Math.min(100, Math.round(Number(row.confidence))));
+}
+
+function clipText(value, max = 140) {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    if (text.length <= max) return text;
+    return `${text.slice(0, max).trim()}…`;
+}
+
+export default function ScreeningAiComparePanel({
+    status,
+    result,
+    onDismiss,
+    candidates = [],
+    campaignTitle = '',
+}) {
     const { t } = useLanguage();
 
     // Ranking rows carry only name/email, so match each to the campaign candidate
@@ -105,6 +123,9 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss, can
     const isLoading = status === 'pending';
     const isFailed = status === 'failed';
     const isTimeout = status === 'timeout';
+    const leadRow = ranking.find((r) => (r.rank ?? 0) === 1) ?? ranking[0];
+    const snapshotNext = clipText(finalRecommendation || whyTopCandidateWins || decisionSummary);
+    const showSnapshot = ranking.length > 0 && !isLoading && !isFailed && !isTimeout;
 
     return (
         <div className="screening-ai-compare-panel">
@@ -159,6 +180,120 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss, can
                     </div>
                 ) : (
                 <>
+                    {showSnapshot ? (
+                        <section className="compare-snapshot">
+                            <div className="compare-section__label">{t('aiCompareTop_snapshotTitle')}</div>
+                            <div className="compare-snapshot__grid">
+                                {campaignTitle ? (
+                                    <div className="compare-snapshot__stat">
+                                        <span className="compare-snapshot__k">{t('aiCompareTop_snapshotRole')}</span>
+                                        <span className={`compare-snapshot__v ${getScriptFontClass(campaignTitle)}`}>
+                                            {campaignTitle}
+                                        </span>
+                                    </div>
+                                ) : null}
+                                <div className="compare-snapshot__stat">
+                                    <span className="compare-snapshot__k">{t('aiCompareTop_snapshotCount')}</span>
+                                    <span className="compare-snapshot__v">{ranking.length}</span>
+                                </div>
+                                {leadRow ? (
+                                    <div className="compare-snapshot__stat">
+                                        <span className="compare-snapshot__k">{t('aiCompareTop_snapshotLead')}</span>
+                                        <span className={`compare-snapshot__v ${getScriptFontClass(leadRow.candidateName)}`}>
+                                            {leadRow.candidateName || '—'}
+                                        </span>
+                                    </div>
+                                ) : null}
+                                {snapshotNext ? (
+                                    <div className="compare-snapshot__stat compare-snapshot__stat--wide">
+                                        <span className="compare-snapshot__k">{t('aiCompareTop_snapshotNext')}</span>
+                                        <span className={`compare-snapshot__v compare-snapshot__v--text ${getScriptFontClass(snapshotNext)}`}>
+                                            {snapshotNext}
+                                        </span>
+                                    </div>
+                                ) : null}
+                            </div>
+                            <div className="compare-snapshot-table-wrap">
+                                <table className="screening-ai-compare-table compare-snapshot-table">
+                                    <thead>
+                                        <tr>
+                                            <th>{t('aiCompareTop_colRank')}</th>
+                                            <th>{t('aiCompareTop_colCandidate')}</th>
+                                            <th>{t('aiCompareTop_colScore')}</th>
+                                            <th>{t('aiCompareTop_confidence')}</th>
+                                            <th>{t('aiCompareTop_colRecommendation')}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {ranking.map((row, i) => {
+                                            const rank = row.rank ?? i + 1;
+                                            const conf = confidencePct(row);
+                                            const badgeLabel = recommendationBadgeLabel(row.recommendation, t);
+                                            const matchedCandidate =
+                                                candidateByKey.get(String(row.candidateEmail || '').trim().toLowerCase()) ||
+                                                candidateByKey.get(String(row.candidateName || '').trim().toLowerCase()) ||
+                                                null;
+                                            const photoUrl = matchedCandidate
+                                                ? candidatePhotoUrl(matchedCandidate)
+                                                : null;
+                                            const avatarInitial =
+                                                String(row.candidateName || row.candidateEmail || '?')
+                                                    .trim()
+                                                    .charAt(0)
+                                                    .toUpperCase() || '?';
+                                            return (
+                                                <tr
+                                                    key={`snap-${row.candidateEmail || row.candidateName || i}`}
+                                                    className={rank === 1 ? 'compare-snapshot-table__row--lead' : undefined}
+                                                >
+                                                    <td className="screening-ai-compare-table__rank">{rank}</td>
+                                                    <td>
+                                                        <div className="compare-snapshot-table__person">
+                                                            {photoUrl ? (
+                                                                <img src={photoUrl} alt="" className="compare-snapshot-table__photo" />
+                                                            ) : (
+                                                                <span className="compare-snapshot-table__photo compare-snapshot-table__photo--fallback">
+                                                                    {avatarInitial}
+                                                                </span>
+                                                            )}
+                                                            <div>
+                                                                <div className={`screening-ai-compare-table__name ${getScriptFontClass(row.candidateName)}`}>
+                                                                    {row.candidateName || '—'}
+                                                                </div>
+                                                                {row.candidateEmail ? (
+                                                                    <div className="screening-ai-compare-table__email">
+                                                                        {row.candidateEmail}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="screening-ai-compare-table__score">
+                                                        {row.score != null ? row.score : '—'}
+                                                    </td>
+                                                    <td>{conf != null ? `${conf}%` : '—'}</td>
+                                                    <td>
+                                                        {badgeLabel ? (
+                                                            <span
+                                                                className={`screening-ai-compare-badge screening-ai-compare-badge--rec screening-ai-compare-badge--rec-${recommendationTone(
+                                                                    row.recommendation
+                                                                )}`}
+                                                            >
+                                                                {badgeLabel}
+                                                            </span>
+                                                        ) : (
+                                                            '—'
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    ) : null}
+
                     {/* ① السياق والخلفية — يُمهّد للقرار */}
                     {contextualIntroduction ? (
                         <section className="compare-section compare-section--context">
@@ -208,6 +343,10 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss, can
 
                     {/* ⑤ بطاقات المرشحين */}
                     {ranking.length > 0 ? (
+                        <>
+                        <div className="compare-section__label compare-section__label--profiles">
+                            {t('aiCompareTop_profilesTitle')}
+                        </div>
                         <div className="screening-ai-compare-cards">
                             {ranking.map((row, i) => {
                                 const reasons = toList(row.reasons);
@@ -263,10 +402,7 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss, can
                                             </div>
                                             <div className="screening-ai-compare-card__identity">
                                                 <div
-                                                    {...scriptTextProps(
-                                                        row.candidateName,
-                                                        'screening-ai-compare-card__name'
-                                                    )}
+                                                    className={`screening-ai-compare-card__name ${getScriptFontClass(row.candidateName)}`}
                                                 >
                                                     {row.candidateName || '—'}
                                                 </div>
@@ -318,22 +454,12 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss, can
                                                 ) : null}
                                             </div>
                                             {recLine ? (
-                                                <p
-                                                    {...scriptTextProps(
-                                                        recLine,
-                                                        'screening-ai-compare-card__rec-line'
-                                                    )}
-                                                >
+                                                <p className={`screening-ai-compare-card__rec-line ${getScriptFontClass(recLine)}`}>
                                                     {recLine}
                                                 </p>
                                             ) : null}
                                             {confidencePct != null && confidenceRationale ? (
-                                                <p
-                                                    {...scriptTextProps(
-                                                        confidenceRationale,
-                                                        'screening-ai-compare-card__conf-rationale'
-                                                    )}
-                                                >
+                                                <p className={`screening-ai-compare-card__conf-rationale ${getScriptFontClass(confidenceRationale)}`}>
                                                     {confidenceRationale}
                                                 </p>
                                             ) : null}
@@ -407,6 +533,7 @@ export default function ScreeningAiComparePanel({ status, result, onDismiss, can
                                 );
                             })}
                         </div>
+                        </>
                     ) : !summary && !decisionSummary && !contextualIntroduction ? (
                         <div className="screening-ai-compare-panel__status-box">
                             <div className="screening-ai-compare-panel__state">
