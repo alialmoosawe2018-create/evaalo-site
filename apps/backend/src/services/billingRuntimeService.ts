@@ -193,6 +193,47 @@ export async function getCreditBalance(
 }
 
 /**
+ * Cents to charge back on upgrade for credits already consumed on the plan being
+ * left. Stripe's time-based proration refunds the unused *time* of the old plan even
+ * though the consumed credits are gone — which lets someone buy a plan, spend its
+ * credits, upgrade the same day, and reclaim most of the money. This returns the
+ * value of the consumed credits (at the leaving plan's per-credit rate), CAPPED at
+ * the estimated proration refund (old price × remaining fraction of the period), so
+ * the upgrade never costs more than a fresh prorated upgrade. Returns 0 when there is
+ * nothing to recover (fresh upgrade, free/unknown plan, or unknown period). Pure read.
+ */
+export async function computeConsumedCreditRecoveryCents(input: {
+    organizationId: string;
+    fromPlanId: BillingPlanId;
+    periodStart?: Date | null;
+    periodEnd?: Date | null;
+    now?: number;
+}): Promise<number> {
+    const allowance = getMonthlyCredits(input.fromPlanId);
+    const priceInfo = getPlanById(input.fromPlanId)?.price;
+    const priceUsd = priceInfo && priceInfo !== 'custom' ? priceInfo.monthly : 0;
+    if (allowance <= 0 || priceUsd <= 0) return 0;
+
+    const balance = await getCreditBalance(input.organizationId);
+    const allowanceMicro = allowance * MICRO_PER_CREDIT;
+    const remainingMicro = balance?.balanceMicro ?? 0;
+    const consumedMicro = Math.max(0, allowanceMicro - remainingMicro);
+    if (consumedMicro <= 0) return 0;
+
+    const consumedValueCents = Math.round((consumedMicro / allowanceMicro) * priceUsd * 100);
+    if (consumedValueCents <= 0) return 0;
+
+    const start = input.periodStart?.getTime();
+    const end = input.periodEnd?.getTime();
+    const now = input.now ?? Date.now();
+    if (!start || !end || end <= start) return 0;
+    const remainingFraction = Math.min(1, Math.max(0, (end - now) / (end - start)));
+    const prorationRefundCents = Math.round(priceUsd * 100 * remainingFraction);
+
+    return Math.max(0, Math.min(consumedValueCents, prorationRefundCents));
+}
+
+/**
  * Phase 2b helper: reverse-lookup org by Stripe customer ID for webhook handlers.
  * Returns null when the customer has not been linked yet — handler decides policy.
  */

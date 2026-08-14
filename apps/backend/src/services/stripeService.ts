@@ -22,6 +22,7 @@ import type { BillingCycle, BillingPlanId, SubscriptionStatus } from '../types/b
 import {
     applySubscriptionUpdate,
     getOrgPlanState,
+    computeConsumedCreditRecoveryCents,
 } from './billingRuntimeService.js';
 import { ensureBillingPortalConfiguration } from './stripePortalConfig.js';
 
@@ -935,6 +936,45 @@ function isSubscriptionPlanUpgrade(
     return current.cycle === 'monthly' && next.cycle === 'annual';
 }
 
+/** Off by default. Enable with UPGRADE_CONSUMED_CREDIT_RECOVERY=on after testing in Stripe test mode. */
+function isConsumedCreditRecoveryEnabled(): boolean {
+    return String(process.env.UPGRADE_CONSUMED_CREDIT_RECOVERY || '').trim().toLowerCase() === 'on';
+}
+
+/**
+ * On upgrade, add a one-time PENDING invoice item for the value of credits already
+ * consumed on the current plan (capped at the proration refund). Stripe sweeps the
+ * pending item into the `always_invoice` proration invoice created by the following
+ * subscription update. Returns the item id so the caller can roll it back if that
+ * update fails, or null when nothing was added. Gated off by default.
+ */
+async function addConsumedCreditRecoveryItem(
+    stripe: Stripe,
+    organizationId: string,
+    state: NonNullable<Awaited<ReturnType<typeof getOrgPlanState>>>,
+): Promise<string | null> {
+    if (!isConsumedCreditRecoveryEnabled()) return null;
+    const customerId = state.stripeCustomerId;
+    if (!customerId) return null;
+
+    const cents = await computeConsumedCreditRecoveryCents({
+        organizationId,
+        fromPlanId: state.planId,
+        periodStart: state.currentPeriodStart,
+        periodEnd: state.currentPeriodEnd,
+    });
+    if (cents <= 0) return null;
+
+    const invoiceItem = await stripe.invoiceItems.create({
+        customer: customerId,
+        amount: cents,
+        currency: 'usd',
+        description: `Adjustment for credits used on ${state.planId} before upgrade`,
+        metadata: { organizationId, kind: 'consumed_credit_recovery', fromPlan: state.planId },
+    });
+    return invoiceItem.id ?? null;
+}
+
 export type ChangeSubscriptionPlanResult =
     | { switched: true }
     | { kind: 'downgrade_scheduled'; effectiveAt: number };
@@ -984,7 +1024,9 @@ export async function changeSubscriptionPlan(input: {
     const stripe = getStripeClient();
 
     if (upgrading) {
+        let recoveryItemId: string | null = null;
         try {
+            recoveryItemId = await addConsumedCreditRecoveryItem(stripe, organizationId, state);
             const updated = await stripe.subscriptions.update(state.stripeSubscriptionId, {
                 items: [{ id: item.id, price: newPriceId }],
                 proration_behavior: 'always_invoice',
@@ -1008,6 +1050,14 @@ export async function changeSubscriptionPlan(input: {
 
             return { switched: true };
         } catch (err) {
+            // Roll back the pending recovery item so it never attaches to a later invoice.
+            if (recoveryItemId) {
+                try {
+                    await stripe.invoiceItems.del(recoveryItemId);
+                } catch {
+                    /* best-effort cleanup */
+                }
+            }
             const stripeErr = err as Stripe.errors.StripeError;
             if (stripeErr?.type === 'StripeCardError') {
                 throw new BillingPlanChangeError(
