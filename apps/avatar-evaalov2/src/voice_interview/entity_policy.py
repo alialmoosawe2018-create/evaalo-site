@@ -245,6 +245,19 @@ DIFFICULTY_FOLLOWUP_POOL: tuple[str, ...] = (
 )
 
 
+# Continuation nudges emitted while the candidate is mid-answer (MODE_WAIT).
+# STATEMENTS, not questions (no "؟") — they must never record an opener stem or
+# read as a new interview question. Distinct opener heads let ``pick_varied``
+# rotate them so a run of short answers doesn't repeat the same "خذ راحتك" line.
+CONTINUATION_POOL: tuple[str, ...] = (
+    "خذ راحتك، كمل فكرتك.",
+    "تمام، أكمل لو سمحت.",
+    "ماكو مشكلة، عطيني بقية جوابك.",
+    "زين، أكمل على راحتك.",
+    "أكيد، أكمل متى ما تجهز.",
+)
+
+
 def pick_varied(pool: tuple[str, ...] | list[str], mem: Any, *, key: str = "") -> str:
     """Pick a phrasing from ``pool`` whose opener differs from the last few asked.
 

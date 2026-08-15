@@ -33,6 +33,7 @@ from voice_interview.config import (
 )
 from voice_interview.cross_domain_guard import validate_cross_domain_output
 from voice_interview.entity_policy import (
+    CONTINUATION_POOL,
     DIFFICULTY_FOLLOWUP_POOL,
     ENTITY_APPLY_POOL,
     ENTITY_QUALITY_POOL,
@@ -148,6 +149,18 @@ def _max_followups_per_topic() -> int:
     return max(0, min(5, n))
 
 
+def _max_consecutive_waits() -> int:
+    """Max back-to-back "go on…" nudges before advancing to a fresh question."""
+    raw = (os.getenv("INTERVIEW_MAX_CONSECUTIVE_WAITS") or "").strip()
+    if not raw:
+        return 2
+    try:
+        n = int(raw)
+    except ValueError:
+        return 2
+    return max(1, min(5, n))
+
+
 def _unsure_pivot_threshold() -> int:
     raw = (os.getenv("HEURISTIC_UNSURE_PIVOT_THRESHOLD") or "").strip()
     if not raw:
@@ -222,6 +235,13 @@ class InterviewMemory:
     # Sent-question guard: every question id/anchor id emitted this session, so a
     # question can never be re-selected even if its answer left it "open".
     sent_question_guard: set[str] = field(default_factory=set)
+    # Normalized text of the last ASK/follow-up question actually sent. The
+    # verbatim re-ask guard in ``_set_turn_recommendation`` compares against it so
+    # the agent never asks the identical question two turns running.
+    last_sent_question_norm: str = ""
+    # Consecutive MODE_WAIT ("go on…") nudges. Capped so a run of short answers
+    # advances to a fresh question instead of nudging forever.
+    consecutive_wait_count: int = 0
 
     def record_opener_stem(self, stem: str, *, keep: int = 3) -> None:
         s = (stem or "").strip()
@@ -932,6 +952,32 @@ class InterviewAssistant(Agent):
             else:
                 mode = MODE_ASK
 
+        # ── Verbatim re-ask guard ────────────────────────────────────────────
+        # Never emit the same ASK/follow-up question two turns running (the
+        # candidate hears a literal repeat). Prefer the next unused bank anchor;
+        # otherwise rephrase it. CLARIFY / WAIT / RESUME intentionally re-touch
+        # the active question, so they are exempt.
+        if question and mode in (MODE_ASK, MODE_FOLLOW_UP):
+            _q_norm = normalize_text(question)
+            if _q_norm and _q_norm == mem.last_sent_question_norm:
+                _alt = self._pick_next_bank_anchor()
+                if _alt and normalize_text(_alt) != _q_norm:
+                    question = _alt
+                    source = "bank"
+                    mode = MODE_ASK
+                    question_id = None
+                    parent_question_id = None
+                    followup_type = None
+                else:
+                    _rephrased, _ = simplify_clarify_for_pack(
+                        question, domain_pack_key=self._domain_pack_key
+                    )
+                    _rephrased = collapse_to_single_question(_rephrased).strip()
+                    if _rephrased and normalize_text(_rephrased) != _q_norm:
+                        question = _rephrased
+                        source = "clarify_pack"
+                        mode = MODE_CLARIFY
+
         resolved_path = path_key or mem.pending_path_key or self._resolve_path_key(mem)
         resolved_step = step_key or mem.pending_step_key or None
         resolved_cluster = cluster_key or mem.pending_cluster_key or None
@@ -1068,8 +1114,10 @@ class InterviewAssistant(Agent):
                 return guided
 
         if diag.get("is_incomplete_turn") or diag.get("is_answer_in_progress"):
+            if mem.consecutive_wait_count >= _max_consecutive_waits():
+                return None  # too many nudges — advance to a fresh question
             return self._set_turn_recommendation(
-                "أكيد، خذ راحتك وكمل فكرتك.",
+                pick_varied(CONTINUATION_POOL, mem),
                 source="wait_for_completion",
                 response_mode=MODE_WAIT,
                 question_id=mem.sent_question_id or None,
@@ -1113,9 +1161,10 @@ class InterviewAssistant(Agent):
         if diag.get("is_rich_answer"):
             return None
 
-        wait_text = "أكيد، خذ راحتك وكمل فكرتك."
+        if mem.consecutive_wait_count >= _max_consecutive_waits():
+            return None  # too many nudges — advance to a fresh question
         return self._set_turn_recommendation(
-            wait_text,
+            pick_varied(CONTINUATION_POOL, mem),
             source="wait_for_completion",
             response_mode=MODE_WAIT,
             question_id=mem.sent_question_id or None,
@@ -1733,10 +1782,19 @@ class InterviewAssistant(Agent):
         mode = plan.response_mode or MODE_ASK
         question_text = extract_primary_question(guarded) or (plan.question or guarded).strip()
 
+        # Consecutive "go on…" nudge counter: increments on WAIT, resets on any
+        # other turn. Read by the wait cap so short answers don't loop forever.
+        mem.consecutive_wait_count = (
+            mem.consecutive_wait_count + 1 if mode == MODE_WAIT else 0
+        )
+
         # Track the opener signature of any turn that actually asked a question
         # (WAIT/ACK/RESUME strip their question marks, so they never record).
         if count_question_marks(guarded) >= 1:
             mem.record_opener_stem(_question_stem(question_text))
+            # Remember the last real question so we never re-ask it verbatim.
+            if mode in (MODE_ASK, MODE_FOLLOW_UP):
+                mem.last_sent_question_norm = normalize_text(question_text)
 
         if mode == MODE_WAIT:
             if mem.active_question_status in (STATUS_ANSWERING, STATUS_CLARIFYING):
