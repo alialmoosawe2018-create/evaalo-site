@@ -81,12 +81,53 @@ function clipText(value, max = 140) {
     return `${text.slice(0, max).trim()}…`;
 }
 
+function decisionActionTone(action) {
+    const a = String(action || '');
+    if (/Do Not/i.test(a)) return 'negative';
+    if (/Proceed|Prioritize/i.test(a) && !/condition/i.test(a)) return 'positive';
+    return 'neutral';
+}
+
+function panelTitleKey(uiStage) {
+    if (uiStage === 'voice') return 'aiCompareTop_panelTitleStage2';
+    if (uiStage === 'video') return 'aiCompareTop_panelTitleStage3';
+    return 'aiCompareTop_panelTitleStage1';
+}
+
+function DecisionOptionsList({ options, t }) {
+    const rows = Array.isArray(options) ? options.filter((o) => o && String(o.action || '').trim()) : [];
+    if (!rows.length) return null;
+    return (
+        <section className="compare-section compare-section--options">
+            <div className="compare-section__label">{t('aiCompareTop_decisionOptions')}</div>
+            <ul className="compare-decision-options">
+                {rows.map((opt, i) => (
+                    <li key={`${opt.action}-${i}`} className="compare-decision-options__item">
+                        <div className="compare-decision-options__action">{opt.action}</div>
+                        {opt.when ? (
+                            <div className="compare-decision-options__meta">
+                                <span>{t('aiCompareTop_decisionWhen')}</span> {opt.when}
+                            </div>
+                        ) : null}
+                        {opt.benefit ? (
+                            <div className="compare-decision-options__meta">
+                                <span>{t('aiCompareTop_decisionBenefit')}</span> {opt.benefit}
+                            </div>
+                        ) : null}
+                    </li>
+                ))}
+            </ul>
+        </section>
+    );
+}
+
 export default function ScreeningAiComparePanel({
     status,
     result,
     onDismiss,
     candidates = [],
     campaignTitle = '',
+    uiStage = 'screening',
 }) {
     const { t } = useLanguage();
 
@@ -124,7 +165,10 @@ export default function ScreeningAiComparePanel({
     const isFailed = status === 'failed';
     const isTimeout = status === 'timeout';
     const leadRow = ranking.find((r) => (r.rank ?? 0) === 1) ?? ranking[0];
-    const snapshotNext = clipText(finalRecommendation || whyTopCandidateWins || decisionSummary);
+    const snapshotNext = clipText(
+        leadRow?.decisionAction || finalRecommendation || whyTopCandidateWins || decisionSummary
+    );
+    const reportDecisionOptions = result?.decisionOptions;
     const showSnapshot = ranking.length > 0 && !isLoading && !isFailed && !isTimeout;
 
     return (
@@ -134,7 +178,7 @@ export default function ScreeningAiComparePanel({
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M12 2l2.09 5.26L20 8.27l-4 3.64L17.18 18 12 15.27 6.82 18 8 11.91 4 8.27l5.91-1.01L12 2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
                     </svg>
-                    <span>{t('aiCompareTop_panelTitle')}</span>
+                    <span>{t(panelTitleKey(uiStage))}</span>
                 </div>
                 {onDismiss ? (
                     <button
@@ -221,14 +265,14 @@ export default function ScreeningAiComparePanel({
                                             <th>{t('aiCompareTop_colCandidate')}</th>
                                             <th>{t('aiCompareTop_colScore')}</th>
                                             <th>{t('aiCompareTop_confidence')}</th>
-                                            <th>{t('aiCompareTop_colRecommendation')}</th>
+                                            <th>{t('aiCompareTop_colDecision')}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {ranking.map((row, i) => {
                                             const rank = row.rank ?? i + 1;
                                             const conf = confidencePct(row);
-                                            const badgeLabel = recommendationBadgeLabel(row.recommendation, t);
+                                            const actionLabel = (row.decisionAction || '').trim();
                                             const matchedCandidate =
                                                 candidateByKey.get(String(row.candidateEmail || '').trim().toLowerCase()) ||
                                                 candidateByKey.get(String(row.candidateName || '').trim().toLowerCase()) ||
@@ -273,13 +317,13 @@ export default function ScreeningAiComparePanel({
                                                     </td>
                                                     <td>{conf != null ? `${conf}%` : '—'}</td>
                                                     <td>
-                                                        {badgeLabel ? (
+                                                        {actionLabel ? (
                                                             <span
-                                                                className={`screening-ai-compare-badge screening-ai-compare-badge--rec screening-ai-compare-badge--rec-${recommendationTone(
-                                                                    row.recommendation
+                                                                className={`screening-ai-compare-badge screening-ai-compare-badge--rec screening-ai-compare-badge--rec-${decisionActionTone(
+                                                                    actionLabel
                                                                 )}`}
                                                             >
-                                                                {badgeLabel}
+                                                                {actionLabel}
                                                             </span>
                                                         ) : (
                                                             '—'
@@ -313,6 +357,8 @@ export default function ScreeningAiComparePanel({
                             <p className="compare-section__text">{decisionSummary}</p>
                         </section>
                     ) : null}
+
+                    <DecisionOptionsList options={reportDecisionOptions} t={t} />
 
                     {/* ③ ملخص المقارنة النصّي (توافق رجعي مع النتائج القديمة) */}
                     {summary ? (
@@ -406,6 +452,11 @@ export default function ScreeningAiComparePanel({
                                                 >
                                                     {row.candidateName || '—'}
                                                 </div>
+                                                {rank === 1 ? (
+                                                    <div className="screening-ai-compare-card__stage-top">
+                                                        {t('aiCompareTop_topAtStage')}
+                                                    </div>
+                                                ) : null}
                                                 {row.candidateEmail ? (
                                                     <div className="screening-ai-compare-card__email">
                                                         {row.candidateEmail}
@@ -443,6 +494,15 @@ export default function ScreeningAiComparePanel({
                                                         ) : null}
                                                     </div>
                                                 ) : null}
+                                                {(row.decisionAction || '').trim() ? (
+                                                    <span
+                                                        className={`screening-ai-compare-badge screening-ai-compare-badge--rec screening-ai-compare-badge--rec-${decisionActionTone(
+                                                            row.decisionAction
+                                                        )}`}
+                                                    >
+                                                        {row.decisionAction}
+                                                    </span>
+                                                ) : null}
                                                 {badgeLabel ? (
                                                     <span
                                                         className={`screening-ai-compare-badge screening-ai-compare-badge--rec screening-ai-compare-badge--rec-${recommendationTone(
@@ -470,6 +530,26 @@ export default function ScreeningAiComparePanel({
                                                 {executiveComment}
                                             </p>
                                         ) : null}
+
+                                        {(row.keyDecisionFactor || '').trim() ? (
+                                            <p className="screening-ai-compare-card__factor">
+                                                <strong>{t('aiCompareTop_keyDecisionFactor')}: </strong>
+                                                {row.keyDecisionFactor}
+                                            </p>
+                                        ) : null}
+
+                                        {Array.isArray(row.keyGaps) && row.keyGaps.length > 0 ? (
+                                            <section className="screening-ai-compare-card__section">
+                                                <h5>{t('aiCompareTop_keyGaps')}</h5>
+                                                <ul className="screening-ai-compare-card__list">
+                                                    {row.keyGaps.map((g, gi) => (
+                                                        <li key={gi}>{g}</li>
+                                                    ))}
+                                                </ul>
+                                            </section>
+                                        ) : null}
+
+                                        <DecisionOptionsList options={row.decisionOptions} t={t} />
 
                                         {reasons.length > 0 ? (
                                             <section className="screening-ai-compare-card__section">

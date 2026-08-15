@@ -95,7 +95,7 @@ export function mapV2RecordToUiResult(record: ICampaignCompareRequest): IAiCompa
             // Decision-support enrichment (Phase 1).
             recommendation: row.recommendation, // enum ثابت — نبرة الشارة في الواجهة تُشتقّ منه.
             overallRecommendation: row.overallRecommendation,
-            executiveComment: row.executiveComment,
+            executiveComment: row.executiveComment || row.decisionReason,
             confidence: row.confidence,
             confidence_rationale: row.confidence_rationale,
             reasons: row.reasons,
@@ -103,6 +103,13 @@ export function mapV2RecordToUiResult(record: ICampaignCompareRequest): IAiCompa
             risks: row.risks,
             watchOut: row.watchOut,
             differenceFromNext: row.differenceFromNext,
+            decisionAction: row.decisionAction,
+            decisionReason: row.decisionReason,
+            keyDecisionFactor: row.keyDecisionFactor,
+            decisionOptions: row.decisionOptions,
+            decisionDependencies: row.decisionDependencies,
+            dataQuality: row.dataQuality,
+            keyGaps: row.keyGaps,
         })) ?? undefined;
 
     return {
@@ -126,6 +133,9 @@ export function mapV2RecordToUiResult(record: ICampaignCompareRequest): IAiCompa
         whyTopCandidateWins: record.result?.whyTopCandidateWins,
         finalRecommendation: record.result?.finalRecommendation,
         ranking,
+        decisionOptions: record.result?.decisionOptions,
+        decisionDependencies: record.result?.decisionDependencies,
+        decisionConfidence: record.result?.decisionConfidence,
     };
 }
 
@@ -376,6 +386,13 @@ export function mapV2RankingForUiTest(
         risks?: string[];
         watchOut?: string;
         differenceFromNext?: string;
+        decisionAction?: string;
+        decisionReason?: string;
+        keyDecisionFactor?: string;
+        decisionOptions?: Array<{ action: string; when?: string; benefit?: string }>;
+        decisionDependencies?: string[];
+        dataQuality?: 'High' | 'Medium' | 'Low';
+        keyGaps?: string[];
     }>
 ) {
     return ranking.map((row) => ({
@@ -385,7 +402,7 @@ export function mapV2RankingForUiTest(
         reason: row.competitiveAdvantage,
         recommendation: row.recommendation,
         overallRecommendation: row.overallRecommendation,
-        executiveComment: row.executiveComment,
+        executiveComment: row.executiveComment || row.decisionReason,
         confidence: row.confidence,
         confidence_rationale: row.confidence_rationale,
         reasons: row.reasons,
@@ -393,5 +410,12 @@ export function mapV2RankingForUiTest(
         risks: row.risks,
         watchOut: row.watchOut,
         differenceFromNext: row.differenceFromNext,
+        decisionAction: row.decisionAction,
+        decisionReason: row.decisionReason,
+        keyDecisionFactor: row.keyDecisionFactor,
+        decisionOptions: row.decisionOptions,
+        decisionDependencies: row.decisionDependencies,
+        dataQuality: row.dataQuality,
+        keyGaps: row.keyGaps,
     }));
 }

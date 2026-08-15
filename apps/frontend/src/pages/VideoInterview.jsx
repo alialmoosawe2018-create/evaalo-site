@@ -720,6 +720,7 @@ const VideoInterview = () => {
                                     ? localizeCatalogLabel(selectedGroup.title, currentLang)
                                     : ''
                             }
+                            uiStage="video"
                             status={aiCompareStatus}
                             result={aiCompareResult}
                             onDismiss={() => setAiComparePanelOpen(false)}

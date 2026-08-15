@@ -4,31 +4,20 @@
 import {
     CALLBACK_JSON_BODY,
     FORMAT_EMAIL_CODE,
-    PHASE15_RANKING_ITEM_RULES,
-    PHASE15_TOP_LEVEL_KEYS,
     makeBuildCallbackCode,
+    makeCompareLlmSystem,
+    STAGE3_DECISION_ACTIONS,
 } from './campaign-compare-phase15-shared.mjs';
 
 export { CALLBACK_JSON_BODY, FORMAT_EMAIL_CODE };
 
-export const LLM_SYSTEM = `Role & Task:
-You are a Senior Talent Selection Panel AI (executive decision-support report). Compare ALL Stage 3 video-interview candidates in the supplied candidatePool. Rank the best candidates for final hire decision. Produce a structured Arabic report (unless evaluations are clearly English-only).
-
-Rules:
-- Compare the complete candidatePool first. Do not ignore any candidate during analysis.
-- Return candidateRanking with exactly rankingLimit items (or fewer only if the pool is smaller), sorted best (#1) to worst.
-- rankingLimit = min(topN, candidatePool.length) and must not exceed 10.
-- Use candidateId and candidateName exactly from the supplied pool. Do not invent IDs.
-- Weigh overallScore plus video competencies: roleUnderstanding, professionalDepth, problemHandling, decisionMaking, prioritization, processThinking, responsibility, learningAbility, jobReadiness, finalRoleFit, summary, and competencyScores when present.
-- stageScore in ranking should reflect pool overallScore (0-100).
-- recommendation per row MUST be one of: Hire | Consider | Reject
-- Be decisive but fair: mention real gaps when they affect ranking.
-- Return ONLY a single JSON object (no markdown, no code fences).
-
-${PHASE15_TOP_LEVEL_KEYS}
-- interviewFocus (string: final hire / onboarding focus)
-
-${PHASE15_RANKING_ITEM_RULES}`;
+export const LLM_SYSTEM = makeCompareLlmSystem({
+    purpose:
+        'Identify the strongest candidates for the hiring decision based on the completed role assessment. You may recommend a candidate as the strongest hiring option at this stage. The final hiring decision remains with the human HR decision-maker. Never state that a candidate is hired. The top candidate is the Best Role-Assessment Candidate at this stage only.',
+    evidence:
+        'Stage 3 overallScore, roleUnderstanding, professionalDepth, problemHandling, decisionMaking, prioritization, processThinking, responsibility, learningAbility, jobReadiness, finalRoleFit, summary, competencyScores (required/importance/status/redFlags/evidence). Treat status=not_assessed as missing evidence, not a zero. Do not use Stage 1 or Stage 2 scores.',
+    decisionActions: STAGE3_DECISION_ACTIONS,
+});
 
 export const BUILD_CALLBACK_CODE = makeBuildCallbackCode({
     compareStage: 'stage3',

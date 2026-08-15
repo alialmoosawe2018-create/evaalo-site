@@ -55,7 +55,17 @@ export interface IAiCompareTopResult {
         risks?: string[];
         watchOut?: string;
         differenceFromNext?: string;
+        decisionAction?: string;
+        decisionReason?: string;
+        keyDecisionFactor?: string;
+        decisionOptions?: Array<{ action: string; when?: string; benefit?: string }>;
+        decisionDependencies?: string[];
+        dataQuality?: 'High' | 'Medium' | 'Low';
+        keyGaps?: string[];
     }>;
+    decisionOptions?: Array<{ action: string; when?: string; benefit?: string }>;
+    decisionDependencies?: string[];
+    decisionConfidence?: 'High' | 'Medium' | 'Low';
     raw?: any;
 }
 
@@ -123,6 +133,9 @@ const AiCompareResultSchema = new Schema(
         comparativeInsights: { type: Schema.Types.Mixed },
         whyTopCandidateWins: { type: String },
         finalRecommendation: { type: String },
+        decisionOptions: { type: Schema.Types.Mixed },
+        decisionDependencies: { type: [String], default: undefined },
+        decisionConfidence: { type: String, enum: ['High', 'Medium', 'Low'] },
         ranking: {
             type: [
                 new Schema(
@@ -145,6 +158,13 @@ const AiCompareResultSchema = new Schema(
                         risks: { type: [String], default: undefined },
                         watchOut: { type: String },
                         differenceFromNext: { type: String },
+                        decisionAction: { type: String },
+                        decisionReason: { type: String },
+                        keyDecisionFactor: { type: String },
+                        decisionOptions: { type: Schema.Types.Mixed },
+                        decisionDependencies: { type: [String], default: undefined },
+                        dataQuality: { type: String, enum: ['High', 'Medium', 'Low'] },
+                        keyGaps: { type: [String], default: undefined },
                     },
                     { _id: false }
                 ),

@@ -783,6 +783,7 @@ const VoiceInterview = () => {
                                     ? localizeCatalogLabel(selectedGroup.title, currentLang)
                                     : ''
                             }
+                            uiStage="voice"
                             status={aiCompareStatus}
                             result={aiCompareResult}
                             onDismiss={() => setAiComparePanelOpen(false)}

@@ -1,51 +1,21 @@
 /**
  * Shared Phase 1.5 prompt + n8n code fragments for Campaign Compare Stage 1.
- * Used by build-campaign-compare-stage1-draft.mjs and patch-n8n-stage1-phase15.mjs
  */
+import {
+    makeCompareLlmSystem,
+    STAGE1_DECISION_ACTIONS,
+} from './campaign-compare-phase15-shared.mjs';
 
 export const CALLBACK_JSON_BODY =
-    '={{ JSON.stringify({ requestId: $json.requestId, compareStage: $json.compareStage, candidateSnapshotHash: $json.candidateSnapshotHash, comparativeSummary: $json.comparativeSummary, decisionSummary: $json.decisionSummary, contextualIntroduction: $json.contextualIntroduction, comparativeInsights: $json.comparativeInsights, whyTopCandidateWins: $json.whyTopCandidateWins, finalRecommendation: $json.finalRecommendation, candidateRanking: $json.candidateRanking, topRecommendation: $json.topRecommendation, interviewFocus: $json.interviewFocus, wildcard: $json.wildcard ?? null }) }}';
+    '={{ JSON.stringify({ requestId: $json.requestId, compareStage: $json.compareStage, candidateSnapshotHash: $json.candidateSnapshotHash, comparativeSummary: $json.comparativeSummary, decisionSummary: $json.decisionSummary, contextualIntroduction: $json.contextualIntroduction, comparativeInsights: $json.comparativeInsights, whyTopCandidateWins: $json.whyTopCandidateWins, finalRecommendation: $json.finalRecommendation, candidateRanking: $json.candidateRanking, topRecommendation: $json.topRecommendation, interviewFocus: $json.interviewFocus, decisionOptions: $json.decisionOptions, decisionDependencies: $json.decisionDependencies, decisionConfidence: $json.decisionConfidence, wildcard: $json.wildcard ?? null }) }}';
 
-export const LLM_SYSTEM = `Role & Task:
-You are a Senior Talent Selection Panel AI (executive decision-support report). Compare already-evaluated Stage 1 candidates from candidatePool only. Rank from best (#1) to worst. Produce a structured Arabic report (unless evaluations are clearly English-only).
-
-Rules:
-- Use candidateId and candidateName exactly from the supplied pool. Do not invent IDs.
-- Weigh overallScore and written evaluation depth (summary, strengths, weaknesses, fitForRole, finalHrEvaluation).
-- recommendation per row MUST be one of: Hire | Consider | Reject
-- Be decisive but fair: mention real gaps (age, domain fit, experience) when they affect ranking.
-- Return ONLY a single JSON object (no markdown, no code fences).
-
-REQUIRED top-level keys (camelCase):
-- contextualIntroduction (string, 2–4 sentences: scenario + what is being compared)
-- decisionSummary (string, 1–3 sentences: decisive executive headline — who leads and why)
-- comparativeSummary (string, detailed narrative comparison paragraph)
-- comparativeInsights (object with 3–6 string keys = dimension labels, values = who wins that dimension and why, e.g. {"الخبرة التخصصية":"المرشح الأول..."})
-- candidateRanking (array, sorted best to worst)
-- whyTopCandidateWins (string: why #1 beats #2 despite #2 strengths)
-- finalRecommendation (string: clear hire/proceed guidance + who NOT to prioritize)
-- topRecommendation (string, full name of rank #1)
-- interviewFocus (string: what to probe in next-stage interview)
-
-Each candidateRanking item MUST include:
-- rank (integer starting at 1, unique)
-- candidateId (from pool)
-- candidateName (from pool)
-- stageScore (number or string; use pool overallScore when appropriate)
-- competitiveAdvantage (string, one-line edge summary)
-- recommendation (Hire | Consider | Reject)
-- overallRecommendation (short label, e.g. "Consider with training")
-- executiveComment (string, 1–2 sentence executive take)
-- confidence (integer 0–100, how confident in this rank vs peers)
-- confidence_rationale (string, explains the confidence number)
-- reasons (array of 2–4 strings: why ranked here)
-- strengths (array of 2–4 strings)
-- risks (array of 1–3 strings: real hiring risks)
-- watchOut (string, optional advisory — onboarding/monitoring note, not duplicate of risks)
-- differenceFromNext (string, for every row except the last: why ranked above the next candidate)
-
-Optional top-level:
-- wildcard: { candidateId, candidateName, reason } for a notable non-top pick`;
+export const LLM_SYSTEM = makeCompareLlmSystem({
+    purpose:
+        'Identify candidates who should proceed to the Stage 2 voice interview. Frame every recommendation as screening progression, never as a hiring conclusion. Top at this stage = Best Screening Candidate.',
+    evidence:
+        'Screening overallScore, job criteria, basic eligibility / rubricResults, relevant experience, fitForRole, summary, strengths, weaknesses, finalHrEvaluation. Do not use voice or video scores.',
+    decisionActions: STAGE1_DECISION_ACTIONS,
+});
 
 export const BUILD_CALLBACK_CODE = `const item = $input.first().json;
 const ctx = $('Validate Inbound Secret').first().json;
@@ -171,6 +141,26 @@ function normalizeInsights(v) {
   return count ? out : undefined;
 }
 
+function trimDataQuality(v) {
+  const s = String(v || '').trim();
+  if (s === 'High' || s === 'Medium' || s === 'Low') return s;
+  return undefined;
+}
+
+function trimDecisionOptions(v) {
+  if (!Array.isArray(v)) return undefined;
+  const out = [];
+  for (const item of v.slice(0, 4)) {
+    if (!item || typeof item !== 'object') continue;
+    const action = trimStr(item.action, 200);
+    const when = trimStr(item.when, 800);
+    const benefit = trimStr(item.benefit, 800);
+    if (!action) continue;
+    out.push({ action, when, benefit });
+  }
+  return out.length ? out : undefined;
+}
+
 const parsed = parseLlmJson(item);
 const rawRanking = Array.isArray(parsed.candidateRanking)
   ? parsed.candidateRanking
@@ -198,6 +188,13 @@ const candidateRanking = rawRanking.map((row, idx) => {
     risks: trimList(r.risks, 6, 2000),
     watchOut: trimStr(r.watchOut || r.watch_out, 2000) || undefined,
     differenceFromNext: trimStr(r.differenceFromNext || r.difference_from_next, 2000) || undefined,
+    decisionAction: trimStr(r.decisionAction || r.decision_action, 120) || undefined,
+    decisionReason: trimStr(r.decisionReason || r.decision_reason, 2000) || undefined,
+    keyDecisionFactor: trimStr(r.keyDecisionFactor || r.key_decision_factor, 200) || undefined,
+    decisionOptions: trimDecisionOptions(r.decisionOptions || r.decision_options),
+    decisionDependencies: trimList(r.decisionDependencies || r.decision_dependencies, 6, 400),
+    dataQuality: trimDataQuality(r.dataQuality || r.data_quality),
+    keyGaps: trimList(r.keyGaps || r.key_gaps, 4, 2000),
   };
 }).filter((row) => row.candidateId && allowed.has(row.candidateId));
 
@@ -229,6 +226,9 @@ return [{
     candidateRanking,
     topRecommendation: trimStr(parsed.topRecommendation || parsed.top_recommendation, 300),
     interviewFocus: trimStr(parsed.interviewFocus || parsed.voice_interview_focus || parsed.next_stage_focus, 4000),
+    decisionOptions: trimDecisionOptions(parsed.decisionOptions || parsed.decision_options),
+    decisionDependencies: trimList(parsed.decisionDependencies || parsed.decision_dependencies, 8, 400),
+    decisionConfidence: trimDataQuality(parsed.decisionConfidence || parsed.decision_confidence),
     wildcard,
     callbackUrl: ctx.callbackUrl,
   },

@@ -15918,6 +15918,51 @@ html[data-app-theme='light'] .screening-ai-compare-card__rank {
     min-width: 0;
 }
 
+.screening-ai-compare-card__stage-top {
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #d97706;
+}
+
+.compare-decision-options {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+}
+
+.compare-decision-options__item {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: rgba(15, 23, 42, 0.04);
+}
+
+.compare-decision-options__action {
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.compare-decision-options__meta {
+    font-size: 13px;
+    line-height: 1.45;
+    color: inherit;
+    opacity: 0.88;
+}
+
+.compare-decision-options__meta span {
+    font-weight: 600;
+}
+
+.screening-ai-compare-card__factor {
+    margin: 0 0 10px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 .compare-snapshot-table__photo {
     width: 40px;
     height: 40px;

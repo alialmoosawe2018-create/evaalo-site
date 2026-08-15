@@ -24,6 +24,7 @@ import { dispatchCompareTopV2Emails } from './compareTopV2EmailDispatch.js';
 import { mirrorCompareTopV2ToCampaign } from './compareTopV2Adapter.js';
 import { refundCampaignCompareEmail } from './compareEmailBilling.js';
 import { emitDomainEventBestEffort } from './domainEventService.js';
+import { sanitizeDataQuality, sanitizeDecisionAction } from './compareDecisionActions.js';
 
 const MAX_SUMMARY = 8000;
 const MAX_FOCUS = 4000;
@@ -100,9 +101,27 @@ function coerceStageScore(raw: unknown): string | number {
     return '';
 }
 
+function parseDecisionOptions(raw: unknown): CampaignCompareResult['decisionOptions'] {
+    if (!Array.isArray(raw)) return undefined;
+    const out: NonNullable<CampaignCompareResult['decisionOptions']> = [];
+    for (const item of raw.slice(0, 6)) {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+        const row = item as Record<string, unknown>;
+        const action = truncate(row.action, 200);
+        if (!action) continue;
+        out.push({
+            action,
+            when: truncate(row.when, 800) || undefined,
+            benefit: truncate(row.benefit, 800) || undefined,
+        });
+    }
+    return out.length ? out : undefined;
+}
+
 function parseRanking(
     raw: unknown,
-    allowedIds: Set<string>
+    allowedIds: Set<string>,
+    stage: CampaignCompareStage = 'stage1'
 ): { ok: true; ranking: CandidateRankingItem[] } | { ok: false; message: string } {
     if (!Array.isArray(raw) || raw.length === 0) {
         return { ok: false, message: 'candidateRanking must be a non-empty array' };
@@ -163,6 +182,22 @@ function parseRanking(
             differenceFromNext:
                 truncate(row.differenceFromNext ?? row.difference_from_next, MAX_ADVANTAGE) ||
                 undefined,
+            decisionAction: sanitizeDecisionAction(
+                stage,
+                row.decisionAction ?? row.decision_action
+            ),
+            decisionReason:
+                truncate(row.decisionReason ?? row.decision_reason, MAX_ADVANTAGE) || undefined,
+            keyDecisionFactor:
+                truncate(row.keyDecisionFactor ?? row.key_decision_factor, 200) || undefined,
+            decisionOptions: parseDecisionOptions(row.decisionOptions ?? row.decision_options),
+            decisionDependencies: truncateList(
+                row.decisionDependencies ?? row.decision_dependencies,
+                MAX_LIST_ITEMS,
+                400
+            ),
+            dataQuality: sanitizeDataQuality(row.dataQuality ?? row.data_quality),
+            keyGaps: truncateList(row.keyGaps ?? row.key_gaps, 4, MAX_ADVANTAGE),
         });
     }
 
@@ -206,6 +241,15 @@ function normalizeResultBody(body: Record<string, unknown>): CampaignCompareResu
         finalRecommendation:
             truncate(body.finalRecommendation ?? body.final_recommendation, MAX_SUMMARY) ||
             undefined,
+        decisionOptions: parseDecisionOptions(body.decisionOptions ?? body.decision_options),
+        decisionDependencies: truncateList(
+            body.decisionDependencies ?? body.decision_dependencies,
+            8,
+            400
+        ),
+        decisionConfidence: sanitizeDataQuality(
+            body.decisionConfidence ?? body.decision_confidence
+        ),
         wildcard: parseWildcard(body.wildcard),
     };
 }
@@ -307,7 +351,7 @@ export async function postCampaignCompareN8nInbound(
     }
 
     const allowedIds = new Set(record.candidateIds.map(String));
-    const rankingParsed = parseRanking(body.candidateRanking, allowedIds);
+    const rankingParsed = parseRanking(body.candidateRanking, allowedIds, expectedStage);
     if (!rankingParsed.ok) {
         res.status(400).json({ ok: false, error: rankingParsed.message });
         return;
@@ -468,9 +512,10 @@ export function campaignCompareWebhookActionsAfterFinalize(
 /** @internal test helper */
 export function validateCampaignCompareRankingForTest(
     raw: unknown,
-    allowedIds: Set<string>
+    allowedIds: Set<string>,
+    stage: CampaignCompareStage = 'stage1'
 ): ReturnType<typeof parseRanking> {
-    return parseRanking(raw, allowedIds);
+    return parseRanking(raw, allowedIds, stage);
 }
 
 /** @internal test helper */

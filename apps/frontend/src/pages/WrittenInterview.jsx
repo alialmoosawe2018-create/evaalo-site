@@ -747,6 +747,7 @@ const WrittenInterview = () => {
                                     ? localizeCatalogLabel(selectedGroup.title, currentLang)
                                     : ''
                             }
+                            uiStage="screening"
                             status={aiCompareStatus}
                             result={aiCompareResult}
                             onDismiss={() => setAiComparePanelOpen(false)}

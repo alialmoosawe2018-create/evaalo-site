@@ -64,6 +64,11 @@ export interface Stage1PoolItem {
     weaknesses: string[];
     fitForRole: string;
     finalHrEvaluation: string;
+    eligibility?: Array<{
+        rubricItemId: string;
+        result: string;
+        confidence?: string;
+    }>;
     applicationId?: string;
 }
 
@@ -82,6 +87,8 @@ export interface Stage2PoolItem {
     digitalSkills: string;
     professionalAttitude: string;
     finalHrEvaluation: string;
+    dataCompleteness?: 'High' | 'Medium' | 'Low';
+    notAssessedDimensions?: string[];
     applicationId?: string;
 }
 
@@ -91,20 +98,23 @@ export interface Stage3PoolItem {
     overallScore: number;
     recommendation: string;
     summary: string;
-    roleUnderstanding: number;
-    professionalDepth: number;
-    problemHandling: number;
-    decisionMaking: number;
-    prioritization: number;
-    processThinking: number;
-    responsibility: number;
-    learningAbility: number;
-    jobReadiness: number;
-    finalRoleFit: number;
+    roleUnderstanding: number | null;
+    professionalDepth: number | null;
+    problemHandling: number | null;
+    decisionMaking: number | null;
+    prioritization: number | null;
+    processThinking: number | null;
+    responsibility: number | null;
+    learningAbility: number | null;
+    jobReadiness: number | null;
+    finalRoleFit: number | null;
     competencyScores?: Array<{
         competencyKey: string;
         title?: string;
-        score: number;
+        score: number | null;
+        status: 'assessed' | 'not_assessed';
+        required?: boolean;
+        importance?: string;
         evidence?: string[];
         redFlags?: string[];
     }>;
@@ -149,6 +159,13 @@ function scoreFromVideo(c: CompareRow): number {
 
 function buildStage1Item(c: CompareRow): Stage1PoolItem {
     const w = c.writtenInterviewEvaluation!;
+    const eligibility = Array.isArray(w.rubricResults)
+        ? w.rubricResults.slice(0, MAX_LIST_ITEMS).map((row) => ({
+              rubricItemId: String(row.rubricItemId ?? ''),
+              result: String(row.result ?? ''),
+              confidence: row.confidence,
+          }))
+        : undefined;
     return {
         candidateId: c.personId,
         applicationId: c.applicationId,
@@ -161,11 +178,29 @@ function buildStage1Item(c: CompareRow): Stage1PoolItem {
         weaknesses: truncateList(w.weaknesses, MAX_LIST_ITEMS),
         fitForRole: truncateText(w.fit_for_role, MAX_SHORT),
         finalHrEvaluation: truncateText(w.final_hr_evaluation, MAX_SHORT),
+        eligibility: eligibility?.length ? eligibility : undefined,
     };
+}
+
+function isEmptyDimension(v: unknown): boolean {
+    if (v === undefined || v === null) return true;
+    return String(v).trim() === '';
 }
 
 function buildStage2Item(c: CompareRow): Stage2PoolItem {
     const v = c.voiceInterviewEvaluation!;
+    const dims: Array<[string, unknown]> = [
+        ['communication', v.communication],
+        ['languageFluency', v.language_fluency],
+        ['confidence', v.confidence],
+        ['problemSolving', v.problem_solving],
+        ['digitalSkills', v.digital_skills],
+        ['professionalAttitude', v.professional_attitude],
+    ];
+    const notAssessedDimensions = dims.filter(([, val]) => isEmptyDimension(val)).map(([k]) => k);
+    const missing = notAssessedDimensions.length;
+    const dataCompleteness: 'High' | 'Medium' | 'Low' =
+        missing === 0 ? 'High' : missing <= 2 ? 'Medium' : 'Low';
     return {
         candidateId: c.personId,
         applicationId: c.applicationId,
@@ -182,12 +217,42 @@ function buildStage2Item(c: CompareRow): Stage2PoolItem {
         digitalSkills: truncateText(v.digital_skills, 200),
         professionalAttitude: truncateText(v.professional_attitude, MAX_SHORT),
         finalHrEvaluation: truncateText(v.final_hr_evaluation, MAX_SHORT),
+        dataCompleteness,
+        notAssessedDimensions: notAssessedDimensions.length ? notAssessedDimensions : undefined,
     };
 }
 
-function numOrZero(v: unknown): number {
+function numOrNull(v: unknown): number | null {
+    if (v === undefined || v === null || v === '') return null;
     const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) ? n : null;
+}
+
+function mapCompetencyScore(row: {
+    competencyKey?: string;
+    title?: string;
+    score?: number;
+    priority?: string;
+    importance?: string;
+    required?: boolean;
+    evidence?: string[];
+    redFlags?: string[];
+}): NonNullable<Stage3PoolItem['competencyScores']>[number] {
+    const n = numOrNull(row.score);
+    const assessed = n != null;
+    const priority = String(row.priority || row.importance || '').trim();
+    const required =
+        row.required === true || /^(required|critical|must)$/i.test(priority);
+    return {
+        competencyKey: String(row.competencyKey ?? ''),
+        title: truncateText(row.title, 200),
+        score: assessed ? n : null,
+        status: assessed ? 'assessed' : 'not_assessed',
+        required: required || undefined,
+        importance: priority || undefined,
+        evidence: truncateList(row.evidence, MAX_LIST_ITEMS),
+        redFlags: truncateList(row.redFlags, MAX_LIST_ITEMS),
+    };
 }
 
 function buildStage3Item(c: CompareRow): Stage3PoolItem {
@@ -199,24 +264,20 @@ function buildStage3Item(c: CompareRow): Stage3PoolItem {
         overallScore: Number(v.overall_score),
         recommendation: String(v.recommendation),
         summary: truncateText(v.summary, MAX_TEXT),
-        roleUnderstanding: numOrZero(v.role_understanding),
-        professionalDepth: numOrZero(v.professional_depth),
-        problemHandling: numOrZero(v.problem_handling),
-        decisionMaking: numOrZero(v.decision_making),
-        prioritization: numOrZero(v.prioritization),
-        processThinking: numOrZero(v.process_thinking),
-        responsibility: numOrZero(v.responsibility),
-        learningAbility: numOrZero(v.learning_ability),
-        jobReadiness: numOrZero(v.job_readiness),
-        finalRoleFit: numOrZero(v.final_role_fit),
+        roleUnderstanding: numOrNull(v.role_understanding),
+        professionalDepth: numOrNull(v.professional_depth),
+        problemHandling: numOrNull(v.problem_handling),
+        decisionMaking: numOrNull(v.decision_making),
+        prioritization: numOrNull(v.prioritization),
+        processThinking: numOrNull(v.process_thinking),
+        responsibility: numOrNull(v.responsibility),
+        learningAbility: numOrNull(v.learning_ability),
+        jobReadiness: numOrNull(v.job_readiness),
+        finalRoleFit: numOrNull(v.final_role_fit),
         competencyScores: Array.isArray(v.competencyScores)
-            ? v.competencyScores.slice(0, MAX_LIST_ITEMS).map((row) => ({
-                  competencyKey: String(row.competencyKey ?? ''),
-                  title: truncateText(row.title, 200),
-                  score: numOrZero(row.score),
-                  evidence: truncateList(row.evidence, MAX_LIST_ITEMS),
-                  redFlags: truncateList(row.redFlags, MAX_LIST_ITEMS),
-              }))
+            ? v.competencyScores.slice(0, MAX_LIST_ITEMS).map((row) =>
+                  mapCompetencyScore(row as Parameters<typeof mapCompetencyScore>[0])
+              )
             : undefined,
     };
 }

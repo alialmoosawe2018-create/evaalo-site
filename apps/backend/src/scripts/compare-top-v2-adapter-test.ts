@@ -93,14 +93,11 @@ function testResultMapping(): void {
     const ui = mapV2RecordToUiResult(record);
     assert.equal(ui.status, 'completed');
     assert.equal(ui.summary, 'Top picks summary');
-    assert.deepEqual(ui.ranking, [
-        {
-            rank: 1,
-            candidateName: 'Alice',
-            score: 92,
-            reason: 'Strong fit',
-        },
-    ]);
+    assert.equal(ui.ranking?.[0]?.rank, 1);
+    assert.equal(ui.ranking?.[0]?.candidateName, 'Alice');
+    assert.equal(ui.ranking?.[0]?.score, 92);
+    assert.equal(ui.ranking?.[0]?.reason, 'Strong fit');
+    assert.equal(ui.ranking?.[0]?.recommendation, 'Hire');
 }
 
 function testProcessingStatusMapping(): void {
@@ -157,14 +154,13 @@ function testRankingHelper(): void {
             candidateName: 'Bob',
             stageScore: '88',
             competitiveAdvantage: 'Fast learner',
+            decisionAction: 'Proceed to Voice Interview',
+            decisionReason: 'Highest screening score with complete eligibility.',
         },
     ]);
-    assert.deepEqual(mapped[0], {
-        rank: 1,
-        candidateName: 'Bob',
-        score: 88,
-        reason: 'Fast learner',
-    });
+    assert.equal(mapped[0].score, 88);
+    assert.equal(mapped[0].decisionAction, 'Proceed to Voice Interview');
+    assert.equal(mapped[0].executiveComment, 'Highest screening score with complete eligibility.');
 }
 
 function testStage3WebhookEnvKey(): void {

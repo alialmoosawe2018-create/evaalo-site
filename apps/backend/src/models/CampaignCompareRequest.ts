@@ -37,6 +37,13 @@ export interface CandidateRankingItem {
     watchOut?: string;
     /** الفرق عن المرشح التالي في الترتيب. */
     differenceFromNext?: string;
+    decisionAction?: string;
+    decisionReason?: string;
+    keyDecisionFactor?: string;
+    decisionOptions?: Array<{ action: string; when?: string; benefit?: string }>;
+    decisionDependencies?: string[];
+    dataQuality?: 'High' | 'Medium' | 'Low';
+    keyGaps?: string[];
 }
 
 export interface CampaignCompareResult {
@@ -55,6 +62,9 @@ export interface CampaignCompareResult {
     whyTopCandidateWins?: string;
     /** التوصية النهائية الحازمة (مع احتياطي + من لا نوصي به). */
     finalRecommendation?: string;
+    decisionOptions?: Array<{ action: string; when?: string; benefit?: string }>;
+    decisionDependencies?: string[];
+    decisionConfidence?: 'High' | 'Medium' | 'Low';
     wildcard?: {
         candidateId: string;
         candidateName: string;
@@ -112,6 +122,13 @@ const CandidateRankingItemSchema = new Schema(
         risks: { type: [String], default: undefined },
         watchOut: { type: String },
         differenceFromNext: { type: String },
+        decisionAction: { type: String },
+        decisionReason: { type: String },
+        keyDecisionFactor: { type: String },
+        decisionOptions: { type: Schema.Types.Mixed },
+        decisionDependencies: { type: [String], default: undefined },
+        dataQuality: { type: String, enum: ['High', 'Medium', 'Low'] },
+        keyGaps: { type: [String], default: undefined },
     },
     { _id: false }
 );
@@ -128,6 +145,9 @@ const CampaignCompareResultSchema = new Schema(
         comparativeInsights: { type: Schema.Types.Mixed }, // Record<string, string>
         whyTopCandidateWins: { type: String },
         finalRecommendation: { type: String },
+        decisionOptions: { type: Schema.Types.Mixed },
+        decisionDependencies: { type: [String], default: undefined },
+        decisionConfidence: { type: String, enum: ['High', 'Medium', 'Low'] },
         wildcard: {
             type: new Schema(
                 {

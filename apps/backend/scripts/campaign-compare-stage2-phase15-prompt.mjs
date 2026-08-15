@@ -4,30 +4,20 @@
 import {
     CALLBACK_JSON_BODY,
     FORMAT_EMAIL_CODE,
-    PHASE15_RANKING_ITEM_RULES,
-    PHASE15_TOP_LEVEL_KEYS,
     makeBuildCallbackCode,
+    makeCompareLlmSystem,
+    STAGE2_DECISION_ACTIONS,
 } from './campaign-compare-phase15-shared.mjs';
 
 export { CALLBACK_JSON_BODY, FORMAT_EMAIL_CODE };
 
-export const LLM_SYSTEM = `Role & Task:
-You are a Senior Talent Selection Panel AI (executive decision-support report). Compare ALL Stage 2 voice-interview candidates in the supplied candidatePool. Consider every candidate before producing the final ranking. Rank the best candidates up to the requested ranking limit for progression to video interview. Produce a structured Arabic report (unless evaluations are clearly English-only).
-
-Rules:
-- Compare the complete candidatePool first. Do not ignore any candidate during analysis.
-- Return candidateRanking with exactly rankingLimit items (or fewer only if the pool is smaller), sorted best (#1) to worst.
-- rankingLimit = min(topN, candidatePool.length) and must not exceed 10.
-- Use candidateId and candidateName exactly from the supplied pool. Do not invent IDs.
-- Weigh overallScore plus voice dimensions: communication, languageFluency, confidence, problemSolving, digitalSkills, professionalAttitude, summary, strengths, weaknesses, finalHrEvaluation.
-- recommendation per row MUST be one of: Hire | Consider | Reject
-- Be decisive but fair: mention real gaps when they affect ranking.
-- Return ONLY a single JSON object (no markdown, no code fences).
-
-${PHASE15_TOP_LEVEL_KEYS}
-- interviewFocus (string: what to probe in the next video interview stage)
-
-${PHASE15_RANKING_ITEM_RULES}`;
+export const LLM_SYSTEM = makeCompareLlmSystem({
+    purpose:
+        'Identify candidates who should proceed to the Stage 3 video interview. Frame every recommendation as progression to deep role assessment, never as a final hiring decision. The top candidate is the Best Voice-Interview Candidate at this stage only.',
+    evidence:
+        'Stage 2 overallScore, communication, professionalAttitude, English/languageFluency if assessed, problemSolving, digitalSkills, role fit, summary, strengths, weaknesses, finalHrEvaluation, dataCompleteness / notAssessedDimensions. Do not use the transcript. Do not use Stage 1 or Stage 3 scores.',
+    decisionActions: STAGE2_DECISION_ACTIONS,
+});
 
 export const BUILD_CALLBACK_CODE = makeBuildCallbackCode({
     compareStage: 'stage2',
