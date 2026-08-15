@@ -953,8 +953,22 @@ async def my_agent(ctx: JobContext):
 
     if avatar_session:
         try:
-            await avatar_session.start(agent_session=session, room=ctx.room)
-            logger.debug("AvatarSession started")
+            # Beyond Presence's /v1/session rejects http(s) URLs — it requires ws[s]://.
+            # LiveKit Cloud injects LIVEKIT_URL as https:// and blocks overriding it via
+            # secrets, so normalize the scheme here and pass it explicitly to the bey plugin
+            # (otherwise the avatar fails with 400 "Invalid LiveKit URL").
+            _bey_lk_url = (os.getenv("LIVEKIT_URL") or "").strip()
+            if _bey_lk_url.startswith("https://"):
+                _bey_lk_url = "wss://" + _bey_lk_url[8:]
+            elif _bey_lk_url.startswith("http://"):
+                _bey_lk_url = "ws://" + _bey_lk_url[7:]
+            if _bey_lk_url:
+                await avatar_session.start(
+                    agent_session=session, room=ctx.room, livekit_url=_bey_lk_url
+                )
+            else:
+                await avatar_session.start(agent_session=session, room=ctx.room)
+            logger.debug("AvatarSession started (livekit_url=%s)", _bey_lk_url or "<env>")
             _session_tel.mark("avatar_ready_s")
             clear_buf = effective_avatar_clear_buffer_timeout()
             _apply_avatar_clear_buffer(avatar_session, session, clear_buf)
