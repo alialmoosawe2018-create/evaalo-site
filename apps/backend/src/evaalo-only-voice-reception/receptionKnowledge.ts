@@ -5,7 +5,12 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-let cachedKnowledge: string | null = null;
+const LANG_AR = '<!-- kb-lang:ar -->';
+const LANG_EN = '<!-- kb-lang:en -->';
+
+export type ReceptionKnowledgeLang = 'ar' | 'en' | 'all';
+
+const cache = new Map<string, string>();
 
 function getKnowledgePath(): string {
     const customPath = (process.env.RECEPTION_KNOWLEDGE_PATH || '').trim();
@@ -28,9 +33,10 @@ function getKnowledgeMaxChars(): number {
     return Math.max(2000, Math.min(parsed, 25000));
 }
 
-export function loadReceptionKnowledge(): string {
-    if (cachedKnowledge !== null) {
-        return cachedKnowledge;
+function readKnowledgeFile(): string {
+    const cached = cache.get('__raw__');
+    if (cached !== undefined) {
+        return cached;
     }
 
     const filePath = getKnowledgePath();
@@ -38,42 +44,103 @@ export function loadReceptionKnowledge(): string {
     try {
         if (!fs.existsSync(filePath)) {
             console.warn(`[reception] Knowledge file not found: ${filePath}`);
-            cachedKnowledge = '';
-            return cachedKnowledge;
+            cache.set('__raw__', '');
+            return '';
         }
 
-        let text = fs.readFileSync(filePath, 'utf8').trim();
-
+        const text = fs.readFileSync(filePath, 'utf8').trim();
         if (!text) {
             console.warn(`[reception] Knowledge file is empty: ${filePath}`);
-            cachedKnowledge = '';
-            return cachedKnowledge;
+            cache.set('__raw__', '');
+            return '';
         }
 
-        const maxChars = getKnowledgeMaxChars();
-
-        if (text.length > maxChars) {
-            text =
-                text.slice(0, maxChars).trimEnd() +
-                '\n\n[Knowledge truncated for reception agent.]';
-        }
-
-        cachedKnowledge = text;
-        console.info(
-            `[reception] Knowledge loaded: ${filePath} (${cachedKnowledge.length} chars)`
-        );
-
-        return cachedKnowledge;
+        cache.set('__raw__', text);
+        return text;
     } catch (error) {
         console.warn('[reception] Failed to load knowledge file:', error);
-        cachedKnowledge = '';
-        return cachedKnowledge;
+        cache.set('__raw__', '');
+        return '';
     }
 }
 
-function isEnglishLanguage(language?: string): boolean {
+function extractLangSection(raw: string, lang: 'ar' | 'en'): string {
+    const marker = lang === 'ar' ? LANG_AR : LANG_EN;
+    const other = lang === 'ar' ? LANG_EN : LANG_AR;
+    const start = raw.indexOf(marker);
+
+    if (start < 0) {
+        return raw.trim();
+    }
+
+    let body = raw.slice(start + marker.length);
+    const next = body.indexOf(other);
+    if (next >= 0) {
+        body = body.slice(0, next);
+    }
+
+    return body.trim();
+}
+
+function applyMaxChars(text: string, filePath: string): string {
+    const maxChars = getKnowledgeMaxChars();
+    if (text.length <= maxChars) {
+        return text;
+    }
+
+    console.warn(
+        `[reception] Knowledge truncated: ${filePath} (${text.length} > ${maxChars} chars)`
+    );
+    return text.slice(0, maxChars).trimEnd() + '\n\n[Knowledge truncated for reception agent.]';
+}
+
+export function resolveReceptionKnowledgeLang(language?: string): ReceptionKnowledgeLang {
     const normalized = (language || '').toLowerCase().trim();
-    return normalized === 'en' || normalized === 'english';
+    if (normalized === 'all' || normalized === 'both') return 'all';
+    if (normalized === 'en' || normalized === 'english') return 'en';
+    if (normalized === 'ar' || normalized === 'arabic' || normalized === 'ar-iq') return 'ar';
+    return 'ar';
+}
+
+export function loadReceptionKnowledge(language?: string): string {
+    const mode: ReceptionKnowledgeLang =
+        language === undefined || language === ''
+            ? 'all'
+            : resolveReceptionKnowledgeLang(language);
+
+    const cacheKey = `kb:${mode}`;
+    const hit = cache.get(cacheKey);
+    if (hit !== undefined) {
+        return hit;
+    }
+
+    const filePath = getKnowledgePath();
+    const raw = readKnowledgeFile();
+    if (!raw) {
+        cache.set(cacheKey, '');
+        return '';
+    }
+
+    let text: string;
+    if (mode === 'all') {
+        const ar = extractLangSection(raw, 'ar');
+        const en = extractLangSection(raw, 'en');
+        text =
+            ar && en && ar !== en
+                ? `${ar}\n\n---\n\n${en}`
+                : ar || en || raw;
+    } else {
+        text = extractLangSection(raw, mode);
+    }
+
+    text = applyMaxChars(text, filePath);
+    cache.set(cacheKey, text);
+    console.info(`[reception] Knowledge loaded (${mode}): ${filePath} (${text.length} chars)`);
+    return text;
+}
+
+function isEnglishLanguage(language?: string): boolean {
+    return resolveReceptionKnowledgeLang(language) === 'en';
 }
 
 const KNOWLEDGE_USAGE_RULES_EN = `KNOWLEDGE USAGE RULES:
@@ -95,7 +162,7 @@ const KNOWLEDGE_USAGE_RULES_AR = `قواعد استخدام المعرفة:
 - لا تستخدم أرقامًا أو تعدادًا أو قوائم مرقّمة في الردود؛ اشرح فقط بأسلوب سردي متصل.`;
 
 export function appendKnowledgeToSystemPrompt(basePrompt: string, language?: string): string {
-    const knowledge = loadReceptionKnowledge();
+    const knowledge = loadReceptionKnowledge(language || 'ar');
 
     if (!knowledge) {
         return basePrompt;

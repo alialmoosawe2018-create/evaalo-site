@@ -309,15 +309,18 @@ function persistReceptionLead(
 }
 
 /**
- * GET /api/reception-demo/knowledge — قاعدة المعرفة المشتركة لوكيل الفيديو (LiveKit).
- * نفس الملف الذي يستخدمه الرسبشن الصوتي وشات التسويق — مصدر واحد للحقيقة.
+ * GET /api/reception-demo/knowledge — قاعدة المعرفة المشتركة.
+ * مصدر واحد: الرسبشن الصوتي + شات التسويق + رسبشن فيديو LiveKit.
+ * ?lang=ar|en|all — الافتراضي all لوكيل الفيديو ثنائي اللغة.
  * المحتوى تسويقي عام (غير سري)؛ الكاش دقيقتان لتخفيف القراءة المتكررة.
  */
-router.get('/knowledge', (_req, res) => {
-    const knowledge = loadReceptionKnowledge();
+router.get('/knowledge', (req, res) => {
+    const lang = String(req.query?.lang ?? 'all').trim();
+    const knowledge = loadReceptionKnowledge(lang);
     res.set('Cache-Control', 'public, max-age=120');
     return res.status(200).json({
         success: true,
+        lang: lang || 'all',
         chars: knowledge.length,
         knowledge,
     });

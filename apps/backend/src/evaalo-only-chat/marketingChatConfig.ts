@@ -1,6 +1,7 @@
 /**
  * Marketing page text reception — system prompts (demo /explore services).
  * تفاصيل Evaalo تُحمّل من data/evaalo_hr_knowledge.md عبر receptionKnowledge.ts
+ * نفس ملف معرفة الرسبشن الصوتي والفيديو — لغة الشات فقط.
  */
 
 import { appendKnowledgeToSystemPrompt } from '../evaalo-only-voice-reception/receptionKnowledge.js';

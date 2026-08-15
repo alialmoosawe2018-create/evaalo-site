@@ -4,6 +4,7 @@
  * هذا الملف مخصص لتعديل "عقل" إيجنت الريسبشن:
  * الرسالة الترحيبية + تعليمات السلوك.
  * تفاصيل Evaalo تُحمّل من data/evaalo_hr_knowledge.md عبر receptionKnowledge.ts
+ * نفس الملف لشات التسويق ورسبشن LiveKit — لغة الجلسة فقط هنا.
  *
  * التركيز الحالي:
  * Evaalo = HR-focused AI Hiring Intelligence Platform
