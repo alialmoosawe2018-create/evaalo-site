@@ -99,9 +99,9 @@ function testEnforceModeBlocksIncomplete(): void {
 function testIncompleteIssuesListFieldNamesOnly(): void {
     const patch = { ...completeVoicePatch() };
     delete patch.communication;
-    patch.weaknesses = [];
+    patch.summary = '';
     const issues = getStage2VoicePatchIssues(patch);
-    assert.deepEqual(issues, ['communication', 'weaknesses']);
+    assert.deepEqual(issues, ['communication', 'summary']);
 }
 
 function testDiagnosticOmitsTranscriptAndSecrets(): void {
@@ -202,16 +202,27 @@ function testMissingSummaryRejected(): void {
     assertMissingFieldRejected(data, patch, ['summary']);
 }
 
-function testEmptyStrengthsRejected(): void {
+function testEmptyStrengthsAccepted(): void {
+    // v2 instrument may legitimately return an empty strengths array on a thin interview.
     const data = { evaluationSource: 'voice', ingress: 'stage2' };
-    const patch = { ...completeVoicePatch(), strengths: [] };
-    assertMissingFieldRejected(data, patch, ['strengths']);
+    const patch = { ...completeVoicePatch(), strengths: [] as string[] };
+    assert.equal(isCompleteStage2VoicePatch(patch), true);
+    assert.equal(validateStage2VoiceEvaluationPersistence(data, patch).ok, true);
 }
 
-function testEmptyWeaknessesRejected(): void {
+function testEmptyWeaknessesAccepted(): void {
     const data = { evaluationSource: 'voice', ingress: 'stage2' };
-    const patch = { ...completeVoicePatch(), weaknesses: ['', '  '] };
-    assertMissingFieldRejected(data, patch, ['weaknesses']);
+    const patch = { ...completeVoicePatch(), weaknesses: [] as string[] };
+    assert.equal(isCompleteStage2VoicePatch(patch), true);
+    assert.equal(validateStage2VoiceEvaluationPersistence(data, patch).ok, true);
+}
+
+function testNotAssessedRatingAccepted(): void {
+    // v2 may abstain on a competency it cannot evaluate — "Not Assessed" is a valid rating.
+    const data = { evaluationSource: 'voice', ingress: 'stage2' };
+    const patch = { ...completeVoicePatch(), language_fluency: 'Not Assessed' };
+    assert.equal(isCompleteStage2VoicePatch(patch), true);
+    assert.equal(validateStage2VoiceEvaluationPersistence(data, patch).ok, true);
 }
 
 function testMissingFinalHrEvaluationRejected(): void {
@@ -221,11 +232,20 @@ function testMissingFinalHrEvaluationRejected(): void {
     assertMissingFieldRejected(data, patch, ['final_hr_evaluation']);
 }
 
-function testMissingOverallScoreRejected(): void {
+function testMissingOverallScoreAccepted(): void {
+    // v2 returns null/absent overall_score on insufficient_data — accepted (recommendation still required).
     const data = { evaluationSource: 'voice', ingress: 'stage2' };
-    const patch = { ...completeVoicePatch() };
+    const patch: Record<string, unknown> = { ...completeVoicePatch() };
     delete patch.overall_score;
-    assertMissingFieldRejected(data, patch, ['overall_score']);
+    assert.equal(isCompleteStage2VoicePatch(patch), true);
+    assert.equal(validateStage2VoiceEvaluationPersistence(data, patch).ok, true);
+}
+
+function testNullOverallScoreAccepted(): void {
+    const data = { evaluationSource: 'voice', ingress: 'stage2' };
+    const patch = { ...completeVoicePatch(), overall_score: null };
+    assert.equal(isCompleteStage2VoicePatch(patch), true);
+    assert.equal(validateStage2VoiceEvaluationPersistence(data, patch).ok, true);
 }
 
 function testInvalidScoreRejected(): void {
@@ -330,10 +350,12 @@ function main(): void {
     testMissingDigitalSkillsRejected();
     testMissingProfessionalAttitudeRejected();
     testMissingSummaryRejected();
-    testEmptyStrengthsRejected();
-    testEmptyWeaknessesRejected();
+    testEmptyStrengthsAccepted();
+    testEmptyWeaknessesAccepted();
+    testNotAssessedRatingAccepted();
     testMissingFinalHrEvaluationRejected();
-    testMissingOverallScoreRejected();
+    testMissingOverallScoreAccepted();
+    testNullOverallScoreAccepted();
     testInvalidScoreRejected();
     testScoreOutOfRangeRejected();
     testUnknownRecommendationRejected();

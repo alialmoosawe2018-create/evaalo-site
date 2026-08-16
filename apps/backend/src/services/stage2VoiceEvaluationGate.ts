@@ -50,18 +50,19 @@ function isValidStage2MeaningfulText(raw: unknown): boolean {
     return true;
 }
 
-function isNonEmptyStringArray(raw: unknown): boolean {
-    if (!Array.isArray(raw) || raw.length === 0) return false;
-    return raw.some((item) => isValidStage2MeaningfulText(item));
-}
+/** Not-Assessed tokens accepted from the v2 instrument (competency legitimately not evaluable). */
+const STAGE2_NOT_ASSESSED_TOKENS = new Set(['not assessed', 'notassessed', 'not_assessed', 'n/a', 'na']);
 
-/** Exactly one of Excellent | Good | Intermediate | Bad — no numbers, no phrases. */
+/** One of Excellent | Good | Intermediate | Bad, or "Not Assessed" (v2 abstain) — no numbers. */
 export function isValidStage2CompetencyRating(raw: unknown): boolean {
     if (raw === undefined || raw === null) return false;
     if (typeof raw === 'number') return false;
     const s = String(raw).trim();
-    if (!s || /\s/.test(s)) return false;
-    return STAGE2_COMPETENCY_RATING_SET.has(s.toLowerCase());
+    if (!s) return false;
+    const lower = s.toLowerCase();
+    if (STAGE2_NOT_ASSESSED_TOKENS.has(lower)) return true;
+    if (/\s/.test(s)) return false;
+    return STAGE2_COMPETENCY_RATING_SET.has(lower);
 }
 
 /** Narrative paragraph — not a single competency rating word. */
@@ -96,16 +97,21 @@ export function getStage2VoicePatchIssues(patch: Record<string, unknown>): strin
         issues.push('professional_attitude');
     }
     if (!isValidStage2MeaningfulText(patch.summary)) issues.push('summary');
-    if (!isNonEmptyStringArray(patch.strengths)) issues.push('strengths');
-    if (!isNonEmptyStringArray(patch.weaknesses)) issues.push('weaknesses');
+    // v2 instrument may legitimately surface few/no points on a thin interview — accept an
+    // empty array, only reject a wrong type.
+    if (patch.strengths !== undefined && !Array.isArray(patch.strengths)) issues.push('strengths');
+    if (patch.weaknesses !== undefined && !Array.isArray(patch.weaknesses)) issues.push('weaknesses');
     if (!isValidStage2MeaningfulText(patch.final_hr_evaluation)) {
         issues.push('final_hr_evaluation');
     }
 
+    // overall_score is optional: v2 returns null on insufficient_data. Reject only a present-but-invalid score.
     const score = patch.overall_score;
-    const scoreOk =
-        typeof score === 'number' && Number.isFinite(score) && score >= 0 && score <= 100;
-    if (!scoreOk) issues.push('overall_score');
+    if (score !== undefined && score !== null) {
+        const scoreOk =
+            typeof score === 'number' && Number.isFinite(score) && score >= 0 && score <= 100;
+        if (!scoreOk) issues.push('overall_score');
+    }
 
     const rec = patch.recommendation;
     const recOk = rec === 'Hire' || rec === 'Consider' || rec === 'Reject';
