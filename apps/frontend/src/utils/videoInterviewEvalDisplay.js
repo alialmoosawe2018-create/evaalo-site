@@ -162,3 +162,56 @@ export function buildVideoFinalHrText(evaluation, t, translateRecLabel) {
         note: t(noteKey),
     });
 }
+
+/**
+ * True when the evaluation is the blueprint-driven (Stage 3 v2) shape:
+ * it carries scored competencyScores and does NOT carry the legacy 10 trait fields.
+ */
+export function isBlueprintVideoEvaluation(evaluation) {
+    if (!evaluation) return false;
+    const comps = Array.isArray(evaluation.competencyScores) ? evaluation.competencyScores : [];
+    if (comps.length === 0) return false;
+    const legacyKeys = [...VIDEO_TABLE_COMPETENCY_KEYS, 'role_understanding', 'final_role_fit'];
+    const hasLegacyTrait = legacyKeys.some((k) => {
+        const v = evaluation[k];
+        return v !== undefined && v !== null && v !== '';
+    });
+    return !hasLegacyTrait;
+}
+
+/** Map a blueprint 1–5 competency score to good (4–5) | average (3) | weak (1–2). */
+export function fiveScoreBand(score) {
+    const n = Number(score);
+    if (!Number.isFinite(n)) return null;
+    if (n >= 4) return 'good';
+    if (n >= 3) return 'average';
+    return 'weak';
+}
+
+/** Humanize a competency key like "technical_troubleshooting" -> "Technical troubleshooting". */
+export function humanizeCompetencyKey(key) {
+    const s = String(key || '').trim();
+    if (!s) return '';
+    const words = s.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
+}
+
+/** Normalize evaluation.competencyScores into display rows for the blueprint (v2) view. */
+export function buildBlueprintCompetencyRows(evaluation) {
+    const comps = Array.isArray(evaluation?.competencyScores) ? evaluation.competencyScores : [];
+    return comps.map((row) => {
+        const key = row?.competencyKey || '';
+        const label = normalizeStageEvalText(row?.title) || humanizeCompetencyKey(key);
+        const scoreNum = Number(row?.score);
+        const assessed = row?.assessed !== false && Number.isFinite(scoreNum);
+        return {
+            key,
+            label,
+            assessed,
+            score: assessed ? scoreNum : null,
+            band: assessed ? fiveScoreBand(scoreNum) : null,
+            evidence: normalizeStageEvalStringList(row?.evidence),
+            redFlags: normalizeStageEvalStringList(row?.redFlags),
+        };
+    });
+}

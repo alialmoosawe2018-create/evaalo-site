@@ -10,7 +10,7 @@ import '../design-styles.css';
 import apiClient, { ApiError } from '../services/apiClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
-import { canonicalStageRecommendation, hasMeaningfulStageEvaluation } from '../utils/stageRecommendation.js';
+import { canonicalStageRecommendation, hasMeaningfulStageEvaluation, normalizeStageEvalStringList } from '../utils/stageRecommendation.js';
 import { scriptTextProps } from '../utils/textScript.js';
 import ScreeningCampaignList from '../components/screening/ScreeningCampaignList.jsx';
 import ScreeningAiComparePanel from '../components/screening/ScreeningAiComparePanel.jsx';
@@ -44,12 +44,15 @@ import { onEvent } from '../services/eventsSocket';
 import { buildCandidateInterviewQuery, resolveSharePersonId, resolveShareApplicationId } from '../utils/interviewShareLink.js';
 import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import {
+    buildBlueprintCompetencyRows,
     buildFinalRoleFitDetail,
     buildRoleUnderstandingDetail,
     buildVideoFinalHrText,
     buildVideoRedFlags,
     formatTableTenScore,
+    isBlueprintVideoEvaluation,
     qualitativeBandFromTenScore,
+    qualitativeTextColor,
 } from '../utils/videoInterviewEvalDisplay.js';
 
 /** المرحلة لمسار المقارنة (Stage 3). */
@@ -878,6 +881,10 @@ const VideoInterview = () => {
                                         const roleUnderstandingText = buildRoleUnderstandingDetail(evaluation, t);
                                         const finalRoleFitText = buildFinalRoleFitDetail(evaluation, t);
                                         const redFlags = buildVideoRedFlags(evaluation, t);
+                                        const isBlueprint = isBlueprintVideoEvaluation(evaluation);
+                                        const competencyRows = isBlueprint ? buildBlueprintCompetencyRows(evaluation) : [];
+                                        const evalStrengths = normalizeStageEvalStringList(evaluation?.strengths);
+                                        const evalWeaknesses = normalizeStageEvalStringList(evaluation?.weaknesses);
                                         const candidateId = candidate._id || candidate.id;
                                         const isExpanded = expandedRows.has(candidateId);
                                         const photoUrl = candidatePhotoUrl(candidate);
@@ -1028,9 +1035,42 @@ const VideoInterview = () => {
                                                     </div>
                                                 </td>
 
+                                                {isBlueprint ? (
+                                                    <td colSpan={8} style={{
+                                                        padding: '14px 16px',
+                                                        borderRight: '1px solid rgba(34, 211, 238, 0.3)',
+                                                        borderLeft: '1px solid rgba(34, 211, 238, 0.1)',
+                                                        verticalAlign: 'middle'
+                                                    }}>
+                                                        <div style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#94A3B8', marginBottom: '8px' }}>
+                                                            {t('videoInterview_sectionCompetencies')}
+                                                        </div>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                            {competencyRows.length === 0 ? (
+                                                                <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>
+                                                            ) : competencyRows.map((row) => (
+                                                                <span key={row.key} style={{
+                                                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                                    padding: '5px 10px', borderRadius: '8px',
+                                                                    background: 'rgba(148, 163, 184, 0.12)',
+                                                                    border: '1px solid rgba(148, 163, 184, 0.25)',
+                                                                    fontSize: '12px', maxWidth: '280px'
+                                                                }}>
+                                                                    <span {...scriptTextProps(row.label)} style={{ color: '#CBD5E1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</span>
+                                                                    <span style={{ fontWeight: 700, color: row.assessed ? qualitativeTextColor(row.band) : '#94A3B8', flexShrink: 0 }}>
+                                                                        {row.assessed ? `${row.score}/5` : t('videoInterview_notAssessed')}
+                                                                    </span>
+                                                                    {row.redFlags.length > 0 ? (
+                                                                        <span style={{ color: '#EF4444', flexShrink: 0 }} title={row.redFlags.join(' • ')}>⚑</span>
+                                                                    ) : null}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                ) : (<>
                                                 {/* Professional Depth */}
-                                                <td style={{ 
-                                                    padding: '16px', 
+                                                <td style={{
+                                                    padding: '16px',
                                                     textAlign: 'center',
                                                     borderRight: '1px solid rgba(34, 211, 238, 0.3)',
                                                     borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
@@ -1123,6 +1163,7 @@ const VideoInterview = () => {
                                                         {renderQualitativeCell(evaluation?.job_readiness)}
                                                     </div>
                                                 </td>
+                                                </>)}
 
                                                 {/* Recommendation + overall score (مدمج) */}
                                                 <td style={{ 
@@ -1204,6 +1245,42 @@ const VideoInterview = () => {
                                                                 gap: '20px',
                                                                 marginBottom: '20px'
                                                             }}>
+                                                                {isBlueprint ? (
+                                                                    /* Role competencies (blueprint / Stage 3 v2) — full width */
+                                                                    <div className="stage-eval-detail-card" style={{ gridColumn: '1 / -1' }}>
+                                                                        <h4 className="stage-eval-detail-card__title">
+                                                                            {t('videoInterview_sectionCompetencies')}
+                                                                        </h4>
+                                                                        {competencyRows.length === 0 ? (
+                                                                            <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>
+                                                                        ) : (
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                                                                {competencyRows.map((row) => (
+                                                                                    <div key={row.key} style={{ borderTop: '1px solid rgba(148,163,184,0.15)', paddingTop: '12px' }}>
+                                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
+                                                                                            <span {...scriptTextProps(row.label)} style={{ fontWeight: 600, color: '#E2E8F0' }}>{row.label}</span>
+                                                                                            <span style={{ fontWeight: 700, flexShrink: 0, color: row.assessed ? qualitativeTextColor(row.band) : '#94A3B8' }}>
+                                                                                                {row.assessed ? `${row.score}/5` : t('videoInterview_notAssessed')}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        {row.evidence.length > 0 ? (
+                                                                                            <ul {...scriptTextProps(row.evidence.join(' '), 'stage-eval-detail-card__list')}>
+                                                                                                {row.evidence.map((ev, i) => (
+                                                                                                    <li key={i} style={{ marginBottom: '4px' }} {...scriptTextProps(ev)}>{ev}</li>
+                                                                                                ))}
+                                                                                            </ul>
+                                                                                        ) : null}
+                                                                                        {row.redFlags.length > 0 ? (
+                                                                                            <div style={{ color: '#EF4444', fontSize: '13px', marginTop: '4px' }} {...scriptTextProps(row.redFlags.join(' • '))}>
+                                                                                                {'⚑ '}{row.redFlags.join(' • ')}
+                                                                                            </div>
+                                                                                        ) : null}
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (<>
                                                                 {/* Role Understanding */}
                                                                 <div className="stage-eval-detail-card">
                                                                     <h4 className="stage-eval-detail-card__title">
@@ -1227,6 +1304,7 @@ const VideoInterview = () => {
                                                                         <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>
                                                                     )}
                                                                 </div>
+                                                                </>)}
 
                                                                 {/* Red Flags */}
                                                                 <div className="stage-eval-detail-card">
@@ -1265,6 +1343,34 @@ const VideoInterview = () => {
                                                                         return <p {...scriptTextProps(text, 'stage-eval-detail-card__body')}>{text}</p>;
                                                                     })()}
                                                                 </div>
+
+                                                                {/* Strengths (Stage 3 v2) */}
+                                                                {evalStrengths.length > 0 ? (
+                                                                    <div className="stage-eval-detail-card">
+                                                                        <h4 className="stage-eval-detail-card__title">
+                                                                            {t('stageEval_strengths')}
+                                                                        </h4>
+                                                                        <ul {...scriptTextProps(evalStrengths.join(' '), 'stage-eval-detail-card__list')}>
+                                                                            {evalStrengths.map((s, i) => (
+                                                                                <li key={i} style={{ marginBottom: '6px' }} {...scriptTextProps(s)}>{s}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                ) : null}
+
+                                                                {/* Weaknesses (Stage 3 v2) */}
+                                                                {evalWeaknesses.length > 0 ? (
+                                                                    <div className="stage-eval-detail-card">
+                                                                        <h4 className="stage-eval-detail-card__title">
+                                                                            {t('stageEval_weaknesses')}
+                                                                        </h4>
+                                                                        <ul {...scriptTextProps(evalWeaknesses.join(' '), 'stage-eval-detail-card__list')}>
+                                                                            {evalWeaknesses.map((w, i) => (
+                                                                                <li key={i} style={{ marginBottom: '6px' }} {...scriptTextProps(w)}>{w}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                ) : null}
                                                             </div>
                                                         </div>
                                                     </td>
