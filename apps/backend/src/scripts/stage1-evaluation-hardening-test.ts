@@ -12,15 +12,19 @@ import {
     validateStage1WrittenEvaluationPersistence,
 } from '../services/stage1WrittenEvaluationGate.js';
 
-function testMissingOverallScoreRejected(): void {
+function testMissingOverallScoreAccepted(): void {
+    // v2 returns null/absent overall_score on insufficient_data — accepted (recommendation still required).
     const data = { evaluationSource: 'written', ingress: 'stage1' };
-    const patch = { strengths: ['Clear communication'], weaknesses: ['Limited experience'] };
+    const patch = {
+        recommendation: 'Consider',
+        final_hr_evaluation: 'Final HR report.',
+        fit_for_role: 'Good fit.',
+        summary: 'Solid candidate overall.',
+        strengths: ['Clear communication'],
+        weaknesses: ['Limited experience'],
+    };
     const result = validateStage1WrittenEvaluationPersistence(data, patch);
-    assert.equal(result.ok, false);
-    if (!result.ok) {
-        assert.equal(result.error, STAGE1_INCOMPLETE_EVALUATION_ERROR);
-        assert.equal(result.message, STAGE1_INCOMPLETE_EVALUATION_MESSAGE);
-    }
+    assert.equal(result.ok, true);
 }
 
 function testMissingRecommendationRejected(): void {
@@ -143,7 +147,8 @@ function testMissingSummaryRejected(): void {
     if (!result.ok) assert.ok(result.issues.includes('summary'));
 }
 
-function testMissingStrengthsRejected(): void {
+function testEmptyStrengthsAccepted(): void {
+    // v2 screening may honestly return an empty strengths array on a thin application.
     const data = { evaluationSource: 'written', ingress: 'stage1' };
     const patch = {
         overall_score: 78,
@@ -151,11 +156,11 @@ function testMissingStrengthsRejected(): void {
         final_hr_evaluation: 'Final HR report.',
         fit_for_role: 'Good fit.',
         summary: 'Solid candidate overall.',
+        strengths: [],
         weaknesses: ['Needs mentoring'],
     };
     const result = validateStage1WrittenEvaluationPersistence(data, patch);
-    assert.equal(result.ok, false);
-    if (!result.ok) assert.ok(result.issues.includes('strengths'));
+    assert.equal(result.ok, true);
 }
 
 function testValidRecommendationsAccepted(): void {
@@ -233,7 +238,7 @@ function testVideoSourcePartialPatchSkipped(): void {
 }
 
 function main(): void {
-    testMissingOverallScoreRejected();
+    testMissingOverallScoreAccepted();
     testMissingRecommendationRejected();
     testMissingFinalHrEvaluationRejected();
     testInvalidScoreRejected();
@@ -242,7 +247,7 @@ function main(): void {
     testCompleteEvaluationAccepted();
     testMissingFitForRoleRejected();
     testMissingSummaryRejected();
-    testMissingStrengthsRejected();
+    testEmptyStrengthsAccepted();
     testValidRecommendationsAccepted();
     testStage1RejectPathUnaffected();
     testStage1SpamRejectCodeUnaffected();
