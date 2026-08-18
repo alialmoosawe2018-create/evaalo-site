@@ -149,7 +149,11 @@ export const FILE_FIELD_MAP: Record<string, string> = {
     certificates: 'certificates',
 };
 
-/** Upload cap for the multi-file certificates field (also the multer maxCount). */
-export const CERTIFICATES_MAX_FILES = 5;
+/** Upload cap for the multi-file certificates field (also the multer maxCount).
+ * Generous cap so applicants are effectively unlimited in practice; kept finite
+ * because multer's maxCount must be a number and to guard against upload abuse.
+ * MUST stay in sync with the frontend `CERTIFICATES_MAX_FILES` in
+ * apps/frontend/src/constants/certificateUpload.js. */
+export const CERTIFICATES_MAX_FILES = 20;
 
 export const DEFAULT_FORM_TEMPLATE_ID = 'template-remote';

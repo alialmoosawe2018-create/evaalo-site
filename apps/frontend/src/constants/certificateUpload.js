@@ -3,7 +3,7 @@
  * dynamic (public link) form. Must stay in sync with the `certificates` entry in
  * `apps/backend/src/shared/formTemplates/fieldRegistry.ts`.
  */
-export const CERTIFICATES_MAX_FILES = 5;
+export const CERTIFICATES_MAX_FILES = 20;
 export const CERTIFICATES_MAX_BYTES = 5 * 1024 * 1024;
 export const CERTIFICATES_MIME_TYPES = [
     'application/pdf',
