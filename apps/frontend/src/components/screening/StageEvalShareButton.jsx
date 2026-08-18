@@ -112,7 +112,6 @@ export default function StageEvalShareButton({
             await navigator.share({
                 title: data.emailSubject,
                 text: data.shareText,
-                ...(data.interviewLink ? { url: data.interviewLink } : {}),
             });
         } catch {
             /* المستخدم ألغى المشاركة */
