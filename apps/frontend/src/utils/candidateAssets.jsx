@@ -3,15 +3,24 @@ import { API_BASE_URL } from '../config/apiBase.js';
 
 export const API_BASE = API_BASE_URL;
 
-/** فصل ملف السيرة والصورة (يدعم السجلات القديمة بدون kind) */
+/**
+ * نوع الملف مطبّعاً: السجلات الخام على المرشح تحمل `kind`، بينما صفوف Application
+ * (applicationToStageListRow → app.attachments) تحمل نفس القيمة تحت `type`.
+ * نقبل الاثنين حتى تظهر الشهادات/الـ CV/الصورة في كلا الشكلين.
+ */
+export function fileKind(f) {
+    return (f && (f.kind || f.type)) || '';
+}
+
+/** فصل ملف السيرة والصورة (يدعم السجلات القديمة بدون kind/type) */
 export function stage1FilesFromCandidate(candidate) {
     const files = candidate?.files;
     if (!files?.length) return { cv: null, photo: null };
-    let cv = files.find((f) => f.kind === 'cv');
-    let photo = files.find((f) => f.kind === 'photo');
+    let cv = files.find((f) => fileKind(f) === 'cv');
+    let photo = files.find((f) => fileKind(f) === 'photo');
     // Untagged legacy records fall back to mime sniffing, but a certificate is
     // never the CV or the profile photo.
-    const untagged = files.filter((f) => f.kind !== 'certificate');
+    const untagged = files.filter((f) => fileKind(f) !== 'certificate');
     if (!cv) cv = untagged.find((f) => f.mimeType === 'application/pdf');
     if (!photo) photo = untagged.find((f) => String(f.mimeType || '').startsWith('image/'));
     return { cv, photo };
@@ -22,7 +31,7 @@ export function candidateCertificates(candidate) {
     const files = candidate?.files;
     if (!files?.length) return [];
     return files
-        .filter((f) => f.kind === 'certificate' && f.filename)
+        .filter((f) => fileKind(f) === 'certificate' && f.filename)
         .map((f) => ({
             ...f,
             url: `${API_BASE}/uploads/${encodeURIComponent(f.filename)}`,
