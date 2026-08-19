@@ -51,6 +51,7 @@ const AVAILABLE_CRITERIA = [
     { id: 'location', label: 'Location', placeholder: 'Pick Iraqi governorate or type location (▼)', type: 'text' },
     { id: 'job', label: 'Job Level', placeholder: 'Enter job level', type: 'text' },
     { id: 'company', label: 'Company', placeholder: "If you're looking for candidates from a specific company", type: 'text' },
+    { id: 'industryType', label: 'Industry Type', placeholder: 'e.g. Oil & Gas, Banking, Healthcare', type: 'text' },
     { id: 'age', label: 'Age Range', placeholder: 'Pick range or type (e.g. 25-35) (▼)', type: 'text' },
     { id: 'gender', label: 'Gender', placeholder: 'MALE or FEMALE (▼)', type: 'text' },
     { id: 'educationLevel', label: 'Education Level', placeholder: 'Pick level or type (▼)', type: 'text' },
@@ -66,7 +67,7 @@ const AVAILABLE_CRITERIA = [
 
 /** تجميع معايير قائمة الإضافة — لعرض منظم بأقسام */
 const CRITERION_MENU_GROUPS = [
-    { id: 'role', labelKey: 'newCampaign_criterionGroupRole', ids: ['position', 'location', 'job', 'company'] },
+    { id: 'role', labelKey: 'newCampaign_criterionGroupRole', ids: ['position', 'location', 'job', 'company', 'industryType'] },
     { id: 'requirements', labelKey: 'newCampaign_criterionGroupRequirements', ids: ['age', 'gender', 'educationLevel', 'experienceYears'] },
     { id: 'compensation', labelKey: 'newCampaign_criterionGroupCompensation', ids: ['salaryMin', 'salaryMax', 'salaryCurrency', 'availability'] },
     { id: 'skills', labelKey: 'newCampaign_criterionGroupSkills', ids: ['skills', 'languages', 'certifications'] },
@@ -84,6 +85,8 @@ function CriterionMenuIcon({ id }) {
             return <svg {...common}><path {...stroke} d="M9 5H7a2 2 0 00-2 2v12h14V7a2 2 0 00-2-2h-2"/><rect {...stroke} x="9" y="3" width="6" height="4" rx="1"/></svg>;
         case 'company':
             return <svg {...common}><path {...stroke} d="M3 21h18"/><path {...stroke} d="M5 21V7l7-4 7 4v14"/><path {...stroke} d="M9 21v-6h6v6"/></svg>;
+        case 'industryType':
+            return <svg {...common}><path {...stroke} d="M2 20h20M4 20V10l5 3V10l5 3V6h6v14"/><path {...stroke} d="M9 20v-3h3v3"/></svg>;
         case 'age':
             return <svg {...common}><rect {...stroke} x="3" y="4" width="18" height="18" rx="2"/><path {...stroke} d="M16 2v4M8 2v4M3 10h18"/></svg>;
         case 'gender':

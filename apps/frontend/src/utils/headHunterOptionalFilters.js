@@ -18,6 +18,11 @@ export const OPTIONAL_FILTER_FIELDS = [
         placeholderKey: 'newCampaign_jc_certifications_ph',
     },
     {
+        key: 'industryType',
+        labelKey: 'newCampaign_jc_industryType_label',
+        placeholderKey: 'newCampaign_jc_industryType_ph',
+    },
+    {
         key: 'company',
         labelKey: 'newCampaign_jc_company_label',
         placeholderKey: 'newCampaign_jc_company_ph',
