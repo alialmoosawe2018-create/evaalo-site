@@ -294,6 +294,10 @@ router.post(
                 await Candidate.findByIdAndUpdate(existing._id, {
                     $set: {
                         campaignId: campaign.campaignId,
+                        // Refresh the evaluation context so this (new) application's
+                        // rubric hash + language reach the Stage 1 evaluator — sendToN8N
+                        // reads evaluationLanguage from the candidate doc.
+                        evaluationContext,
                         ...(candidateData.full_name ? { full_name: candidateData.full_name } : {}),
                         ...(candidateData.phone ? { phone: candidateData.phone } : {}),
                         ...(candidateData.location ? { location: candidateData.location } : {}),
@@ -328,7 +332,12 @@ router.post(
 
             await markFirstCandidateIfNeeded(campaign.campaignId);
 
-            if (n8nConfigured && !existing) {
+            // Enqueue Stage 1 evaluation for BOTH new and returning candidates. A
+            // returning candidate applying to a different campaign has a different
+            // rubric snapshot, so it must be re-evaluated against the new criteria;
+            // the outbox idempotency key is (candidateId + rubricSnapshotHash), so a
+            // re-submission to the same campaign/rubric is deduped (no double charge).
+            if (n8nConfigured) {
                 try {
                     const candidateObj = candidate.toObject();
                     const { outboxId, shouldDispatch } = await enqueueStage1EvaluationOutbox({
