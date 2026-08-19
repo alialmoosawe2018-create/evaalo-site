@@ -774,6 +774,7 @@ const OPTIONAL_CRITERION_LABELS: Record<string, { en: string; ar: string }> = {
     certifications: { en: 'Certifications', ar: 'الشهادات' },
     company: { en: 'Company', ar: 'الشركة' },
     gender: { en: 'Gender', ar: 'الجنس' },
+    industryType: { en: 'Industry type', ar: 'نوع القطاع' },
 };
 
 const OPTIONAL_CRITERION_KEYS = Object.keys(OPTIONAL_CRITERION_LABELS);

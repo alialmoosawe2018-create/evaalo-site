@@ -120,6 +120,7 @@ export const PRESET_RUBRIC_KEYS = new Set([
     'skills',
     'languages',
     'certifications',
+    'industryType',
 ]);
 
 /** Fields always allowed on submit but not part of form schema UI. */
