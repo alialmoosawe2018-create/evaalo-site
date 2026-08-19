@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { fillI18nTemplate } from '../../utils/i18nTemplate.js';
+import AiWorkingIndicator from '../AiWorkingIndicator.jsx';
 
 function isPlainRecord(v) {
     return v != null && typeof v === 'object' && !Array.isArray(v);
@@ -351,11 +352,7 @@ export default function CvComparisonResultsWorkspace({ payload, receivedAt, load
     };
 
     if (loading) {
-        return (
-            <p className="headhunter-discovery__meta" role="status">
-                {t('cvComparisonResultsLoading')}
-            </p>
-        );
+        return <AiWorkingIndicator kind="cvComparison" />;
     }
 
     if (error) {

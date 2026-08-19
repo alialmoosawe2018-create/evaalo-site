@@ -23,6 +23,9 @@ import {
 } from '../utils/optionalFilterSuggestionOptions.js';
 import '../design-styles.css';
 
+/** Comparison results are kept for one hour (matches the backend TTL), then auto-cleared. */
+const CV_RESULT_TTL_MS = 60 * 60 * 1000;
+
 const HEADHUNTER_LOCATION_OPTIONS = [
     'Baghdad, Iraq',
     'Basra, Iraq',
@@ -188,6 +191,15 @@ export default function AICvComparison() {
     const startPollForComparison = useCallback(
         (id) => {
             clearPollTimerOnly();
+            // A new comparison clears the previous result immediately (never show stale data).
+            setResultState({
+                loading: true,
+                error: '',
+                hasData: false,
+                status: null,
+                receivedAt: null,
+                payload: null,
+            });
             activeComparisonIdRef.current = id;
             let attempts = 0;
 
@@ -238,6 +250,32 @@ export default function AICvComparison() {
             }
         });
     }, [comparisonId, fetchComparisonResult, stopPoll]);
+
+    // Auto-expire the displayed result one hour after it arrived (matches the backend TTL),
+    // so a lingering comparison disappears on its own even while the page stays mounted.
+    useEffect(() => {
+        if (!resultState.receivedAt) return undefined;
+        const at = Date.parse(resultState.receivedAt);
+        if (!Number.isFinite(at)) return undefined;
+        const clear = () => {
+            setComparisonId(null);
+            setResultState({
+                loading: false,
+                error: '',
+                hasData: false,
+                status: null,
+                receivedAt: null,
+                payload: null,
+            });
+        };
+        const remaining = CV_RESULT_TTL_MS - (Date.now() - at);
+        if (remaining <= 0) {
+            clear();
+            return undefined;
+        }
+        const timer = window.setTimeout(clear, remaining);
+        return () => window.clearTimeout(timer);
+    }, [resultState.receivedAt]);
 
     const handleCvFilesChange = (next) => {
         setCvFiles(next);

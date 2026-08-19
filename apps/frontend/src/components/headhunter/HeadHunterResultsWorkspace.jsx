@@ -6,6 +6,7 @@ import { useBilling } from '../../contexts/BillingContext';
 import HeadHunterCandidateCard from './HeadHunterCandidateCard.jsx';
 import HeadHunterCandidatePanel from './HeadHunterCandidatePanel.jsx';
 import HeadHunterResultsSkeleton from './HeadHunterResultsSkeleton.jsx';
+import AiWorkingIndicator from '../AiWorkingIndicator.jsx';
 import { apiClient } from '../../services/apiClient';
 
 /**
@@ -222,7 +223,10 @@ export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, campaign
             ) : null}
 
             {n8nInbound.loading ? (
-                <HeadHunterResultsSkeleton count={8} />
+                <>
+                    <AiWorkingIndicator kind="headHunter" />
+                    <HeadHunterResultsSkeleton count={8} />
+                </>
             ) : visibleList.length === 0 ? (
                 n8nInbound.receivedAt && !n8nInbound.loading ? (
                     <p className="head-hunter-feedback head-hunter-feedback--warn" role="status">
