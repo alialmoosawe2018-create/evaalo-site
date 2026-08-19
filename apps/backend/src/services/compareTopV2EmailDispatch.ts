@@ -11,6 +11,7 @@ import {
     getCampaignCompareStageWebhookUrl,
     type CampaignCompareStage,
 } from './campaignCompareCallbackAuth.js';
+import { renderCompareReportPdf } from './compareReportPdf.js';
 
 const EMAIL_DISPATCH_TIMEOUT_MS = 15_000;
 
@@ -68,10 +69,13 @@ export function buildExecutiveStats(uiResult: IAiCompareTopResult): {
 /** حمولة الإيميل المشتركة (تُستخدم في المسار الحيّ واختبار الوحدة معاً). */
 function composeEmailPayload(
     record: ICampaignCompareRequest,
-    uiResult: IAiCompareTopResult
+    uiResult: IAiCompareTopResult,
+    pdf?: { pdfBase64: string; pdfFilename: string }
 ): Record<string, unknown> {
     return {
         mode: 'email_dispatch_only',
+        // Card-based PDF report attached by n8n's Gmail node (falls back to text-only when absent).
+        ...(pdf ? { pdfBase64: pdf.pdfBase64, pdfFilename: pdf.pdfFilename } : {}),
         source: 'campaign-compare-v2-email',
         stage: record.uiStage,
         compareStage: record.compareStage,
@@ -99,8 +103,28 @@ export async function dispatchCompareTopV2Emails(record: ICampaignCompareRequest
     const uiResult = mapV2RecordToUiResult(record);
     if (uiResult.status !== 'completed') return;
 
+    // Render the report to a card-based PDF for the email attachment. Non-fatal:
+    // any failure falls back to the plain-text email so dispatch is never blocked.
+    let pdf: { pdfBase64: string; pdfFilename: string } | undefined;
+    try {
+        const buffer = await renderCompareReportPdf(uiResult, { stage: record.uiStage });
+        const base64 = buffer.toString('base64');
+        if (base64.length <= 6 * 1024 * 1024) {
+            pdf = { pdfBase64: base64, pdfFilename: `تقرير-مقارنة-المرشحين-${record.uiStage}.pdf` };
+        } else {
+            console.warn(
+                `[campaign-compare-v2] report PDF too large (${base64.length}b) — text-only request=${record.requestId}`
+            );
+        }
+    } catch (err) {
+        console.warn(
+            `[campaign-compare-v2] report PDF generation failed — text-only request=${record.requestId}:`,
+            err instanceof Error ? err.message : err
+        );
+    }
+
     const payload = {
-        ...composeEmailPayload(record, uiResult),
+        ...composeEmailPayload(record, uiResult, pdf),
         submittedAt: new Date().toISOString(),
     };
 
