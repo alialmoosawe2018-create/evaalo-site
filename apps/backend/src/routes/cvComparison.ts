@@ -76,7 +76,10 @@ export type CvComparisonRecord = {
 const cvComparisonInboundById = new Map<string, CvComparisonRecord>();
 
 const MAX_RECORDS = 200;
-const RECORD_TTL_MS = 24 * 60 * 60 * 1000;
+// Results are ephemeral (in-memory, no DB) and expire an hour after they arrive —
+// long enough to survive navigating back to the page, short enough that a stale
+// comparison disappears on its own. The frontend enforces the same 1h window.
+const RECORD_TTL_MS = 60 * 60 * 1000;
 const MAX_LEN = 500;
 const MAX_QUERY = 2000;
 const MAX_OPTION_LEN = 80;
