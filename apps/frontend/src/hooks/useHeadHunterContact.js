@@ -69,8 +69,25 @@ export function buildShareInviteText({ t, candidate, url, includeLink = true }) 
  * @param {string} phone
  * @param {string} [text]
  */
+/** Default country code used to normalize local numbers for wa.me links (Iraq). */
+const WA_DEFAULT_COUNTRY_CODE = '964';
+
 export function buildWhatsAppShareLink(phone, text) {
-    const digits = (typeof phone === 'string' ? phone : '').replace(/[^\d]/g, '');
+    // wa.me needs a full international number (with country code). Sourced/entered
+    // numbers are often local, so normalize local numbers to the default country
+    // (+964) — numbers that already carry a country code are left untouched.
+    let digits = (typeof phone === 'string' ? phone : '').replace(/[^\d]/g, '');
+    if (digits.startsWith('00')) digits = digits.slice(2); // drop the 00 international-dialing prefix
+    if (digits && !digits.startsWith(WA_DEFAULT_COUNTRY_CODE)) {
+        if (digits.startsWith('0')) {
+            // Local with a trunk 0, e.g. 07XXXXXXXXX → 9647XXXXXXXXX
+            digits = WA_DEFAULT_COUNTRY_CODE + digits.slice(1);
+        } else if (/^7\d{8,9}$/.test(digits)) {
+            // Local mobile without the leading 0, e.g. 7XXXXXXXXX → 9647XXXXXXXXX
+            digits = WA_DEFAULT_COUNTRY_CODE + digits;
+        }
+        // else: already an international number with another country code — leave as-is
+    }
     const q = text ? `?text=${encodeURIComponent(text)}` : '';
     return digits ? `https://wa.me/${digits}${q}` : `https://wa.me/${q}`;
 }
