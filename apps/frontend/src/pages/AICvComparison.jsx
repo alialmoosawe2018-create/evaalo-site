@@ -3,6 +3,7 @@ import apiClient from '../services/apiClient';
 import { onEvent, startEventsSocket } from '../services/eventsSocket';
 import { headHunterApiErrorMessage } from '../utils/headHunterApiError.js';
 import { useLanguage } from '../contexts/LanguageContext';
+import SuggestSearchCriteriaButton from '../components/SuggestSearchCriteriaButton';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { PERMISSIONS } from '../contexts/rbacRoles';
 import PositionSuggestCombobox from '../components/PositionSuggestCombobox.jsx';
@@ -599,6 +600,22 @@ export default function AICvComparison() {
                                     <span className="form-label cv-comp-additional-filters__heading" id="cvcomp-additional-filters-label">
                                         {t('aiHeadHunterAdditionalFilters')}
                                     </span>
+                                    <SuggestSearchCriteriaButton
+                                        endpoint="/api/cv-comparison/suggest-criteria"
+                                        position={position}
+                                        location={location}
+                                        onApply={(criteria) =>
+                                            setOptionalFilters((prev) => {
+                                                const next = { ...prev };
+                                                for (const [key, value] of Object.entries(criteria)) {
+                                                    if (next[key] && typeof value === 'string' && value.trim()) {
+                                                        next[key] = { enabled: true, value: value.trim() };
+                                                    }
+                                                }
+                                                return next;
+                                            })
+                                        }
+                                    />
                                     <div
                                         className="cv-comp-optional-filters"
                                         aria-labelledby="cvcomp-additional-filters-label"

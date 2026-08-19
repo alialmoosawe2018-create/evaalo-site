@@ -32,6 +32,7 @@ import {
 } from '../utils/optionalSearchCriteria.js';
 import { consumeCredits, adjustCredits } from '../services/billingRuntimeService.js';
 import { creditCostMicro } from '../services/billingEngine.js';
+import { suggestSearchCriteriaHandler } from './suggestSearchCriteriaHandler.js';
 
 const router = Router();
 
@@ -369,6 +370,14 @@ router.get(
             errorMessage: record.errorMessage ?? null,
         });
     }
+);
+
+/** POST /api/cv-comparison/suggest-criteria — AI-suggest search filters from position+location (1 credit) */
+router.post(
+    '/suggest-criteria',
+    conditionalRequireAuth(),
+    requirePermission('cvComparison.compare'),
+    suggestSearchCriteriaHandler
 );
 
 /** POST /api/cv-comparison/compare — multipart: criteria (JSON string) + cvs[] */

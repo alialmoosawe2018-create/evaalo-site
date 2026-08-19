@@ -40,6 +40,7 @@ import {
     mirrorHeadHunterPhotos,
 } from '../services/headHunterPhotoMirror.js';
 import { getObjectBuffer } from '../services/r2Service.js';
+import { suggestSearchCriteriaHandler } from './suggestSearchCriteriaHandler.js';
 
 const router = Router();
 
@@ -872,6 +873,14 @@ router.get(
             errorMessage: record.errorMessage ?? null,
         });
     }
+);
+
+/** POST /api/head-hunter/suggest-criteria — AI-suggest search filters from position+location (1 credit) */
+router.post(
+    '/suggest-criteria',
+    conditionalRequireAuth(),
+    requirePermission('headhunter.search'),
+    suggestSearchCriteriaHandler
 );
 
 /** POST /api/head-hunter/search */

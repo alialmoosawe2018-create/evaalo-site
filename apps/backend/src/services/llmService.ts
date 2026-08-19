@@ -1729,6 +1729,97 @@ Rules:
     }
 }
 
+/**
+ * Search-filter values the AI may suggest for Head Hunter / CV Comparison, keyed
+ * to the frontend optional-filter keys. Excludes gender + company (bias / not a
+ * search signal) and position/location (recruiter inputs, and the anchors here).
+ */
+export interface SuggestedSearchCriteria {
+    requiredSkills?: string;
+    requiredLanguages?: string;
+    certifications?: string;
+    industryType?: string;
+}
+
+const SEARCH_CRITERIA_KEYS: Array<keyof SuggestedSearchCriteria> = [
+    'requiredSkills',
+    'requiredLanguages',
+    'certifications',
+    'industryType',
+];
+
+/**
+ * Suggest candidate-search filters (skills / languages / certifications /
+ * industry) tailored to a role + location, so a recruiter can pre-fill the
+ * Head Hunter or CV Comparison optional filters. Location informs the language
+ * and industry picks. Returns {} when OpenAI is off or nothing relevant.
+ */
+export async function suggestSearchCriteria(input: {
+    position: string;
+    location: string;
+    language?: string;
+}): Promise<SuggestedSearchCriteria> {
+    const openai = getOpenAIClient();
+    if (!openai) {
+        console.warn('⚠️ OpenAI not configured — search criteria suggestion disabled');
+        return {};
+    }
+    const position = String(input.position || '').trim();
+    const location = String(input.location || '').trim();
+    if (!position || !location) return {};
+
+    const langName = resolveLanguageName(input.language);
+    const langInstruction = langName
+        ? `Write every value in ${langName}.`
+        : 'Write values in the same language as the role (Arabic role → Arabic).';
+
+    const prompt = `You are a senior technical recruiter. For the role and location below, propose concrete candidate-search filters so a recruiter can source and rank applicants. Return ONLY JSON.
+
+Role / position: ${position}
+Location: ${location}
+
+Propose values ONLY for the filters genuinely relevant to this role/location (omit any that do not apply):
+- requiredSkills: the key hard skills/tools for this role (comma-separated, 3-7 items)
+- requiredLanguages: languages a candidate should have, informed by the role AND the location's market (comma-separated)
+- certifications: professional certifications/licenses that matter for this role (comma-separated); omit if none typically apply
+- industryType: the industry/sector this role sits in (e.g. Oil & Gas, Banking, Healthcare)
+
+Rules:
+- Values must be concrete and realistic, never vague.
+- Do NOT propose gender, a specific target company, salary, or age.
+- ${langInstruction}
+- Return JSON exactly: { "requiredSkills": "…", "requiredLanguages": "…", "certifications": "…", "industryType": "…" } — omit any key you are not proposing.
+- No markdown, no code fences, no commentary.`;
+
+    try {
+        const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are an expert technical recruiter. You output only valid JSON.',
+                },
+                { role: 'user', content: prompt },
+            ],
+            temperature: 0.5,
+            max_tokens: 500,
+            response_format: { type: 'json_object' },
+        });
+        const content = response.choices[0]?.message?.content?.trim() || '';
+        if (!content) return {};
+        const parsed = JSON.parse(content) as Record<string, unknown>;
+        const out: SuggestedSearchCriteria = {};
+        for (const key of SEARCH_CRITERIA_KEYS) {
+            const v = typeof parsed[key] === 'string' ? (parsed[key] as string).trim().slice(0, 300) : '';
+            if (v) out[key] = v;
+        }
+        return out;
+    } catch (err: any) {
+        console.error('❌ Error suggesting search criteria:', err?.message || err);
+        return {};
+    }
+}
+
 /** ناتج استخراج السيرة الذاتية: قيمة كل حقل (فارغة إن لم تُوجد). */
 export type CvExtractionResult = Record<string, string>;
 
