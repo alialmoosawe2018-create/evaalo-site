@@ -1,7 +1,7 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
-import { generateJobAdvertisement, translateJobAdvertisement } from '../services/llmService.js';
+import { generateJobAdvertisement, translateJobAdvertisement, suggestJobCriteria } from '../services/llmService.js';
 import { getProfileForClerkUser } from '../services/userProfileService.js';
 import { orgScopedQuery, orgScopedDefaults } from '../middleware/orgScope.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -57,6 +57,18 @@ async function refundJobAd(organizationId: string, genId: string, reason: string
         metadata: { kind: 'job_ad_refund', reason, genId },
     }).catch((e) =>
         console.warn(`[job-ad] refund failed genId=${genId}: ${e?.message || e}`)
+    );
+}
+
+/** استرداد رسم اقتراح المعايير عند الفشل (idempotent، fire-and-forget). */
+async function refundCriteriaSuggestion(organizationId: string, genId: string, reason: string): Promise<void> {
+    await adjustCredits({
+        organizationId,
+        amountMicro: creditCostMicro('CRITERIA_SUGGESTION', 1),
+        idempotencyKey: `criteria-suggestion-refund:${genId}`,
+        metadata: { kind: 'criteria_suggestion_refund', reason, genId },
+    }).catch((e) =>
+        console.warn(`[criteria-suggestion] refund failed genId=${genId}: ${e?.message || e}`)
     );
 }
 
@@ -136,6 +148,81 @@ router.post('/generate-ad', async (req: Request, res: Response) => {
             success: false,
             error: 'Failed to generate job advertisement',
             message: error.message
+        });
+    }
+});
+
+// POST /api/recruitment-campaigns/suggest-criteria - اقتراح معايير التقييم تلقائياً من الدور (1 كردت)
+router.post('/suggest-criteria', async (req: Request, res: Response) => {
+    const genId = crypto.randomUUID();
+    let organizationId = '';
+    let charged = false;
+    try {
+        const body = req.body || {};
+        const position = typeof body.position === 'string' ? body.position.trim() : '';
+        if (!position) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing position',
+                message: 'position is required to suggest criteria',
+            });
+        }
+        organizationId = getOrgId(req);
+
+        // تحصيل CRITERIA_SUGGESTION (1 كردت/اقتراح). يُسترد إذا فشل الاقتراح أدناه.
+        if (BILLING_ENFORCE) {
+            const billing = await consumeCredits({
+                organizationId,
+                usageType: 'CRITERIA_SUGGESTION',
+                units: 1,
+                idempotencyKey: `criteria-suggestion:${genId}`,
+                source: 'criteria_suggestion',
+                sourceId: genId,
+                metadata: { position },
+            });
+            if (!billing.ok) {
+                const status = billing.code === 'INSUFFICIENT_CREDITS' ? 402 : 403;
+                return res.status(status).json({
+                    success: false,
+                    error: billing.code,
+                    message: billing.message,
+                });
+            }
+            charged = !billing.duplicate;
+        }
+
+        const criteria = await suggestJobCriteria({
+            position,
+            roleKey: typeof body.roleKey === 'string' ? body.roleKey : undefined,
+            careerLevel: typeof body.careerLevel === 'string' ? body.careerLevel : undefined,
+            jobAdvertisement:
+                typeof body.jobAdvertisement === 'string' ? body.jobAdvertisement : undefined,
+            language: typeof body.language === 'string' ? body.language : undefined,
+        });
+
+        if (!criteria.length) {
+            if (charged) await refundCriteriaSuggestion(organizationId, genId, 'empty_suggestion');
+            return res.status(400).json({
+                success: false,
+                error: 'No criteria suggested',
+                message: 'Could not suggest criteria (OpenAI not configured or empty result)',
+            });
+        }
+
+        logAudit(req, {
+            action: 'recruitmentCampaign.suggestCriteria',
+            targetType: 'recruitmentCampaign',
+            metadata: { position, count: criteria.length, charged },
+        });
+
+        res.json({ success: true, criteria });
+    } catch (error: any) {
+        if (charged) await refundCriteriaSuggestion(organizationId, genId, 'exception');
+        console.error('❌ Error suggesting job criteria:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to suggest criteria',
+            message: error.message,
         });
     }
 });

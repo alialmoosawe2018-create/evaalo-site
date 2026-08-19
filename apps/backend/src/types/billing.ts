@@ -33,7 +33,8 @@ export type UsageType =
     | 'CV_ANALYSIS'
     | 'JOB_AD'
     | 'CONTACT_REVEAL'
-    | 'COMPARE_EMAIL';
+    | 'COMPARE_EMAIL'
+    | 'CRITERIA_SUGGESTION';
 
 export type BillingFeature =
     | 'screening.basic'
@@ -133,6 +134,8 @@ export const CREDIT_COST_MICRO: Record<UsageType, number> = {
     CONTACT_REVEAL: 1 * MICRO_PER_CREDIT,
     // Per recipient email of an AI compare report.
     COMPARE_EMAIL: 1 * MICRO_PER_CREDIT,
+    // AI job-criteria suggestion — charged in routes/recruitmentCampaigns.ts /suggest-criteria (1/suggestion).
+    CRITERIA_SUGGESTION: 1 * MICRO_PER_CREDIT,
 };
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -167,6 +170,7 @@ export type LedgerSource =
     | 'screening'
     | 'cv_analysis'
     | 'job_ad'
+    | 'criteria_suggestion'
     | 'manual_adjustment'
     | 'monthly_refresh'
     | 'topup'

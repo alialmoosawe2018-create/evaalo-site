@@ -582,6 +582,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
     const [cvDetectedPosition, setCvDetectedPosition] = useState('');
     const [jobAdvertisement, setJobAdvertisement] = useState('');
     const [generatingAd, setGeneratingAd] = useState(false);
+    const [suggestingCriteria, setSuggestingCriteria] = useState(false);
+    const [suggestError, setSuggestError] = useState('');
     const [isEditingJobAd, setIsEditingJobAd] = useState(false);
     /** اللغة المطلوبة قبل التوليد + لغة الإعلان الحالي */
     const [adLanguage, setAdLanguage] = useState('English');
@@ -1383,6 +1385,118 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                 delete n[id];
                 return n;
             });
+        }
+    };
+
+    /**
+     * تطبيق المعايير المقترحة من الذكاء الاصطناعي على حالة النموذج (screening فقط).
+     * يضيف/يملأ فقط ولا يلغي ما أضافه المستخدم يدوياً؛ المكرّر (preset مُضاف أو
+     * custom بنفس التسمية) يُتجاهل. الـ preset تُملأ في jobDetails/الصفوف والـ custom
+     * تُضاف إلى customCriteria — نفس مسار الإرسال إلى evaluationRubric بلا تغيير.
+     */
+    const applySuggestedCriteria = (list) => {
+        if (!Array.isArray(list) || !list.length) return;
+        const presetIds = new Set(AVAILABLE_CRITERIA.map((c) => c.id));
+        const chipSetters = {
+            skills: setSkillRows,
+            languages: setLanguageRows,
+            certifications: setCertificationRows,
+        };
+        const toRows = (v) => {
+            const parts = String(v || '').split(',').map((s) => s.trim()).filter(Boolean);
+            return parts.length ? parts : [''];
+        };
+        const orderToAdd = [];
+        const detailsPatch = {};
+        const selectPatch = {};
+        const customsToAdd = [];
+
+        for (const item of list) {
+            if (!item || typeof item !== 'object') continue;
+            const expectation = String(item.expectation || '').trim();
+            if (!expectation) continue;
+            if (item.type === 'preset' && typeof item.key === 'string' && presetIds.has(item.key)) {
+                const key = item.key;
+                // لا نلمس معياراً أضافه/عبّأه المستخدم مسبقاً
+                if (addedOrder.includes(key) || selectedCriteria[key]) continue;
+                orderToAdd.push(key);
+                selectPatch[key] = true;
+                if (chipSetters[key]) {
+                    chipSetters[key](toRows(expectation));
+                } else {
+                    detailsPatch[key] = expectation;
+                }
+            } else {
+                const label = String(item.label || '').trim();
+                if (label) customsToAdd.push({ label, expectation });
+            }
+        }
+
+        if (orderToAdd.length) {
+            setAddedOrder((prev) => {
+                const merged = [...prev];
+                orderToAdd.forEach((k) => {
+                    if (!merged.includes(k)) merged.push(k);
+                });
+                return merged;
+            });
+        }
+        if (Object.keys(detailsPatch).length) {
+            setJobDetails((prev) => ({ ...prev, ...detailsPatch }));
+        }
+        if (Object.keys(selectPatch).length) {
+            setSelectedCriteria((prev) => ({ ...prev, ...selectPatch }));
+        }
+        if (customsToAdd.length) {
+            setCustomCriteria((prev) => {
+                const existing = new Set(prev.map((c) => String(c.label || '').trim().toLowerCase()));
+                const news = customsToAdd
+                    .filter((c) => !existing.has(c.label.toLowerCase()))
+                    .map((c) => ({
+                        id: `custom__${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                        label: c.label,
+                        expectation: c.expectation,
+                    }));
+                return news.length ? [...prev, ...news] : prev;
+            });
+        }
+        setErrors((prev) => {
+            const n = { ...prev };
+            delete n.general;
+            return n;
+        });
+    };
+
+    /** يطلب معايير مقترحة بالذكاء الاصطناعي (1 كردت) ويملأ حالة المعايير (screening فقط). */
+    const handleSuggestCriteria = async () => {
+        const position = ((jobDetails.position || '').trim()) || generalPosition.trim();
+        if (!position) {
+            setSuggestError(t('newCampaign_suggestNeedPosition'));
+            return;
+        }
+        setSuggestingCriteria(true);
+        setSuggestError('');
+        try {
+            const result = await apiClient.post('/api/recruitment-campaigns/suggest-criteria', {
+                position,
+                roleKey: jobDetails.roleKey || undefined,
+                careerLevel: jobDetails.careerLevel || undefined,
+                jobAdvertisement: jobAdvertisement?.trim() || undefined,
+                language: currentLang,
+            });
+            if (result?.success && Array.isArray(result.criteria) && result.criteria.length) {
+                applySuggestedCriteria(result.criteria);
+            } else {
+                setSuggestError(result?.message || t('newCampaign_suggestFailed'));
+            }
+        } catch (err) {
+            console.error('Error suggesting criteria:', err);
+            const msg = err?.status === 402
+                ? t('newCampaign_suggestInsufficientCredits')
+                : t('newCampaign_suggestFailed');
+            setSuggestError(msg);
+        } finally {
+            setSuggestingCriteria(false);
         }
     };
 
@@ -2946,6 +3060,66 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                     );
                                 })}
                             </div>
+
+                        {isScreeningFlow && (
+                            <div style={{ marginBottom: '14px' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleSuggestCriteria}
+                                    disabled={suggestingCriteria}
+                                    className="ni-suggest-criteria-btn"
+                                    title={t('newCampaign_suggestHint')}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '9px 16px',
+                                        borderRadius: '10px',
+                                        border: '1px solid rgba(99, 102, 241, 0.35)',
+                                        background:
+                                            'linear-gradient(135deg, rgba(99,102,241,0.10), rgba(139,92,246,0.10))',
+                                        color: '#6366f1',
+                                        fontSize: '13.5px',
+                                        fontWeight: 600,
+                                        cursor: suggestingCriteria ? 'default' : 'pointer',
+                                        opacity: suggestingCriteria ? 0.7 : 1,
+                                        transition: 'opacity 0.15s ease',
+                                    }}
+                                >
+                                    <svg
+                                        width="18"
+                                        height="18"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        aria-hidden
+                                    >
+                                        <path
+                                            fill="currentColor"
+                                            d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                                        />
+                                    </svg>
+                                    <span>
+                                        {suggestingCriteria
+                                            ? t('newCampaign_suggesting')
+                                            : t('newCampaign_suggestButton')}
+                                    </span>
+                                </button>
+                                {suggestError && (
+                                    <div
+                                        role="alert"
+                                        style={{
+                                            marginTop: '8px',
+                                            color: '#dc2626',
+                                            fontSize: '12.5px',
+                                            fontWeight: 500,
+                                        }}
+                                    >
+                                        {suggestError}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {isScreeningFlow && (
                             <div style={{ position: 'relative', marginBottom: '18px' }}>

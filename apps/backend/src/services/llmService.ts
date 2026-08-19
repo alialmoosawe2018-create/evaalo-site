@@ -1603,6 +1603,132 @@ Output ONLY the job advertisement plain text, no meta-commentary.`;
     }
 }
 
+export interface SuggestedCriterion {
+    type: 'preset' | 'custom';
+    /** Present only for preset suggestions — one of SUGGESTIBLE_PRESET keys. */
+    key?: string;
+    label: string;
+    expectation: string;
+}
+
+/**
+ * Preset criteria the AI may suggest a value for. Excludes position/location
+ * (recruiter inputs), salary (recruiter-set), and age/gender (bias risk). Keys
+ * must exist in the frontend AVAILABLE_CRITERIA and backend PRESET_RUBRIC_KEYS.
+ */
+const SUGGESTIBLE_PRESETS: Array<{ key: string; label: string }> = [
+    { key: 'job', label: 'Job Level' },
+    { key: 'company', label: 'Preferred / target company' },
+    { key: 'industryType', label: 'Industry Type' },
+    { key: 'educationLevel', label: 'Education Level' },
+    { key: 'experienceYears', label: 'Experience Years' },
+    { key: 'availability', label: 'Availability' },
+    { key: 'skills', label: 'Required Skills' },
+    { key: 'languages', label: 'Required Languages' },
+    { key: 'certifications', label: 'Certifications' },
+];
+
+/**
+ * Suggest a tailored set of hiring/screening criteria for a role, so a recruiter
+ * can pre-fill the Job-criteria step (they then edit/remove/add). Returns preset
+ * suggestions (value only) + role-specific custom criteria (label + expectation),
+ * validated against the allowed preset keys. Empty array when OpenAI is off.
+ */
+export async function suggestJobCriteria(input: {
+    position: string;
+    roleKey?: string;
+    careerLevel?: string;
+    jobAdvertisement?: string;
+    language?: string;
+}): Promise<SuggestedCriterion[]> {
+    const openai = getOpenAIClient();
+    if (!openai) {
+        console.warn('⚠️ OpenAI not configured — criteria suggestion disabled');
+        return [];
+    }
+    const position = String(input.position || '').trim();
+    if (!position) return [];
+
+    const langName = resolveLanguageName(input.language);
+    const langInstruction = langName
+        ? `Write every label and expectation in ${langName}.`
+        : 'Write labels and expectations in the same language as the role (Arabic role → Arabic).';
+    const presetList = SUGGESTIBLE_PRESETS.map((p) => `- ${p.key}: ${p.label}`).join('\n');
+    const roleContext = [
+        `Role / position: ${position}`,
+        input.careerLevel ? `Seniority: ${input.careerLevel}` : '',
+        input.roleKey ? `Catalog role key: ${input.roleKey}` : '',
+        input.jobAdvertisement
+            ? `Job advertisement (context):\n${String(input.jobAdvertisement).slice(0, 2000)}`
+            : '',
+    ]
+        .filter(Boolean)
+        .join('\n');
+
+    const prompt = `You are a senior HR advisor. Propose a focused set of hiring/screening criteria TAILORED to the role below, so a recruiter can evaluate applicants. Return ONLY JSON.
+
+${roleContext}
+
+You may use these PRESET criteria (give a concrete expectation value ONLY for the ones relevant to this role; omit irrelevant ones):
+${presetList}
+
+Also propose 2-5 CUSTOM criteria specific to THIS role and not covered by the presets (e.g. a domain certification, a specialised tool/skill, a regulatory requirement). Each custom criterion needs a short label and a concrete expectation.
+
+Rules:
+- 5-10 criteria maximum in total. Quality over quantity — only genuinely relevant ones.
+- Do NOT propose: position, location, salary, age, or gender (the recruiter sets those).
+- Expectations must be concrete and measurable (e.g. "4-6 years in upstream operations", "Valid HSE/NEBOSH certificate"), never vague.
+- ${langInstruction}
+- Return JSON exactly: { "criteria": [ { "type": "preset"|"custom", "key": "<preset key, only when type=preset>", "label": "<short label>", "expectation": "<value>" } ] }
+- No markdown, no code fences, no commentary.`;
+
+    try {
+        const response = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: 'You are an expert HR advisor. You output only valid JSON.' },
+                { role: 'user', content: prompt },
+            ],
+            temperature: 0.5,
+            max_tokens: 900,
+            response_format: { type: 'json_object' },
+        });
+        const content = response.choices[0]?.message?.content?.trim() || '';
+        if (!content) return [];
+        const parsed = JSON.parse(content) as { criteria?: unknown };
+        const rawList = Array.isArray(parsed?.criteria) ? parsed.criteria : [];
+        const presetKeys = new Set(SUGGESTIBLE_PRESETS.map((p) => p.key));
+        const out: SuggestedCriterion[] = [];
+        const seen = new Set<string>();
+        for (const item of rawList) {
+            if (!item || typeof item !== 'object') continue;
+            const o = item as Record<string, unknown>;
+            const label = String(o.label ?? '').trim().slice(0, 80);
+            const expectation = String(o.expectation ?? '').trim().slice(0, 500);
+            if (!expectation) continue;
+            const isPreset =
+                o.type === 'preset' && typeof o.key === 'string' && presetKeys.has(o.key);
+            if (isPreset) {
+                const key = o.key as string;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push({ type: 'preset', key, label: label || key, expectation });
+            } else {
+                if (!label) continue;
+                const dedup = `custom:${label.toLowerCase()}`;
+                if (seen.has(dedup)) continue;
+                seen.add(dedup);
+                out.push({ type: 'custom', label, expectation });
+            }
+            if (out.length >= 10) break;
+        }
+        return out;
+    } catch (err: any) {
+        console.error('❌ Error suggesting job criteria:', err?.message || err);
+        return [];
+    }
+}
+
 /** ناتج استخراج السيرة الذاتية: قيمة كل حقل (فارغة إن لم تُوجد). */
 export type CvExtractionResult = Record<string, string>;
 

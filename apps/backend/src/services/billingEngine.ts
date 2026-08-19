@@ -43,6 +43,8 @@ export function featureForUsageType(usageType: UsageType): BillingFeature {
             return 'search.headhunter';
         case 'COMPARE_EMAIL':
             return 'reports.ai_scoring';
+        case 'CRITERIA_SUGGESTION':
+            return 'jobs.display';
         default: {
             const _exhaustive: never = usageType;
             return _exhaustive;
