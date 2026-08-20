@@ -63,15 +63,15 @@ export const translations = {
         ctaDescription: "Save time. Cut costs. Raise quality. Select smarter — and screen more candidates accurately and easily.",
         startApplication: "Share Form Link",
         ctaFaqLabel: "Frequently asked questions",
-        ctaFaqWhatIsQ: "What is Evaalo?",
+        ctaFaqWhatIsQ: "What is evaalo?",
         ctaFaqWhatIsA:
-            "Evaalo is an AI-powered HR platform that helps companies streamline and automate the recruitment process — from sourcing and screening candidates to conducting AI-powered interviews, evaluating talent, and making faster, smarter hiring decisions.",
+            "evaalo is an AI-powered HR platform that helps companies streamline and automate the recruitment process — from sourcing and screening candidates to conducting AI-powered interviews, evaluating talent, and making faster, smarter hiring decisions.",
         ctaFaqFreeTrialQ: "Is there a free trial?",
         ctaFaqFreeTrialA:
             "Yes. Our Free plan includes trial credits so you can test before scaling to paid plans.",
-        ctaFaqLanguagesQ: "What languages do you support?",
+        ctaFaqLanguagesQ: "What languages does evaalo support?",
         ctaFaqLanguagesA:
-            "Evaalo speaks Arabic (Iraqi dialect) and English.",
+            "evaalo speaks Arabic (Iraqi dialect) and English.",
         companyName: "evaalo AI",
         footerDescription: "Building the future together",
         quickLinks: "Quick Links",
@@ -1636,7 +1636,7 @@ export const translations = {
         ctaFaqFreeTrialQ: "هل توجد تجربة مجانية؟",
         ctaFaqFreeTrialA:
             "نعم. الخطة المجانية تتضمن أرصدة تجريبية حتى تختبر المنصة قبل الانتقال إلى الخطط المدفوعة.",
-        ctaFaqLanguagesQ: "ما هي اللغات التي ندعمها؟",
+        ctaFaqLanguagesQ: "ما اللغات التي يدعمها ایڤالو؟",
         ctaFaqLanguagesA:
             "ایڤالو يتحدث العربية (اللهجة العراقية) والإنجليزية.",
         companyName: "evaalo AI",
@@ -3185,13 +3185,13 @@ export const translations = {
         ctaDescription: "کات پاشەکەوت بکە. تێچوون کەم بکەرەوە. کوالێتی بەرز بکەرەوە. بە زیرەکی زیاتر هەڵبژێرە — و کاندیدی زیاتر بە وردی و ئاسانی پشکنین بکە.",
         startApplication: "بەستەری فۆرم هاوبەش بکە",
         ctaFaqLabel: "پرسیارە باوەکان",
-        ctaFaqWhatIsQ: "Evaalo چییە؟",
+        ctaFaqWhatIsQ: "evaalo چییە؟",
         ctaFaqWhatIsA:
-            "Evaalo پلاتفۆرمێکی HR ـی پشتگیریکراو بە زیرەکی دەستکردە کە یارمەتی کۆمپانیاکان دەدات پرۆسەی دامەزراندن ئاسان و ئۆتۆماتیک بکەن — لە دۆزینەوە و پشکنینی کاندیدەکانەوە تا چاوپێکەوتنی پشتگیریکراو بە AI، هەڵسەنگاندنی بەهرە، و بڕیاری دامەزراندنی خێراتر و زیرەکتر.",
+            "evaalo پلاتفۆرمێکی HR ـی پشتگیریکراو بە زیرەکی دەستکردە کە یارمەتی کۆمپانیاکان دەدات پرۆسەی دامەزراندن ئاسان و ئۆتۆماتیک بکەن — لە دۆزینەوە و پشکنینی کاندیدەکانەوە تا چاوپێکەوتنی پشتگیریکراو بە AI، هەڵسەنگاندنی بەهرە، و بڕیاری دامەزراندنی خێراتر و زیرەکتر.",
         ctaFaqFreeTrialQ: "تاقیکردنەوەیەکی بەخۆڕایی هەیە؟",
         ctaFaqFreeTrialA:
             "بەڵێ. پلانی بەخۆڕایی کریدیتی تاقیکردنەوە لەخۆدەگرێت بۆ ئەوەی پێش گەیشتن بە پلانە پارەدراوەکان تاقی بکەیتەوە.",
-        ctaFaqLanguagesQ: "لە کام زمانان پشتیوانی دەکەین؟",
+        ctaFaqLanguagesQ: "evaalo لە کام زمانان پشتیوانی دەکات؟",
         ctaFaqLanguagesA:
             "ایڤالو بە زمانەکانی ئارەبی (هەڵگرتنی عێراقی) و ئینگلیزی دەتوانێت قسە بکات.",
         companyName: "evaalo AI",
