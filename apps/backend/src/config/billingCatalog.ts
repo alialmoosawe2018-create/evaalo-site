@@ -8,6 +8,7 @@
 import { BILLING_PLANS } from './billingPlans.js';
 import { VIDEO_PACK_MINUTES, VIDEO_PACK_PRICE_USD } from './videoPacks.js';
 import { getStripePriceId } from './stripePrices.js';
+import { LAUNCH_PROMO, launchPromoBonus } from './launchPromo.js';
 import { planAllowsVideo } from '../services/billingEngine.js';
 import { CREDIT_COST_MICRO, MICRO_PER_CREDIT } from '../types/billing.js';
 import type { BillingPlanId } from '../types/billing.js';
@@ -41,7 +42,10 @@ export function buildPublicBillingCatalog() {
             displayNameKey: plan.displayNameKey,
             displayDescKey: plan.displayDescKey,
             price: plan.price,
-            monthlyCredits: plan.monthlyCredits,
+            monthlyCredits: plan.monthlyCredits + launchPromoBonus(plan.id),
+            promo: launchPromoBonus(plan.id) > 0
+                ? { bonus: launchPromoBonus(plan.id), baseCredits: plan.monthlyCredits, labelKey: LAUNCH_PROMO.labelKey }
+                : null,
             includedVideoMinutes: plan.includedVideoMinutes ?? 0,
             features: [...plan.features],
             flags: plan.flags ?? {},

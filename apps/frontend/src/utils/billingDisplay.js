@@ -12,6 +12,7 @@
 
 import { BILLING_PLANS, DEFAULT_PLAN_ID, USAGE_CREDIT_COSTS } from '../config/billingPlans';
 import { VIDEO_PACK_MINUTES, VIDEO_PACK_PRICE_USD } from '../config/videoPacks';
+import { launchPromoBonus } from '../config/launchPromo';
 
 const ANNUAL_DISCOUNT = 0.8;
 
@@ -128,10 +129,10 @@ export function listPricingFeatureRows(planId, t) {
     return buildPricingFeatureRows(planId, features, includedVideoMinutes, t);
 }
 
-/** Monthly unified intelligence-credit allowance (whole credits) for a plan. */
+/** Monthly unified intelligence-credit allowance (whole credits) for a plan, incl. any active launch promo. */
 export function getMonthlyCredits(planId) {
     const plan = getPlanById(planId);
-    return plan ? plan.monthlyCredits || 0 : 0;
+    return plan ? (plan.monthlyCredits || 0) + launchPromoBonus(planId) : 0;
 }
 
 /** Monthly included video minutes for a plan (0 when none, e.g. Starter). */

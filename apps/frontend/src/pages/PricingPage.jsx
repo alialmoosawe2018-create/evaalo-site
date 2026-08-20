@@ -343,20 +343,24 @@ export default function PricingPage() {
                             key={tier.id}
                             className={`pricing-card${tier.featured ? ' pricing-card--featured' : ''}`}
                         >
-                            {tier.featured ? (
-                                <span className="pricing-card__badge">{t('billing_badge_popular')}</span>
-                            ) : null}
-                            <h2 className="pricing-card__name">{t(tier.nameKey)}</h2>
-                            <p className="pricing-card__tagline">
-                                {t(getPlanById(tier.planId)?.displayDescKey ?? '')}
-                            </p>
-                            <PricingPrice tier={tier} t={t} />
+                            <div className="pricing-card__header">
+                                {tier.featured ? (
+                                    <span className="pricing-card__badge">{t('billing_badge_popular')}</span>
+                                ) : null}
+                                <h2 className="pricing-card__name">{t(tier.nameKey)}</h2>
+                                <p className="pricing-card__tagline">
+                                    {t(getPlanById(tier.planId)?.displayDescKey ?? '')}
+                                </p>
+                                <PricingPrice tier={tier} t={t} />
+                            </div>
                             <PlanCardContents planId={tier.planId} t={t} />
-                            <PricingPlanCta
-                                tier={tier}
-                                featured={tier.featured}
-                                t={t}
-                            />
+                            <div className="pricing-card__footer">
+                                <PricingPlanCta
+                                    tier={tier}
+                                    featured={tier.featured}
+                                    t={t}
+                                />
+                            </div>
                         </article>
                     ))}
                 </div>

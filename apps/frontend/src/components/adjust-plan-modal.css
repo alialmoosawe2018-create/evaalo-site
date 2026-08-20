@@ -275,6 +275,33 @@
     white-space: nowrap;
 }
 
+.adjust-plan-modal .pricing-card__promo {
+    display: flex;
+    align-items: center;
+    min-height: 26px;
+    margin-top: 8px;
+}
+
+.adjust-plan-modal .pricing-card__promo-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #0c7a5f;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.adjust-plan-modal .pricing-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
 .adjust-plan-modal .pricing-card__includes-note {
     margin: 0 0 10px;
     font-size: 0.8rem;

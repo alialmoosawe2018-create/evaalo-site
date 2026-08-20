@@ -2,10 +2,12 @@ import React from 'react';
 import {
     formatMonthlyCredits,
     getIncludedVideoMinutes,
-    getPricingIncludesKey,
     listIncrementalFeaturesForPlan,
     buildPricingFeatureRows,
 } from '../utils/billingDisplay';
+import { launchPromoBonus } from '../config/launchPromo';
+
+const REFRAME_PLANS = new Set(['team', 'professional', 'business']);
 
 function CheckIcon() {
     return (
@@ -25,7 +27,7 @@ function CheckIcon() {
 }
 
 /**
- * Shared plan body: monthly credits, "everything in X plus" note, incremental features.
+ * Shared plan body: monthly credits, typical-month usage lines, incremental features.
  * Used on the public Pricing page and AdjustPlanModal.
  *
  * @param {object} props
@@ -36,9 +38,17 @@ export function PlanCardContents({ planId, t }) {
     if (!planId) return null;
 
     const features = listIncrementalFeaturesForPlan(planId);
-    const includesKey = getPricingIncludesKey(planId);
     const includedVideoMinutes = getIncludedVideoMinutes(planId);
     const featureRows = buildPricingFeatureRows(planId, features, includedVideoMinutes, t);
+    const promoBonus = launchPromoBonus(planId);
+    const showReframe = REFRAME_PLANS.has(planId);
+    const typicalLines = showReframe
+        ? (t(`pricing_typical_${planId}`) || '').split('|').map((s) => s.trim()).filter(Boolean)
+        : [];
+    const allFeatureRows = [
+        ...typicalLines.map((line, i) => ({ key: `tm-${i}`, label: line })),
+        ...featureRows,
+    ];
 
     return (
         <>
@@ -48,15 +58,23 @@ export function PlanCardContents({ planId, t }) {
                     <span className="pricing-card__credits-word">{t('pricing_credits_word')}</span>
                 </div>
             </div>
-            {includesKey ? <p className="pricing-card__includes-note">{t(includesKey)}</p> : null}
-            <ul className="pricing-card__features">
-                {featureRows.map((row) => (
-                    <li key={row.key} className="pricing-card__feature">
-                        <CheckIcon />
-                        <span>{row.label}</span>
-                    </li>
-                ))}
-            </ul>
+            <div className="pricing-card__promo" dir="auto">
+                {promoBonus > 0 ? (
+                    <span className="pricing-card__promo-pill">
+                        ✦ {t('billing_launch_promo')} +{promoBonus.toLocaleString()}
+                    </span>
+                ) : null}
+            </div>
+            <div className="pricing-card__body">
+                <ul className="pricing-card__features">
+                    {allFeatureRows.map((row) => (
+                        <li key={row.key} className="pricing-card__feature">
+                            <CheckIcon />
+                            <span>{row.label}</span>
+                        </li>
+                    ))}
+                </ul>
+            </div>
         </>
     );
 }

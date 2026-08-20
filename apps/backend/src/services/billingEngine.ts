@@ -13,6 +13,7 @@
 
 import { BILLING_PLANS } from '../config/billingPlans.js';
 import { VIDEO_PACK_MINUTES, VIDEO_PACK_PRICE_USD } from '../config/videoPacks.js';
+import { launchPromoBonus } from '../config/launchPromo.js';
 import type {
     BillingFeature,
     BillingPlan,
@@ -83,10 +84,10 @@ export function listFeaturesForPlan(planId: BillingPlanId): BillingFeature[] {
     return plan ? plan.features.slice() : [];
 }
 
-/** Monthly unified credit allowance (whole credits) for a plan. */
+/** Monthly unified credit allowance (whole credits) for a plan, incl. any active launch promo. */
 export function getMonthlyCredits(planId: BillingPlanId): number {
     const plan = getPlanById(planId);
-    return plan ? plan.monthlyCredits : 0;
+    return plan ? plan.monthlyCredits + launchPromoBonus(planId) : 0;
 }
 
 /** Monthly included video minutes for a plan (0 when none, e.g. Starter). */

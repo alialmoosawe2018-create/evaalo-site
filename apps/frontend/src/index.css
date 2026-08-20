@@ -16131,12 +16131,13 @@ button:focus {
 
 .legal-page-shell--agent .pricing-card {
     position: relative;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: span 5;
     gap: 14px;
     min-height: 240px;
     min-width: 0;
-    padding: 26px 28px 22px;
+    padding: 40px 28px 22px;
     border-radius: 18px;
     border: 1px solid rgba(129, 140, 248, 0.22);
     background: linear-gradient(
@@ -16166,7 +16167,6 @@ button:focus {
 }
 
 .legal-page-shell--agent .pricing-card--featured {
-    padding-top: 40px;
     border-color: rgba(56, 189, 248, 0.55);
     background: linear-gradient(
         165deg,
@@ -16206,6 +16206,47 @@ button:focus {
     letter-spacing: -0.02em;
     line-height: 1.2;
     color: #f8fafc;
+}
+
+.legal-page-shell--agent .pricing-card__header {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.legal-page-shell--agent .pricing-card__footer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    margin-top: 0;
+}
+
+.legal-page-shell--agent .pricing-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.legal-page-shell--agent .pricing-card__promo {
+    display: flex;
+    align-items: center;
+    min-height: 26px;
+}
+
+.legal-page-shell--agent .pricing-card__promo-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #0c7a5f;
+    color: #fff;
+    white-space: nowrap;
 }
 
 .legal-page-shell--agent .pricing-card__tagline {
@@ -16752,6 +16793,10 @@ button:focus {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 16px;
     }
+
+    .legal-page-shell--agent .pricing-card {
+        grid-row: span 5;
+    }
 }
 
 @media (max-width: 560px) {
@@ -16762,12 +16807,20 @@ button:focus {
 
     .legal-page-shell--agent .pricing-card {
         min-height: 0;
-        padding: 22px 18px 18px;
+        padding: 40px 18px 18px;
+        display: flex;
+        flex-direction: column;
+        grid-template-rows: none;
+        grid-row: auto;
+    }
+
+    .legal-page-shell--agent .pricing-card__footer {
+        margin-top: auto;
     }
 
     /* Keep badge above the plan name — mobile padding was collapsing the featured top gap */
     .legal-page-shell--agent .pricing-card--featured {
-        padding-top: 46px;
+        padding-top: 40px;
     }
 
     .legal-page-shell--agent .pricing-card__badge {
