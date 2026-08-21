@@ -10,6 +10,38 @@ export function canonicalStageRecommendation(rec) {
     return s;
 }
 
+/**
+ * Stage-aware localized recommendation label. The stored decision enum stays
+ * Hire | Consider | Reject everywhere (DB, compare pool, filters all depend on
+ * it); only the DISPLAYED word changes: for the screening (Stage 1) and voice
+ * (Stage 2) stages a "Hire" decision reads as "Accepted" (the candidate
+ * advances), while the final video stage (Stage 3) keeps "Hire".
+ * `source` comes from resolveCandidateEvaluation: 'ai'|'written' = Stage 1,
+ * 'voice' = Stage 2, 'video' = Stage 3. Omit `source` to force the raw label
+ * (used by the video-stage display).
+ */
+const ACCEPTED_LABEL_SOURCES = new Set(['ai', 'written', 'voice']);
+export function stageRecommendationLabel(rec, t, source) {
+    const canon = canonicalStageRecommendation(rec);
+    if (canon === 'Hire' && ACCEPTED_LABEL_SOURCES.has(source)) {
+        return t('stageEval_recAccepted');
+    }
+    switch (canon) {
+        case 'Hire':
+            return t('stageEval_recHire');
+        case 'Consider':
+            return t('stageEval_recConsider');
+        case 'Reject':
+            return t('stageEval_recReject');
+        case 'Incomplete':
+            return t('stageEval_recIncomplete');
+        case 'N/A':
+            return t('stageEval_recNa');
+        default:
+            return canon;
+    }
+}
+
 const INVALID_STAGE_EVAL_TEXT = new Set(['undefined', 'null', 'nan', '']);
 
 /** Hide n8n/JS placeholder strings and empty values in stage evaluation UI. */

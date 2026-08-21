@@ -135,7 +135,7 @@ const VoiceInterview = () => {
     const translateRecLabel = (canonical) => {
         switch (canonical) {
             case 'Hire':
-                return t('stageEval_recHire');
+                return t('stageEval_recAccepted');
             case 'Consider':
                 return t('stageEval_recConsider');
             case 'Reject':
@@ -710,7 +710,7 @@ const VoiceInterview = () => {
                                         {filterOption === 'all'
                                             ? t('stageEval_all')
                                             : filterOption === 'Hire'
-                                              ? t('stageEval_recHire')
+                                              ? t('stageEval_recAccepted')
                                               : filterOption === 'Consider'
                                                 ? t('stageEval_recConsider')
                                                 : t('stageEval_recReject')}
@@ -909,7 +909,7 @@ const VoiceInterview = () => {
                                                               filter === 'all'
                                                                   ? t('stageEval_all')
                                                                   : filter === 'hire'
-                                                                    ? t('stageEval_recHire')
+                                                                    ? t('stageEval_recAccepted')
                                                                     : filter === 'consider'
                                                                       ? t('stageEval_recConsider')
                                                                       : t('stageEval_recReject'),
@@ -1346,7 +1346,7 @@ const VoiceInterview = () => {
                             <div className="interview-eval-stat-card__value">{evaluatedCandidates.length}</div>
                         </div>
                         <div className="interview-eval-stat-card">
-                            <div className="interview-eval-stat-card__label">{t('stageEval_recHire')}</div>
+                            <div className="interview-eval-stat-card__label">{t('stageEval_recAccepted')}</div>
                             <div className="interview-eval-stat-card__value interview-eval-stat-card__value--hire">
                                 {evaluatedCandidates.filter(c => c.voiceInterviewEvaluation?.recommendation === 'Hire').length}
                             </div>

@@ -32,6 +32,7 @@ import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import { buildSampleCandidates } from '../utils/demoSampleData.js';
 import { scriptTextProps } from '../utils/textScript.js';
 import { resolveCandidateEvaluation, evaluationSourceLabelKey } from '../utils/candidateEvaluation.js';
+import { stageRecommendationLabel } from '../utils/stageRecommendation.js';
 import { resolveJobRole } from '@evaalo/job-catalog';
 
 /** يبقى بعد مغادرة الصفحة — محتويات تبويب «قائمة قصيرة» (ليست مخطط /employees) */
@@ -2444,7 +2445,7 @@ const Candidates = () => {
                                                 <div><strong>{t('candidates_aiConfidence')}</strong> {modalEval.confidence}%</div>
                                             )}
                                             {modalEval.recommendation ? (
-                                                <div><strong>{t('candidates_aiRecommendation')}</strong> {modalEval.recommendation}</div>
+                                                <div><strong>{t('candidates_aiRecommendation')}</strong> {stageRecommendationLabel(modalEval.recommendation, t, modalEval.source)}</div>
                                             ) : null}
                     </div>
                 </div>

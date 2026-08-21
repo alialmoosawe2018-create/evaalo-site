@@ -77,6 +77,7 @@ import {
     shouldBlockStage2IncompleteEvaluation,
     validateStage2VoiceEvaluationPersistence,
 } from './services/stage2VoiceEvaluationGate.js';
+import { clampRecommendationToScore } from './services/recommendationCalibration.js';
 import {
     formatStage3EvaluationGateDiagnostic,
     getStage3EvaluationGateMode,
@@ -887,10 +888,15 @@ function buildStrictStage2VoicePatch(data: Record<string, unknown>): Record<stri
     const n = pickOverallScoreFromSources(sources);
     if (n !== undefined) patch.overall_score = n;
 
-    const rec = normalizeRecommendation(
+    const rawRec = normalizeRecommendation(
         pickLooseFromSources(sources, ['recommendation', 'Recommendation', 'Final HR Recommendation'])
     );
+    // معايرة: التوصية لا تتجاوز ما تسمح به الدرجة (درجة 61 لا تكون "Hire"). تخفيض فقط.
+    const rec = clampRecommendationToScore(rawRec, typeof n === 'number' ? n : undefined);
     if (rec) patch.recommendation = rec;
+    if (rawRec && rec && rawRec !== rec) {
+        console.warn(`[STAGE2 REC CLAMP] overall_score=${n} recommendation ${rawRec}→${rec}`);
+    }
 
     return patch;
 }

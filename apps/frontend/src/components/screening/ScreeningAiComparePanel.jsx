@@ -50,7 +50,7 @@ function recommendationTone(recommendation) {
  * it under these keys elsewhere.
  */
 function recommendationBadgeLabel(recommendation, t) {
-    if (recommendation === 'Hire') return t('stageEval_recHire');
+    if (recommendation === 'Hire') return t('stageEval_recAccepted');
     if (recommendation === 'Consider') return t('stageEval_recConsider');
     if (recommendation === 'Reject') return t('stageEval_recReject');
     return (recommendation || '').trim();

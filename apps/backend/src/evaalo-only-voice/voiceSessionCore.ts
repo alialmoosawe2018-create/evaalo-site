@@ -5,7 +5,7 @@ import { createRateLimiter } from "./rateLimiter.js";
 import { createSession, removeSession, touchSession, updateState } from "./sessionStore.js";
 import { createInterviewState, getInterviewState, removeInterviewState, onExchangeComplete, FOLLOW_UP_MAX_PER_INTERVIEW, FOLLOW_UP_MIN_GAP_TURNS } from "./interviewState.js";
 import { getControllerOutput } from "./interviewController.js";
-import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch } from "./questionEngine.js";
+import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer } from "./questionEngine.js";
 import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
 import { getVoiceResponseTiming, getVoiceVadSettings } from "./voiceTimingEnv.js";
@@ -52,6 +52,9 @@ const VOICE_WS_MAX_SESSION_MS = (Number(process.env.VOICE_MAX_INTERVIEW_SECONDS)
 const VOICE_WS_IDLE_TIMEOUT_MS = (Number(process.env.VOICE_IDLE_TIMEOUT_SECONDS) || 120) * 1000;
 // أدنى مدة جلسة يقبلها الحجز المُقلَّم — أقل من ذلك تُرفض الجلسة (رصيد لا يكفي لمقابلة مجدية).
 const VOICE_WS_MIN_SESSION_SECONDS = Number(process.env.VOICE_MIN_SESSION_SECONDS) || 120;
+// سقف تنبيهات التهرّب لكل مقابلة — «أعطني مثالاً محدداً» بعد نفي التحدي. صارم كي لا
+// يبدو الوكيل ملحّاً وكي لا يبتلع وقت المقابلة المحدود.
+const DEFLECTION_PROBE_MAX = Number(process.env.VOICE_DEFLECTION_PROBE_MAX) || 1;
 
 /**
  * Resolve the billing organization for a candidate-initiated voice session.
@@ -761,6 +764,20 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         .map((m) => m.content)
         .slice(-4);
 
+      // تعميق التهرّب: إذا نفى المرشح وجود تحدٍّ («ما واجهت تحديات») رداً على سؤال
+      // يطلب موقفاً/مثالاً، نطرح تنبيهاً لطيفاً واحداً يطلب مثالاً محدداً بدل تبديل
+      // الموضوع فوراً. مسقوف بـ DEFLECTION_PROBE_MAX، ولا يعمل في Phase 3 (الإنجليزية).
+      const lastQAskedForExample = /(تحدي|تحديات|موقف|صعب|صعوبة|مثال|challenge|example|situation|difficult)/i.test(
+        lastAssistantMessage ?? ''
+      );
+      const deflectionProbe =
+        currentPhase !== 3 &&
+        !changeRequested &&
+        !clarificationRequested &&
+        (interviewState?.deflectionProbesUsed ?? 0) < DEFLECTION_PROBE_MAX &&
+        lastQAskedForExample &&
+        isEvasiveNonAnswer(cleaned);
+
       // المتابعة — قواعد صارمة: سقف FOLLOW_UP_MAX_PER_INTERVIEW للمقابلة كلها، وفاصل
       // FOLLOW_UP_MIN_GAP_TURNS أدوار (سؤالان عاديان) بين متابعتين. طلب التوضيح أو تغيير
       // السؤال لا يمنح متابعة إضافية ولا يعيد ضبط العدّادات.
@@ -773,6 +790,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         userMessageCount >= 2 &&
         !changeRequested &&
         !clarificationRequested &&
+        !deflectionProbe &&
         followUpBudgetLeft &&
         followUpGapOk;
       const followUpNext: 1 | undefined = allowFollowUp && intent === 'challenge' ? 1 : undefined;
@@ -835,7 +853,23 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       if (!candidateId || !candidateProfile) {
         console.warn(`[PHASE] ${sessionId.substring(0, 8)}... NO candidateId — Phase 2 will skip application questions. Connect with ?candidateId=xxx`);
       }
-      const mode = clarificationRequested ? 'clarify' : followUpNext ? `follow-up:${followUpNext}` : selectedQuestion?.availableTopics ? 'topic-choice' : selectedQuestion?.topic ? 'topic' : selectedQuestion?.isFixed ? 'fixed' : 'rephrase';
+
+      // تنبيه التهرّب يتجاوز السؤال المختار: رسالة ثابتة لطيفة (بلا LLM) تطلب مثالاً
+      // محدداً. مرة واحدة فقط لكل موقف — ثم يُقبل أي رد ويُكمل التدفق بلا إلحاح.
+      if (deflectionProbe) {
+        const probeText =
+          candidateLastLang === 'ar'
+            ? 'ولو موقف بسيط — تكدر تعطيني مثال محدد صار وياك وشلون تعاملت وياه؟'
+            : 'Even a small one — can you give me one specific example and how you handled it?';
+        selectedQuestion = {
+          text: probeText,
+          isFixed: true,
+          preferArabic: candidateLastLang === 'ar',
+        };
+        console.log(`[DEFLECTION PROBE] ${sessionId.substring(0, 8)}... used=${(interviewState?.deflectionProbesUsed ?? 0) + 1}/${DEFLECTION_PROBE_MAX}`);
+      }
+
+      const mode = clarificationRequested ? 'clarify' : deflectionProbe ? 'deflection-probe' : followUpNext ? `follow-up:${followUpNext}` : selectedQuestion?.availableTopics ? 'topic-choice' : selectedQuestion?.topic ? 'topic' : selectedQuestion?.isFixed ? 'fixed' : 'rephrase';
       console.log(`[PHASE] ${sessionId.substring(0, 8)}... userMsgs=${userMessageCount} phase=${currentPhase} mode=${mode} candidateData=${candidateProfile ? 'yes' : 'no'}`);
 
       let llmReply: string;
@@ -924,12 +958,15 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         if (!validateLLMQuestion(llmReply, duplicateGuard)) {
           // احتياطيات المواضيع مكتوبة بالعراقية فقط — الجلسة الإنجليزية تأخذ
           // بديلاً إنجليزياً محايداً بدلاً من كسر قفل اللغة عند أول فشل تحقق.
-          const genericFallback =
-            interviewLanguage === 'en' || currentPhase === 3
-              ? 'Could you tell me more about that?'
-              : 'ممكن تحچيلي أكثر عن هالموضوع؟';
+          // Phase 3 إنجليزية دائماً حتى في جلسة عربية ثنائية: أي fallback هنا يجب أن
+          // يكون إنجليزياً وإلا تسرّب سؤال عربي وسط اختبار الإنجليزية (كان
+          // getFallbackForTopic يُرجع عربية لأن اللغة 'ar' رغم أننا في Phase 3).
+          const forceEnglish = interviewLanguage === 'en' || currentPhase === 3;
+          const genericFallback = forceEnglish
+            ? 'Could you tell me more about that?'
+            : 'ممكن تحچيلي أكثر عن هالموضوع؟';
           const topicFallback = (topic: string) =>
-            interviewLanguage === 'en'
+            forceEnglish
               ? genericFallback
               : getFallbackForTopic(topic, candidateProfile?.gender);
           // بلا موضوع محدد (وضع rephrase): ننتقل لموضوع لم يُطرح بعد بدل إعادة
@@ -938,7 +975,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           const fallback = clarificationRequested && lastAssistantMessage
             ? lastAssistantMessage
             : followUpNext
-              ? (candidateLastLang === 'ar' ? getFollowUpPromptPair(selectedQuestion).ar : getFollowUpPromptPair(selectedQuestion).en)
+              ? (!forceEnglish && candidateLastLang === 'ar' ? getFollowUpPromptPair(selectedQuestion).ar : getFollowUpPromptPair(selectedQuestion).en)
               : selectedQuestion?.topic
                 ? topicFallback(selectedQuestion.topic)
                 : selectedQuestion?.availableTopics?.length
@@ -965,6 +1002,12 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         : selectedQuestion?.availableTopics
         ? inferTopicFromQuestion(llmReply)
         : undefined;
+      // إشارتا Phase 3 لمحاسبة الحالة: هل نحن في مرحلة الـ controller 3، وهل كان رد
+      // هذا الدور إعلان اختبار الإنجليزية الثابت («جاهز؟») لا سؤالاً/خاتمة.
+      const englishIntroEmitted =
+        currentPhase === 3 &&
+        selectedQuestion?.isFixed === true &&
+        selectedQuestion?.isInterviewEnd !== true;
       onExchangeComplete(sessionId, llmReply, userMessageCount, {
         mandatoryQuestion1Asked: mandatoryQuestionDue === 1,
         mandatoryQuestion2Asked: mandatoryQuestionDue === 2,
@@ -972,6 +1015,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         topicUsed: isVoiceTopicMemoryEnabled() ? topicUsed : undefined,
         followUpCount: nextFollowUpCount,
         followUpAsked: followUpNext === 1,
+        phase3Reached: currentPhase === 3,
+        englishIntroEmitted,
+        deflectionProbeUsed: deflectionProbe,
       });
 
       await speakAgentReply(llmReply, { endSession: selectedQuestion?.isInterviewEnd === true });

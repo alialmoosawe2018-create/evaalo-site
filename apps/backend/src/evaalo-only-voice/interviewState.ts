@@ -26,6 +26,8 @@ export interface InterviewState {
   englishQuestionsAsked: number;
   /** هل تم إعلان اختبار الإنجليزية ("هسة راح أختبر لغتك الإنكليزية. جاهز؟")؟ */
   englishTestAnnounced: boolean;
+  /** عدد تنبيهات التهرّب المستخدمة — «أعطني مثالاً محدداً» بعد إجابة تنفي التحدي */
+  deflectionProbesUsed: number;
   /** المتابعة: 0=لا متابعة لهذا السؤال، 1=تمت المتابعة — حد أقصى متابعة واحدة لكل سؤال */
   followUpCount: 0 | 1;
   /** إجمالي المتابعات في المقابلة كلها — سقف صارم `FOLLOW_UP_MAX_PER_INTERVIEW` */
@@ -60,6 +62,7 @@ export function createInterviewState(sessionId: string): InterviewState {
     englishQuestionsAsked: 0,
     englishTestAnnounced: false,
     askedTopics: [],
+    deflectionProbesUsed: 0,
     followUpCount: 0,
     totalFollowUps: 0,
     lastFollowUpTurn: NO_FOLLOW_UP_YET,
@@ -99,6 +102,12 @@ export function onExchangeComplete(
     followUpCount?: 0 | 1;
     /** true عندما يكون رد هذا الدور متابعة — يرفع العدّاد الكلي ويثبّت الفاصل */
     followUpAsked?: boolean;
+    /** true عندما تكون مرحلة الـ controller (العدّ الخام) = 3 هذا الدور */
+    phase3Reached?: boolean;
+    /** true عندما يكون رد هذا الدور هو إعلان اختبار الإنجليزية ("جاهز؟") */
+    englishIntroEmitted?: boolean;
+    /** true عندما يكون رد هذا الدور تنبيه تهرّب (طلب مثال محدد) */
+    deflectionProbeUsed?: boolean;
   }
 ): InterviewState | undefined {
   const state = stateStore.get(sessionId);
@@ -129,6 +138,9 @@ export function onExchangeComplete(
     state.totalFollowUps = (state.totalFollowUps ?? 0) + 1;
     state.lastFollowUpTurn = newUserCount;
   }
+  if (options?.deflectionProbeUsed) {
+    state.deflectionProbesUsed = (state.deflectionProbesUsed ?? 0) + 1;
+  }
 
   // تحديد المرحلة من userMessageCount (منطق حتمي). المتابعة تعمّق في الموضوع
   // نفسه لا موضوع جديد، فاحتسابها كانت تُقلّص عدد المواضيع المغطّاة قبل انتقال
@@ -143,12 +155,13 @@ export function onExchangeComplete(
     state.phaseStartTime = Date.now();
   }
 
-  if (phase === 3) {
-    if (!state.englishTestAnnounced) {
-      state.englishTestAnnounced = true; // أول رد في Phase 3 = إعلان "جاهز؟"
-    } else {
-      state.englishQuestionsAsked += 1;
-    }
+  // محاسبة Phase 3 تُقاد بإشارات صريحة من المتصل (مرحلة الـ controller الخام)، لا
+  // بالـ phase المحسوبة هنا بخصم رصيد المتابعات — اختلافهما كان يستهلك «الإعلان»
+  // كعلَم داخلي دون طرحه فعلاً، فيقفز الوكيل إلى الإنجليزية بلا مقدّمة.
+  if (options?.englishIntroEmitted) {
+    state.englishTestAnnounced = true; // أُعلن فعلاً «جاهز؟» هذا الدور
+  } else if (options?.phase3Reached && state.englishTestAnnounced) {
+    state.englishQuestionsAsked += 1;
   }
 
   return state;

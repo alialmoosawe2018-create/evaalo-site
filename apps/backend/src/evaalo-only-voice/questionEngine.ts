@@ -109,6 +109,31 @@ export function isClarificationRequest(transcript: string): boolean {
   );
 }
 
+/**
+ * إجابة متهرّبة تنفي وجود تحدٍّ/مشكلة أو تُقلّل الأمر لتتجنّب المثال. يُستخدم لطرح
+ * تنبيه لطيف واحد يطلب مثالاً محدداً — بدل تبديل الموضوع فوراً كما كان يحدث في
+ * جلسة b4e9e4b7 حين قال المرشح «ما واجهت تحديات» مرتين فانتقل الوكيل دون تعمّق.
+ *
+ * يعتمد على عبارات النفي/التقليل لا على الطول وحده، فلا يُطلق على إجابة قصيرة صحيحة
+ * مثل «AI». نفي التحدي الصريح يُرصد مهما طالت الإجابة (قد ينفي ثم يفيض بالعموميات)؛
+ * أما التقليل العام («عادي»/«كله زين») فيُرصد في الإجابات القصيرة فقط.
+ */
+export function isEvasiveNonAnswer(transcript: string): boolean {
+  const t = transcript.trim().toLowerCase();
+  if (!t) return false;
+  const deniesChallenge =
+    /(?:^|\s)(?:ما|ماكو|لا)\s+\S*\s*(?:تحدي|تحديات|مشكلة|مشاكل|صعوبة|صعوبات)/i.test(t) ||
+    /(?:^|\s)(?:ما|ماكو)\s+(?:واجهت|واجهنا|صادفت|مريت)/i.test(t) ||
+    /\bno\b[^.]{0,40}\b(?:challenges?|problems?|issues?|difficult\w*)\b/i.test(t) ||
+    /\b(?:didn'?t|did not|haven'?t|have not)\b[^.]{0,40}\b(?:challenges?|problems?|issues?|difficult\w*)\b/i.test(t);
+  if (deniesChallenge) return true;
+  if (wordCount(t) <= 6) {
+    return /^\s*(?:عادي|كله\s*(?:زين|تمام|عادي)|لا\s*شي|ماكو\s*شي|ما\s*اذكر(?:\s*شي)?)/i.test(t) ||
+      /^\s*(?:nothing(?:\s+much|\s+really)?|all good|no problems?)/i.test(t);
+  }
+  return false;
+}
+
 /** النية الأساسية لرسالة المرشح ضمن تدفق المقابلة */
 export type TurnIntent = 'change_question' | 'clarification' | 'challenge' | 'normal';
 
@@ -751,6 +776,12 @@ export function selectNextQuestion(
       return {
         text: useArabic ? q.iq : q.en,
         pool: 0, // mandatory
+        // نسجّل موضوع السؤال الإلزامي في ذاكرة المواضيع كي لا يتكرّر لاحقاً: الأول
+        // «عرّف نفسك» = warmup، والثاني «Microsoft Office» يغطّي «الأدوات الرقمية».
+        topic:
+          mandatoryQuestionDue === 1
+            ? 'warmup_and_self_introduction'
+            : 'digital_skills_and_tools',
         evaluates: q.evaluates,
         preferArabic: useArabic,
       };
@@ -760,17 +791,46 @@ export function selectNextQuestion(
     const inferredTopic = !changeRequested && candidateLastAnswer ? inferTopicFromAnswer(candidateLastAnswer) : undefined;
     const inferredPool = inferredTopic ? TOPIC_TO_POOL[inferredTopic] : undefined;
 
+    // حارس التنوّع: ذاكرة المواضيع مصدر الحقيقة لِما غُطّي. كان الاستدلال يعيد نفس
+    // الـ pool (خصوصاً «الأدوات») لأن المرشح يكرّر ذكر الأدوات، وكانت أسئلة الـ pool
+    // لا تُسجَّل في askedTopics أصلاً — فيتكرّر الموضوع.
+    const askedTopicsSet = isVoiceTopicMemoryEnabled()
+      ? new Set(state?.askedTopics ?? [])
+      : new Set<string>();
+    const topicAsked = (p: number) => askedTopicsSet.has(PHASE1_TOPICS[p]);
+    const DIGITAL_POOL = TOPIC_TO_POOL['digital_skills_and_tools'];
+    // سؤال Microsoft Office الإلزامي (الثاني) يغطّي «الأدوات»، فنحجز pool الأدوات له
+    // ولا نطرحه بالاستدلال قبله — طرحهما معاً كان يكرّر موضوع الأدوات.
+    const digitalReserved = !state?.secondMandatoryAsked;
+
     // عند طلب التغيير: نستخدم pool مختلف عن الأخير دائماً
     const lastPool = state?.askedPools?.length ? state.askedPools[state.askedPools.length - 1] : 0;
+    const inferredUsable =
+      inferredPool &&
+      !topicAsked(inferredPool) &&
+      !(inferredPool === DIGITAL_POOL && digitalReserved)
+        ? inferredPool
+        : undefined;
     let pool = changeRequested && lastPool > 0
       ? ((lastPool % 5) + 1) as number
-      : (inferredPool ?? suggestedPool ?? 1);
+      : (inferredUsable ?? suggestedPool ?? 1);
     if (changeRequested && lastPool === 0) {
       // إذا ماكو pool سابق (mandatory/topic-choice)، لا نرجع لنفس منطق الـwarmup
       pool = ((pool % 5) + 1) as number;
     }
     if (changeRequested && pool === 1 && (state?.userMessageCount ?? 0) > 0) {
       pool = 2;
+    }
+    // إن كان موضوع الـ pool المختار مطروحاً بالفعل (أو محجوزاً للإلزامي)، ننتقل لأول
+    // pool موضوعه غير مطروح — يمنع تكرار نفس الموضوع دون كسر مسار طلب التغيير.
+    if (!changeRequested && (topicAsked(pool) || (pool === DIGITAL_POOL && digitalReserved))) {
+      for (let step = 1; step <= 5; step += 1) {
+        const cand = (((pool - 1 + step) % 5) + 1);
+        if (!topicAsked(cand) && !(cand === DIGITAL_POOL && digitalReserved)) {
+          pool = cand;
+          break;
+        }
+      }
     }
     const poolData = POOL_QUESTIONS[pool];
     if (!poolData) return null;
@@ -796,6 +856,9 @@ export function selectNextQuestion(
     return {
       text,
       pool,
+      // نسجّل موضوع الـ pool في ذاكرة المواضيع (لم يكن يُسجَّل إلا في وضع topic-choice)
+      // كي لا يُعاد الموضوع نفسه عبر الاستدلال أو الـ round-robin لاحقاً.
+      topic: PHASE1_TOPICS[pool],
       level,
       evaluates: q.evaluates ?? DEFAULT_POOL_EVALUATES[pool],
       preferArabic: useArabic,
@@ -816,7 +879,11 @@ export function selectNextQuestion(
   }
 
   if (phase === 3) {
-    if (controller.isFirstPhase3Message && !changeRequested) {
+    // إعلان اختبار الإنجليزية يُطرح أول مرة ندخل فيها Phase 3 ويبقى ثابتاً حتى
+    // يُطرح فعلاً (englishTestAnnounced). لا يعتمد على تطابق عدّ الرسائل الهشّ
+    // (isFirstPhase3Message) ولا يُلغى بطلب تغيير السؤال — لا يمكن «تخطّي» إعلان.
+    // هذا يمنع القفز المباشر إلى الإنجليزية بلا مقدّمة «جاهز؟».
+    if (!state?.englishTestAnnounced) {
       return {
         text: 'هسة راح أختبر لغتك الإنكليزية. جاهز؟',
         preferArabic: true,
@@ -825,7 +892,7 @@ export function selectNextQuestion(
     }
     const baseIdx = state?.englishQuestionsAsked ?? 0;
     const phase3Plan = buildPhase3QuestionPlan(state?.sessionId);
-    const idx = baseIdx + (changeRequested && !controller.isFirstPhase3Message ? 1 : 0);
+    const idx = baseIdx + (changeRequested ? 1 : 0);
     if (idx >= phase3Plan.length) {
       return {
         text: 'Thank you for your time. The interview has now ended, and our HR team will review your answers and contact you with the next steps.',
