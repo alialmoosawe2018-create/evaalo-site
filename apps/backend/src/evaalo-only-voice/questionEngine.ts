@@ -500,64 +500,100 @@ export function getAvailableTopicsForPhase1(state: InterviewState | undefined): 
   return all.filter((t) => !askedTopics.includes(t));
 }
 
-/** متابعة واحدة فقط لكل سؤال رئيسي (تحدٍّ/موقف) — ثم الانتقال للسؤال التالي */
-export const FOLLOW_UP_PROMPTS: Record<1, { ar: string; en: string }> = {
-  1: { ar: 'شنو صار بالضبط؟ وصفلي الموقف.', en: 'What exactly happened? Describe the situation.' },
-};
+type FollowUpPair = { ar: string; en: string };
 
 /**
- * متابعة أعمق حسب «نوع» السؤال (evaluates الأول المطابِق في القائمة).
- * مفاتيح من نوع الاستعلام/المهارة لا من نص السؤال.
+ * متابعة عامة — عدّة صيغ قصيرة (جملة واحدة) تُدوّر كي لا تتكرّر حرفياً حين لا يطابق أي
+ * intent. كانت صيغة واحدة فقط ("شنو صار بالضبط؟ وصفلي الموقف") فتكرّرت كثيراً.
  */
-export const FOLLOW_UP_BY_INTENT: Record<string, { ar: string; en: string }> = {
-  problem_solving: {
-    ar: 'ليش اخترت هالحل بالذات؟ تحس كان أكو خيار أفضل ممكن تسويه؟',
-    en: 'Why did you choose this solution? Would you do anything differently now?',
-  },
-  communication: {
-    ar: 'شلون كان رد فعل الطرف الثاني؟ وشلون تعامل وية كلامك؟',
-    en: 'How did the other person respond?',
-  },
-  decision_making: {
-    ar: 'شنو الخيارات اللي كانت گدامك؟ وليش ما اخترت منها ؟',
-    en: "What alternatives did you consider and why didn’t you choose them?",
-  },
-  teamwork: {
-    ar: 'بالضبط شنو كان دورك إنت داخل الفريق؟',
-    en: 'What was your specific role in the team?',
-  },
-  ownership: {
-    ar: 'لو ترجع لنفس الموقف، شنو الشي اللي راح تغيّره؟',
-    en: 'If you could go back, what would you do differently?',
-  },
-  learning: {
-    ar: 'شلون استفدت من هالتجربة بعدين؟ ووين طبّقتها؟',
-    en: 'How did you apply what you learned afterward?',
-  },
+export const FOLLOW_UP_GENERIC: FollowUpPair[] = [
+  { ar: 'اعطني مثال محدد صار وياك.', en: 'Give me one specific example.' },
+  { ar: 'شنو كانت النتيجة بالضبط؟', en: 'What was the exact outcome?' },
+  { ar: 'شنو أصعب جزء بهالموضوع؟', en: 'What was the hardest part of that?' },
+];
+
+/**
+ * متابعة أعمق حسب نوع السؤال (evaluates). كل intent عدّة صيغ قصيرة بجملة واحدة تُدوّر
+ * بحسب رقم المتابعة، فلا يتكرّر السؤال حرفياً ولا يكون مركّباً/غامضاً.
+ */
+export const FOLLOW_UP_BY_INTENT: Record<string, FollowUpPair[]> = {
+  problem_solving: [
+    { ar: 'ليش اخترت هالحل بالذات؟', en: 'Why did you choose that solution?' },
+    { ar: 'شنو كانت النتيجة بعد ما طبّقته؟', en: 'What was the result after you applied it?' },
+    { ar: 'لو ترجع للموقف، شنو تغيّر؟', en: 'If you went back, what would you change?' },
+  ],
+  communication: [
+    { ar: 'شلون كان رد فعل الطرف الثاني؟', en: 'How did the other person react?' },
+    { ar: 'شلون تأكدت إن فكرتك وصلت صح؟', en: 'How did you confirm your point landed?' },
+  ],
+  decision_making: [
+    { ar: 'شنو الخيارات الثانية اللي فكّرت بيها؟', en: 'What other options did you weigh?' },
+    { ar: 'على شنو اعتمدت بهالقرار؟', en: 'What did you base that decision on?' },
+  ],
+  teamwork: [
+    { ar: 'شنو كان دورك إنت بالضبط بالفريق؟', en: 'What was your exact role on the team?' },
+    { ar: 'شلون تعاملت وية عضو مو متعاون؟', en: 'How did you handle an uncooperative teammate?' },
+  ],
+  ownership: [
+    { ar: 'شنو الشي اللي تحمّلت مسؤوليته لحدك؟', en: 'What did you own end to end?' },
+    { ar: 'شنو طلع من الشي اللي تحمّلته؟', en: 'What came out of what you owned?' },
+  ],
+  learning: [
+    { ar: 'وين طبّقت اللي تعلمته بعدين؟', en: 'Where did you apply what you learned?' },
+    { ar: 'شنو أول شي غيّرته بطريقة شغلك بعدها؟', en: 'What did you change in how you work after?' },
+  ],
+  clarity: [
+    { ar: 'تنطيني مثال محدد يوضّح هالنقطة؟', en: 'Can you give a concrete example of that?' },
+    { ar: 'شنو صار بالضبط بهالموقف؟', en: 'What exactly happened there?' },
+  ],
+  motivation: [
+    { ar: 'شنو اللي خلاك تختار هالمجال بالذات؟', en: 'What drew you to this field specifically?' },
+    { ar: 'شنو أكثر شي يشدّك بهالشغل؟', en: 'What pulls you most about this work?' },
+  ],
+  role_fit: [
+    { ar: 'شلون خبرتك تخدم هالدور بالضبط؟', en: 'How does your experience fit this role exactly?' },
+    { ar: 'شنو أقرب مهمة سويتها تشبه شغل هالوظيفة؟', en: 'What task of yours most resembles this job?' },
+  ],
+  adaptability: [
+    { ar: 'شلون تصرّفت لمّا تغيّرت الخطة فجأة؟', en: 'How did you react when the plan changed suddenly?' },
+    { ar: 'شنو أصعب تغيير مريت بيه وشلون تأقلمت؟', en: 'What was the hardest change and how did you adapt?' },
+  ],
+  conflict: [
+    { ar: 'شلون حليت خلاف صار بينك وبين زميل؟', en: 'How did you resolve a conflict with a colleague?' },
+    { ar: 'شنو موقف اختلفت بيه وية مديرك وشلون تعاملت؟', en: 'When did you disagree with your manager, and how?' },
+  ],
 };
 
 /** يطابق مفاتيح evaluates في interviewConfig مع مفاتيح المتابعة */
 const FOLLOW_UP_INTENT_ALIASES: Record<string, string> = {
   learning_agility: 'learning',
   collaboration: 'teamwork',
+  result: 'ownership',
+  impact: 'ownership',
+  initiative: 'ownership',
+  adaptation: 'adaptability',
 };
 
 /**
- * يرجع زوج (عربي/إنجليزي) للمتابعة: حسب أول `evaluates` يطابق FOLLOW_UP_BY_INTENT،
- * وإلا المتابعة العامة (موقف/تفصيل).
+ * يرجع زوج (عربي/إنجليزي) للمتابعة مع تدوير عبر rotation (عادةً عدد المتابعات
+ * المستخدمة): إزاحة في قائمة evaluates كي لا يفوز نفس الـ intent دائماً، واختيار صيغة
+ * مختلفة داخل الـ intent — فلا يتكرّر السؤال. عند غياب المطابقة تُستخدم العامة المدوّرة.
  */
 export function getFollowUpPromptPair(
-  selectedQuestion: { evaluates?: string[] } | null | undefined
-): { ar: string; en: string } {
+  selectedQuestion: { evaluates?: string[] } | null | undefined,
+  rotation = 0
+): FollowUpPair {
+  const rot = Math.max(0, Math.floor(rotation));
   const list = selectedQuestion?.evaluates;
   if (list?.length) {
-    for (const raw of list) {
+    for (let i = 0; i < list.length; i++) {
+      const raw = list[(i + rot) % list.length];
       const key = FOLLOW_UP_INTENT_ALIASES[raw] ?? raw;
-      const row = FOLLOW_UP_BY_INTENT[key];
-      if (row) return row;
+      const variants = FOLLOW_UP_BY_INTENT[key];
+      if (variants?.length) return variants[rot % variants.length];
     }
   }
-  return FOLLOW_UP_PROMPTS[1];
+  return FOLLOW_UP_GENERIC[rot % FOLLOW_UP_GENERIC.length];
 }
 
 /**

@@ -355,6 +355,8 @@ export interface LLMContext {
     candidateLastAnswer?: string;
     /** المتابعة: واحدة فقط لكل سؤال رئيسي */
     followUpNext?: 1;
+    /** رقم التدوير للمتابعة (عادةً عدد المتابعات المستخدمة) — لتنويع صيغة المتابعة */
+    followUpRotation?: number;
     /** طلب إنجليزي مبكر — النظام يضخ جملة إلحاح ثابتة والموديل يخرج السؤال فقط */
     nextQuestionOnly?: boolean;
     /** إن true: رد «من أنت؟» يكون سطر التعريف فقط (لا متابعة) — مثلاً بعد انتهاء وقت المقابلة */
@@ -437,17 +439,17 @@ function createSystemPrompt(context: LLMContext): string {
 
     // وضع المتابعة: متابعة واحدة — صيغتها حسب نوع السؤال (evaluates) عند الوجود
     if (context.followUpNext === 1) {
-        const pair = getFollowUpPromptPair(context.selectedQuestion);
+        const pair = getFollowUpPromptPair(context.selectedQuestion, context.followUpRotation ?? 0);
         const langRule = englishLock
             ? ENGLISH_LOCK_RULE
             : preferArabic
             ? 'Respond in Iraqi Arabic. Use natural dialect.'
             : 'Respond in English.';
         const ex = preferArabic ? pair.ar : pair.en;
-        return `You are EVAALO. The candidate mentioned a challenge/situation. Ask ONE short deeper probe in the same spirit as the example (same intent: solution path, other party reaction, alternatives, team role, reflection, or how they applied learning).
+        return `You are EVAALO. Ask ONE short probe that digs into the candidate's last answer, in the same spirit as the example.
 ${langRule}
 Example: "${ex}"
-Keep it natural, about 24–40 words. One question only. Do NOT announce "follow-up" — just ask.`;
+Rules: exactly ONE question, ONE clause, at most 18 words. Ask for a concrete example, a specific action, or a measurable result. No compound or two-part questions, no "and". Do NOT announce "follow-up" — just ask.`;
     }
 
     // وضع التوضيح: المرشح طلب توضيح — وضّح السؤال وأعد طرحه
@@ -919,7 +921,7 @@ function buildUserContent(transcript: string, context: LLMContext, phaseReminder
         return `Candidate said: ${transcript}\n\nThey asked for clarification. Rephrase the same question in simpler words only. No apology. No "sorry for confusion" or Arabic equivalents. No "أقصد" preface. Output only the clearer question.`;
     }
     if (context.followUpNext) {
-        const pair = getFollowUpPromptPair(context.selectedQuestion);
+        const pair = getFollowUpPromptPair(context.selectedQuestion, context.followUpRotation ?? 0);
         const hint = /[\u0600-\u06FF]/.test(transcript) ? pair.ar : pair.en;
         return `Candidate said: ${transcript}\n\nAsk the single allowed follow-up (same intent as this probe): ${hint}`;
     }

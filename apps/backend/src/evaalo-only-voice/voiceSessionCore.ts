@@ -926,6 +926,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
               extractedTopics: extractTopicsFromAnswer(cleaned),
               candidateLastAnswer: cleaned,
               followUpNext,
+              followUpRotation: interviewState?.totalFollowUps ?? 0,
               timeEndedForInterview: timeEndedSent,
               sessionLanguage: interviewLanguage,
             }),
@@ -956,6 +957,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
                 extractedTopics: extractTopicsFromAnswer(cleaned),
                 candidateLastAnswer: cleaned,
                 followUpNext,
+                followUpRotation: interviewState?.totalFollowUps ?? 0,
                 timeEndedForInterview: timeEndedSent,
                 sessionLanguage: interviewLanguage,
               }),
@@ -998,7 +1000,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           const fallback = clarificationRequested && lastAssistantMessage
             ? lastAssistantMessage
             : followUpNext
-              ? (!forceEnglish && candidateLastLang === 'ar' ? getFollowUpPromptPair(selectedQuestion).ar : getFollowUpPromptPair(selectedQuestion).en)
+              ? ((fp) => (!forceEnglish && candidateLastLang === 'ar' ? fp.ar : fp.en))(getFollowUpPromptPair(selectedQuestion, interviewState?.totalFollowUps ?? 0))
               : selectedQuestion?.topic
                 ? topicFallback(selectedQuestion.topic)
                 : selectedQuestion?.availableTopics?.length
