@@ -82,3 +82,26 @@ export function getVoiceResponseTiming(): {
     lateTranscriptIgnoreMs: n(process.env.VOICE_LATE_TRANSCRIPT_IGNORE_MS, 300, 0),
   };
 }
+
+/**
+ * نافذة إنهاء الدور: النافذة الأقصر (علامة ترقيم) تُطبَّق **فقط** حين يكون الذيل نهائياً
+ * (partial مُثبَّت) وينتهي بترقيم. ترقيم الجزئيات غير موثوق — Speechmatics يضيف "." وسط
+ * الجملة — وتطبيق النافذة الأقصر عليه كان يقطع المستخدم وسط الكلام.
+ */
+export function resolveTurnSilenceMs(opts: {
+  tailIsFinal: boolean;
+  endsWithPunctuation: boolean;
+  punctuationMs: number;
+  defaultMs: number;
+}): number {
+  return opts.tailIsFinal && opts.endsWithPunctuation ? opts.punctuationMs : opts.defaultMs;
+}
+
+/**
+ * مهلة سماح تُمنح **مرّة واحدة**: إن انطلق مؤقّت الصمت والذيل ما زال جزئياً غير مثبّت،
+ * ننتظر قليلاً لينزل النهائي المتأخّر من Speechmatics (حتى ~1.35s) قبل إرسال الدور —
+ * يمنع بتر آخر كلمة/حرف. مرّة واحدة فقط كي لا يتأخّر الرد بلا حدّ.
+ */
+export function shouldGraceForPendingTail(hasPendingPartial: boolean, alreadyGraced: boolean): boolean {
+  return hasPendingPartial && !alreadyGraced;
+}

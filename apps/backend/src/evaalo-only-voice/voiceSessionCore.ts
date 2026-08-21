@@ -8,7 +8,7 @@ import { getControllerOutput } from "./interviewController.js";
 import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer } from "./questionEngine.js";
 import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
-import { getVoiceResponseTiming, getVoiceVadSettings } from "./voiceTimingEnv.js";
+import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceForPendingTail } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection } from "../services/sttRouterService.js";
 import { getLLMResponse, getTimeEndedClosingMessage, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, polishVoiceArabicReply, type InterviewPhase } from "../services/llmService.js";
@@ -98,6 +98,8 @@ type SpeechBuffer = {
   /** آخر نتيجة جزئية: ذيل لم يُثبَّت بعد. تُستبدل مع كل جزئية وتُمسح عند وصول نهائية */
   partial?: string;
   timeout?: NodeJS.Timeout;
+  /** هل مُنحت مهلة السماح للذيل غير المثبّت في هذه السكتة؟ (مرّة واحدة لكل سكتة) */
+  graced?: boolean;
 };
 const speechBuffers = new Map<string, SpeechBuffer>();
 
@@ -429,6 +431,8 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   const vad = getVoiceVadSettings();
   const USER_STOPPED_SPEAKING_MS = voiceTiming.userStoppedSpeakingMs;
   const USER_STOPPED_WITH_PUNCTUATION_MS = voiceTiming.userStoppedPunctuationMs;
+  // مهلة سماح تُمنَح مرّة واحدة لينزل النهائي المتأخّر قبل إرسال الدور (يمنع بتر الذيل).
+  const FINAL_GRACE_MS = Number(process.env.VOICE_FINAL_GRACE_MS) || 400;
   const MIN_CHARS = 10;
   const MIN_CONFIDENCE = 0.6; // 3) فلترة: if (confidence < 0.6) ignore (عند توفره من STT)
 
@@ -453,6 +457,19 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     bumpSttPurgeToken(sessionId);
     lastSentBySession.set(sessionId, { text: completeSentence, time: Date.now() });
     runPipeline(completeSentence);
+  };
+
+  // انطلق مؤقّت الصمت: إن كان الذيل جزئياً غير مثبّت، نمهله مرّة واحدة قصيرة لينزل
+  // النهائي المتأخّر من Speechmatics قبل الإرسال — يمنع بتر آخر كلمة/حرف.
+  const onSilenceElapsed = () => {
+    const buffer = speechBuffers.get(sessionId);
+    if (!buffer) return;
+    if (shouldGraceForPendingTail(buffer.partial !== undefined, buffer.graced === true)) {
+      buffer.graced = true;
+      buffer.timeout = setTimeout(onSilenceElapsed, FINAL_GRACE_MS);
+      return;
+    }
+    sendCompleteSentence();
   };
 
   // عند أي transcript (partial أو final): انتظار توقف المستخدم عن الكلام قبل الإرسال للـ LLM
@@ -494,13 +511,19 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
 
     // الجزئيات تعيد ضبط مؤقت الصمت أيضاً — فهي دليل أن المرشح ما زال يتكلم
     if (buffer.timeout) clearTimeout(buffer.timeout);
+    // حدث جديد وصل: نُتيح مهلة سماح جديدة عند التوقف القادم
+    buffer.graced = false;
 
     const completeSentence = bufferedSentence(buffer);
-    // مع علامة ترقيم (. ? ! ؟): صمت أقصر. بدونها: صمت أطول لتجنب القطع وسط الجملة
-    const silenceMs = endsWithSemanticEnd(completeSentence)
-      ? USER_STOPPED_WITH_PUNCTUATION_MS
-      : USER_STOPPED_SPEAKING_MS;
-    buffer.timeout = setTimeout(() => sendCompleteSentence(), silenceMs);
+    // النافذة الأقصر (علامة ترقيم) تُطبَّق فقط حين يكون الذيل نهائياً (partial=undefined)
+    // وينتهي بترقيم — ترقيم الجزئيات غير موثوق وكان يقصّر النافذة فيقطع وسط الكلام.
+    const silenceMs = resolveTurnSilenceMs({
+      tailIsFinal: buffer.partial === undefined,
+      endsWithPunctuation: endsWithSemanticEnd(completeSentence),
+      punctuationMs: USER_STOPPED_WITH_PUNCTUATION_MS,
+      defaultMs: USER_STOPPED_SPEAKING_MS,
+    });
+    buffer.timeout = setTimeout(onSilenceElapsed, silenceMs);
   };
 
   /** TTS + محاذاة كلمات + انتظار playback_ended + استئناف الاستماع — مشترك بين المقابلة ووضع اختبار الصوت */
