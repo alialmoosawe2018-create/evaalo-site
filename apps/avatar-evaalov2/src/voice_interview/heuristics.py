@@ -495,6 +495,64 @@ def is_semantic_duplicate_question(
     return False
 
 
+# Conservative HR / recruiting topic map. Each topic lists DISTINCTIVE keywords
+# (normalized, no diacritics). A question is tagged with a topic only when it
+# clearly matches — outside these topics the classifier returns None so other
+# job domains are never wrongly deduped. This catches paraphrased repeats whose
+# wording differs but subject is identical (e.g. "أهداف متعارضة" vs "أولويات
+# متنافسة") which pure lexical overlap misses.
+_TOPIC_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "prioritization": ("اولويات", "أولويات", "متعارضة", "متعارضه", "متنافسة", "متنافسه", "عدم اليقين"),
+    "data_evidence": ("بيانات", "ادلة", "أدلة", "توصيات", "تحليل", "مؤشرات", "قياس النجاح"),
+    "negotiation": ("تفاوض", "راتب", "مرتب", "مزايا", "تعويضات", "العرض الوظيفي"),
+    "sourcing": ("قنوات الاستقطاب", "استقطاب", "linkedin", "تليجرام", "تيليجرام", "مصادر التوظيف"),
+    "requirements": ("متطلبات الدور", "المواصفات", "المؤهلات", "احتياجات الدور", "وصف الوظيفة"),
+    "screening": ("فلترة", "فرز", "المعايير", "سكرين", "سي في", "cv", "تقييم المرشح"),
+    "candidate_experience": ("تجربة المرشح", "تجربة المرشحين", "الفيدباك", "feedback", "ملاحظات المرشح"),
+    "confidentiality": ("سرية", "سريه", "معلومات حساسة", "حماية المعلومات", "خصوصية"),
+}
+
+
+def classify_interview_topic(text: str) -> str | None:
+    """Best-effort single topic for an HR/recruiting question, else None.
+
+    Returns a topic only on a clear, unambiguous match (a strict winner by
+    keyword hits); ties or no hits return None so we never over-merge distinct
+    questions or touch non-HR domains.
+    """
+    norm = normalize_text(text)
+    if not norm:
+        return None
+    best: str | None = None
+    best_hits = 0
+    tie = False
+    for topic, kws in _TOPIC_KEYWORDS.items():
+        hits = sum(1 for kw in kws if normalize_text(kw) in norm)
+        if hits > best_hits:
+            best, best_hits, tie = topic, hits, False
+        elif hits == best_hits and hits > 0:
+            tie = True
+    if best_hits == 0 or tie:
+        return None
+    return best
+
+
+def is_topic_repeat(text: str, recent: list[str]) -> bool:
+    """True if ``text`` maps to the same HR topic as any recent question.
+
+    Catches paraphrased repeats that share subject but not wording. Returns
+    False when the topic is unclassifiable (None), so it only fires on clear
+    same-topic repeats inside the HR/recruiting domain.
+    """
+    topic = classify_interview_topic(text)
+    if topic is None:
+        return False
+    for r in recent or []:
+        if classify_interview_topic(r) == topic:
+            return True
+    return False
+
+
 _CLARIFY_CHALLENGE_PATTERNS_AR = (
     "ما لها علاقة",
     "ما له علاقة",

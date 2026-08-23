@@ -92,6 +92,7 @@ from voice_interview.experience_tracks import (
 from voice_interview.heuristics import (
     analyze_user_answer,
     is_semantic_duplicate_question,
+    is_topic_repeat,
     normalize_text,
     strip_topic_change_phrases,
 )
@@ -1315,10 +1316,10 @@ class InterviewAssistant(Agent):
         # Duplicate check applies to turns that ask a NEW question (ask / topic
         # resume / guidance). Clarify restates the active question and follow-up
         # deepens it, so both are meant to echo it — never dedup those.
-        is_dup = mode not in (
-            MODE_CLARIFY,
-            MODE_FOLLOW_UP,
-        ) and is_semantic_duplicate_question(text, recent)
+        is_dup = mode not in (MODE_CLARIFY, MODE_FOLLOW_UP) and (
+            is_semantic_duplicate_question(text, recent)
+            or is_topic_repeat(text, recent)  # paraphrased same-topic repeat
+        )
         if not (is_dup or is_hybrid):
             return text
         anchor = self._pick_next_bank_anchor(recent)
@@ -1805,10 +1806,13 @@ class InterviewAssistant(Agent):
             bank_id = make_bank_question_id(pack, key[:80])
             if bank_id in mem.closed_question_ids or bank_id in mem.sent_question_guard:
                 continue
-            # Skip a bank question that is topically a near-duplicate of a recent
-            # one — the bank clusters several questions per topic, so the plain
-            # unused-key check alone still surfaced repeats.
-            if recent and is_semantic_duplicate_question(q, recent):
+            # Skip a bank question that is a near-duplicate of a recent one —
+            # lexically OR by HR topic — since the bank clusters several
+            # questions per topic, so the plain unused-key check alone still
+            # surfaced repeats.
+            if recent and (
+                is_semantic_duplicate_question(q, recent) or is_topic_repeat(q, recent)
+            ):
                 continue
             mem.bank_cursor = i
             return collapse_to_single_question(q.strip())

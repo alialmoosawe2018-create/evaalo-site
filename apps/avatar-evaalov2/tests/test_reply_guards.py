@@ -19,7 +19,11 @@ from voice_interview.active_question import (
     enforce_single_question_response,
 )
 from voice_interview.assistant import InterviewAssistant, TtsRouteContext
-from voice_interview.heuristics import is_semantic_duplicate_question
+from voice_interview.heuristics import (
+    classify_interview_topic,
+    is_semantic_duplicate_question,
+    is_topic_repeat,
+)
 from voice_interview.lang import contains_hybrid_latin_arabic_token
 
 
@@ -151,3 +155,40 @@ def test_guard_keeps_followup_even_if_similar_to_recent():
     # A follow-up intentionally echoes the active question — must NOT be replaced.
     out = agent._guard_repetition_and_language(active)
     assert out == active
+
+
+# --- topic-level dedup: catches paraphrased repeats (different words, same topic)
+def test_topic_classifier_prioritization_paraphrases():
+    # AGENT6 vs AGENT16 in the real transcript — different wording, same topic.
+    assert (
+        classify_interview_topic("شلون تقرر شنو الأولويات لما تكون الأهداف متعارضة؟")
+        == "prioritization"
+    )
+    assert (
+        classify_interview_topic("شلون تتعامل مع حالات عدم اليقين أو أولويات متنافسة؟")
+        == "prioritization"
+    )
+
+
+def test_topic_classifier_none_for_unrelated_or_generic():
+    assert classify_interview_topic("احچيلي عن نفسك بشكل مختصر؟") is None
+    assert classify_interview_topic("شلون كان يومك؟") is None
+
+
+def test_topic_repeat_catches_paraphrase_but_not_new_topic():
+    prev = ["شلون تقرر شنو الأولويات لما تكون الأهداف متعارضة؟"]
+    assert is_topic_repeat("شلون تتعامل مع عدم اليقين أو أولويات متنافسة؟", prev) is True
+    assert is_topic_repeat("شنو قنوات الاستقطاب اللي تعتمد عليها؟", prev) is False
+
+
+def test_guard_replaces_paraphrased_topic_repeat_with_fresh_anchor():
+    fresh = "شنو قنوات الاستقطاب اللي تعتمد عليها بالتوظيف؟"  # sourcing topic
+    agent = _assistant([fresh])
+    agent._memory.asked_questions.append(
+        "شلون تقرر شنو الأولويات لما تكون الأهداف متعارضة؟"  # prioritization
+    )
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_RESUME)
+    paraphrase = "شلون تتعامل مع عدم اليقين أو أولويات متنافسة بالعمل؟"  # same topic, new words
+    out = agent._guard_repetition_and_language(paraphrase)
+    assert out != paraphrase  # paraphrased same-topic repeat was replaced
+    assert "قنوات الاستقطاب" in out  # with the fresh, different-topic anchor
