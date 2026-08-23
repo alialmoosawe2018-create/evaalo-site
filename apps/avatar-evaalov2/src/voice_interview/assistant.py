@@ -1307,18 +1307,26 @@ class InterviewAssistant(Agent):
         the active question. No-op when no fresh bank anchor is available.
         """
         mode = self._turn_plan.response_mode if self._turn_plan else MODE_ASK
-        if mode != MODE_ASK:
+        # Wait/acknowledge carry no question to guard.
+        if mode in (MODE_WAIT, MODE_ACKNOWLEDGE):
             return text
-        recent = self._memory.asked_questions[-4:]
-        is_dup = is_semantic_duplicate_question(text, recent)
+        recent = self._memory.asked_questions[-12:]
         is_hybrid = contains_hybrid_latin_arabic_token(text)
+        # Duplicate check applies to turns that ask a NEW question (ask / topic
+        # resume / guidance). Clarify restates the active question and follow-up
+        # deepens it, so both are meant to echo it — never dedup those.
+        is_dup = mode not in (
+            MODE_CLARIFY,
+            MODE_FOLLOW_UP,
+        ) and is_semantic_duplicate_question(text, recent)
         if not (is_dup or is_hybrid):
             return text
-        anchor = self._pick_next_bank_anchor()
+        anchor = self._pick_next_bank_anchor(recent)
         if not anchor:
             return text
         logger.info(
-            "[reply-guard] replaced ASK (dup=%s hybrid=%s) with fresh bank anchor",
+            "[reply-guard] replaced %s (dup=%s hybrid=%s) with fresh bank anchor",
+            mode,
             is_dup,
             is_hybrid,
         )
@@ -1786,7 +1794,7 @@ class InterviewAssistant(Agent):
         out["speech_hooks"] = speech_hooks
         return out
 
-    def _pick_next_bank_anchor(self) -> str | None:
+    def _pick_next_bank_anchor(self, recent: list[str] | None = None) -> str | None:
         mem = self._memory
         used = mem.asked_question_keys
         pack = self._domain_pack_key or "default"
@@ -1796,6 +1804,11 @@ class InterviewAssistant(Agent):
                 continue
             bank_id = make_bank_question_id(pack, key[:80])
             if bank_id in mem.closed_question_ids or bank_id in mem.sent_question_guard:
+                continue
+            # Skip a bank question that is topically a near-duplicate of a recent
+            # one — the bank clusters several questions per topic, so the plain
+            # unused-key check alone still surfaced repeats.
+            if recent and is_semantic_duplicate_question(q, recent):
                 continue
             mem.bank_cursor = i
             return collapse_to_single_question(q.strip())
