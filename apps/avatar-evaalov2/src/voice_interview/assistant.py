@@ -164,6 +164,19 @@ def _max_consecutive_waits() -> int:
     return max(1, min(5, n))
 
 
+def _wrap_up_min_questions() -> int:
+    """Min questions already asked before the guard may offer a wrap-up instead
+    of repeating when no fresh question is left."""
+    raw = (os.getenv("INTERVIEW_WRAP_UP_MIN_QUESTIONS") or "").strip()
+    if not raw:
+        return 10
+    try:
+        n = int(raw)
+    except ValueError:
+        return 10
+    return max(3, n)
+
+
 def _unsure_pivot_threshold() -> int:
     raw = (os.getenv("HEURISTIC_UNSURE_PIVOT_THRESHOLD") or "").strip()
     if not raw:
@@ -193,6 +206,9 @@ class InterviewMemory:
     asked_topics: set[str] = field(default_factory=set)
     asked_questions: list[str] = field(default_factory=list)
     asked_question_keys: set[str] = field(default_factory=set)
+    # True once the guard has offered a wrap-up because no fresh question was
+    # left — prevents dredging up (and repeating) already-covered questions.
+    wrap_up_offered: bool = False
     bank_cursor: int = 0
     last_action: str = ""
     consecutive_unsure: int = 0
@@ -389,9 +405,11 @@ Opening rule: Start with a short greeting. Use candidate context (name, role) yo
 
 _INTERVIEW_CLOSING_INSTRUCTIONS = """Closing rule (ending the interview):
 - When you have covered the interview's questions/topics and there is genuinely nothing useful left to ask, conclude the interview yourself.
+- NEVER re-ask a question you already asked, even reworded or on the same subject with different words. If you have no genuinely NEW question left, do not recycle an old one — conclude instead.
+- If the candidate repeatedly asks to skip or change questions AND you have already covered the main areas, do not keep dredging up more questions — offer a brief wrap-up and conclude.
 - To conclude: say ONE short closing turn — thank the candidate for their time, tell them the HR team will review their answers and follow up with the next steps — then call the `end_interview` tool in the SAME turn.
 - Always speak the closing sentence BEFORE calling the tool, so the candidate hears it.
-- Do NOT call `end_interview` early: not while topics remain, not just because an answer was short, and not if the candidate still has questions. If the candidate asks something at the end, answer briefly first.
+- Do NOT call `end_interview` early: not while genuinely new topics remain, not just because an answer was short, and not if the candidate still has questions. If the candidate asks something at the end, answer briefly first.
 - Never mention the tool or that you are "closing the connection"; just deliver a natural human closing."""
 
 
@@ -1323,15 +1341,27 @@ class InterviewAssistant(Agent):
         if not (is_dup or is_hybrid):
             return text
         anchor = self._pick_next_bank_anchor(recent)
-        if not anchor:
-            return text
-        logger.info(
-            "[reply-guard] replaced %s (dup=%s hybrid=%s) with fresh bank anchor",
-            mode,
-            is_dup,
-            is_hybrid,
-        )
-        return enforce_single_question_response(anchor, self._turn_plan)
+        if anchor:
+            logger.info(
+                "[reply-guard] replaced %s (dup=%s hybrid=%s) with fresh bank anchor",
+                mode,
+                is_dup,
+                is_hybrid,
+            )
+            return enforce_single_question_response(anchor, self._turn_plan)
+        # No fresh question is left, so a replacement would just recycle a covered
+        # one. Offer a single graceful wrap-up instead of repeating; the LLM can
+        # then conclude via end_interview. Only once, and only late enough that we
+        # have genuinely covered ground.
+        mem = self._memory
+        if not mem.wrap_up_offered and len(mem.asked_questions) >= _wrap_up_min_questions():
+            mem.wrap_up_offered = True
+            logger.info("[reply-guard] no fresh anchor for %s; offering wrap-up", mode)
+            return (
+                "شكراً على وقتك وإجاباتك. أعتقد غطّينا المحاور الأساسية — "
+                "أكو شي تحب تضيفه قبل ما نختم المقابلة؟"
+            )
+        return text
 
     def _update_experience_track(self, text: str) -> None:
         mem = self._memory

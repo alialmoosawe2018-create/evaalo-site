@@ -192,3 +192,34 @@ def test_guard_replaces_paraphrased_topic_repeat_with_fresh_anchor():
     out = agent._guard_repetition_and_language(paraphrase)
     assert out != paraphrase  # paraphrased same-topic repeat was replaced
     assert "قنوات الاستقطاب" in out  # with the fresh, different-topic anchor
+
+
+# --- bank exhausted: wrap up instead of repeating -----------------------------
+def test_guard_offers_wrapup_when_no_fresh_anchor_left():
+    agent = _assistant([])  # empty bank → no fresh anchor available
+    dup = "شنو قنوات الاستقطاب اللي تعتمد عليها بالتوظيف؟"
+    agent._memory.asked_questions.extend([f"سؤال سابق رقم {i}؟" for i in range(9)] + [dup])
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_RESUME)
+    out = agent._guard_repetition_and_language(dup)
+    assert "نختم" in out  # a graceful wrap-up, not the repeat
+    assert agent._memory.wrap_up_offered is True
+
+
+def test_guard_wrapup_only_once_then_last_resort():
+    agent = _assistant([])
+    dup = "شنو قنوات الاستقطاب اللي تعتمد عليها بالتوظيف؟"
+    agent._memory.asked_questions.extend([f"سؤال سابق رقم {i}؟" for i in range(9)] + [dup])
+    agent._memory.wrap_up_offered = True  # already wrapped up
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_RESUME)
+    out = agent._guard_repetition_and_language(dup)
+    assert out == dup  # no second wrap-up; last-resort keeps the text
+
+
+def test_guard_no_wrapup_too_early():
+    agent = _assistant([])
+    dup = "شنو قنوات الاستقطاب اللي تعتمد عليها بالتوظيف؟"
+    agent._memory.asked_questions.append(dup)  # only one question so far
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_RESUME)
+    out = agent._guard_repetition_and_language(dup)
+    assert out == dup  # too early to wrap up
+    assert agent._memory.wrap_up_offered is False
