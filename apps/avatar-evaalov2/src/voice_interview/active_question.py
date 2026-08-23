@@ -159,6 +159,20 @@ def enforce_single_question_response(text: str, plan: TurnPlan | None) -> str:
     if n <= 1 and not _MULTI_Q_CONNECTOR_RE.search(raw):
         return raw
 
+    # Multiple questions: keep exactly ONE, but preserve any leading context
+    # sentence so the question is not left bare/unclear. Returning only the bare
+    # planned question here made the agent ask terse, context-free questions that
+    # candidates kept answering with "شنو تقصدين؟". extract_primary_question keeps
+    # the text up to and including the first "؟" — i.e. the lead-in plus one
+    # question — and still drops any trailing extra questions.
+    if mode in (MODE_ASK, MODE_FOLLOW_UP):
+        first = extract_primary_question(raw)
+        if first and count_question_marks(first) == 1:
+            return first
+        if planned and count_question_marks(planned) <= 1:
+            return planned
+        return first or raw
+
     if planned and count_question_marks(planned) <= 1:
         if mode == MODE_CLARIFY:
             return _brief_ack_before_question(raw, planned)

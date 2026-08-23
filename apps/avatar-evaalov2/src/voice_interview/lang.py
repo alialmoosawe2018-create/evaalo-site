@@ -63,6 +63,25 @@ def _count_letters(text: str) -> tuple[int, int, int]:
     return ar, lat, ar + lat
 
 
+# Arabic *letters* only (exclude Arabic punctuation like ؟ ، ؛ and Arabic-Indic
+# digits, which live in the same 0600–06FF block and would false-positive on
+# "Excel؟").
+_AR_LETTER = r"[ء-يٱ-ۓ]"
+_HYBRID_TOKEN_RE = re.compile(rf"[A-Za-z]{_AR_LETTER}|{_AR_LETTER}[A-Za-z]")
+
+
+def contains_hybrid_latin_arabic_token(text: str) -> bool:
+    """True if any token glues Latin and Arabic letters with no separator
+    (e.g. "motivatesك") — a generation artifact, not a real loanword.
+
+    Legitimate loanwords are space-separated ("عندي HR", "أستخدم Excel") and
+    never match; only letters glued directly across scripts trigger it.
+    """
+    if not text:
+        return False
+    return bool(_HYBRID_TOKEN_RE.search(text))
+
+
 def detect_lang_from_text(text: str) -> str | None:
     """Code-switching-aware dominant language classifier.
 

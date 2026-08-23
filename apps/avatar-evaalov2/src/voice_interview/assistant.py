@@ -91,10 +91,12 @@ from voice_interview.experience_tracks import (
 )
 from voice_interview.heuristics import (
     analyze_user_answer,
+    is_semantic_duplicate_question,
     normalize_text,
     strip_topic_change_phrases,
 )
 from voice_interview.lang import (
+    contains_hybrid_latin_arabic_token,
     detect_lang_from_text,
     detect_lang_reply_fallback,
     detect_language_switch_intent,
@@ -305,7 +307,7 @@ Your goal is to evaluate the candidate's experience, skills, and suitability for
 Personality:
 Professional, calm, and confident. Sound natural and human, not robotic. Be friendly but neutral. Do not joke, overpraise, or show strong opinions. Maintain interviewer authority while being respectful and supportive.
 
-Voice style (strict): Keep responses natural and easy to follow. Prefer two or three short sentences when a question needs context or clarity (especially in Arabic). Hard limit about ~80 words per turn. Sound conversational, not like reading a script. No lists, no preambles ("Thank you for sharing…"), no repeated thanks or sign-offs.
+Voice style (strict): Always lead with one short framing sentence that names the concrete subject you are asking about, THEN ask exactly one clear, concrete question — so the candidate never has to ask "شنو تقصدين؟" / "what do you mean?". Two or three short sentences is the norm in Arabic; a bare one-line or abstract question (e.g. "شلون تستخدم البيانات؟") is not acceptable — ground it in the candidate's own experience or a brief concrete example. If a question could be read more than one way, add a short example to disambiguate. Hard limit about ~90 words per turn. Sound conversational, not like reading a script. No lists, no preambles ("Thank you for sharing…"), no repeated thanks or sign-offs.
 
 Formatting: Each assistant turn must be exactly one paragraph—no line breaks, blank lines, or multiple paragraphs in a single reply.
 
@@ -336,6 +338,7 @@ Language (strict, sticky):
 Pronunciation guidance (TTS-aware):
 - When speaking Arabic, never spell out Latin acronyms or brand names letter-by-letter (e.g. avoid saying "إي في إيه إيه إل أو" for "Evaalo"). Instead either keep the original Latin spelling inline ("Evaalo", "HR", "LinkedIn") so the TTS reads it as a single natural word, or transliterate as one phonetic Arabic word ("إيفالو"). Pick the form that flows naturally in the sentence.
 - Do not insert spaces between letters of brand names. Do not split English words across phonemes.
+- Never attach an Arabic suffix to an English word, and never glue Latin and Arabic letters into one token (write «شنو يحمّسك» — NOT «شنو motivatesك»). If you need a verb or a common word, use the Arabic word; keep English only for standalone nouns, brand names, or acronyms.
 - Do not surround words with quotes, parentheses, or asterisks; spoken TTS reads them literally.
 - Numbers in Arabic answers: prefer spelling out small numbers in words ("ثلاث سنوات") rather than digits ("3 سنوات") to avoid TTS digit drift.
 - Acronyms with a known canonical pronunciation (NASA, IBM) may be spelled out as letters; otherwise pronounce as a single word.
@@ -1281,16 +1284,45 @@ class InterviewAssistant(Agent):
         )
         if result.safe:
             self._turn_cross_domain_guard = "pass"
-            return single
-        self._turn_cross_domain_guard = "blocked"
+            guarded = single
+        else:
+            self._turn_cross_domain_guard = "blocked"
+            logger.info(
+                "[cross-domain-guard] blocked pack=%s term=%s fallback_source=%s",
+                self._domain_pack_key or "n/a",
+                result.blocked_term or "?",
+                result.fallback_source or "n/a",
+            )
+            fallback = (result.fallback_text or single).strip()
+            guarded = enforce_single_question_response(fallback, self._turn_plan)
+        return self._guard_repetition_and_language(guarded)
+
+    def _guard_repetition_and_language(self, text: str) -> str:
+        """On a fresh ASK turn, block a question that is a near-duplicate of a
+        recent one or that carries a malformed hybrid Latin+Arabic token (e.g.
+        "motivatesك"): replace it with the next unused bank anchor so the agent
+        moves forward with a clean, new question instead of repeating/garbling.
+
+        Skipped for clarify/follow-up/wait/resume — those intentionally revisit
+        the active question. No-op when no fresh bank anchor is available.
+        """
+        mode = self._turn_plan.response_mode if self._turn_plan else MODE_ASK
+        if mode != MODE_ASK:
+            return text
+        recent = self._memory.asked_questions[-4:]
+        is_dup = is_semantic_duplicate_question(text, recent)
+        is_hybrid = contains_hybrid_latin_arabic_token(text)
+        if not (is_dup or is_hybrid):
+            return text
+        anchor = self._pick_next_bank_anchor()
+        if not anchor:
+            return text
         logger.info(
-            "[cross-domain-guard] blocked pack=%s term=%s fallback_source=%s",
-            self._domain_pack_key or "n/a",
-            result.blocked_term or "?",
-            result.fallback_source or "n/a",
+            "[reply-guard] replaced ASK (dup=%s hybrid=%s) with fresh bank anchor",
+            is_dup,
+            is_hybrid,
         )
-        fallback = (result.fallback_text or single).strip()
-        return enforce_single_question_response(fallback, self._turn_plan)
+        return enforce_single_question_response(anchor, self._turn_plan)
 
     def _update_experience_track(self, text: str) -> None:
         mem = self._memory

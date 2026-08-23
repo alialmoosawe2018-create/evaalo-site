@@ -442,6 +442,59 @@ def normalize_text(text: str) -> str:
     return s
 
 
+_QUESTION_FRAMING_STOPWORDS = frozenset(
+    {
+        # Arabic framing / dialect fillers — shared across most questions so they
+        # carry no topical signal.
+        "شنو", "شو", "شلون", "وشلون", "شكد", "وشكد", "كيف", "وكيف", "ليش", "وين",
+        "متى", "مين", "ماذا", "هل", "اللي", "الي", "عن", "من", "في", "على", "حتى",
+        "بين", "هسه", "هسة", "زين", "تمام", "جيد", "طيب", "حلو", "احچيلي", "احجيلي",
+        "تحچيلي", "تحجيلي", "حچيلي", "تگدر", "تكدر", "تقدر", "ممكن", "اذكرلي", "خذ",
+        "راحتك", "هذا", "هذه", "يوضح", "مثال", "عملي", "بسيط", "اي", "انت", "عندك",
+        "وياك", "لما", "لو",
+        # English framing
+        "what", "how", "why", "when", "where", "which", "who", "tell", "about",
+        "me", "your", "you", "can", "could", "would", "the", "an", "of", "in",
+        "on", "to", "and", "do", "give", "share", "please", "example",
+    }
+)
+
+
+def _content_tokens(text: str) -> list[str]:
+    return [
+        t
+        for t in normalize_text(text).split()
+        if len(t) >= 2 and t not in _QUESTION_FRAMING_STOPWORDS
+    ]
+
+
+def is_semantic_duplicate_question(
+    text: str, recent: list[str], threshold: float = 0.72
+) -> bool:
+    """True if ``text`` is verbatim or a near-duplicate of any recent question.
+
+    Compares topical content tokens (framing/dialect fillers dropped) so that
+    "شلون تقرر الأولويات..." vs the same line with a "؟", or a question that is a
+    subset of a longer earlier one, both count as repeats. The exact-match loop
+    guard in InterviewMemory missed these because raw normalized keys differ.
+    """
+    a = set(_content_tokens(text))
+    if len(a) < 2:
+        return False
+    for r in recent or []:
+        b = set(_content_tokens(r))
+        if len(b) < 2:
+            continue
+        overlap = len(a & b)
+        if overlap < 2:
+            continue
+        if overlap / max(len(a), len(b)) >= threshold:
+            return True
+        if overlap / min(len(a), len(b)) >= 0.8:  # short question fully inside a longer one
+            return True
+    return False
+
+
 _CLARIFY_CHALLENGE_PATTERNS_AR = (
     "ما لها علاقة",
     "ما له علاقة",
