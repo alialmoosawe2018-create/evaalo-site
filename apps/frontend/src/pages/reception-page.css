@@ -568,6 +568,31 @@ body.rtl-text[lang='ku'] .reception-page {
     animation: reception-card-enter 0.35s ease both;
 }
 
+.reception-page__audio-blocked {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fbbf24;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.reception-page__btn--audio-resume {
+    padding: 8px 18px;
+    font-size: 13px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #1c1917;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+}
+
 .reception-page__actions {
     display: flex;
     justify-content: center;
