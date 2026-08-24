@@ -38,254 +38,121 @@ function base64ToArrayBuffer(base64) {
     return bytes.buffer;
 }
 
-/**
- * Shared <audio> for the whole reception session.
- * iOS Safari grants playback per element, only inside a user gesture — a fresh
- * element per agent turn plays the greeting then stays muted while transcripts continue.
- */
-function createAgentAudioElement() {
+/** Fallback player for iOS/Safari without MediaSource: يجمّع مقاطع MP3 ويشغّلها كـ Blob عند اكتمال الرد */
+function createBlobAudioPlayer(onError, onPlaybackEnded) {
+    const chunks = [];
     const audio = document.createElement('audio');
     audio.setAttribute('playsinline', '');
-    audio.preload = 'auto';
-    if ('disableRemotePlayback' in audio) audio.disableRemotePlayback = true;
     document.body.appendChild(audio);
-    return audio;
-}
-
-function createSilentWavUrl() {
-    const sampleRate = 8000;
-    const samples = 400;
-    const buffer = new ArrayBuffer(44 + samples * 2);
-    const view = new DataView(buffer);
-    const ascii = (offset, text) => {
-        for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
-    };
-    ascii(0, 'RIFF');
-    view.setUint32(4, 36 + samples * 2, true);
-    ascii(8, 'WAVE');
-    ascii(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    ascii(36, 'data');
-    view.setUint32(40, samples * 2, true);
-    return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
-}
-
-function startPlayback(audio, onBlocked, onError) {
-    let promise;
-    try {
-        promise = audio.play();
-    } catch (e) {
-        onBlocked?.(e);
-        return;
-    }
-    if (!promise?.catch) return;
-    promise.catch((err) => {
-        if (err?.name === 'AbortError') return;
-        if (err?.name === 'NotAllowedError') onBlocked?.(err);
-        else onError?.(err?.message || 'Audio playback failed');
-    });
-}
-
-/** Detach a turn's source without discarding the unlocked element. */
-function releaseAudioElement(audio) {
-    try {
-        audio.pause();
-    } catch (_) {}
-    try {
-        audio.removeAttribute('src');
-        audio.load();
-    } catch (_) {}
-}
-
-/** Fallback player: buffers MP3 and plays one Blob on the shared element. */
-function createBlobAudioPlayer(audio, { onError, onPlaybackEnded, onBlocked }) {
-    const chunks = [];
-    const listeners = [];
-    const on = (type, fn) => {
-        audio.addEventListener(type, fn);
-        listeners.push([type, fn]);
-    };
     let url = null;
     let done = false;
+    const cleanup = () => {
+        try { audio.pause(); audio.remove(); } catch (_) {}
+        if (url) { try { URL.revokeObjectURL(url); } catch (_) {} url = null; }
+    };
     const finish = () => {
         if (done) return;
         done = true;
         onPlaybackEnded?.();
+        cleanup();
     };
-    on('ended', finish);
-    on('error', () => {
-        onError?.('Audio playback failed');
-        finish();
-    });
+    audio.addEventListener('ended', finish);
+    audio.addEventListener('error', () => { onError?.('Audio playback failed'); finish(); });
     return {
-        appendChunk(buf) {
-            chunks.push(buf);
-        },
-        endStream() {
-            if (chunks.length === 0) {
-                finish();
-                return;
-            }
-            url = URL.createObjectURL(new Blob(chunks, { type: 'audio/mpeg' }));
+        appendChunk: (chunk) => { chunks.push(chunk); },
+        endStream: () => {
+            if (chunks.length === 0) { finish(); return; }
+            const blob = new Blob(chunks, { type: 'audio/mpeg' });
+            url = URL.createObjectURL(blob);
             audio.src = url;
-            startPlayback(audio, onBlocked, onError);
+            audio.play().catch(() => {});
         },
-        retry() {
-            startPlayback(audio, onBlocked, onError);
-        },
-        getAudioElement() {
-            return audio;
-        },
-        destroy() {
-            listeners.forEach(([type, fn]) => {
-                try {
-                    audio.removeEventListener(type, fn);
-                } catch (_) {}
-            });
-            releaseAudioElement(audio);
-            if (url) {
-                try {
-                    URL.revokeObjectURL(url);
-                } catch (_) {}
-                url = null;
-            }
-        },
+        destroy: cleanup,
+        getAudioElement: () => audio,
     };
 }
 
-/** MediaSource streaming player on a shared unlocked <audio> element. */
-function createStreamingAudioPlayer(audio, handlers) {
-    const { onError, onPlaybackEnded, onBlocked } = handlers;
+/** MediaSource streaming player */
+function createMediaSourcePlayer(onError, onPlaybackEnded) {
+    // iOS 17.1+ يوفر ManagedMediaSource بدل MediaSource؛ الأقدم لا يوفر أياً منهما
     const MSE = window.MediaSource || window.ManagedMediaSource;
-    if (
-        !MSE ||
-        (typeof MSE.isTypeSupported === 'function' &&
-            !MSE.isTypeSupported('audio/mpeg') &&
-            !MSE.isTypeSupported('audio/mp4'))
-    ) {
-        return createBlobAudioPlayer(audio, handlers);
+    if (!MSE || (typeof MSE.isTypeSupported === 'function' && !MSE.isTypeSupported('audio/mpeg'))) {
+        return createBlobAudioPlayer(onError, onPlaybackEnded);
     }
     const mediaSource = new MSE();
+    const audio = document.createElement('audio');
+    audio.autoplay = true;
+    audio.setAttribute('playsinline', '');
+    if ('disableRemotePlayback' in audio) audio.disableRemotePlayback = true;
+    document.body.appendChild(audio);
     const url = URL.createObjectURL(mediaSource);
-    const listeners = [];
-    const on = (target, type, fn) => {
-        target.addEventListener(type, fn);
-        listeners.push([target, type, fn]);
-    };
+    audio.src = url;
 
-    let finished = false;
-    const finish = () => {
-        if (finished) return;
-        finished = true;
+    audio.addEventListener('ended', () => {
         onPlaybackEnded?.();
-    };
-
-    on(audio, 'ended', finish);
-    on(audio, 'pause', () => {
-        if (finished || audio.ended || !audio.src) return;
-        onBlocked?.(new Error('paused'));
+        audio.remove();
+        URL.revokeObjectURL(url);
     });
 
     const chunkQueue = [];
     let isAppending = false;
     let sourceBuffer = null;
     let noMoreChunks = false;
-    let hasStartedPlay = false;
 
-    function tryEndStream() {
-        if (noMoreChunks && chunkQueue.length === 0 && sourceBuffer && !sourceBuffer.updating) {
-            try {
-                mediaSource.endOfStream();
-            } catch (_) {}
-        }
-    }
-
-    function appendNext() {
-        if (isAppending || !sourceBuffer) return;
-        if (chunkQueue.length === 0) {
-            tryEndStream();
-            return;
-        }
+    const appendNext = () => {
+        if (isAppending || !sourceBuffer || chunkQueue.length === 0) return;
+        if (sourceBuffer.updating) return;
+        isAppending = true;
         const chunk = chunkQueue.shift();
-        if (!chunk || chunk.byteLength === 0) {
-            appendNext();
-            return;
-        }
         try {
-            isAppending = true;
             sourceBuffer.appendBuffer(chunk);
-        } catch (e) {
-            onError?.(e?.message || 'appendBuffer failed');
+        } catch (err) {
             isAppending = false;
-            appendNext();
+            onError?.(err?.message || 'Source buffer error');
         }
-    }
+    };
 
-    on(mediaSource, 'sourceopen', () => {
-        if (sourceBuffer) return;
+    mediaSource.addEventListener('sourceopen', () => {
         try {
-            if (MSE.isTypeSupported('audio/mpeg')) {
-                sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
-            } else if (MSE.isTypeSupported('audio/mp4')) {
-                sourceBuffer = mediaSource.addSourceBuffer('audio/mp4');
-            } else {
-                onError?.('MP3/MP4 not supported in MediaSource');
-                return;
-            }
-            sourceBuffer.mode = 'sequence';
+            sourceBuffer = mediaSource.addSourceBuffer('audio/mpeg');
             sourceBuffer.addEventListener('updateend', () => {
                 isAppending = false;
-                if (!hasStartedPlay) {
-                    hasStartedPlay = true;
-                    startPlayback(audio, onBlocked, onError);
-                }
                 appendNext();
+                if (noMoreChunks && chunkQueue.length === 0 && !sourceBuffer.updating) {
+                    try {
+                        if (mediaSource.readyState === 'open') mediaSource.endOfStream();
+                    } catch (_) {}
+                }
             });
             appendNext();
-        } catch (e) {
-            onError?.(e?.message || 'addSourceBuffer failed');
+        } catch (err) {
+            onError?.(err?.message || 'MediaSource error');
         }
     });
 
-    audio.src = url;
-
     return {
-        appendChunk(buf) {
-            if (noMoreChunks) return;
-            chunkQueue.push(buf);
+        appendChunk: (chunk) => {
+            chunkQueue.push(chunk);
             appendNext();
         },
-        endStream() {
+        endStream: () => {
             noMoreChunks = true;
-            tryEndStream();
-            appendNext();
-        },
-        retry() {
-            startPlayback(audio, onBlocked, onError);
-        },
-        getAudioElement() {
-            return audio;
-        },
-        destroy() {
-            listeners.forEach(([target, type, fn]) => {
+            if (chunkQueue.length === 0 && sourceBuffer && !sourceBuffer.updating) {
                 try {
-                    target.removeEventListener(type, fn);
+                    if (mediaSource.readyState === 'open') mediaSource.endOfStream();
                 } catch (_) {}
-            });
+            }
+        },
+        destroy: () => {
             try {
-                if (mediaSource.readyState === 'open') mediaSource.endOfStream();
+                audio.pause();
+                audio.remove();
             } catch (_) {}
-            releaseAudioElement(audio);
             try {
                 URL.revokeObjectURL(url);
             } catch (_) {}
         },
+        getAudioElement: () => audio,
     };
 }
 
@@ -341,8 +208,6 @@ const Reception = () => {
     const [streamingAgentReply, setStreamingAgentReply] = useState('');
     const [userAudioLevel, setUserAudioLevel] = useState(0);
     const [agentAudioLevel, setAgentAudioLevel] = useState(0);
-    /** Playback refused or interrupted — user must tap to resume (mobile autoplay). */
-    const [audioBlocked, setAudioBlocked] = useState(false);
 
     const accumulatedTranscriptRef = useRef('');
     const mediaStreamRef = useRef(null);
@@ -354,85 +219,19 @@ const Reception = () => {
     serverStateRef.current = serverState;
     const audioSeqRef = useRef(0);
     const mediaSourcePlayerRef = useRef(null);
-    const activePlayerRef = useRef(null);
-    const agentAudioElRef = useRef(null);
-    const silentUnlockUrlRef = useRef(null);
     const audioChunkBufferRef = useRef([]);
     const lastChunkTimeRef = useRef(0);
     const playbackEndedSentRef = useRef(false);
     const playbackEndedFallbackRef = useRef(null);
     const agentAlignmentWordsRef = useRef([]);
 
-    const ensureAgentAudioElement = useCallback(() => {
-        if (!agentAudioElRef.current?.isConnected) {
-            agentAudioElRef.current = createAgentAudioElement();
-        }
-        return agentAudioElRef.current;
-    }, []);
-
-    /** Must run inside the Start tap so iOS grants playback for the whole session. */
-    const unlockAgentAudio = useCallback(() => {
-        const audio = ensureAgentAudioElement();
-        if (silentUnlockUrlRef.current) {
-            try {
-                URL.revokeObjectURL(silentUnlockUrlRef.current);
-            } catch (_) {}
-        }
-        silentUnlockUrlRef.current = createSilentWavUrl();
-        audio.src = silentUnlockUrlRef.current;
-        startPlayback(audio, () => setAudioBlocked(true), () => {});
-    }, [ensureAgentAudioElement]);
-
-    const resumeAudio = useCallback(() => {
-        const audio = agentAudioElRef.current;
-        if (!audio) return;
-        setAudioBlocked(false);
-        const player = mediaSourcePlayerRef.current;
-        if (player?.retry) {
-            player.retry();
-        } else if (audio.src) {
-            startPlayback(audio, () => setAudioBlocked(true), () => setAudioBlocked(true));
-        } else {
-            unlockAgentAudio();
-        }
-    }, [unlockAgentAudio]);
-
-    /** Attach Web Audio analyser once to the shared element (createMediaElementSource is one-shot). */
-    const ensureAgentAnalyser = useCallback((audioEl) => {
-        if (agentAnalyserRef.current || !audioEl) return;
-        try {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            const agentCtx = new AC();
-            agentCtx.resume?.().catch(() => {});
-            if (agentCtx.state !== 'running') {
-                agentCtx.close?.().catch(() => {});
-                return;
-            }
-            const agentSrc = agentCtx.createMediaElementSource(audioEl);
-            const agentAnalyser = agentCtx.createAnalyser();
-            agentAnalyser.fftSize = 256;
-            agentAnalyser.smoothingTimeConstant = 0.8;
-            agentSrc.connect(agentAnalyser);
-            agentAnalyser.connect(agentCtx.destination);
-            agentAnalyserRef.current = { ctx: agentCtx, analyser: agentAnalyser };
-        } catch (_) {}
-    }, []);
-
-    const destroyActivePlayer = useCallback(() => {
-        if (activePlayerRef.current) {
-            try {
-                activePlayerRef.current.destroy();
-            } catch (_) {}
-            activePlayerRef.current = null;
-        }
-        mediaSourcePlayerRef.current = null;
-    }, []);
-
-    /** Mic + shared audio — عند إنهاء الجلسة أو قطع الـ WS. */
+    /** Mic + MediaSource audio — عند إنهاء الجلسة أو قطع الـ WS (تفادي عناصر <audio> على body وحالات UI غريبة بعد الإغلاق). */
     const releaseSessionMedia = useCallback(() => {
         setIsListening(false);
-        setAudioBlocked(false);
-        destroyActivePlayer();
+        if (mediaSourcePlayerRef.current) {
+            mediaSourcePlayerRef.current.destroy();
+            mediaSourcePlayerRef.current = null;
+        }
         audioChunkBufferRef.current = [];
         if (playbackEndedFallbackRef.current) {
             clearTimeout(playbackEndedFallbackRef.current);
@@ -442,19 +241,7 @@ const Reception = () => {
             agentAnalyserRef.current?.ctx?.close?.();
         } catch (_) {}
         agentAnalyserRef.current = null;
-        if (agentAudioElRef.current) {
-            try {
-                agentAudioElRef.current.remove();
-            } catch (_) {}
-            agentAudioElRef.current = null;
-        }
-        if (silentUnlockUrlRef.current) {
-            try {
-                URL.revokeObjectURL(silentUnlockUrlRef.current);
-            } catch (_) {}
-            silentUnlockUrlRef.current = null;
-        }
-    }, [destroyActivePlayer]);
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -621,28 +408,13 @@ const Reception = () => {
     const connectReception = () => {
         if (wsRef.current?.readyState === WebSocket.OPEN) return;
         releaseSessionMedia();
-        // Synchronous unlock inside the Start gesture (required for later agent turns on mobile).
-        unlockAgentAudio();
         setConnectionStatus('connecting');
         setLastError(null);
-        setAudioBlocked(false);
         const params = new URLSearchParams();
         params.set('language', receptionApiLang);
         const url = `${WS_BASE}${VOICE_WS_PATH}?${params}`;
         const ws = new WebSocket(url);
         wsRef.current = ws;
-
-        const notifyPlaybackEnded = () => {
-            if (playbackEndedSentRef.current) return;
-            playbackEndedSentRef.current = true;
-            if (playbackEndedFallbackRef.current) {
-                clearTimeout(playbackEndedFallbackRef.current);
-                playbackEndedFallbackRef.current = null;
-            }
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: 'playback_ended' }));
-            }
-        };
 
         ws.onopen = () => {
             setConnectionStatus('connected');
@@ -663,7 +435,7 @@ const Reception = () => {
                     if (msg.state === 'LISTENING') {
                         accumulatedTranscriptRef.current = '';
                         setLastTranscript('');
-                        destroyActivePlayer();
+                        mediaSourcePlayerRef.current = null;
                         audioChunkBufferRef.current = [];
                         lastChunkTimeRef.current = 0;
                         playbackEndedSentRef.current = true;
@@ -679,7 +451,18 @@ const Reception = () => {
                         clearTimeout(playbackEndedFallbackRef.current);
                         playbackEndedFallbackRef.current = null;
                     }
-                    playbackEndedFallbackRef.current = setTimeout(notifyPlaybackEnded, 12000);
+                    const sendPlaybackEnded = () => {
+                        if (playbackEndedSentRef.current) return;
+                        playbackEndedSentRef.current = true;
+                        if (playbackEndedFallbackRef.current) {
+                            clearTimeout(playbackEndedFallbackRef.current);
+                            playbackEndedFallbackRef.current = null;
+                        }
+                        if (wsRef.current?.readyState === WebSocket.OPEN) {
+                            wsRef.current.send(JSON.stringify({ type: 'playback_ended' }));
+                        }
+                    };
+                    playbackEndedFallbackRef.current = setTimeout(sendPlaybackEnded, 12000);
                     if (mediaSourcePlayerRef.current) {
                         const SILENCE_MS = 250;
                         const check = () => {
@@ -693,18 +476,14 @@ const Reception = () => {
                     } else if (audioChunkBufferRef.current.length > 0) {
                         const chunks = audioChunkBufferRef.current;
                         audioChunkBufferRef.current = [];
-                        const audioEl = ensureAgentAudioElement();
-                        const blobUrl = URL.createObjectURL(new Blob(chunks, { type: 'audio/mpeg' }));
-                        audioEl.src = blobUrl;
-                        audioEl.onended = () => {
-                            URL.revokeObjectURL(blobUrl);
-                            notifyPlaybackEnded();
+                        const blob = new Blob(chunks, { type: 'audio/mpeg' });
+                        const url = URL.createObjectURL(blob);
+                        const fallbackAudio = new Audio(url);
+                        fallbackAudio.onended = () => {
+                            URL.revokeObjectURL(url);
+                            sendPlaybackEnded();
                         };
-                        startPlayback(
-                            audioEl,
-                            () => setAudioBlocked(true),
-                            (err) => setLastError(err || 'Audio playback error'),
-                        );
+                        fallbackAudio.play().catch(() => {});
                     }
                 }
                 if (msg.type === 'error') setLastError(msg.message || 'Error');
@@ -725,18 +504,47 @@ const Reception = () => {
                     lastChunkTimeRef.current = Date.now();
                     const buf = new Uint8Array(base64ToArrayBuffer(msg.chunkBase64));
                     if (!mediaSourcePlayerRef.current) {
-                        const audioEl = ensureAgentAudioElement();
-                        audioEl.onended = null;
-                        destroyActivePlayer();
-                        const player = createStreamingAudioPlayer(audioEl, {
-                            onError: (err) => setLastError(err || 'Audio playback error'),
-                            onPlaybackEnded: notifyPlaybackEnded,
-                            onBlocked: () => setAudioBlocked(true),
-                        });
+                        const player = createMediaSourcePlayer(
+                            (err) => {
+                                setLastError(err || 'Audio playback error');
+                                mediaSourcePlayerRef.current = null;
+                            },
+                            () => {
+                                if (playbackEndedSentRef.current) return;
+                                playbackEndedSentRef.current = true;
+                                if (playbackEndedFallbackRef.current) {
+                                    clearTimeout(playbackEndedFallbackRef.current);
+                                    playbackEndedFallbackRef.current = null;
+                                }
+                                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                                    wsRef.current.send(JSON.stringify({ type: 'playback_ended' }));
+                                }
+                            }
+                        );
                         mediaSourcePlayerRef.current = player;
-                        activePlayerRef.current = player;
-                        ensureAgentAnalyser(audioEl);
-                        if (audioChunkBufferRef.current.length > 0) {
+                        if (player?.getAudioElement) {
+                            try {
+                                const audioEl = player.getAudioElement();
+                                const AC = window.AudioContext || window.webkitAudioContext;
+                                const agentCtx = new AC();
+                                agentCtx.resume?.().catch(() => {});
+                                // Mobile: only reroute the element through Web Audio for
+                                // the visualizer when the context is running; a suspended
+                                // context would trap the output and silence the agent.
+                                if (agentCtx.state === 'running') {
+                                    const agentSrc = agentCtx.createMediaElementSource(audioEl);
+                                    const agentAnalyser = agentCtx.createAnalyser();
+                                    agentAnalyser.fftSize = 256;
+                                    agentAnalyser.smoothingTimeConstant = 0.8;
+                                    agentSrc.connect(agentAnalyser);
+                                    agentAnalyser.connect(agentCtx.destination);
+                                    agentAnalyserRef.current = { ctx: agentCtx, analyser: agentAnalyser };
+                                } else {
+                                    agentCtx.close?.().catch(() => {});
+                                }
+                            } catch (_) {}
+                        }
+                        if (player && audioChunkBufferRef.current.length > 0) {
                             audioChunkBufferRef.current.forEach((b) => player.appendChunk(b));
                             audioChunkBufferRef.current = [];
                         }
@@ -913,19 +721,6 @@ const Reception = () => {
 
                 {/* Error */}
                 {lastError && <div className="reception-page__error">{lastError}</div>}
-
-                {audioBlocked && (
-                    <div className="reception-page__audio-blocked" role="status">
-                        <span>{t('reception_audioBlocked')}</span>
-                        <button
-                            type="button"
-                            className="reception-page__btn reception-page__btn--audio-resume"
-                            onClick={resumeAudio}
-                        >
-                            {t('reception_audioBlockedAction')}
-                        </button>
-                    </div>
-                )}
 
                 <div className="reception-page__actions">
                     {!isConnected ? (
