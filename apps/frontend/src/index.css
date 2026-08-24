@@ -15984,6 +15984,57 @@ button:focus {
     color: #94a3b8;
 }
 
+.legal-page-shell--agent .pricing-plans__audience-toggle {
+    display: flex;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 28px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.14);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    gap: 2px;
+}
+
+.legal-page-shell--agent .pricing-plans__audience-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 9px 22px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition:
+        background 0.18s ease,
+        color 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.legal-page-shell--agent .pricing-plans__audience-btn--active {
+    background: #f8fafc;
+    color: #0f172a;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.18);
+}
+
+.legal-page-shell--agent .pricing-plans__audience-btn:focus-visible {
+    outline: 2px solid rgba(56, 189, 248, 0.7);
+    outline-offset: 2px;
+}
+
+.legal-page-shell--agent .pricing-card__feature--split {
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.legal-page-shell--agent .pricing-card__feature-main {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+}
+
 .legal-page-shell--agent .pricing-usage-costs {
     margin-bottom: 28px;
     overflow: visible;
@@ -16127,6 +16178,37 @@ button:focus {
     gap: 14px;
     align-items: stretch;
     overflow: visible;
+}
+
+/* Must follow .pricing-plans__grid — same specificity otherwise left the card in column 1. */
+.legal-page-shell--agent .pricing-plans__grid.pricing-plans__grid--enterprise {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    width: 100%;
+    grid-template-columns: none;
+}
+
+.legal-page-shell--agent .pricing-plans__grid.pricing-plans__grid--enterprise .pricing-card {
+    width: 100%;
+    max-width: 520px;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    grid-template-rows: none;
+    grid-row: auto;
+}
+
+/* Match CTA footprint of the 4-column plan cards (not full enterprise width). */
+.legal-page-shell--agent .pricing-card--enterprise .pricing-card__footer {
+    display: flex;
+    justify-content: center;
+}
+
+.legal-page-shell--agent .pricing-card--enterprise .pricing-card__cta {
+    width: 100%;
+    max-width: 220px;
+    margin-inline: auto;
 }
 
 .legal-page-shell--agent .pricing-card {
@@ -16287,6 +16369,20 @@ button:focus {
     letter-spacing: -0.01em;
     color: #34d399;
     white-space: nowrap;
+}
+
+/* Same green as monthly credits — must follow credits-value. */
+.legal-page-shell--agent .pricing-card__credits-value.pricing-card__credits-value--unlimited,
+.legal-page-shell--agent .pricing-card__feature-limit {
+    flex-shrink: 0;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #34d399;
+    white-space: nowrap;
+}
+
+.legal-page-shell--agent .pricing-card__feature-limit {
+    font-size: 0.78rem;
 }
 
 .legal-page-shell--agent .pricing-card__credits-word {
@@ -16794,6 +16890,11 @@ button:focus {
         gap: 16px;
     }
 
+    .legal-page-shell--agent .pricing-plans__grid.pricing-plans__grid--enterprise {
+        display: flex;
+        grid-template-columns: none;
+    }
+
     .legal-page-shell--agent .pricing-card {
         grid-row: span 5;
     }
@@ -16803,6 +16904,11 @@ button:focus {
     .legal-page-shell--agent .pricing-plans__grid {
         grid-template-columns: 1fr;
         gap: 14px;
+    }
+
+    .legal-page-shell--agent .pricing-plans__grid.pricing-plans__grid--enterprise {
+        display: flex;
+        grid-template-columns: none;
     }
 
     .legal-page-shell--agent .pricing-card {

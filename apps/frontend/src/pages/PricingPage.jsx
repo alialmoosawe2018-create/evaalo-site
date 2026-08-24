@@ -5,10 +5,18 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useBilling } from '../contexts/BillingContext';
 import { PRICING_FAQ_ITEMS } from '../config/pricingFaq';
-import { getPriceDisplay, getPlanById, listUsageCreditCosts } from '../utils/billingDisplay';
+import {
+    getPriceDisplay,
+    getPlanById,
+    listUsageCreditCosts,
+    listFeaturesForPlan,
+    buildPricingFeatureRows,
+} from '../utils/billingDisplay';
 import PlanCardContents from '../components/PlanCardContents';
 import { apiClient } from '../services/apiClient';
 import { navigateFromCheckoutResponse } from '../utils/billingCheckout';
+
+const ENTERPRISE_SALES_EMAIL = 'team@evaalo.com';
 
 const PRICING_TIERS = [
     {
@@ -41,6 +49,126 @@ const PRICING_TIERS = [
         to: '/signup',
     },
 ];
+
+function CheckIcon() {
+    return (
+        <svg
+            className="pricing-card__feature-icon"
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            aria-hidden="true"
+        >
+            <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+    );
+}
+
+/** Enterprise card: Starter features (video instead of default voice) + custom extras. */
+function EnterprisePlanCardContents({ t }) {
+    const features = [
+        ...listFeaturesForPlan('starter').map((feature) =>
+            feature === 'voice.default' ? 'interviews.video' : feature,
+        ),
+        'integrations.custom',
+        'voice.identity.customization',
+        'avatar.branding',
+    ];
+    const labelOverrides = {
+        'integrations.custom': t('pricing_enterprise_feature_integrations'),
+        'voice.identity.customization': t('pricing_enterprise_feature_voice'),
+        'avatar.branding': t('pricing_enterprise_feature_avatar'),
+    };
+    const noUnlimitedKeys = new Set([
+        'integrations.custom',
+        'voice.identity.customization',
+        'avatar.branding',
+    ]);
+    const featureRows = buildPricingFeatureRows('enterprise', features, 0, t).map((row) => ({
+        ...row,
+        label: labelOverrides[row.key] || row.label,
+        showUnlimited: !noUnlimitedKeys.has(row.key),
+    }));
+    const unlimitedLabel = t('pricing_unlimited');
+
+    return (
+        <>
+            <div className="pricing-card__credits" dir="ltr">
+                <div className="pricing-card__credits-row">
+                    <span className="pricing-card__credits-value pricing-card__credits-value--unlimited">
+                        {unlimitedLabel}
+                    </span>
+                    <span className="pricing-card__credits-word">{t('pricing_credits_word')}</span>
+                </div>
+            </div>
+            <div className="pricing-card__promo" dir="auto" />
+            <div className="pricing-card__body">
+                <ul className="pricing-card__features">
+                    {featureRows.map((row) => (
+                        <li key={row.key} className="pricing-card__feature pricing-card__feature--split">
+                            <span className="pricing-card__feature-main">
+                                <CheckIcon />
+                                <span>{row.label}</span>
+                            </span>
+                            {row.showUnlimited ? (
+                                <span className="pricing-card__feature-limit" dir="auto">
+                                    {unlimitedLabel}
+                                </span>
+                            ) : null}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </>
+    );
+}
+
+function PricingAudienceToggle({ audience, onChange, t }) {
+    return (
+        <div
+            className="pricing-plans__audience-toggle"
+            role="tablist"
+            aria-label={t('navPricing')}
+        >
+            <button
+                type="button"
+                role="tab"
+                aria-selected={audience === 'plans'}
+                className={`pricing-plans__audience-btn${
+                    audience === 'plans' ? ' pricing-plans__audience-btn--active' : ''
+                }`}
+                onClick={() => onChange('plans')}
+            >
+                {t('pricing_tab_plans')}
+            </button>
+            <button
+                type="button"
+                role="tab"
+                aria-selected={audience === 'enterprise'}
+                className={`pricing-plans__audience-btn${
+                    audience === 'enterprise' ? ' pricing-plans__audience-btn--active' : ''
+                }`}
+                onClick={() => onChange('enterprise')}
+            >
+                {t('pricing_tab_enterprise')}
+            </button>
+        </div>
+    );
+}
+
+function EnterpriseContactCta({ t }) {
+    const href = `mailto:${ENTERPRISE_SALES_EMAIL}?subject=${encodeURIComponent(
+        'Enterprise plan inquiry',
+    )}`;
+    return (
+        <a href={href} className="pricing-card__cta">
+            {t('pricing_cta_contact')}
+        </a>
+    );
+}
 
 function PricingPlanCta({ tier, featured, t }) {
     const { isAuthenticated } = useAuth();
@@ -322,8 +450,10 @@ function PricingFaq({ t }) {
 
 export default function PricingPage() {
     const { t } = useLanguage();
+    const [audience, setAudience] = useState('plans');
 
     const tiers = useMemo(() => PRICING_TIERS, []);
+    const showEnterprise = audience === 'enterprise';
 
     useEffect(() => {
         const previous = document.title;
@@ -337,33 +467,56 @@ export default function PricingPage() {
         <LegalPageShell title={t('navPricing')} variant="agent">
             <div className="pricing-plans">
                 <PricingUsageCostsBar t={t} />
-                <div className="pricing-plans__grid">
-                    {tiers.map((tier) => (
-                        <article
-                            key={tier.id}
-                            className={`pricing-card${tier.featured ? ' pricing-card--featured' : ''}`}
-                        >
+                <PricingAudienceToggle audience={audience} onChange={setAudience} t={t} />
+                {showEnterprise ? (
+                    <div className="pricing-plans__grid pricing-plans__grid--enterprise">
+                        <article className="pricing-card pricing-card--featured pricing-card--enterprise">
                             <div className="pricing-card__header">
-                                {tier.featured ? (
-                                    <span className="pricing-card__badge">{t('billing_badge_popular')}</span>
-                                ) : null}
-                                <h2 className="pricing-card__name">{t(tier.nameKey)}</h2>
+                                <h2 className="pricing-card__name">
+                                    {t('billing_plan_enterprise_name')}
+                                </h2>
                                 <p className="pricing-card__tagline">
-                                    {t(getPlanById(tier.planId)?.displayDescKey ?? '')}
+                                    {t('pricing_tagline_enterprise')}
                                 </p>
-                                <PricingPrice tier={tier} t={t} />
+                                <PricingPrice tier={{ priceKind: 'custom' }} t={t} />
                             </div>
-                            <PlanCardContents planId={tier.planId} t={t} />
+                            <EnterprisePlanCardContents t={t} />
                             <div className="pricing-card__footer">
-                                <PricingPlanCta
-                                    tier={tier}
-                                    featured={tier.featured}
-                                    t={t}
-                                />
+                                <EnterpriseContactCta t={t} />
                             </div>
                         </article>
-                    ))}
-                </div>
+                    </div>
+                ) : (
+                    <div className="pricing-plans__grid">
+                        {tiers.map((tier) => (
+                            <article
+                                key={tier.id}
+                                className={`pricing-card${tier.featured ? ' pricing-card--featured' : ''}`}
+                            >
+                                <div className="pricing-card__header">
+                                    {tier.featured ? (
+                                        <span className="pricing-card__badge">
+                                            {t('billing_badge_popular')}
+                                        </span>
+                                    ) : null}
+                                    <h2 className="pricing-card__name">{t(tier.nameKey)}</h2>
+                                    <p className="pricing-card__tagline">
+                                        {t(getPlanById(tier.planId)?.displayDescKey ?? '')}
+                                    </p>
+                                    <PricingPrice tier={tier} t={t} />
+                                </div>
+                                <PlanCardContents planId={tier.planId} t={t} />
+                                <div className="pricing-card__footer">
+                                    <PricingPlanCta
+                                        tier={tier}
+                                        featured={tier.featured}
+                                        t={t}
+                                    />
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                )}
                 <PricingFaq t={t} />
             </div>
         </LegalPageShell>
