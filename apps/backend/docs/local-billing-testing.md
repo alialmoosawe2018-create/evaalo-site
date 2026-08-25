@@ -38,9 +38,9 @@ cd apps/backend
 npm run stripe:listen
 ```
 
-This runs `stripe listen --forward-to localhost:5000/webhook/stripe` using `STRIPE_SECRET_KEY` from `.env` and writes the `whsec_...` signing secret back into `.env`. **Restart the backend** after the secret is written.
+This runs `stripe listen --forward-to localhost:5000/webhook/stripe` using `STRIPE_SECRET_KEY` from `.env` and writes the `whsec_...` signing secret back into `.env`. **Restart the backend** after the secret is written — it reads `.env` only at boot.
 
-**Or from the monorepo root** (backend + frontend + Stripe listener):
+**Or from the monorepo root** — no restart needed, because the listener waits for the signing secret before it starts the servers:
 
 ```bash
 npm run dev:billing
@@ -126,7 +126,7 @@ npx tsx src/scripts/verify-billing-phase2b.ts
 | `billing_checkout_failed` | Missing `STRIPE_PRICE_*` for plan/cycle; check boot warnings |
 | Portal 500 | Stale subscription schedule — use checkout recovery flow |
 | Wrong plan shown | Old `org_default` data — use `dev_org_*` or re-seed |
-| Webhook not applied | Run `npm run stripe:listen`; restart backend after `whsec` is written; success page also calls `/checkout/complete` |
+| Webhook not applied | Use `npm run dev:billing` (secret lands before boot); with a bare `stripe:listen`, restart the backend after `whsec` is written; success page also calls `/checkout/complete` |
 | Checkout forbidden | Need OWNER + `billing.write` (auto in dev org isolation) |
 | Video pack wrong price | Create $20 one-time Price in Stripe Dashboard; update env vars |
 

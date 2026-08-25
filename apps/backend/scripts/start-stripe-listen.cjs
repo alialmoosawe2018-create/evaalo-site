@@ -8,9 +8,12 @@
  * Uses STRIPE_SECRET_KEY from .env so the CLI account matches the backend.
  *
  * Usage (from apps/backend):
- *   npm run stripe:listen
+ *   npm run stripe:listen              — forwarding only; restart the backend yourself
+ *   npm run stripe:listen -- --with-dev — waits for whsec, then starts backend + frontend
  *
- * Restart the backend after the whsec line is written (tsx watch may not reload .env).
+ * --with-dev exists because the backend reads .env once at boot: starting it in
+ * parallel with the CLI leaves it holding the previous session's secret, so every
+ * webhook fails signature verification until a manual restart.
  */
 
 const { spawn } = require('child_process');
@@ -18,9 +21,13 @@ const fs = require('fs');
 const path = require('path');
 
 const backendDir = path.resolve(__dirname, '..');
+const repoRoot = path.resolve(backendDir, '..', '..');
 const envPath = path.join(backendDir, '.env');
 const port = process.env.PORT || '5000';
 const forwardTarget = `localhost:${port}/webhook/stripe`;
+const withDev = process.argv.includes('--with-dev');
+/** Never leave the developer waiting on a CLI line that may not arrive. */
+const SECRET_WAIT_MS = 20000;
 
 function readEnvValue(key) {
     if (!fs.existsSync(envPath)) return null;
@@ -45,7 +52,9 @@ function writeWebhookSecret(whsec) {
     }
     fs.writeFileSync(envPath, content, 'utf8');
     console.log(`\n✅ Wrote STRIPE_WEBHOOK_SECRET to .env`);
-    console.log('   Restart the backend if it was already running (env is read at boot).\n');
+    if (!withDev) {
+        console.log('   Restart the backend if it was already running (env is read at boot).\n');
+    }
 }
 
 const apiKey = readEnvValue('STRIPE_SECRET_KEY');
@@ -67,6 +76,26 @@ const child = spawn('stripe', args, {
 });
 
 let secretWritten = false;
+let devChild = null;
+let secretWaitTimer = null;
+
+/**
+ * Starts the dev servers only once the signing secret is on disk, and passes it
+ * through explicitly: dotenv keeps an already-set variable, so the child agrees
+ * with the CLI even if the .env write lost a race.
+ */
+function startDevServers(secret) {
+    if (devChild) return;
+    const env = secret ? { ...process.env, STRIPE_WEBHOOK_SECRET: secret } : process.env;
+    devChild = spawn(
+        'npx concurrently -n backend,frontend -c blue,green "npm run dev:backend" "npm run dev:frontend"',
+        { cwd: repoRoot, stdio: 'inherit', shell: true, env },
+    );
+    devChild.on('exit', (code) => {
+        try { child.kill('SIGINT'); } catch (_) {}
+        process.exit(code ?? 0);
+    });
+}
 
 function handleOutput(chunk) {
     const text = chunk.toString();
@@ -80,7 +109,24 @@ function handleOutput(chunk) {
         } catch (err) {
             console.error('❌ Failed to update .env:', err?.message || err);
         }
+        if (withDev) {
+            if (secretWaitTimer) {
+                clearTimeout(secretWaitTimer);
+                secretWaitTimer = null;
+            }
+            startDevServers(match[0]);
+        }
     }
+}
+
+if (withDev) {
+    secretWaitTimer = setTimeout(() => {
+        secretWaitTimer = null;
+        console.warn(
+            `\n⚠️  No whsec_ line after ${SECRET_WAIT_MS / 1000}s — starting the dev servers with the existing .env secret.\n`,
+        );
+        startDevServers(null);
+    }, SECRET_WAIT_MS);
 }
 
 child.stdout.on('data', handleOutput);
@@ -96,7 +142,18 @@ child.on('error', (err) => {
     process.exit(1);
 });
 
-child.on('exit', (code) => process.exit(code ?? 0));
+child.on('exit', (code) => {
+    if (devChild) {
+        try { devChild.kill('SIGINT'); } catch (_) {}
+    }
+    process.exit(code ?? 0);
+});
 
-process.on('SIGINT', () => child.kill('SIGINT'));
-process.on('SIGTERM', () => child.kill('SIGTERM'));
+const forward = (signal) => {
+    try { child.kill(signal); } catch (_) {}
+    if (devChild) {
+        try { devChild.kill(signal); } catch (_) {}
+    }
+};
+process.on('SIGINT', () => forward('SIGINT'));
+process.on('SIGTERM', () => forward('SIGTERM'));
