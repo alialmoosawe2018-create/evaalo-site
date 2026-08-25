@@ -58,6 +58,8 @@ export function getVoiceResponseTiming(): {
    * أول كلمة يقولها المرشح.
    */
   lateTranscriptIgnoreMs: number;
+  /** يُضاف على نافذة الصمت حين ينتهي الدور بذيل غير مكتمل (حرف ربط أو كلمة مبتورة) */
+  incompleteTailExtraMs: number;
 } {
   const n = (v: string | undefined, def: number, min: number) => {
     const x = Number(v);
@@ -80,28 +82,85 @@ export function getVoiceResponseTiming(): {
     playbackFallbackMs: n(process.env.VOICE_PLAYBACK_FALLBACK_MS, 15000, 3000),
     postPlaybackResumeMs: n(process.env.VOICE_POST_PLAYBACK_RESUME_MS, 600, 0),
     lateTranscriptIgnoreMs: n(process.env.VOICE_LATE_TRANSCRIPT_IGNORE_MS, 300, 0),
+    incompleteTailExtraMs: n(process.env.VOICE_INCOMPLETE_TAIL_EXTRA_MS, 700, 0),
   };
 }
 
+/** أقل عدد كلمات يُسمح معه بالنافذة القصيرة — الردود الأقصر غالباً لم تكتمل بعد */
+export const MIN_WORDS_FOR_FAST_END = 4;
+
 /**
- * نافذة إنهاء الدور: النافذة الأقصر (علامة ترقيم) تُطبَّق **فقط** حين يكون الذيل نهائياً
- * (partial مُثبَّت) وينتهي بترقيم. ترقيم الجزئيات غير موثوق — Speechmatics يضيف "." وسط
- * الجملة — وتطبيق النافذة الأقصر عليه كان يقطع المستخدم وسط الكلام.
+ * أدوات ربط وجرّ وحشو: وجودها في آخر الدور يعني أن المتحدث لم يُكمل جملته، حتى لو
+ * ألحق الـ STT نقطة بعدها.
+ */
+const DANGLING_TAIL_TOKENS = new Set([
+  "و", "او", "أو", "ثم", "في", "من", "الى", "إلى", "على", "عن", "مع", "بين", "عند",
+  "لكن", "ولكن", "حتى", "لان", "لأن", "لانه", "لأنه", "اللي", "الي", "يعني", "انه",
+  "إنه", "اني", "إني", "ان", "أن", "ما", "مو", "بس", "كان", "چان", "هم", "هي", "هو",
+  "and", "or", "but", "so", "because", "with", "for", "to", "of", "in", "on", "at",
+  "the", "a", "an", "that", "which", "if", "when", "then", "my", "our", "their", "as",
+]);
+
+/** كلمات قصيرة قائمة بذاتها — لا تُعدّ مبتورة */
+const STANDALONE_SHORT_TOKENS = new Set(["لا", "اي", "no", "ok"]);
+
+const tailToken = (text: string): string => {
+  const stripped = text.trim().replace(/[.,!?؟،؛:]+$/u, "").trim();
+  if (!stripped) return "";
+  const words = stripped.split(/\s+/);
+  return (words[words.length - 1] || "").toLowerCase();
+};
+
+/**
+ * ذيل غير مكتمل: الدور ينتهي بحرف ربط أو بكلمة عربية مبتورة (حرف أو حرفان مثل «كم»
+ * وهي بداية «كأخصائي»). جلسة الإنتاج 788a5d4a قُطعت وسط الكلمة لهذا السبب، فالنقطة
+ * التي يضيفها Speechmatics بعد مثل هذه الذيول وهمية ولا تعني انتهاء الجملة.
+ */
+export function tailLooksIncomplete(text: string): boolean {
+  const last = tailToken(text);
+  if (!last) return false;
+  if (STANDALONE_SHORT_TOKENS.has(last)) return false;
+  if (DANGLING_TAIL_TOKENS.has(last)) return true;
+  return /^[\u0621-\u064A]{1,2}$/.test(last);
+}
+
+export function countTurnWords(text: string): number {
+  const t = text.trim();
+  return t ? t.split(/\s+/).length : 0;
+}
+
+/**
+ * نافذة إنهاء الدور، ثلاث حالات:
+ *   - ذيل غير مكتمل → نافذة ممتدة (defaultMs + extra) حتى يُكمل المتحدث.
+ *   - ذيل نهائي مُثبَّت + ترقيم + طول كافٍ → النافذة القصيرة (استجابة أسرع).
+ *   - ما عدا ذلك → النافذة الافتراضية.
+ * ترقيم الجزئيات غير موثوق (Speechmatics يضيف "." وسط الجملة)، وكذلك ترقيم المقاطع
+ * النهائية القصيرة، فكلاهما لا يُفعّل النافذة القصيرة.
  */
 export function resolveTurnSilenceMs(opts: {
   tailIsFinal: boolean;
   endsWithPunctuation: boolean;
   punctuationMs: number;
   defaultMs: number;
+  /** نص الدور المتراكم — بدونه يعود السلوك للسابق (نافذة الترقيم دون فحص الذيل) */
+  text?: string;
+  incompleteTailExtraMs?: number;
 }): number {
+  if (opts.text !== undefined) {
+    if (tailLooksIncomplete(opts.text)) {
+      return opts.defaultMs + (opts.incompleteTailExtraMs ?? 0);
+    }
+    if (countTurnWords(opts.text) < MIN_WORDS_FOR_FAST_END) return opts.defaultMs;
+  }
   return opts.tailIsFinal && opts.endsWithPunctuation ? opts.punctuationMs : opts.defaultMs;
 }
 
 /**
- * مهلة سماح تُمنح **مرّة واحدة**: إن انطلق مؤقّت الصمت والذيل ما زال جزئياً غير مثبّت،
- * ننتظر قليلاً لينزل النهائي المتأخّر من Speechmatics (حتى ~1.35s) قبل إرسال الدور —
- * يمنع بتر آخر كلمة/حرف. مرّة واحدة فقط كي لا يتأخّر الرد بلا حدّ.
+ * مهلة سماح تُمنح **مرّة واحدة** عند انطلاق مؤقّت الصمت: ننتظر قليلاً لينزل النهائي
+ * المتأخّر من Speechmatics (حتى ~1.35s) أو ليستأنف المتحدث كلامه، قبل إرسال الدور.
+ * كانت تُمنح فقط عند وجود جزئي معلّق، فالذيل النهائي كان يُرسل بلا أي هامش ويُبتر
+ * كلام المرشح بعد توقّف قصير للتفكير. مرّة واحدة فقط كي لا يتأخّر الرد بلا حدّ.
  */
-export function shouldGraceForPendingTail(hasPendingPartial: boolean, alreadyGraced: boolean): boolean {
-  return hasPendingPartial && !alreadyGraced;
+export function shouldGraceBeforeSend(alreadyGraced: boolean): boolean {
+  return !alreadyGraced;
 }

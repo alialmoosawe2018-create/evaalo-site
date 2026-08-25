@@ -12,7 +12,11 @@
  *
  * Run: npx tsx src/scripts/voice-turn-endpoint-test.ts
  */
-import { resolveTurnSilenceMs, shouldGraceForPendingTail } from '../evaalo-only-voice/voiceTimingEnv.js';
+import {
+    resolveTurnSilenceMs,
+    shouldGraceBeforeSend,
+    tailLooksIncomplete,
+} from '../evaalo-only-voice/voiceTimingEnv.js';
 
 let failures = 0;
 function check(name: string, actual: unknown, expected: unknown) {
@@ -26,8 +30,16 @@ function check(name: string, actual: unknown, expected: unknown) {
 
 const SHORT = 1050;
 const LONG = 1300;
-const sil = (tailIsFinal: boolean, endsWithPunctuation: boolean) =>
-    resolveTurnSilenceMs({ tailIsFinal, endsWithPunctuation, punctuationMs: SHORT, defaultMs: LONG });
+const EXTRA = 700;
+const sil = (tailIsFinal: boolean, endsWithPunctuation: boolean, text?: string) =>
+    resolveTurnSilenceMs({
+        tailIsFinal,
+        endsWithPunctuation,
+        punctuationMs: SHORT,
+        defaultMs: LONG,
+        text,
+        incompleteTailExtraMs: EXTRA,
+    });
 
 // --- silence window gating ---------------------------------------------------
 check('final tail + punctuation → short window', sil(true, true), SHORT);
@@ -37,11 +49,28 @@ check('final tail + no punctuation → long window', sil(true, false), LONG);
 check('partial tail + punctuation → long window (fix)', sil(false, true), LONG);
 check('partial tail + no punctuation → long window', sil(false, false), LONG);
 
-// --- one-time grace for a pending partial tail -------------------------------
-check('pending partial, not graced → grace once', shouldGraceForPendingTail(true, false), true);
-check('pending partial, already graced → send now', shouldGraceForPendingTail(true, true), false);
-check('no pending partial (final tail) → send now', shouldGraceForPendingTail(false, false), false);
-check('no pending partial, graced → send now', shouldGraceForPendingTail(false, true), false);
+// --- one-time grace before sending ------------------------------------------
+check('not graced yet → grace once', shouldGraceBeforeSend(false), true);
+check('already graced → send now', shouldGraceBeforeSend(true), false);
+
+// --- incomplete tails (prod session 788a5d4a) --------------------------------
+// A truncated word: "كم" is the start of "كأخصائي" — the turn was sent mid-word.
+check('truncated arabic word is incomplete', tailLooksIncomplete('اني ما اشتغلت كم'), true);
+check('dangling connector is incomplete', tailLooksIncomplete('اقدر اعالج الموضوع في'), true);
+check('dangling english connector is incomplete', tailLooksIncomplete('I handled it and'), true);
+check('complete sentence is not incomplete', tailLooksIncomplete('اشتغلت كموظف موارد بشرية.'), false);
+check('standalone short answer is not incomplete', tailLooksIncomplete('لا'), false);
+
+// An incomplete tail must extend the window even when the STT appended a ".".
+check('incomplete tail + punctuation → extended', sil(true, true, 'الموضوع في.'), LONG + EXTRA);
+check('incomplete tail + no punctuation → extended', sil(true, false, 'اني ما اشتغلت كم'), LONG + EXTRA);
+// Short answers must not take the fast path: a 3-word reply is usually unfinished.
+check('short reply + punctuation → long window', sil(true, true, 'ما اشتغلت هناك.'), LONG);
+check(
+    'long complete reply + punctuation → short window',
+    sil(true, true, 'اشتغلت كموظف موارد بشرية في شركة انشاءات.'),
+    SHORT
+);
 
 if (failures > 0) {
     console.error(`\n${failures} case(s) failed`);

@@ -8,7 +8,7 @@ import { getControllerOutput } from "./interviewController.js";
 import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer } from "./questionEngine.js";
 import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
-import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceForPendingTail } from "./voiceTimingEnv.js";
+import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection } from "../services/sttRouterService.js";
 import { getLLMResponse, getTimeEndedClosingMessage, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, polishVoiceArabicReply, type InterviewPhase } from "../services/llmService.js";
@@ -433,6 +433,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   const USER_STOPPED_WITH_PUNCTUATION_MS = voiceTiming.userStoppedPunctuationMs;
   // مهلة سماح تُمنَح مرّة واحدة لينزل النهائي المتأخّر قبل إرسال الدور (يمنع بتر الذيل).
   const FINAL_GRACE_MS = Number(process.env.VOICE_FINAL_GRACE_MS) || 400;
+  const INCOMPLETE_TAIL_EXTRA_MS = voiceTiming.incompleteTailExtraMs;
   const MIN_CHARS = 10;
   const MIN_CONFIDENCE = 0.6; // 3) فلترة: if (confidence < 0.6) ignore (عند توفره من STT)
 
@@ -459,12 +460,12 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     runPipeline(completeSentence);
   };
 
-  // انطلق مؤقّت الصمت: إن كان الذيل جزئياً غير مثبّت، نمهله مرّة واحدة قصيرة لينزل
-  // النهائي المتأخّر من Speechmatics قبل الإرسال — يمنع بتر آخر كلمة/حرف.
+  // انطلق مؤقّت الصمت: نمنح مهلة سماح واحدة قصيرة لينزل النهائي المتأخّر من
+  // Speechmatics أو ليستأنف المرشح كلامه — يمنع بتر آخر كلمة/حرف.
   const onSilenceElapsed = () => {
     const buffer = speechBuffers.get(sessionId);
     if (!buffer) return;
-    if (shouldGraceForPendingTail(buffer.partial !== undefined, buffer.graced === true)) {
+    if (shouldGraceBeforeSend(buffer.graced === true)) {
       buffer.graced = true;
       buffer.timeout = setTimeout(onSilenceElapsed, FINAL_GRACE_MS);
       return;
@@ -472,9 +473,36 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     sendCompleteSentence();
   };
 
+  /**
+   * يعيد تسليح مؤقّت الصمت على الدور المتراكم. يُستدعى عند كل دليل على أن المرشح ما
+   * زال يتكلم — بما فيه المقاطع التي نُسقطها لانخفاض الثقة.
+   */
+  const armSilenceTimer = () => {
+    const buffer = speechBuffers.get(sessionId);
+    if (!buffer) return;
+    if (buffer.timeout) clearTimeout(buffer.timeout);
+    // حدث جديد وصل: نُتيح مهلة سماح جديدة عند التوقف القادم
+    buffer.graced = false;
+    const completeSentence = bufferedSentence(buffer);
+    const silenceMs = resolveTurnSilenceMs({
+      tailIsFinal: buffer.partial === undefined,
+      endsWithPunctuation: endsWithSemanticEnd(completeSentence),
+      punctuationMs: USER_STOPPED_WITH_PUNCTUATION_MS,
+      defaultMs: USER_STOPPED_SPEAKING_MS,
+      text: completeSentence,
+      incompleteTailExtraMs: INCOMPLETE_TAIL_EXTRA_MS,
+    });
+    buffer.timeout = setTimeout(onSilenceElapsed, silenceMs);
+  };
+
   // عند أي transcript (partial أو final): انتظار توقف المستخدم عن الكلام قبل الإرسال للـ LLM
   const handleTranscript = (transcript: string, isFinal: boolean, confidence?: number) => {
-    if (confidence !== undefined && confidence < MIN_CONFIDENCE) return;
+    if (confidence !== undefined && confidence < MIN_CONFIDENCE) {
+      // النص لا يدخل الدور (ثقة منخفضة)، لكنه دليل أن المرشح ما زال يتكلم — غالباً
+      // تبديل لغوي ar↔en يخفض الثقة. بدون تمديد النافذة كان يُحتسب صمتاً فيُقطع الدور.
+      armSilenceTimer();
+      return;
+    }
 
     const cleaned = stripEmojisAndSymbols(transcript.trim());
     if (isFinal) console.log(`[STT FINAL] ${sessionId.substring(0, 8)}... "${cleaned.substring(0, 60)}${cleaned.length > 60 ? '...' : ''}"`);
@@ -510,20 +538,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     }
 
     // الجزئيات تعيد ضبط مؤقت الصمت أيضاً — فهي دليل أن المرشح ما زال يتكلم
-    if (buffer.timeout) clearTimeout(buffer.timeout);
-    // حدث جديد وصل: نُتيح مهلة سماح جديدة عند التوقف القادم
-    buffer.graced = false;
-
-    const completeSentence = bufferedSentence(buffer);
-    // النافذة الأقصر (علامة ترقيم) تُطبَّق فقط حين يكون الذيل نهائياً (partial=undefined)
-    // وينتهي بترقيم — ترقيم الجزئيات غير موثوق وكان يقصّر النافذة فيقطع وسط الكلام.
-    const silenceMs = resolveTurnSilenceMs({
-      tailIsFinal: buffer.partial === undefined,
-      endsWithPunctuation: endsWithSemanticEnd(completeSentence),
-      punctuationMs: USER_STOPPED_WITH_PUNCTUATION_MS,
-      defaultMs: USER_STOPPED_SPEAKING_MS,
-    });
-    buffer.timeout = setTimeout(onSilenceElapsed, silenceMs);
+    armSilenceTimer();
   };
 
   /** TTS + محاذاة كلمات + انتظار playback_ended + استئناف الاستماع — مشترك بين المقابلة ووضع اختبار الصوت */
