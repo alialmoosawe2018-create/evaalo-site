@@ -2415,6 +2415,24 @@ const Candidates = () => {
                                             {t(evaluationSourceLabelKey(modalEval.source))}
                                         </span>
                                     </h3>
+                                    {modalEval.insufficient && (
+                                        <div
+                                            role="status"
+                                            style={{
+                                                margin: '0 0 14px',
+                                                padding: '10px 12px',
+                                                borderRadius: '8px',
+                                                fontSize: '13px',
+                                                fontWeight: 600,
+                                                lineHeight: 1.5,
+                                                color: '#F59E0B',
+                                                background: 'rgba(245, 158, 11, 0.10)',
+                                                border: '1px solid rgba(245, 158, 11, 0.30)',
+                                            }}
+                                        >
+                                            {t('candidates_evalInsufficientData')}
+                                        </div>
+                                    )}
                                     <div style={{ marginBottom: '16px' }}>
                                         <div style={{
                                             fontSize: '32px',

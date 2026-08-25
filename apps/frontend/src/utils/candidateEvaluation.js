@@ -53,7 +53,11 @@ export function resolveCandidateEvaluation(candidate) {
             source: 'video',
             score: toScore(video.overall_score),
             recommendation: video.recommendation || '',
-            feedback: video.summary || '',
+            feedback: video.summary || video.final_hr_evaluation || '',
+            // v2 scorer flags a data-poor interview; surface it so a low-confidence
+            // result is not read as a normal pass/consider.
+            status: video.status || '',
+            insufficient: String(video.status || '').toLowerCase() === 'insufficient_data',
         };
     }
 
