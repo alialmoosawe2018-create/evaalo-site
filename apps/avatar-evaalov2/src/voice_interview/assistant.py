@@ -209,6 +209,9 @@ class InterviewMemory:
     # True once the guard has offered a wrap-up because no fresh question was
     # left — prevents dredging up (and repeating) already-covered questions.
     wrap_up_offered: bool = False
+    # True once the final closing line has been delivered after a wrap-up — stops
+    # the agent from resuming with new questions once it is winding down.
+    final_closing_sent: bool = False
     bank_cursor: int = 0
     last_action: str = ""
     consecutive_unsure: int = 0
@@ -407,6 +410,7 @@ _INTERVIEW_CLOSING_INSTRUCTIONS = """Closing rule (ending the interview):
 - When you have covered the interview's questions/topics and there is genuinely nothing useful left to ask, conclude the interview yourself.
 - NEVER re-ask a question you already asked, even reworded or on the same subject with different words. If you have no genuinely NEW question left, do not recycle an old one — conclude instead.
 - If the candidate repeatedly asks to skip or change questions AND you have already covered the main areas, do not keep dredging up more questions — offer a brief wrap-up and conclude.
+- Once you have offered a wrap-up ("anything to add before we finish?") and the candidate replies without a substantial NEW topic (thanks, a farewell, "no", or a brief remark), do NOT ask another question — deliver the closing line and call `end_interview` in the same turn.
 - To conclude: say ONE short closing turn — thank the candidate for their time, tell them the HR team will review their answers and follow up with the next steps — then call the `end_interview` tool in the SAME turn.
 - Always speak the closing sentence BEFORE calling the tool, so the candidate hears it.
 - Do NOT call `end_interview` early: not while genuinely new topics remain, not just because an answer was short, and not if the candidate still has questions. If the candidate asks something at the end, answer briefly first.
@@ -1329,6 +1333,19 @@ class InterviewAssistant(Agent):
         # Wait/acknowledge carry no question to guard.
         if mode in (MODE_WAIT, MODE_ACKNOWLEDGE):
             return text
+        # Once a wrap-up was offered, the interview is winding down: do NOT start a
+        # NEW question (ask / topic-resume). Deliver the final closing once instead
+        # of resuming — the candidate had already been asked "anything to add?".
+        # (Guidance/clarify/follow-up still pass so the candidate can finish their
+        # last thought.)
+        mem = self._memory
+        if mem.wrap_up_offered and not mem.final_closing_sent and mode in (MODE_ASK, MODE_RESUME):
+            mem.final_closing_sent = True
+            logger.info("[reply-guard] post-wrap-up: final closing instead of a new question")
+            return (
+                "شكراً على وقتك وإجاباتك. فريق الموارد البشرية راح يراجع "
+                "إجاباتك ويتواصل وياك بالخطوات القادمة."
+            )
         recent = self._memory.asked_questions[-12:]
         is_hybrid = contains_hybrid_latin_arabic_token(text)
         # Duplicate check applies to turns that ask a NEW question (ask / topic

@@ -206,14 +206,18 @@ def test_guard_offers_wrapup_when_no_fresh_anchor_left():
     assert agent._memory.wrap_up_offered is True
 
 
-def test_guard_wrapup_only_once_then_last_resort():
+def test_guard_wrapup_not_offered_twice_delivers_final_closing():
     agent = _assistant([])
     dup = "شنو قنوات الاستقطاب اللي تعتمد عليها بالتوظيف؟"
     agent._memory.asked_questions.extend([f"سؤال سابق رقم {i}؟" for i in range(9)] + [dup])
-    agent._memory.wrap_up_offered = True  # already wrapped up
+    agent._memory.wrap_up_offered = True  # wrap-up already offered a turn earlier
     agent._turn_plan = TurnPlan(question="", response_mode=MODE_RESUME)
     out = agent._guard_repetition_and_language(dup)
-    assert out == dup  # no second wrap-up; last-resort keeps the text
+    # No SECOND "anything to add?"; instead the interview winds down with a final
+    # closing rather than recycling the covered question.
+    assert "أكو شي تحب تضيفه" not in out
+    assert "يراجع إجاباتك" in out
+    assert agent._memory.final_closing_sent is True
 
 
 def test_guard_no_wrapup_too_early():
@@ -224,6 +228,36 @@ def test_guard_no_wrapup_too_early():
     out = agent._guard_repetition_and_language(dup)
     assert out == dup  # too early to wrap up
     assert agent._memory.wrap_up_offered is False
+
+
+# --- after wrap-up: conclude instead of resuming with a new question ----------
+def test_guard_final_closing_after_wrapup_blocks_new_question():
+    agent = _assistant(["شنو خبرتك بالتوظيف؟"])
+    agent._memory.wrap_up_offered = True  # wrap-up already offered a turn earlier
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_ASK)
+    out = agent._guard_repetition_and_language("شنو أدواتك المفضلة بالعمل؟")
+    assert "يراجع إجاباتك" in out  # a final closing, not a new question
+    assert "أكو شي تحب تضيفه" not in out  # not the wrap-up prompt again
+    assert agent._memory.final_closing_sent is True
+
+
+def test_guard_final_closing_delivered_only_once():
+    agent = _assistant(["q"])
+    agent._memory.wrap_up_offered = True
+    agent._memory.final_closing_sent = True  # already delivered
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_ASK)
+    out = agent._guard_repetition_and_language("سؤال مختلف تماماً عن الرواتب؟")
+    assert "يراجع إجاباتك" not in out  # closing not repeated
+
+
+def test_guard_followup_after_wrapup_still_passes():
+    # A follow-up lets the candidate finish their last thought after the wrap-up.
+    agent = _assistant(["q"])
+    agent._memory.wrap_up_offered = True
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_FOLLOW_UP)
+    out = agent._guard_repetition_and_language("شنو صار بالضبط؟")
+    assert out == "شنو صار بالضبط؟"
+    assert agent._memory.final_closing_sent is False
 
 
 # --- (أ.1) competency coverage is recorded on ASK so it is not re-served -------
