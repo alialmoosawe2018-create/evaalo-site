@@ -5,11 +5,9 @@ import { fillI18nTemplate } from '../../utils/i18nTemplate.js';
 /**
  * HR action: clears voice/video interview link consumption so the candidate can retry.
  *
- * The action is always offered and the current link state is stated next to it.
- * Hiding the button whenever `consumedAt` is empty made it a state indicator
- * disguised as an action: any lag in the board's data looked like a dead control,
- * and HR had no way to see whether a link was open. The endpoint is idempotent,
- * so reopening an already-open link is harmless.
+ * The link state is always stated, and the action is offered only while the link
+ * is actually consumed — an always-visible button that reopens an already-open
+ * link gives HR no feedback, so a reset aimed at the wrong flag reads as success.
  */
 export default function InterviewLinkResetButton({
     candidate,
@@ -67,20 +65,24 @@ export default function InterviewLinkResetButton({
         });
     })();
 
+    const isConsumed = Boolean(consumedAt);
+
     if (variant === 'menu') {
         return (
             <>
                 <p className="headhunter-card__video-popover-linkstate">{stateLabel}</p>
-                <button
-                    type="button"
-                    className="headhunter-card__video-popover-copy headhunter-card__video-popover-reset"
-                    onClick={handleReset}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    disabled={loading}
-                    title={t('interviewLinkReset_btn')}
-                >
-                    {loading ? '…' : t('interviewLinkReset_btn')}
-                </button>
+                {isConsumed ? (
+                    <button
+                        type="button"
+                        className="headhunter-card__video-popover-copy headhunter-card__video-popover-reset"
+                        onClick={handleReset}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        disabled={loading}
+                        title={t('interviewLinkReset_btn')}
+                    >
+                        {loading ? '…' : t('interviewLinkReset_btn')}
+                    </button>
+                ) : null}
             </>
         );
     }
@@ -90,16 +92,18 @@ export default function InterviewLinkResetButton({
             <p style={{ margin: '6px 0 0', fontSize: '11px', color: 'rgba(148, 163, 184, 0.95)' }}>
                 {stateLabel}
             </p>
-            <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={handleReset}
-                disabled={loading}
-                style={{ fontSize: '12px', padding: '6px 10px', marginTop: '6px' }}
-                title={t('interviewLinkReset_btn')}
-            >
-                {loading ? '…' : t('interviewLinkReset_btn')}
-            </button>
+            {isConsumed ? (
+                <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleReset}
+                    disabled={loading}
+                    style={{ fontSize: '12px', padding: '6px 10px', marginTop: '6px' }}
+                    title={t('interviewLinkReset_btn')}
+                >
+                    {loading ? '…' : t('interviewLinkReset_btn')}
+                </button>
+            ) : null}
         </>
     );
 }

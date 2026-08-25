@@ -1214,8 +1214,11 @@ const VoiceInterview = () => {
                                                         t={t}
                                                         shareTitle={t('voiceInterviewShareTitle')}
                                                         interviewLinkReset={{
-                                                            stage: 'voice',
-                                                            consumedAt: candidate.voiceInterviewLinkConsumedAt,
+                                                            // هذه المرحلة تشارك رابط /video-interview-call، والبوابة التي
+                                                            // تحجبه هي videoInterviewLinkConsumedAt؛ استهداف مرحلة voice
+                                                            // كان يفتح علماً آخر فيبقى الرابط المُشارك "مكتملاً".
+                                                            stage: 'video',
+                                                            consumedAt: candidate.videoInterviewLinkConsumedAt,
                                                             onReset: () =>
                                                                 fetchCandidates({
                                                                     background: true,
