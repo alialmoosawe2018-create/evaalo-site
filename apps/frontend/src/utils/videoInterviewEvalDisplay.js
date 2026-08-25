@@ -164,6 +164,44 @@ export function buildVideoFinalHrText(evaluation, t, translateRecLabel) {
 }
 
 /**
+ * True when a video evaluation should be treated as "insufficient data": the
+ * scorer produced a recommendation/score but there is no competency evidence to
+ * back it. This covers two cases:
+ *   1. the v2 scorer explicitly flagged status === 'insufficient_data', and
+ *   2. a degenerate stored record (overall_score + recommendation + summary only,
+ *      with no competencyScores and none of the 10 named trait fields) — which is
+ *      what an insufficient interview collapses to once the empty breakdown is
+ *      dropped on the way into the DB.
+ * In both cases the auto recommendation is untrustworthy and the reviewer should
+ * re-interview or review manually, so callers surface a notice instead of a
+ * table of N/A cells read as a clean "Consider".
+ */
+export function isInsufficientVideoEvaluation(evaluation) {
+    if (!evaluation) return false;
+
+    const status = String(evaluation.status || '').trim().toLowerCase();
+    if (status === 'insufficient_data' || status === 'insufficient') return true;
+
+    // Any real assessed blueprint competency => sufficient.
+    const comps = Array.isArray(evaluation.competencyScores) ? evaluation.competencyScores : [];
+    const anyAssessed = comps.some(
+        (r) => r?.assessed !== false && Number.isFinite(Number(r?.score)),
+    );
+    if (anyAssessed) return false;
+
+    // Any legacy named competency score => sufficient.
+    const legacyKeys = [...VIDEO_TABLE_COMPETENCY_KEYS, 'role_understanding', 'final_role_fit'];
+    const anyLegacy = legacyKeys.some((k) => Number.isFinite(Number(evaluation[k])));
+    if (anyLegacy) return false;
+
+    // No competency evidence at all, yet a verdict/score exists => insufficient.
+    const hasVerdict =
+        canonicalStageRecommendation(evaluation.recommendation) !== 'N/A' ||
+        (evaluation.overall_score != null && Number.isFinite(Number(evaluation.overall_score)));
+    return hasVerdict;
+}
+
+/**
  * True when the evaluation is the blueprint-driven (Stage 3 v2) shape:
  * it carries scored competencyScores and does NOT carry the legacy 10 trait fields.
  */

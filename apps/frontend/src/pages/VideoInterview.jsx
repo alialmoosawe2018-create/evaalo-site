@@ -51,6 +51,7 @@ import {
     buildVideoRedFlags,
     formatTableTenScore,
     isBlueprintVideoEvaluation,
+    isInsufficientVideoEvaluation,
     qualitativeBandFromTenScore,
     qualitativeTextColor,
 } from '../utils/videoInterviewEvalDisplay.js';
@@ -883,6 +884,7 @@ const VideoInterview = () => {
                                         const redFlags = buildVideoRedFlags(evaluation, t);
                                         const isBlueprint = isBlueprintVideoEvaluation(evaluation);
                                         const competencyRows = isBlueprint ? buildBlueprintCompetencyRows(evaluation) : [];
+                                        const insufficientEval = isInsufficientVideoEvaluation(evaluation);
                                         const evalStrengths = normalizeStageEvalStringList(evaluation?.strengths);
                                         const evalWeaknesses = normalizeStageEvalStringList(evaluation?.weaknesses);
                                         const candidateId = candidate._id || candidate.id;
@@ -1183,27 +1185,46 @@ const VideoInterview = () => {
                                                             display: 'inline-block',
                                                             padding: '8px 16px',
                                                             borderRadius: '8px',
-                                                            background: scoreColors.bg,
-                                                            color: scoreColors.text,
+                                                            background: insufficientEval ? 'rgba(148, 163, 184, 0.15)' : scoreColors.bg,
+                                                            color: insufficientEval ? '#94A3B8' : scoreColors.text,
                                                             fontWeight: 700,
                                                             fontSize: '18px',
                                                             lineHeight: 1.2
                                                         }}>
                                                             {evaluation?.overall_score ?? 0}%
                                                         </div>
-                                                        <div style={{
-                                                            display: 'inline-block',
-                                                            padding: '6px 12px',
-                                                            borderRadius: '6px',
-                                                            background: recColors.bg,
-                                                            border: `1px solid ${recColors.border}`,
-                                                            color: recColors.text,
-                                                            fontWeight: 600,
-                                                            fontSize: '13px',
-                                                            lineHeight: 1.3
-                                                        }}>
-                                                            {translateRecLabel(recCanon)}
-                                                        </div>
+                                                        {insufficientEval ? (
+                                                            <div style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px',
+                                                                padding: '6px 12px',
+                                                                borderRadius: '6px',
+                                                                background: 'rgba(245, 158, 11, 0.12)',
+                                                                border: '1px solid rgba(245, 158, 11, 0.45)',
+                                                                color: '#F59E0B',
+                                                                fontWeight: 700,
+                                                                fontSize: '12px',
+                                                                lineHeight: 1.3
+                                                            }}>
+                                                                <span aria-hidden="true">⚠</span>
+                                                                {t('videoInterview_insufficientBadge')}
+                                                            </div>
+                                                        ) : (
+                                                            <div style={{
+                                                                display: 'inline-block',
+                                                                padding: '6px 12px',
+                                                                borderRadius: '6px',
+                                                                background: recColors.bg,
+                                                                border: `1px solid ${recColors.border}`,
+                                                                color: recColors.text,
+                                                                fontWeight: 600,
+                                                                fontSize: '13px',
+                                                                lineHeight: 1.3
+                                                            }}>
+                                                                {translateRecLabel(recCanon)}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
 
@@ -1239,6 +1260,28 @@ const VideoInterview = () => {
                                                             padding: '24px',
                                                             animation: 'slideDown 0.3s ease-out'
                                                         }}>
+                                                            {insufficientEval ? (
+                                                                <div role="alert" style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'flex-start',
+                                                                    gap: '12px',
+                                                                    padding: '14px 16px',
+                                                                    marginBottom: '20px',
+                                                                    borderRadius: '10px',
+                                                                    background: 'rgba(245, 158, 11, 0.10)',
+                                                                    border: '1px solid rgba(245, 158, 11, 0.45)'
+                                                                }}>
+                                                                    <span aria-hidden="true" style={{ fontSize: '18px', lineHeight: 1.2, color: '#F59E0B', flexShrink: 0 }}>⚠</span>
+                                                                    <div>
+                                                                        <div style={{ fontWeight: 700, color: '#F59E0B', marginBottom: '4px' }}>
+                                                                            {t('videoInterview_insufficientTitle')}
+                                                                        </div>
+                                                                        <div {...scriptTextProps(t('candidates_evalInsufficientData'))} style={{ color: '#CBD5E1', fontSize: '13px', lineHeight: 1.5 }}>
+                                                                            {t('candidates_evalInsufficientData')}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : null}
                                                             <div style={{
                                                                 display: 'grid',
                                                                 gridTemplateColumns: 'repeat(2, 1fr)',
