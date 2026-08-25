@@ -1914,9 +1914,16 @@ class InterviewAssistant(Agent):
                     mem.asked_question_keys.add(sent_key)
             if plan.question_id:
                 mem.sent_question_guard.add(plan.question_id)
-        # Coverage floor: mark a critical competency covered the moment it is
-        # asked, so a run of short answers can't loop the floor on the same one.
-        if plan.source == "competency_floor" and plan.competency_key:
+        # Mark a competency covered the moment it is ASKED (any source, not just
+        # the coverage floor), so it is never re-served as a new question later —
+        # the main cause of repeated same-competency questions after the candidate
+        # skips. Follow-up/clarify stay on the already-active competency, so they
+        # must not (re)mark here; the picker skips asked_competency_keys.
+        if (
+            plan.competency_key
+            and count_question_marks(guarded) >= 1
+            and mode not in (MODE_FOLLOW_UP, MODE_CLARIFY)
+        ):
             mem.asked_competency_keys.add(plan.competency_key)
         if plan.step_key:
             mem.pending_step_key = plan.step_key

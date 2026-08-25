@@ -13,6 +13,7 @@ These cover the pure detectors that the guard in ``assistant`` relies on.
 from __future__ import annotations
 
 from voice_interview.active_question import (
+    MODE_ASK,
     MODE_FOLLOW_UP,
     MODE_RESUME,
     TurnPlan,
@@ -223,3 +224,26 @@ def test_guard_no_wrapup_too_early():
     out = agent._guard_repetition_and_language(dup)
     assert out == dup  # too early to wrap up
     assert agent._memory.wrap_up_offered is False
+
+
+# --- (أ.1) competency coverage is recorded on ASK so it is not re-served -------
+def test_asked_competency_recorded_on_any_asked_question():
+    agent = _assistant(["q"])
+    agent._turn_plan = TurnPlan(
+        question="س", competency_key="comp_hiring", source="bank", response_mode=MODE_ASK
+    )
+    agent.record_agent_reply("شنو خبرتك بإدارة عملية التوظيف بالضبط؟")
+    # Previously only source == competency_floor recorded it, so bank/track/path
+    # questions were re-servable -> repeats.
+    assert "comp_hiring" in agent._memory.asked_competency_keys
+
+
+def test_followup_does_not_mark_a_new_competency_covered():
+    agent = _assistant(["q"])
+    agent._turn_plan = TurnPlan(
+        question="س", competency_key="comp_x", source="bank", response_mode=MODE_FOLLOW_UP
+    )
+    agent.record_agent_reply("شنو صار بالضبط؟")
+    # Follow-up deepens the active competency; it must not mark a competency as
+    # freshly covered here.
+    assert "comp_x" not in agent._memory.asked_competency_keys
