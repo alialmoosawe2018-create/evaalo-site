@@ -630,6 +630,8 @@ const VideoInterviewCall = () => {
     const avatarLivekitVideoRef = useRef(null);
     /** آخر trackSid مرفوع على عنصر الأفاتار — يمنع attach مكرر لنفس المسار */
     const attachedAvatarVideoTrackSidRef = useRef(null);
+    /** كائن آخر مسار فيديو مرفوع — يُفصَل قبل إلحاق مسار جديد عند إعادة نشر الأفاتار */
+    const attachedAvatarVideoTrackRef = useRef(null);
     /** Debounce detach on avatar video unsubscribe (avoids post-reply choppiness from transient SDK events). */
     const avatarVideoUnsubDebounceRef = useRef(null);
     /** Debounce avatar track resync after RoomEvent.Reconnected (reduces detach/subscribe thrash when PC flaps). */
@@ -774,6 +776,16 @@ const VideoInterviewCall = () => {
             const videoElement = ensureAvatarLivekitVideoElement(container);
             if (!videoElement) return false;
             try {
+                // إعادة نشر الأفاتار (بعد تعثّر جلسة Beyond): نفصل المسار القديم عن العنصر
+                // قبل إلحاق الجديد كي لا يبقى <video> مربوطاً بمسار ميت (شاشة سوداء).
+                const prevTrack = attachedAvatarVideoTrackRef.current;
+                if (prevTrack && prevTrack !== track) {
+                    try {
+                        prevTrack.detach(videoElement);
+                    } catch (_) {
+                        /* ignore detach race */
+                    }
+                }
                 // يجب استخدام track.attach() — تعيين srcObject يدوياً يعطل AdaptiveStream وقد يُظهر إطاراً ثابتاً
                 track.attach(videoElement);
                 videoElement.muted = true;
@@ -787,6 +799,7 @@ const VideoInterviewCall = () => {
                     ensureAvatarVideoSubscriptionQuality(publication);
                 }
                 attachedAvatarVideoTrackSidRef.current = trackSid;
+                attachedAvatarVideoTrackRef.current = track;
                 videoTrackAttachedRef.current = true;
                 setAvatarVideoSurfaceReady(true);
                 devLog(`✅ Avatar video attached (LiveKit) [${source}]:`, trackSid);
@@ -1821,6 +1834,7 @@ const VideoInterviewCall = () => {
                             }
                             videoTrackAttachedRef.current = false;
                             attachedAvatarVideoTrackSidRef.current = null;
+                            attachedAvatarVideoTrackRef.current = null;
                             avatarVideoPublicationRef.current = null;
                             pendingAvatarVideoPublicationRef.current = null;
                             setPendingVideoTrack(null);
@@ -2061,7 +2075,11 @@ const VideoInterviewCall = () => {
             currentRoom.remoteParticipants.forEach((participant) => {
                 if (!isAvatarParticipant(participant)) return;
                 participant.videoTrackPublications.forEach((publication) => {
-                    if (publication.isSubscribed && publication.track && !videoTrackAttachedRef.current) {
+                    const pubSid = publication.trackSid || publication.track?.sid;
+                    const alreadyThis =
+                        videoTrackAttachedRef.current &&
+                        attachedAvatarVideoTrackSidRef.current === pubSid;
+                    if (publication.isSubscribed && publication.track && !alreadyThis) {
                         attachAvatarLivekitVideoTrack(publication.track, publication, reason);
                     }
                 });
@@ -2079,11 +2097,20 @@ const VideoInterviewCall = () => {
     // ✅ PRODUCTION FIX: ربط pending video track عندما يكون container جاهز (عنصر فيديو واحد)
     useEffect(() => {
         const container = avatarContainerElement || avatarVideoRef.current;
-        if (!pendingVideoTrack || !container || videoTrackAttachedRef.current) {
+        if (!pendingVideoTrack || !container) {
+            return;
+        }
+        // SID-aware (was a one-way latch): skip only if THIS exact track is already
+        // attached. A new sid = avatar republished after a Beyond session churn, and
+        // it MUST re-attach — the old latch left <video> bound to the dead track.
+        const pendingSid =
+            pendingAvatarVideoPublicationRef.current?.trackSid || pendingVideoTrack.sid;
+        if (videoTrackAttachedRef.current && attachedAvatarVideoTrackSidRef.current === pendingSid) {
+            setPendingVideoTrack(null);
             return;
         }
 
-        devLog('✅ [Video] Attaching pending track (once)');
+        devLog('✅ [Video] Attaching pending track (sid=' + pendingSid + ')');
         const pub = pendingAvatarVideoPublicationRef.current;
         const ok = attachAvatarLivekitVideoTrack(
             pendingVideoTrack,
