@@ -19,6 +19,7 @@
     "migrate:dev-org": "tsx src/scripts/migrateOrgDefaultToDevOrg.ts",
     "migrate:included-video-v2": "tsx src/scripts/migrateIncludedVideoV2.ts",
     "webhook:tunnel": "node scripts/start-webhook-tunnel.cjs",
+    "stripe:listen": "node scripts/start-stripe-listen.cjs",
     "test-integration": "tsx src/scripts/test-integration.ts",
     "test-no-keys": "tsx src/scripts/test-without-api-keys.ts",
     "test:stage-callback-auth": "tsx src/scripts/stage-callback-auth-test.ts",

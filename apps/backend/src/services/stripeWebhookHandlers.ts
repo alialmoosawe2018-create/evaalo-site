@@ -31,9 +31,16 @@ import {
     applySubscriptionUpdate,
     applyVideoPackPurchase,
     findOrgByStripeCustomerId,
+    getOrgPlanState,
     isBillingActive,
 } from './billingRuntimeService.js';
-import { listCheckoutSessionLineItems, retrieveSubscription, getSubscriptionPeriodBounds, invalidateBillingReceiptsCache } from './stripeService.js';
+import {
+    getStripeClient,
+    listCheckoutSessionLineItems,
+    retrieveSubscription,
+    getSubscriptionPeriodBounds,
+    invalidateBillingReceiptsCache,
+} from './stripeService.js';
 
 // Stripe TS types omit some optional fields available at runtime; cast surface area
 // is intentionally tiny and lives only in this translator file.
@@ -265,6 +272,41 @@ export async function handleCheckoutCompleted(
     console.log(
         `[stripe] checkout.completed applied — org=${organizationId} plan=${resolvedPlanId} cycle=${resolvedCycle} activate=${activate}`,
     );
+}
+
+/**
+ * Success-page fallback when Stripe webhooks are delayed or unavailable (local dev).
+ * Reuses the same translator path as `checkout.session.completed` — idempotent via ledger keys.
+ */
+export async function confirmCheckoutSessionForOrg(
+    organizationId: string,
+    sessionId: string,
+): Promise<{ mode: Stripe.Checkout.Session.Mode | null }> {
+    const stripe = getStripeClient();
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (session.status !== 'complete') {
+        const err = new Error('Checkout session is not complete yet.');
+        (err as Error & { code?: string }).code = 'SESSION_INCOMPLETE';
+        throw err;
+    }
+
+    const state = await getOrgPlanState(organizationId);
+    const sessionOrg =
+        extractStringMeta(session.metadata, 'organizationId') ||
+        (typeof session.client_reference_id === 'string' ? session.client_reference_id : undefined);
+
+    const ownsSession =
+        sessionOrg === organizationId || state?.pendingCheckoutSessionId === sessionId;
+
+    if (!ownsSession) {
+        const err = new Error('Checkout session does not belong to this organization.');
+        (err as Error & { code?: string }).code = 'SESSION_FORBIDDEN';
+        throw err;
+    }
+
+    await handleCheckoutCompleted(session);
+    return { mode: session.mode };
 }
 
 /**

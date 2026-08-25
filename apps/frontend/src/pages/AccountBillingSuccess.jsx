@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useBilling } from '../contexts/BillingContext';
+import { apiClient } from '../services/apiClient';
 import { getPlanById, resolvePlanId } from '../utils/billingDisplay';
 import '../design-styles.css';
 import './billing-result-pages.css';
@@ -64,6 +65,7 @@ export default function AccountBillingSuccess() {
         const raw = searchParams.get('planId');
         return raw ? resolvePlanId(raw) : null;
     }, [searchParams, isVideoPackPurchase]);
+    const checkoutSessionId = searchParams.get('session_id');
 
     const {
         startFastRefresh,
@@ -117,6 +119,28 @@ export default function AccountBillingSuccess() {
         },
         [isVideoPackPurchase, expectedPlanId, expectedVideoMinutes],
     );
+
+    useEffect(() => {
+        if (!checkoutSessionId) return undefined;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                await apiClient.post('/api/billing/checkout/complete', {
+                    sessionId: checkoutSessionId,
+                });
+                if (!cancelled) {
+                    await refetch();
+                }
+            } catch {
+                // Webhook or a later poll may still apply — keep fast-refresh running.
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [checkoutSessionId, refetch]);
 
     useEffect(() => {
         refetch()

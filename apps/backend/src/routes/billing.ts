@@ -9,6 +9,7 @@
  *
  * Phase 2b (Stripe custom portal):
  *   POST /api/billing/checkout                 — start Stripe Checkout, returns URL
+ *   POST /api/billing/checkout/complete        — success-page fallback: apply paid session
  *   GET  /api/billing/portal/summary           — current subscription summary
  *   GET  /api/billing/portal/invoices          — list recent invoices
  *   POST /api/billing/portal/cancel            — cancel at period end
@@ -54,6 +55,7 @@ import {
     resolvePortalPaymentMethod,
     getSubscriptionPeriodBounds,
 } from '../services/stripeService.js';
+import { confirmCheckoutSessionForOrg } from '../services/stripeWebhookHandlers.js';
 
 const router = express.Router();
 
@@ -393,6 +395,58 @@ router.post(
         res.status(500).json({ ok: false, message });
     }
 });
+
+/**
+ * POST /api/billing/checkout/complete — body: { sessionId }
+ * Success-page fallback: retrieve a paid Checkout session and apply the same
+ * state transition as checkout.session.completed (idempotent; safe with webhooks).
+ */
+router.post(
+    '/checkout/complete',
+    conditionalRequireAuth(),
+    requireBillingWrite,
+    requireBillingOrg,
+    async (req: Request, res: Response) => {
+        try {
+            const sessionId =
+                typeof req.body?.sessionId === 'string' && req.body.sessionId.trim()
+                    ? req.body.sessionId.trim()
+                    : '';
+            if (!sessionId) {
+                return res.status(400).json({
+                    ok: false,
+                    code: 'INVALID_REQUEST',
+                    message: 'sessionId is required',
+                });
+            }
+
+            const orgId = getOrgId(req);
+            const result = await confirmCheckoutSessionForOrg(orgId, sessionId);
+            const status = await getBillingStatus(orgId);
+            res.json({ ok: true, mode: result.mode, status });
+        } catch (err) {
+            console.error('[billing/checkout/complete]', err);
+            const code = (err as Error & { code?: string })?.code;
+            if (code === 'SESSION_INCOMPLETE') {
+                return res.status(409).json({
+                    ok: false,
+                    code,
+                    message: err instanceof Error ? err.message : 'Checkout not complete',
+                });
+            }
+            if (code === 'SESSION_FORBIDDEN') {
+                return res.status(403).json({
+                    ok: false,
+                    code,
+                    message: err instanceof Error ? err.message : 'Forbidden',
+                });
+            }
+            const message =
+                err instanceof Error ? err.message : 'Failed to confirm checkout session';
+            res.status(400).json({ ok: false, message });
+        }
+    },
+);
 
 /** POST /api/billing/portal/session — body: { intent? } → Stripe Customer Portal URL */
 router.post(

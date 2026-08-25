@@ -31,11 +31,32 @@ Restart the backend after changing `.env`. Boot logs should show `[stripePrices]
 
 ## 2. Stripe CLI webhook forwarding
 
+**Recommended (auto-syncs API key + webhook secret):**
+
 ```bash
-stripe listen --forward-to localhost:5000/webhook/stripe
+cd apps/backend
+npm run stripe:listen
+```
+
+This runs `stripe listen --forward-to localhost:5000/webhook/stripe` using `STRIPE_SECRET_KEY` from `.env` and writes the `whsec_...` signing secret back into `.env`. **Restart the backend** after the secret is written.
+
+**Or from the monorepo root** (backend + frontend + Stripe listener):
+
+```bash
+npm run dev:billing
+```
+
+Manual alternative:
+
+```bash
+stripe listen --forward-to localhost:5000/webhook/stripe --api-key sk_test_...
 ```
 
 Copy the `whsec_...` secret into `STRIPE_WEBHOOK_SECRET`.
+
+### Success-page fallback (dev + prod)
+
+After Checkout, Stripe redirects to `/account/billing/success?session_id=...`. The frontend calls `POST /api/billing/checkout/complete` with that `sessionId` so the plan activates even if webhooks are delayed. Production still relies on webhooks; this path is idempotent and safe alongside them.
 
 ## 3. Dev org isolation
 
@@ -65,6 +86,7 @@ curl -X POST http://localhost:5000/api/billing/seed \
 | Catalog | `GET /api/billing/catalog/public` | 4 plans, credit costs, video pack $20 |
 | Status v2 | `GET /api/billing/status` | `apiVersion: 2`, `usage.credits`, `usage.video`, `canManageBilling: true` (dev OWNER) |
 | Checkout | `POST /api/billing/checkout` `{ planId, cycle, requestId }` | Stripe Checkout URL |
+| Checkout complete | `POST /api/billing/checkout/complete` `{ sessionId }` | Applies paid session (success-page fallback) |
 | Portal | `POST /api/billing/portal` | Stripe Customer Portal URL (after subscription) |
 | Adjust credits | `POST /api/billing/adjust` `{ credits: 100 }` | Dev-only balance change |
 
@@ -104,7 +126,7 @@ npx tsx src/scripts/verify-billing-phase2b.ts
 | `billing_checkout_failed` | Missing `STRIPE_PRICE_*` for plan/cycle; check boot warnings |
 | Portal 500 | Stale subscription schedule — use checkout recovery flow |
 | Wrong plan shown | Old `org_default` data — use `dev_org_*` or re-seed |
-| Webhook not applied | Stripe CLI not running; wrong `STRIPE_WEBHOOK_SECRET` |
+| Webhook not applied | Run `npm run stripe:listen`; restart backend after `whsec` is written; success page also calls `/checkout/complete` |
 | Checkout forbidden | Need OWNER + `billing.write` (auto in dev org isolation) |
 | Video pack wrong price | Create $20 one-time Price in Stripe Dashboard; update env vars |
 
