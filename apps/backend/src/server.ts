@@ -954,6 +954,46 @@ function buildStrictStage3VideoPatch(data: Record<string, unknown>): Record<stri
         patch.competencyScores = compScores;
     }
 
+    // v2 blueprint scorer extras — persist so an "insufficient data" outcome is
+    // surfaced honestly (not dropped and shown as a clean score), and so the
+    // strengths/weaknesses/final HR text are not lost.
+    const strengthsArr = normalizeStringArrayForWebhook(
+        pickLooseFromSources(sources, ['strengths', 'Strengths'])
+    );
+    if (strengthsArr !== undefined) patch.strengths = strengthsArr;
+
+    const weaknessesArr = normalizeStringArrayForWebhook(
+        pickLooseFromSources(sources, ['weaknesses', 'Weaknesses'])
+    );
+    if (weaknessesArr !== undefined) patch.weaknesses = weaknessesArr;
+
+    const fhe = pickLooseFromSources(sources, [
+        'final_hr_evaluation',
+        'finalHrEvaluation',
+        'Final HR Evaluation',
+    ]);
+    if (fhe !== undefined && fhe !== null && String(fhe).trim() !== '') {
+        patch.final_hr_evaluation = String(fhe).trim();
+    }
+
+    const statusVal = pickLooseFromSources(sources, ['status']);
+    if (statusVal !== undefined && statusVal !== null && String(statusVal).trim() !== '') {
+        patch.status = String(statusVal).trim();
+    }
+
+    const bc = pickLooseFromSources(sources, ['blueprint_coverage', 'blueprintCoverage']);
+    if (bc !== undefined && bc !== null && String(bc).trim() !== '') {
+        patch.blueprint_coverage =
+            typeof bc === 'string' ? (parseWebhookJsonValue<unknown>(bc) ?? bc) : bc;
+    }
+
+    const genericRatings = parseWebhookJsonValue<Record<string, unknown>>(
+        pickLooseFromSources(sources, ['generic_ratings', 'genericRatings'])
+    );
+    if (genericRatings && typeof genericRatings === 'object' && !Array.isArray(genericRatings)) {
+        patch.generic_ratings = genericRatings;
+    }
+
     return patch;
 }
 

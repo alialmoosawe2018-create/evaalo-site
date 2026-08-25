@@ -388,6 +388,12 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
                 ],
                 default: undefined,
             },
+            strengths: { type: [String], default: undefined },
+            weaknesses: { type: [String], default: undefined },
+            final_hr_evaluation: { type: String },
+            status: { type: String },
+            blueprint_coverage: { type: Schema.Types.Mixed },
+            generic_ratings: { type: Schema.Types.Mixed },
         },
         voiceRecording: {
             key: String,

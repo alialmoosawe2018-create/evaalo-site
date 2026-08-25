@@ -91,18 +91,48 @@ export function getStage3EvaluationGateMode(): Stage3EvaluationGateMode {
     return 'observe';
 }
 
+/** Blueprint (v2) competency scores are on a 1..5 scale, unlike the legacy 0..10 named fields. */
+function isValidStage3BlueprintScore(raw: unknown): boolean {
+    const n = typeof raw === 'number' ? raw : Number(raw);
+    return Number.isFinite(n) && n >= 1 && n <= 5;
+}
+
+function hasPopulatedCompetencyArray(patch: Record<string, unknown>): boolean {
+    const arr = patch.competencyScores;
+    return (
+        Array.isArray(arr) &&
+        arr.some(
+            (c) =>
+                !!c &&
+                typeof c === 'object' &&
+                isValidStage3BlueprintScore((c as Record<string, unknown>).score)
+        )
+    );
+}
+
 export function getStage3VideoPatchIssues(patch: Record<string, unknown>): string[] {
     const issues: string[] = [];
 
-    for (const field of STAGE3_VIDEO_COMPETENCY_FIELDS) {
-        if (!isValidStage3CompetencyScore(patch[field])) issues.push(field);
+    // Competency evidence is satisfied by EITHER the legacy 10 named 0-10 fields,
+    // OR the v2 blueprint-driven competencyScores array, OR an explicit
+    // insufficient_data outcome (a valid terminal verdict — the interview did not
+    // yield enough evidence — not a broken/incomplete callback).
+    const insufficient =
+        String(patch.status ?? '').trim().toLowerCase() === 'insufficient_data';
+    const hasNamed = STAGE3_VIDEO_COMPETENCY_FIELDS.every((f) =>
+        isValidStage3CompetencyScore(patch[f])
+    );
+    const hasArray = hasPopulatedCompetencyArray(patch);
+    if (!insufficient && !hasNamed && !hasArray) {
+        for (const field of STAGE3_VIDEO_COMPETENCY_FIELDS) {
+            if (!isValidStage3CompetencyScore(patch[field])) issues.push(field);
+        }
     }
 
     if (!isValidStage3MeaningfulText(patch.summary)) issues.push('summary');
 
     const parsedScore = parseStage3OverallScore(patch.overall_score);
-    const scoreOk = parsedScore !== undefined;
-    if (!scoreOk) issues.push('overall_score');
+    if (parsedScore === undefined) issues.push('overall_score');
 
     const rec = patch.recommendation;
     const recOk = rec === 'Hire' || rec === 'Consider' || rec === 'Reject';

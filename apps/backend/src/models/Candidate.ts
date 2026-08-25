@@ -109,6 +109,14 @@ export interface ICandidate extends Document {
             evidence?: string[];
             redFlags?: string[];
         }>;
+        // v2 blueprint scorer extras — persisted so an "insufficient data" outcome
+        // is surfaced honestly instead of being dropped and shown as a clean score.
+        strengths?: string[];
+        weaknesses?: string[];
+        final_hr_evaluation?: string;
+        status?: string; // e.g. 'insufficient_data'
+        blueprint_coverage?: number | Record<string, unknown>;
+        generic_ratings?: Record<string, unknown>;
     };
     /**
      * تسجيل صوتي للمقابلة الصوتية الكاملة (المرشح + الوكيل) مرفوع إلى Cloudflare R2.
@@ -499,7 +507,13 @@ const CandidateSchema = new Schema<ICandidate>({
                 ),
             ],
             default: undefined,
-        }
+        },
+        strengths: { type: [String], default: undefined },
+        weaknesses: { type: [String], default: undefined },
+        final_hr_evaluation: { type: String },
+        status: { type: String },
+        blueprint_coverage: { type: Schema.Types.Mixed },
+        generic_ratings: { type: Schema.Types.Mixed }
     },
     voiceRecording: {
         key: String,
