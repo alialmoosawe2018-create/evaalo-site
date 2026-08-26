@@ -97,6 +97,8 @@ const profileCardStyle = {
  * @param {string|null} [props.startHint] - Hint shown when Start is disabled.
  * @param {string} [props.audioBlockedMessage] - Shown when playback needs a tap.
  * @param {string} [props.audioBlockedAction] - Label of the resume-audio button.
+ * @param {string} [props.completedTitle] - Heading shown after the server ends the interview.
+ * @param {string|null} [props.completedMessage] - Optional line under that heading.
  */
 const VoiceInterviewStage = ({
   title = 'Voice Interview',
@@ -108,11 +110,14 @@ const VoiceInterviewStage = ({
   recordingNotice = null,
   audioBlockedMessage = 'Sound is paused on this device.',
   audioBlockedAction = 'Tap to hear the interviewer',
+  completedTitle = 'The interview has ended',
+  completedMessage = null,
 }) => {
   const {
     connectionStatus,
     serverState,
     lastError,
+    interviewComplete,
     micActive,
     lastTranscript,
     streamingTranscript,
@@ -335,9 +340,56 @@ const VoiceInterviewStage = ({
           <p style={{ textAlign: 'center', marginBottom: '12px', fontSize: '0.85rem', color: '#dc2626' }}>{lastError}</p>
         )}
 
-        {/* Start / End button */}
+        {/* Start / End button — or the completion card once the server hangs up
+            on its own: falling back to Start here reads as a dropped call, and
+            the link is already consumed so pressing it would only be blocked. */}
         <div className="voice-interview-stage__actions">
-          {connectionStatus !== 'connected' ? (
+          {interviewComplete ? (
+            <div
+              role="status"
+              style={{
+                width: '100%',
+                padding: '20px 24px',
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(56, 189, 248, 0.1))',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                borderRadius: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '14px',
+                textAlign: 'center',
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  flex: '0 0 auto',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.2rem',
+                  color: '#fff',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  boxShadow: '0 4px 16px rgba(16, 185, 129, 0.35)',
+                }}
+              >
+                ✓
+              </span>
+              <span>
+                <span style={{ display: 'block', fontSize: '1.05rem', fontWeight: 700, color: '#047857' }}>
+                  {completedTitle}
+                </span>
+                {completedMessage ? (
+                  <span style={{ display: 'block', marginTop: '6px', fontSize: '0.88rem', color: '#475569' }}>
+                    {completedMessage}
+                  </span>
+                ) : null}
+              </span>
+            </div>
+          ) : connectionStatus !== 'connected' ? (
             <button
               type="button"
               className="workflow-btn-primary ni-continue-btn vi-interview-start-btn"
@@ -379,7 +431,7 @@ const VoiceInterviewStage = ({
               <span>End</span>
             </button>
           )}
-          {startHint && (
+          {startHint && !interviewComplete && (
             <p style={{ width: '100%', marginTop: '10px', fontSize: '0.85rem', color: '#64748b' }}>
               {startHint}
             </p>

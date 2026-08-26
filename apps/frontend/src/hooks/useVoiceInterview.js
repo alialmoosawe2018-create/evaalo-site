@@ -298,6 +298,8 @@ export default function useVoiceInterview(options = {}) {
   const [sessionId, setSessionId] = useState(null);
   const [lastError, setLastError] = useState(null);
   const [linkConsumed, setLinkConsumed] = useState(false);
+  /** The server hung up because the interview finished — not a dropped call. */
+  const [interviewComplete, setInterviewComplete] = useState(false);
   const [micActive, setMicActive] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [lastTranscript, setLastTranscript] = useState('');
@@ -644,6 +646,7 @@ export default function useVoiceInterview(options = {}) {
     setConnectionStatus('connecting');
     setLastError(null);
     setAudioBlocked(false);
+    setInterviewComplete(false);
     const { candidateId: cid, language: lang, mode: m, position: pos, campaignId: camp, applicationId: appId } =
       paramsRef.current;
     const params = new URLSearchParams();
@@ -788,6 +791,9 @@ export default function useVoiceInterview(options = {}) {
       if (event?.code === 4001) {
         setLinkConsumed(true);
       }
+      if (event?.code === 1000 && event?.reason === 'interview_complete') {
+        setInterviewComplete(true);
+      }
     };
 
     ws.onerror = () => {
@@ -833,6 +839,7 @@ export default function useVoiceInterview(options = {}) {
     sessionId,
     lastError,
     linkConsumed,
+    interviewComplete,
     micActive,
     isListening,
     lastTranscript,
