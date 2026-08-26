@@ -750,40 +750,6 @@ function resolveGenderFromSanitizeArg(ack: number | LLMContext): CandidateGender
     return normalizeCandidateGender(ack.candidateProfile?.gender);
 }
 
-/**
- * بصمات نصوص التوجيه. توجيهات المرحلة 2 تُمرَّر إلى الموديل بصيغة «اسأل المرشح: …»،
- * فإذا أعاد صياغة التعليمة بدل السؤال وصلت إلى مسمع المرشح. الرصد حرفي — لا يلتقط
- * إعادة الصياغة الحرة — لكنه يمنع أي تحرير لاحق في بنك الأسئلة من الوصول صوتاً بصمت.
- */
-const INSTRUCTION_LEAK_RE = /(اسأل\s+المرشح|من\s+الاستمارة|لا\s+تذكر|وليس\s+تقوليلي|وليس\s+تح[چج]يلي)/u;
-
-function stripLeakedInstructions(text: string): string {
-    if (!INSTRUCTION_LEAK_RE.test(text)) return text;
-    console.warn(`[LEAK] instruction text in agent reply: "${text.substring(0, 140)}"`);
-    const parts = text.split(/(?<=[.؟?!])\s+/);
-    const kept = parts.filter((p) => !INSTRUCTION_LEAK_RE.test(p));
-    // إسقاط الجملة المسرَّبة مسموح فقط إن بقي سؤال فعلي؛ وإلا نحذف المقطع المطابق
-    // وحده كي لا يخرج الوكيل بردٍّ بلا سؤال.
-    const out = kept.some((p) => /[؟?]/u.test(p))
-        ? kept.join(' ')
-        : text.replace(INSTRUCTION_LEAK_RE, ' ');
-    return out.replace(/\s{2,}/g, ' ').trim();
-}
-
-/**
- * سؤال واحد في الدور الواحد. الصوت لا يحتمل سؤالاً مركّباً: المرشح يجيب على الجزء
- * الأخير أو يرتبك — رأيناه في جلسات 2026-08-26 حين سأل الوكيل عن المجال وسنوات الخبرة
- * والشركات في نفس واحد. يُقتصّ ما بعد أول علامة استفهام حين تتعدّد.
- */
-function keepSingleQuestion(text: string): string {
-    const marks = [...text.matchAll(/[؟?]/gu)].map((m) => m.index ?? 0);
-    if (marks.length < 2) return text;
-    const head = text.slice(0, marks[0] + 1).trim();
-    // علامة شاردة في أول الكلام ليست سؤالاً — القصّ عندها يمسح الردّ كله
-    if (head.split(/\s+/).filter(Boolean).length < 4) return text;
-    return head;
-}
-
 /** تقليل لقطع شرطات/فواصل طويلة، وإزالة مفردات مخالفة للسجل الرسمي إن وُجدت */
 function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string {
     const acknowledgmentTurn = resolveAcknowledgmentTurn(ack);
@@ -825,6 +791,8 @@ function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string 
         /(^|[\s،,.؟?«"])[أا]?عط(?:ي)?ني\s+((?:ال)?(?:مثال|أمثلة|امثلة))/gu,
         '$1انطيني $2'
     );
+    // «تگدر تعطيني» فصحى كذلك — العراقي «تگدر تنطيني»
+    s = s.replace(/تعط(?:ي)?ني/gu, 'تنطيني');
     // توحيد صياغة سؤال التعارف الافتتاحي إلى النسخة المعتمدة
     s = s.replace(
         /ممكن\s+تح([چج])يلي\s+عن\s+نفسك\s+شوي[هة]?\s*[؟?]?\s*شنو\s+الأشياء\s+المهمة\s+اللي\s+تحب\s+أتعرفها\s+عنك\s*[؟?]?/gi,
@@ -832,8 +800,6 @@ function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string 
     );
     // تصحيح صياغة "ويها" إلى "وياها" في سياق "تتعامل ..."
     s = s.replace(/\bتتعامل\s+ويها\b/gi, 'تتعامل وياها');
-    s = stripLeakedInstructions(s);
-    s = keepSingleQuestion(s);
     s = fixAcknowledgmentOpener(s, acknowledgmentTurn);
     s = applyIraqiGenderPhrasing(s, gender);
     return s.replace(/\s{2,}/g, ' ').trim();

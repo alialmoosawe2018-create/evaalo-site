@@ -28,9 +28,17 @@ const mustRewrite = [
     'حلو، أعطيني مثال على موقف واجهت فيه ضغط؟',
 ];
 
+/** «تعطيني» فصحى — العراقي «تنطيني» */
+const mustBecomeIraqi: [string, string][] = [
+    [
+        'ولو موقف بسيط — تگدر تعطيني مثال محدد صار وياك وشلون تعاملت وياه؟',
+        'ولو موقف بسيط — تگدر تنطيني مثال محدد صار وياك وشلون تعاملت وياه؟',
+    ],
+    ['ممكن تعطني فكرة عن يومك بالشغل؟', 'ممكن تنطيني فكرة عن يومك بالشغل؟'],
+];
+
 /** مثال بلا «شنو» قبله صياغة سليمة — لا يجوز أن يلمسها المصحّح */
 const mustKeep = [
-    'ولو موقف بسيط — تگدر تعطيني مثال محدد صار وياك وشلون تعاملت وياه؟',
     'ممتاز، شنو خبراتك السابقة في مجال عملك؟',
     'Could you give me an example of a project you led?',
 ];
@@ -52,6 +60,16 @@ for (const input of mustRewrite) {
     } catch (err: any) {
         failures += 1;
         console.error(`FAIL rewrite → ${err.message}`);
+    }
+}
+
+for (const [input, expected] of mustBecomeIraqi) {
+    const out = polishVoiceArabicReply(input);
+    if (out === expected) {
+        console.log(`ok   iraqi   → ${out}`);
+    } else {
+        failures += 1;
+        console.error(`FAIL iraqi   → expected\n  ${expected}\n  got: ${out}`);
     }
 }
 
