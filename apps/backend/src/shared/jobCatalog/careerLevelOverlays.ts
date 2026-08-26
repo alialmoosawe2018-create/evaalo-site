@@ -75,13 +75,55 @@ export function getCareerLevelOverlay(level: string): CareerLevelOverlay {
     return CAREER_LEVEL_OVERLAYS[key] ?? CAREER_LEVEL_OVERLAYS.mid;
 }
 
+/**
+ * Interview seniority for a role, which can differ from its CATALOG level.
+ *
+ * Some support/entry roles are stored at `mid` on purpose — `mid` is the hidden
+ * "base" UI level, so the role shows as e.g. "HR Assistant" (no level suffix)
+ * rather than "Senior HR Assistant". But an Assistant/Clerk/Trainee executes and
+ * supports; it does not own processes/KPIs. Interviewing it at `mid` produced
+ * over-senior competencies (process ownership, KPI analysis, stakeholder
+ * management) the candidate can't speak to. So for INTERVIEW purposes only (the
+ * career-level overlay), treat clear support titles as `junior` — the catalog
+ * level and UI are untouched.
+ */
+export function deriveInterviewLevel(jobTitle: string, catalogLevel: string): string {
+    const level = String(catalogLevel || 'mid');
+    if (level === 'intern' || level === 'graduate' || level === 'junior') return level;
+    const t = String(jobTitle || '').toLowerCase();
+    const isSupportTitle =
+        /\b(assistant|aide|clerk|trainee|apprentice)\b/.test(t) ||
+        /مساعد|كاتب\b|متدرّ?ب|مبتدئ/.test(String(jobTitle || ''));
+    // Only ever downgrade (mid → junior); never upgrade a senior title.
+    if (isSupportTitle && level === 'mid') return 'junior';
+    return level;
+}
+
 export function buildOverlayPromptBlock(level: string): string {
     const o = getCareerLevelOverlay(level);
-    return [
+    const lines = [
         `Career level overlay (${level}):`,
         `- Question difficulty: ${o.questionDifficulty}`,
         `- Leadership expectations: ${o.leadershipExpectations}`,
         `- Strong answers should show: ${o.expectedEvidenceBias}`,
         `- Rubric emphasis: ${o.rubricEmphasis}`,
-    ].join('\n');
+    ];
+    // Entry/support roles: steer competency SELECTION toward the role's real scope,
+    // not just question difficulty. Without this the LLM tends to reuse mid-level
+    // competencies (owning processes/KPIs, "stakeholder management") that a support
+    // role cannot evidence, and the candidate scores as "insufficient".
+    if (o.questionDifficulty === 'foundational') {
+        lines.push(
+            '- Competency scope: choose competencies that reflect EXECUTION and SUPPORT within ' +
+                'defined processes — e.g. accuracy and attention to detail, following procedures ' +
+                'and policies, coordination and scheduling, tool/data-entry basics, responsiveness, ' +
+                'and confidentiality. Do NOT frame competencies around owning processes, owning ' +
+                'KPIs/targets, strategic decisions, data-driven decision ownership, or "managing ' +
+                'stakeholder expectations" — this role supports and executes, it does not own ' +
+                'outcomes. For relationship skills prefer plain, role-fit phrasing such as ' +
+                '"coordinating with colleagues and managers" (التنسيق مع الزملاء والمديرين) rather ' +
+                'than the corporate term "stakeholder management" (إدارة أصحاب المصلحة).',
+        );
+    }
+    return lines.join('\n');
 }

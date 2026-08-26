@@ -15,6 +15,7 @@ import {
     toJobLevelUiValue,
     UI_CAREER_LEVELS,
 } from '../shared/jobCatalog/catalogOptions.js';
+import { deriveInterviewLevel } from '../shared/jobCatalog/careerLevelOverlays.js';
 import { getRolePositionTitle, HIDDEN_FROM_ROLE_PICKER } from '../shared/jobCatalog/positionTitle.js';
 import { ROLE_DEFINITIONS } from '../shared/jobCatalog/roleDefinitions.js';
 import { resolveJobRole, resolveJobRoleFromCriteria } from '../shared/jobCatalog/resolveJobRole.js';
@@ -179,6 +180,24 @@ function main(): void {
             'Credit Controller',
             'credit_controller keeps base title, not Credit Control Manager'
         );
+    }
+
+    // Interview seniority vs catalog level: support titles kept at `mid` for UI
+    // reasons must be INTERVIEWED as junior (so competencies match execution scope),
+    // without changing the catalog level (the regression block above still holds).
+    {
+        // catalog level stays mid (UI-facing)…
+        assertEq(composeRoleResolution('hr_assistant').careerLevel, 'mid', 'hr_assistant catalog level stays mid');
+        // …but the interview overlay level is downgraded for the support title.
+        assertEq(deriveInterviewLevel('HR Assistant', 'mid'), 'junior', 'HR Assistant interviews as junior');
+        assertEq(deriveInterviewLevel('Administrative Assistant', 'mid'), 'junior', 'Administrative Assistant interviews as junior');
+        assertEq(deriveInterviewLevel('مساعد موارد بشرية', 'mid'), 'junior', 'Arabic assistant title interviews as junior');
+        // non-support mid roles are unaffected…
+        assertEq(deriveInterviewLevel('HR Specialist', 'mid'), 'mid', 'specialist stays mid');
+        assertEq(deriveInterviewLevel('HR Business Partner', 'mid'), 'mid', 'business partner stays mid');
+        // …and a senior support title is never downgraded.
+        assertEq(deriveInterviewLevel('Senior HR Assistant', 'senior'), 'senior', 'senior assistant stays senior');
+        assertEq(deriveInterviewLevel('Executive Assistant', 'junior'), 'junior', 'already-junior passes through');
     }
 
     // Generalized invariant behind the regression above

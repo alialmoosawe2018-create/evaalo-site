@@ -28,6 +28,7 @@ import {
 } from './domainPacks.js';
 import {
     buildOverlayPromptBlock,
+    deriveInterviewLevel,
     resolveJobRoleFromCriteria,
     type RoleResolution,
 } from '../../shared/jobCatalog/index.js';
@@ -552,7 +553,15 @@ function attachRoleContext(
     packMatch: PackMatchResult
 ): GeneratedExpertise {
     const careerLevel = String(roleResolution.careerLevel || result.seniority || 'mid');
-    const overlay = buildOverlayPromptBlock(careerLevel);
+    // Interview seniority can differ from the catalog level: support titles (e.g.
+    // "HR Assistant") are stored at `mid` for UI reasons but must be interviewed as
+    // junior so the generated competencies match the role's real (execution) scope.
+    // Only the overlay uses this; the stored careerLevel/labelKey/UI stay untouched.
+    const overlayLevel = deriveInterviewLevel(
+        roleResolution.displayTitle || result.jobTitle,
+        careerLevel,
+    );
+    const overlay = buildOverlayPromptBlock(overlayLevel);
     const executiveExtra =
         roleResolution.managementTrack === 'executive'
             ? 'Executive interview overlay: probe strategy, organizational vision, stakeholder alignment, and enterprise-level trade-offs.'
