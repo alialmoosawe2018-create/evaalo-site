@@ -256,12 +256,21 @@ const Features = ({ showWhyChoose = true, excludeFeatureIds = [], variant = 'hom
                                         style={{ '--reveal-delay': '0.2s' }}
                                         aria-hidden="true"
                                     >
-                                        <div className="features-hub-robot__circle">
-                                            <img
-                                                src={publicImageSrc('icon16-removebg-preview.png')}
-                                                alt=""
-                                                className="features-hub-robot__icon"
-                                            />
+                                        <div className="features-hub-robot__flip">
+                                            <div className="features-hub-robot__circle features-hub-robot__circle--front">
+                                                <img
+                                                    src={publicImageSrc('icon16-removebg-preview.png')}
+                                                    alt=""
+                                                    className="features-hub-robot__icon"
+                                                />
+                                            </div>
+                                            <div className="features-hub-robot__circle features-hub-robot__circle--back">
+                                                <img
+                                                    src={publicImageSrc('icon16-removebg-preview.png')}
+                                                    alt=""
+                                                    className="features-hub-robot__icon"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useInterviewTemplate } from '../contexts/InterviewTemplateContext';
 import {
@@ -32,6 +33,7 @@ import { AGE_RANGE_OPTIONS } from '../constants/ageRangeOptions.js';
 import { GENDER_OPTIONS } from '../constants/genderOptions.js';
 import { CAMPAIGN_READY_OPTIONS } from '../constants/campaignReadyOptions.js';
 import { AVAILABLE_CRITERIA_AUDIO } from '../constants/audioJobCriteria.js';
+import { buildAvailabilityOptions } from '../utils/formSelectOptions.js';
 import governorateLabelsAr from '../constants/governorateLabels.ar.json';
 import governorateLabelsKu from '../constants/governorateLabels.ku.json';
 import comboLanguageLabelsAr from '../constants/comboLanguageLabels.ar.json';
@@ -59,17 +61,67 @@ const AVAILABLE_CRITERIA = [
     { id: 'salaryMin', label: 'Salary Min', placeholder: 'Enter minimum salary', type: 'text' },
     { id: 'salaryMax', label: 'Salary Max', placeholder: 'Enter maximum salary', type: 'text' },
     { id: 'salaryCurrency', label: 'Salary Currency', placeholder: 'USD or IQD only', type: 'text' },
-    { id: 'availability', label: 'Availability', placeholder: 'Enter availability (e.g., Full-time, Part-time)', type: 'text' },
+    { id: 'availability', label: 'Availability', placeholder: 'Pick availability or type (▼)', type: 'text' },
     { id: 'skills', label: 'Required Skills', placeholder: 'Pick a skill or type your own (▼)', type: 'text' },
     { id: 'languages', label: 'Required Languages', placeholder: 'Pick languages or type (comma-separated) (▼)', type: 'text' },
     { id: 'certifications', label: 'Certifications', placeholder: 'Enter required certifications', type: 'text' }
 ];
 
+/**
+ * الراتب يُعرض كنطاق واحد: بطاقة واحدة فيها الحدّان بدل بطاقتين. المعرّفان يبقيان
+ * منفصلين في الحمولة والتحقق (salaryMin / salaryMax) — الدمج في العرض والتفعيل فقط.
+ */
+const SALARY_RANGE_PRIMARY_ID = 'salaryMin';
+const SALARY_RANGE_SECONDARY_ID = 'salaryMax';
+
+/** المعرّفات التي يفعّلها/يلغيها زرّ بطاقة واحدة */
+function criterionIdsForCard(criterionId) {
+    return criterionId === SALARY_RANGE_PRIMARY_ID
+        ? [SALARY_RANGE_PRIMARY_ID, SALARY_RANGE_SECONDARY_ID]
+        : [criterionId];
+}
+
+/** فوقها يظهر حقل بحث داخل قائمة إضافة المعايير */
+const CRITERION_MENU_SEARCH_THRESHOLD = 10;
+
+/**
+ * موضع قائمة «إضافة معيار»: تُعرض عبر portal بموضع ثابت محسوب من صفّ زر «+»،
+ * لأن حاوية تمرير المودال كانت تقصّها إلى صفّين. تنقلب للأعلى إذا ضاقت
+ * المساحة أسفل الزر، وتبقى داخل حدود النافذة.
+ *
+ * @param {DOMRect} rect
+ */
+function criterionMenuStyleFromAnchor(rect) {
+    const gap = 8;
+    const margin = 12;
+    const viewportW = window.innerWidth;
+    const viewportH = window.innerHeight;
+    const width = Math.min(Math.max(rect.width, 320), viewportW - margin * 2);
+    const spaceBelow = viewportH - rect.bottom - gap - margin;
+    const spaceAbove = rect.top - gap - margin;
+    const flipUp = spaceBelow < 280 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(
+        200,
+        Math.min(560, Math.round(viewportH * 0.72), flipUp ? spaceAbove : spaceBelow)
+    );
+    const left = Math.max(margin, Math.min(rect.left, viewportW - width - margin));
+    const top = flipUp ? Math.max(margin, rect.top - gap - maxHeight) : rect.bottom + gap;
+    return { top, left, width, maxHeight };
+}
+
+/** عنوان البطاقة — النطاق يأخذ عنواناً موحّداً، وبقية المعايير عنوانها كما هو */
+function criterionCardLabel(criterion, t) {
+    return criterion.id === SALARY_RANGE_PRIMARY_ID
+        ? t('newCampaign_jc_salaryRange_label')
+        : criterion.label;
+}
+
 /** تجميع معايير قائمة الإضافة — لعرض منظم بأقسام */
 const CRITERION_MENU_GROUPS = [
     { id: 'role', labelKey: 'newCampaign_criterionGroupRole', ids: ['position', 'location', 'job', 'company', 'industryType'] },
     { id: 'requirements', labelKey: 'newCampaign_criterionGroupRequirements', ids: ['age', 'gender', 'educationLevel', 'experienceYears'] },
-    { id: 'compensation', labelKey: 'newCampaign_criterionGroupCompensation', ids: ['salaryMin', 'salaryMax', 'salaryCurrency', 'availability'] },
+    // salaryMax لا يُعرض في القائمة: يُضاف تلقائياً مع salaryMin كبطاقة نطاق واحدة
+    { id: 'compensation', labelKey: 'newCampaign_criterionGroupCompensation', ids: ['salaryMin', 'salaryCurrency', 'availability'] },
     { id: 'skills', labelKey: 'newCampaign_criterionGroupSkills', ids: ['skills', 'languages', 'certifications'] },
 ];
 
@@ -613,7 +665,43 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
     const [addMenuOpen, setAddMenuOpen] = useState(false);
     const [addMenuCustomMode, setAddMenuCustomMode] = useState(false);
     const [customLabelDraft, setCustomLabelDraft] = useState('');
+    const [criterionQuery, setCriterionQuery] = useState('');
+    /** صفّ زر «+» — القائمة portal بموضع ثابت مربوط بهذا الصفّ */
+    const addMenuAnchorRef = useRef(null);
+    const [addMenuStyle, setAddMenuStyle] = useState(null);
     const isScreeningFlow = selectedInterviewType === 'form';
+
+    const closeAddMenu = useCallback(() => {
+        setAddMenuOpen(false);
+        setAddMenuCustomMode(false);
+        setCustomLabelDraft('');
+        setCriterionQuery('');
+    }, []);
+
+    useEffect(() => {
+        if (!addMenuOpen) {
+            setAddMenuStyle(null);
+            return undefined;
+        }
+        const reposition = () => {
+            const anchor = addMenuAnchorRef.current;
+            if (!anchor) return;
+            setAddMenuStyle(criterionMenuStyleFromAnchor(anchor.getBoundingClientRect()));
+        };
+        reposition();
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') closeAddMenu();
+        };
+        window.addEventListener('resize', reposition);
+        // capture: تمرير حاوية المودال لا يصل window بالانتشار
+        window.addEventListener('scroll', reposition, true);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            window.removeEventListener('resize', reposition);
+            window.removeEventListener('scroll', reposition, true);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [addMenuOpen, closeAddMenu]);
 
     const governorateSuggestionOptions = useMemo(() => {
         const catalog =
@@ -668,6 +756,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
             }),
         [t, currentLang]
     );
+
+    /** نفس قيم قائمة التوفر في نموذج التقديم — حتى يتطابق ما يطلبه HR مع ما يختاره المرشح */
+    const availabilityOptionsLocalized = useMemo(() => buildAvailabilityOptions(t), [t, currentLang]);
 
     const hasJobAd = Boolean(jobAdvertisement?.trim());
 
@@ -1090,6 +1181,20 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                 ? AVAILABLE_CRITERIA_AUDIO.map((c) => localizeAudioCriterion(c, t))
                 : AVAILABLE_CRITERIA.map((c) => localizeScreeningCriterion(c, t));
 
+    /** يُرسم داخل بطاقة نطاق الراتب بدل بطاقة مستقلة */
+    const salaryMaxCriterion = activeJobCriteria.find((c) => c.id === SALARY_RANGE_SECONDARY_ID);
+
+    /** معايير قائمة الإضافة: غير المُضاف بعد، دون الحد الأعلى للراتب (يُضاف مع النطاق) */
+    const availableMenuCriteria = activeJobCriteria.filter(
+        (c) => !addedOrder.includes(c.id) && c.id !== SALARY_RANGE_SECONDARY_ID
+    );
+    const criterionQueryNeedle = criterionQuery.trim().toLowerCase();
+    const filteredMenuCriteria = criterionQueryNeedle
+        ? availableMenuCriteria.filter((c) =>
+            criterionCardLabel(c, t).toLowerCase().includes(criterionQueryNeedle)
+        )
+        : availableMenuCriteria;
+
     // تفعيل/إلغاء تفعيل معيار
     const toggleCriterion = (criterionId) => {
         setSelectedCriteria(prev => {
@@ -1135,6 +1240,22 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                 }
             }
             return newSelected;
+        });
+    };
+
+    /**
+     * مفتاح البطاقة الواحدة: نطاق الراتب يفعّل/يلغي حدّيه معاً بحالة واحدة،
+     * حتى لا يبقى أحدهما مفعّلاً بلا بطاقة ظاهرة تعبّئه (فيمنع التحقق المتابعة).
+     */
+    const toggleCriterionCard = (criterionId) => {
+        const ids = criterionIdsForCard(criterionId);
+        if (ids.length === 1) {
+            toggleCriterion(criterionId);
+            return;
+        }
+        const next = !ids.some((id) => selectedCriteria[id]);
+        ids.forEach((id) => {
+            if (Boolean(selectedCriteria[id]) !== next) toggleCriterion(id);
         });
     };
 
@@ -1326,13 +1447,12 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
 
     /** Screening فقط */
     const handleAddPresetCriterion = (criterionId) => {
-        setAddedOrder((prev) => (prev.includes(criterionId) ? prev : [...prev, criterionId]));
-        if (!selectedCriteria[criterionId]) {
-            toggleCriterion(criterionId);
-        }
-        setAddMenuOpen(false);
-        setAddMenuCustomMode(false);
-        setCustomLabelDraft('');
+        const ids = criterionIdsForCard(criterionId);
+        setAddedOrder((prev) => [...prev, ...ids.filter((id) => !prev.includes(id))]);
+        ids.forEach((id) => {
+            if (!selectedCriteria[id]) toggleCriterion(id);
+        });
+        closeAddMenu();
         if (errors.general) {
             setErrors((prev) => {
                 const n = { ...prev };
@@ -1343,10 +1463,11 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
     };
 
     const handleRemovePresetFromScreening = (criterionId) => {
-        setAddedOrder((prev) => prev.filter((x) => x !== criterionId));
-        if (selectedCriteria[criterionId]) {
-            toggleCriterion(criterionId);
-        }
+        const ids = criterionIdsForCard(criterionId);
+        setAddedOrder((prev) => prev.filter((x) => !ids.includes(x)));
+        ids.forEach((id) => {
+            if (selectedCriteria[id]) toggleCriterion(id);
+        });
     };
 
     const handleAddCustomCriterion = () => {
@@ -1354,9 +1475,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         if (!label) return;
         const id = `custom__${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         setCustomCriteria((prev) => [...prev, { id, label, expectation: '' }]);
-        setAddMenuOpen(false);
-        setAddMenuCustomMode(false);
-        setCustomLabelDraft('');
+        closeAddMenu();
         if (errors.general) {
             setErrors((prev) => {
                 const n = { ...prev };
@@ -2399,10 +2518,20 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                         {/* Criteria List - Compact Grid Layout */}
                         <div className="ni-criteria-grid">
                             {(isScreeningFlow
-                                ? activeJobCriteria.filter((c) => addedOrder.includes(c.id))
+                                ? activeJobCriteria.filter(
+                                    (c) =>
+                                        addedOrder.includes(c.id) ||
+                                        // بطاقة النطاق تظهر أيضاً إذا أُضيف الحد الأعلى وحده (اقتراح AI مثلاً)
+                                        (c.id === SALARY_RANGE_PRIMARY_ID && addedOrder.includes(SALARY_RANGE_SECONDARY_ID))
+                                )
                                 : activeJobCriteria
                             ).map((criterion) => {
-                                const isSelected = selectedCriteria[criterion.id];
+                                // الحد الأعلى للراتب يُرسم داخل بطاقة النطاق، فلا بطاقة مستقلة له
+                                if (criterion.id === SALARY_RANGE_SECONDARY_ID) return null;
+                                const isSalaryRange = criterion.id === SALARY_RANGE_PRIMARY_ID;
+                                const isSelected = isSalaryRange
+                                    ? selectedCriteria[SALARY_RANGE_PRIMARY_ID] || selectedCriteria[SALARY_RANGE_SECONDARY_ID]
+                                    : selectedCriteria[criterion.id];
                                 const value = jobDetails[criterion.id] || '';
                                 const hasError = errors[criterion.id];
                                 
@@ -2415,7 +2544,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                         borderRadius: NT.radiusLg,
                                         transition: 'all 0.25s ease',
                                         animation: 'slideIn 0.3s ease',
-                                        ...((criterion.id === 'certifications' || criterion.id === 'skills' || criterion.id === 'languages' || criterion.id === 'aiCompareTop') && isSelected ? { gridColumn: '1 / -1' } : {})
+                                        ...((criterion.id === 'certifications' || criterion.id === 'skills' || criterion.id === 'languages' || criterion.id === 'aiCompareTop' || isSalaryRange) && isSelected ? { gridColumn: '1 / -1' } : {})
                                     }}>
                                         {/* Toggle Switch */}
                                         <div style={{
@@ -2435,7 +2564,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                 <input
                                     type="checkbox"
                                     checked={Boolean(isSelected)}
-                                    onChange={() => (isScreeningFlow ? handleRemovePresetFromScreening(criterion.id) : toggleCriterion(criterion.id))}
+                                    onChange={() => (isScreeningFlow ? handleRemovePresetFromScreening(criterion.id) : toggleCriterionCard(criterion.id))}
                                     style={{
                                         width: '18px',
                                         height: '18px',
@@ -2456,7 +2585,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                                     {criterion.id === 'aiCompareTop' && (
                                                         <AiSparkIcon size={15} className="ni-ai-compare-spark-inline" />
                                                     )}
-                                                    {criterion.label}
+                                                    {criterionCardLabel(criterion, t)}
                                                 </span>
                                             </label>
                             </div>
@@ -2701,6 +2830,55 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                         wrapperClassName="position-suggest--sidebar-wide"
                                         {...criteriaComboboxProps(hasError)}
                                     />
+                                ) : criterion.id === 'availability' ? (
+                                    <PositionSuggestCombobox
+                                        id="ni-sidebar-availability-input"
+                                        name={criterion.id}
+                                        value={value ?? ''}
+                                        onChange={(e) => handleInputChange(criterion.id, e.target.value)}
+                                        suggestionOptions={availabilityOptionsLocalized}
+                                        placeholder={criterion.placeholder}
+                                        listboxId="ni-sidebar-availability-suggestions"
+                                        wrapperClassName="position-suggest--sidebar-wide"
+                                        {...criteriaComboboxProps(hasError)}
+                                    />
+                                ) : isSalaryRange ? (
+                                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                        {[criterion, salaryMaxCriterion].filter(Boolean).map((bound) => {
+                                            const boundError = errors[bound.id];
+                                            return (
+                                                <div key={bound.id} style={{ flex: '1 1 180px', minWidth: 0 }}>
+                                                    <span
+                                                        className="ni-criteria-label"
+                                                        style={{
+                                                            display: 'block',
+                                                            fontSize: '11px',
+                                                            fontWeight: 600,
+                                                            marginBottom: '5px',
+                                                            textTransform: 'none',
+                                                            letterSpacing: 'normal',
+                                                        }}
+                                                    >
+                                                        {bound.id === SALARY_RANGE_PRIMARY_ID
+                                                            ? t('newCampaign_jc_salaryRange_min')
+                                                            : t('newCampaign_jc_salaryRange_max')}
+                                                    </span>
+                                                    <input
+                                                        type={bound.type}
+                                                        value={jobDetails[bound.id] ?? ''}
+                                                        onChange={(e) => handleInputChange(bound.id, e.target.value)}
+                                                        placeholder={bound.placeholder}
+                                                        {...criteriaTextInputProps(boundError)}
+                                                    />
+                                                    {boundError && (
+                                                        <span style={{ color: '#EF4444', fontSize: '11px', marginTop: '6px', display: 'block', fontWeight: 600 }}>
+                                                            {boundError}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 ) : (
                                 <input
                                     type={criterion.type}
@@ -2710,7 +2888,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                     {...criteriaTextInputProps(hasError)}
                                 />
                                 )}
-                                                {hasError && (
+                                                {hasError && !isSalaryRange && (
                                                     <span style={{ color: '#EF4444', fontSize: '11px', marginTop: '6px', display: 'block', fontWeight: 600 }}>
                                                         {hasError}
                                                     </span>
@@ -3122,13 +3300,18 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                         )}
 
                         {isScreeningFlow && (
-                            <div style={{ position: 'relative', marginBottom: '18px' }}>
+                            <div ref={addMenuAnchorRef} style={{ position: 'relative', marginBottom: '18px' }}>
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setAddMenuOpen((o) => !o);
+                                        if (addMenuOpen) {
+                                            closeAddMenu();
+                                            return;
+                                        }
+                                        setAddMenuOpen(true);
                                         setAddMenuCustomMode(false);
                                         setCustomLabelDraft('');
+                                        setCriterionQuery('');
                                     }}
                                     aria-haspopup="menu"
                                     aria-expanded={addMenuOpen}
@@ -3164,38 +3347,54 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                     </svg>
                                 </button>
 
-                                {addMenuOpen && (
+                                {addMenuOpen && addMenuStyle && createPortal(
                                     <>
                                         <div
-                                            onClick={() => {
-                                                setAddMenuOpen(false);
-                                                setAddMenuCustomMode(false);
-                                                setCustomLabelDraft('');
-                                    }}
-                                    style={{
+                                            onClick={closeAddMenu}
+                                            style={{
                                                 position: 'fixed',
                                                 inset: 0,
-                                                zIndex: 20,
+                                                zIndex: 10009,
                                                 background: 'transparent',
                                             }}
                                         />
-                                        <div role="menu" className="ni-criterion-menu">
+                                        <div
+                                            role="menu"
+                                            className="ni-criterion-menu"
+                                            dir={isRtlLanguage(currentLang) ? 'rtl' : 'ltr'}
+                                            style={{
+                                                top: `${addMenuStyle.top}px`,
+                                                left: `${addMenuStyle.left}px`,
+                                                width: `${addMenuStyle.width}px`,
+                                                maxHeight: `${addMenuStyle.maxHeight}px`,
+                                            }}
+                                        >
                                             {!addMenuCustomMode ? (
                                                 <>
                                                     <div className="ni-criterion-menu__header">
                                                         <span className="ni-criterion-menu__header-title">
                                                             {t('newCampaign_criterionMenuTitle')}
                                 </span>
+                                                        {availableMenuCriteria.length > CRITERION_MENU_SEARCH_THRESHOLD ? (
+                                                            <input
+                                                                type="text"
+                                                                className="ni-criterion-menu__search"
+                                                                value={criterionQuery}
+                                                                onChange={(e) => setCriterionQuery(e.target.value)}
+                                                                placeholder={t('newCampaign_criterionMenuSearch')}
+                                                                aria-label={t('newCampaign_criterionMenuSearch')}
+                                                            />
+                                                        ) : null}
                                                     </div>
                                                     <div className="ni-criterion-menu__body">
                                                         {(() => {
-                                                            const available = activeJobCriteria.filter(
-                                                                (c) => !addedOrder.includes(c.id)
-                                                            );
+                                                            const available = filteredMenuCriteria;
                                                             if (available.length === 0) {
                                                                 return (
                                                                     <div className="ni-criterion-menu__empty">
-                                                                        {t('newCampaign_criterionMenuAllAdded')}
+                                                                        {availableMenuCriteria.length === 0
+                                                                            ? t('newCampaign_criterionMenuAllAdded')
+                                                                            : t('newCampaign_criterionMenuNoMatch')}
                                                                     </div>
                                                                 );
                                                             }
@@ -3223,7 +3422,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                                                                     <span className="ni-criterion-menu__item-icon" aria-hidden>
                                                                                         <CriterionMenuIcon id={c.id} />
                                                                                     </span>
-                                                                                    <span className="ni-criterion-menu__item-label">{c.label}</span>
+                                                                                    <span className="ni-criterion-menu__item-label">{criterionCardLabel(c, t)}</span>
                                                             </button>
                                                         ))}
                                                         </div>
@@ -3276,9 +3475,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                                                 e.preventDefault();
                                                                 handleAddCustomCriterion();
                                                             } else if (e.key === 'Escape') {
-                                                                setAddMenuOpen(false);
-                                                                setAddMenuCustomMode(false);
-                                                                setCustomLabelDraft('');
+                                                                closeAddMenu();
                                                             }
                                                         }}
                                                             placeholder={t('newCampaign_criterionMenuCustomPlaceholder')}
@@ -3335,7 +3532,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                                 </div>
                                             )}
                                         </div>
-                                    </>
+                                    </>,
+                                    document.body,
                                 )}
                             </div>
                         )}

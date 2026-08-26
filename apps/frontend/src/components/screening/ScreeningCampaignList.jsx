@@ -3,6 +3,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { fillI18nTemplate } from '../../utils/i18nTemplate.js';
 import { localizeCatalogLabel } from '../../utils/localizeCatalogLabel.js';
 import ScreeningConfirmModal from './ScreeningConfirmModal.jsx';
+import StageRefreshButton from './StageRefreshButton.jsx';
 
 /**
  * Campaign list for Stage 1 Screening — Head Hunter search-history layout.
@@ -33,17 +34,6 @@ export default function ScreeningCampaignList({
 }) {
     const { t, currentLang } = useLanguage();
     const [viewMode, setViewMode] = useState(/** @type {'list' | 'cards'} */ ('cards'));
-    const [refreshing, setRefreshing] = useState(false);
-
-    const handleRefreshClick = async () => {
-        if (refreshing) return;
-        setRefreshing(true);
-        try {
-            await onRefresh?.();
-        } finally {
-            setRefreshing(false);
-        }
-    };
     /** @type {[object | null, Function]} */
     const [confirmRow, setConfirmRow] = useState(null);
     const [hiding, setHiding] = useState(false);
@@ -272,23 +262,7 @@ export default function ScreeningCampaignList({
                 <h2 className="dashboard-card-title">{t(titleKey)}</h2>
                 <div className="header-actions">
                     {onRefresh ? (
-                        <button
-                            type="button"
-                            className="btn btn-secondary candidates-toolbar-filter-btn"
-                            onClick={handleRefreshClick}
-                            disabled={refreshing}
-                            aria-busy={refreshing}
-                        >
-                            <svg
-                                width="20" height="20" viewBox="0 0 20 20" fill="none"
-                                xmlns="http://www.w3.org/2000/svg" aria-hidden
-                                style={refreshing ? { animation: 'stageRefreshSpin 0.8s linear infinite' } : undefined}
-                            >
-                                <path d="M16 10C16 13.3137 13.3137 16 10 16C6.68629 16 4 13.3137 4 10C4 6.68629 6.68629 4 10 4C11.82 4 13.45 4.81 14.55 6.08" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                <path d="M16 4V8H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                            <span className="btn-text">{t('stageEval_refresh')}</span>
-                        </button>
+                        <StageRefreshButton onRefresh={onRefresh} label={t('stageEval_refresh')} />
                     ) : null}
                     {hasAny ? (
                         <button

@@ -18,6 +18,7 @@ import { fillI18nTemplate } from '../utils/i18nTemplate.js';
 import { canonicalStageRecommendation, hasMeaningfulStageEvaluation } from '../utils/stageRecommendation.js';
 import { scriptTextProps } from '../utils/textScript.js';
 import ScreeningCampaignList from '../components/screening/ScreeningCampaignList.jsx';
+import StageRefreshButton from '../components/screening/StageRefreshButton.jsx';
 import ScreeningAiComparePanel from '../components/screening/ScreeningAiComparePanel.jsx';
 import StageEvalBackButton from '../components/screening/StageEvalBackButton.jsx';
 import AiCompareTopEmailModal from '../components/screening/AiCompareTopEmailModal.jsx';
@@ -668,13 +669,11 @@ const VoiceInterview = () => {
                     </div>
                     <div className="header-actions" style={{ flexWrap: 'wrap', gap: '10px' }}>
                         <StageEvalBackButton onClick={() => setSelectedCampaignKey(null)} />
-                        <button type="button" className="btn btn-secondary candidates-toolbar-filter-btn" onClick={fetchCandidates}>
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M16 10C16 13.3137 13.3137 16 10 16C6.68629 16 4 13.3137 4 10C4 6.68629 6.68629 4 10 4C11.82 4 13.45 4.81 14.55 6.08" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                                <path d="M16 4V8H12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                            <span className="btn-text">{t('stageEval_refresh')}</span>
-                        </button>
+                        {/* تمرير الدالة مباشرة كان يبعث حدث النقر كخيارات، فيسقط الجدول إلى سطر تحميل بلا داعٍ */}
+                        <StageRefreshButton
+                            onRefresh={() => fetchCandidates({ background: true })}
+                            label={t('stageEval_refresh')}
+                        />
                         {['all', 'Hire', 'Consider', 'Reject'].map((filterOption) => {
                             const isActive = filter === filterOption.toLowerCase();
                             return (

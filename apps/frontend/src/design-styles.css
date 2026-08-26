@@ -19019,6 +19019,8 @@ html[data-app-theme='light'] .account-dashboard-page .account-next-invoice__days
    (marketing site + nav unchanged; dark remains default)
    ============================================================================= */
 html[data-app-theme='light'] {
+    /* Nav stays dark here, so its hairline reads as a bevel against the cream page */
+    --nav-hairline: rgba(255, 255, 255, 0.22);
     --app-bg-gradient:
         radial-gradient(ellipse 90% 60% at 50% -10%, rgba(251, 191, 36, 0.07) 0%, transparent 55%),
         radial-gradient(ellipse 70% 50% at 100% 100%, rgba(244, 162, 97, 0.06) 0%, transparent 50%),
@@ -23013,7 +23015,7 @@ html[data-app-theme='light'] .new-interview-modal .design-add-question-plus-btn-
     color: #6366f1 !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu {
+html[data-app-theme='light'] .ni-criterion-menu {
     background: #ffffff !important;
     border-color: var(--app-container-border) !important;
     box-shadow: var(--app-container-shadow), var(--app-container-inset) !important;
@@ -23021,187 +23023,199 @@ html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu {
     -webkit-backdrop-filter: none !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__header {
+html[data-app-theme='light'] .ni-criterion-menu__header {
     background: rgba(99, 102, 241, 0.05) !important;
     border-bottom-color: var(--app-container-border) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__header-title {
+html[data-app-theme='light'] .ni-criterion-menu__header-title {
     color: #6366f1 !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__body {
+html[data-app-theme='light'] .ni-criterion-menu__body {
     background: #ffffff !important;
     scrollbar-color: rgba(99, 102, 241, 0.35) rgba(148, 163, 184, 0.12);
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__section-title {
+html[data-app-theme='light'] .ni-criterion-menu__section-title {
     color: #64748b !important;
+    /* مثبّت أثناء التمرير، فيجب أن يحجب ما يمرّ تحته */
+    background: #ffffff !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item {
+html[data-app-theme='light'] .ni-criterion-menu__search {
+    background: #ffffff !important;
+    border-color: rgba(148, 163, 184, 0.45) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-app-theme='light'] .ni-criterion-menu__search:focus {
+    border-color: rgba(99, 102, 241, 0.55) !important;
+}
+
+html[data-app-theme='light'] .ni-criterion-menu__item {
     background: #ffffff !important;
     border-color: rgba(148, 163, 184, 0.35) !important;
     color: var(--app-text) !important;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item:hover,
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item:focus-visible {
+html[data-app-theme='light'] .ni-criterion-menu__item:hover,
+html[data-app-theme='light'] .ni-criterion-menu__item:focus-visible {
     box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item .ni-criterion-menu__item-icon {
     box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.15) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='position'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='position'] {
     background: linear-gradient(145deg, #f0f9ff 0%, #ffffff 70%) !important;
     border-color: rgba(14, 165, 233, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='position'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='position'] .ni-criterion-menu__item-icon {
     color: #0284c7 !important;
     background: rgba(14, 165, 233, 0.12) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='location'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='location'] {
     background: linear-gradient(145deg, #ecfdf5 0%, #ffffff 70%) !important;
     border-color: rgba(16, 185, 129, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='location'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='location'] .ni-criterion-menu__item-icon {
     color: #059669 !important;
     background: rgba(16, 185, 129, 0.12) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='job'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='job'] {
     background: linear-gradient(145deg, #f5f3ff 0%, #ffffff 70%) !important;
     border-color: rgba(139, 92, 246, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='job'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='job'] .ni-criterion-menu__item-icon {
     color: #7c3aed !important;
     background: rgba(139, 92, 246, 0.12) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='company'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='company'] {
     background: linear-gradient(145deg, #fff7ed 0%, #ffffff 70%) !important;
     border-color: rgba(249, 115, 22, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='company'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='company'] .ni-criterion-menu__item-icon {
     color: #ea580c !important;
     background: rgba(249, 115, 22, 0.12) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='age'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='age'] {
     background: linear-gradient(145deg, #eff6ff 0%, #ffffff 70%) !important;
     border-color: rgba(59, 130, 246, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='age'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='age'] .ni-criterion-menu__item-icon {
     color: #2563eb !important;
     background: rgba(59, 130, 246, 0.12) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='gender'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='gender'] {
     background: linear-gradient(145deg, #fdf2f8 0%, #ffffff 70%) !important;
     border-color: rgba(236, 72, 153, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='gender'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='gender'] .ni-criterion-menu__item-icon {
     color: #db2777 !important;
     background: rgba(236, 72, 153, 0.12) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='educationLevel'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='educationLevel'] {
     background: linear-gradient(145deg, #f0fdfa 0%, #ffffff 70%) !important;
     border-color: rgba(20, 184, 166, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='educationLevel'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='educationLevel'] .ni-criterion-menu__item-icon {
     color: #0d9488 !important;
     background: rgba(20, 184, 166, 0.12) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='experienceYears'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='experienceYears'] {
     background: linear-gradient(145deg, #eef2ff 0%, #ffffff 70%) !important;
     border-color: rgba(99, 102, 241, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='experienceYears'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='experienceYears'] .ni-criterion-menu__item-icon {
     color: #4f46e5 !important;
     background: rgba(99, 102, 241, 0.12) !important;
     box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.22) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='salaryMin'],
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='salaryMax'],
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='salaryCurrency'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='salaryMin'],
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='salaryMax'],
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='salaryCurrency'] {
     background: linear-gradient(145deg, #fefce8 0%, #ffffff 70%) !important;
     border-color: rgba(234, 179, 8, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='salaryMin'] .ni-criterion-menu__item-icon,
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='salaryMax'] .ni-criterion-menu__item-icon,
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='salaryCurrency'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='salaryMin'] .ni-criterion-menu__item-icon,
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='salaryMax'] .ni-criterion-menu__item-icon,
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='salaryCurrency'] .ni-criterion-menu__item-icon {
     color: #ca8a04 !important;
     background: rgba(234, 179, 8, 0.12) !important;
     box-shadow: inset 0 0 0 1px rgba(234, 179, 8, 0.22) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='availability'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='availability'] {
     background: linear-gradient(145deg, #ecfeff 0%, #ffffff 70%) !important;
     border-color: rgba(6, 182, 212, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='availability'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='availability'] .ni-criterion-menu__item-icon {
     color: #0891b2 !important;
     background: rgba(6, 182, 212, 0.12) !important;
     box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.22) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='skills'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='skills'] {
     background: linear-gradient(145deg, #f0f9ff 0%, #ffffff 70%) !important;
     border-color: rgba(14, 165, 233, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='skills'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='skills'] .ni-criterion-menu__item-icon {
     color: #0284c7 !important;
     background: rgba(14, 165, 233, 0.12) !important;
     box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.22) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='languages'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='languages'] {
     background: linear-gradient(145deg, #faf5ff 0%, #ffffff 70%) !important;
     border-color: rgba(168, 85, 247, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='languages'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='languages'] .ni-criterion-menu__item-icon {
     color: #7c3aed !important;
     background: rgba(168, 85, 247, 0.12) !important;
     box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.22) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='certifications'] {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='certifications'] {
     background: linear-gradient(145deg, #fef2f2 0%, #ffffff 70%) !important;
     border-color: rgba(239, 68, 68, 0.35) !important;
 }
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item[data-criterion='certifications'] .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item[data-criterion='certifications'] .ni-criterion-menu__item-icon {
     color: #dc2626 !important;
     background: rgba(239, 68, 68, 0.12) !important;
     box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.22) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__footer {
+html[data-app-theme='light'] .ni-criterion-menu__footer {
     background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
     border-top-color: rgba(148, 163, 184, 0.28) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item--accent {
+html[data-app-theme='light'] .ni-criterion-menu__item--accent {
     background: #ffffff !important;
     color: #475569 !important;
     border: 1px dashed rgba(99, 102, 241, 0.4) !important;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item--accent .ni-criterion-menu__item-icon {
+html[data-app-theme='light'] .ni-criterion-menu__item--accent .ni-criterion-menu__item-icon {
     background: rgba(99, 102, 241, 0.1) !important;
     color: #6366f1 !important;
     box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.22) !important;
 }
 
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item--accent:hover,
-html[data-app-theme='light'] .new-interview-modal .ni-criterion-menu__item--accent:focus-visible {
+html[data-app-theme='light'] .ni-criterion-menu__item--accent:hover,
+html[data-app-theme='light'] .ni-criterion-menu__item--accent:focus-visible {
     background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%) !important;
     color: #312e81 !important;
     border-color: rgba(99, 102, 241, 0.55) !important;
