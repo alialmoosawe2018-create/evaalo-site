@@ -45,8 +45,13 @@ export function getVoiceResponseTiming(): {
   postAudioPaddingMs: number;
   postTtsPaddingMs: number;
   useTtsTimestamps: boolean;
-  /** مهلة أقصاها إن لم يصل playback_ended من العميل بعد رد الإيجنت */
+  /** سقف أقصى إن لم يصل playback_ended من العميل بعد رد الإيجنت */
   playbackEndedTimeoutMs: number;
+  /**
+   * يُضاف على مدة الصوت الفعلية لتكوين مهلة الانتظار عند فقدان playback_ended.
+   * السقف وحده كان يعني نصف دقيقة صمت إذا جمّد المتصفح تبويبةً خلفية.
+   */
+  playbackEndedMarginMs: number;
   /** مهلة احتياطية للترحيب/الإغلاق إن لم يُبلغ العميل عن انتهاء التشغيل */
   playbackFallbackMs: number;
   /** بعد انتهاء التشغيل قبل استئناف الاستماع */
@@ -79,6 +84,7 @@ export function getVoiceResponseTiming(): {
       process.env.VOICE_TTS_USE_TIMESTAMPS !== "false" &&
       process.env.VOICE_TTS_USE_TIMESTAMPS !== "0",
     playbackEndedTimeoutMs: n(process.env.VOICE_PLAYBACK_ENDED_TIMEOUT_MS, 30000, 5000),
+    playbackEndedMarginMs: n(process.env.VOICE_PLAYBACK_ENDED_MARGIN_MS, 3000, 500),
     playbackFallbackMs: n(process.env.VOICE_PLAYBACK_FALLBACK_MS, 15000, 3000),
     postPlaybackResumeMs: n(process.env.VOICE_POST_PLAYBACK_RESUME_MS, 600, 0),
     lateTranscriptIgnoreMs: n(process.env.VOICE_LATE_TRANSCRIPT_IGNORE_MS, 300, 0),

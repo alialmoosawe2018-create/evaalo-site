@@ -663,7 +663,15 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     send(ws, { type: "agent_reply", text: llmReply });
     send(ws, { type: "tts_complete" });
     const TTS_TO_STT_DELAY_MS = voiceTiming.ttsToSttDelayMs;
-    const PLAYBACK_ENDED_TIMEOUT_MS = voiceTiming.playbackEndedTimeoutMs;
+    // المهلة مشتقّة من مدة الصوت لا من سقف ثابت: طوابع الحروف تعطينا المدة، فإذا لم
+    // يصل playback_ended (تبويبة مجمّدة تجمّد مؤقّتات العميل أيضاً) ننتظر المدة + هامشاً
+    // بدل نصف دقيقة يُهمَل فيها كل كلام المرشح. المسار الطبيعي لا يتغيّر: وصول الرسالة
+    // يتقدّم فوراً. بلا طوابع (chunkOffsetSeconds = 0) نعود إلى السقف كما كان.
+    const audioMs = Math.round(chunkOffsetSeconds * 1000);
+    const PLAYBACK_ENDED_TIMEOUT_MS =
+      audioMs > 0
+        ? Math.min(voiceTiming.playbackEndedTimeoutMs, audioMs + voiceTiming.playbackEndedMarginMs)
+        : voiceTiming.playbackEndedTimeoutMs;
     const minDelay = new Promise<void>((r) => setTimeout(r, TTS_TO_STT_DELAY_MS));
     const playbackEnded = new Promise<void>((resolve) => {
       const done = () => {
@@ -672,7 +680,12 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         resolve();
       };
       pendingPlaybackEnded.set(sessionId, done);
-      const t = setTimeout(done, PLAYBACK_ENDED_TIMEOUT_MS);
+      const t = setTimeout(() => {
+        console.warn(
+          `[PLAYBACK TIMEOUT] ${sessionId.substring(0, 8)}... no playback_ended after ${PLAYBACK_ENDED_TIMEOUT_MS}ms (audio ${audioMs}ms)`
+        );
+        done();
+      }, PLAYBACK_ENDED_TIMEOUT_MS);
     });
     await Promise.all([minDelay, playbackEnded]);
     if (ws.readyState !== ws.OPEN) return;

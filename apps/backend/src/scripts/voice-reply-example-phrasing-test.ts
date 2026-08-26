@@ -11,6 +11,7 @@
  * Run: npx tsx src/scripts/voice-reply-example-phrasing-test.ts
  */
 import { polishVoiceArabicReply } from '../services/llmService.js';
+import { FOLLOW_UP_GENERIC, FOLLOW_UP_BY_INTENT } from '../evaalo-only-voice/questionEngine.js';
 
 function assert(cond: boolean, msg: string) {
     if (!cond) throw new Error(msg);
@@ -21,6 +22,10 @@ const mustRewrite = [
     'حلو، شنو مثال على كيف استخدمت برامج الذكاء الاصطناعي في تحسين عمليات الموارد البشرية عندك؟',
     'ممتاز، شنو أمثلة على المهام اللي تنجزها أسبوعياً؟',
     'شنو مثال عن موقف صعب واجهته؟',
+    // من جلستي 2026-08-26: المعرّفة كانت تمرّ، و«اعطني» جاءت من بذرة المتابعة نفسها
+    'تمام، شنو المثال اللي صار عندك بخصوص استخدام التكنولوجيا في عملية التوظيف؟',
+    'جيد، اعطني مثال محدد صار وياك؟',
+    'حلو، أعطيني مثال على موقف واجهت فيه ضغط؟',
 ];
 
 /** مثال بلا «شنو» قبله صياغة سليمة — لا يجوز أن يلمسها المصحّح */
@@ -35,8 +40,12 @@ let failures = 0;
 for (const input of mustRewrite) {
     const out = polishVoiceArabicReply(input);
     try {
-        assert(!/(شنو|شو)\s+(?:هو\s+|هي\s+)?(مثال|أمثلة|امثلة)/u.test(out), `"شنو مثال" survived: "${out}"`);
-        assert(/انطيني\s+(مثال|أمثلة|امثلة)/u.test(out), `imperative missing: "${out}"`);
+        assert(
+            !/(شنو|شو)\s+(?:هو\s+|هي\s+)?(?:ال)?(?:مثال|أمثلة|امثلة)/u.test(out),
+            `"شنو مثال" survived: "${out}"`
+        );
+        assert(!/[أا]?عط(?:ي)?ني\s+(?:ال)?(?:مثال|أمثلة|امثلة)/u.test(out), `"اعطني مثال" survived: "${out}"`);
+        assert(/انطيني\s+(?:ال)?(?:مثال|أمثلة|امثلة)/u.test(out), `imperative missing: "${out}"`);
         assert(!/على\s+كيف/u.test(out), `"على كيف" survived: "${out}"`);
         assert(/[؟?]\s*$/.test(out), `question mark lost from the end: "${out}"`);
         console.log(`ok   rewrite → ${out}`);
@@ -54,6 +63,16 @@ for (const input of mustKeep) {
         failures += 1;
         console.error(`FAIL keep    → expected unchanged\n  in:  ${input}\n  out: ${out}`);
     }
+}
+
+// البذور نفسها: الموديل ينطقها شبه حرفياً، فأي «اعطني» فيها يُسمع كما هو
+const seeds = [...FOLLOW_UP_GENERIC, ...Object.values(FOLLOW_UP_BY_INTENT).flat()];
+const msaSeeds = seeds.filter((v) => /[أا]?عط(?:ي)?ني/u.test(v.ar));
+if (msaSeeds.length === 0) {
+    console.log('ok   seeds   → no MSA «اعطني» in follow-up seeds');
+} else {
+    failures += 1;
+    console.error(`FAIL seeds   → MSA «اعطني» in: ${msaSeeds.map((v) => v.ar).join(' | ')}`);
 }
 
 if (failures > 0) {

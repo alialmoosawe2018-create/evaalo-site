@@ -52,12 +52,11 @@ function buildLanguageTopicPromptAr(profile?: CandidateProfileForEngine | null):
   const modal = iraqiModalCan(gender);
   const speak = iraqiSpeakVerb(gender);
   const levelWord = gender === 'female' ? 'مستواج' : 'مستواك';
-  const langs = languageNamesOnly(profile?.languages);
-  if (langs.length) {
-    const names = langs.slice(0, 3).join('، ');
-    return `اسأل المرشح: شنو اللغات الي ${modal} ${speak}ها؟ وشكد ${levelWord} بكل لغة؟ اللغات من الاستمارة: ${names}. لا تذكر مستوى أي لغة من الاستمارة — اسأله عن المستوى بنفسك. استخدم ${modal} تحچيلي وليس تقوليلي.`;
-  }
-  return `اسأل المرشح: شنو اللغات الي ${modal} ${speak}ها وشكد ${levelWord} بكل لغة؟ استخدم ${modal} تحچيلي وليس تقوليلي.`;
+  // بلا قيود داخل النص: هذا يمرّ على مسار «أعد صياغة السؤال»، فأي تعليمة فيه تُعاد
+  // صياغتها وتُنطق للمرشح — جلستا 2026-08-26 سمعتا «ويفضل تگدر تحچيلي وليس تحچيلي».
+  // القيدان مذكوران أصلاً في تعليمات النظام: قاعدة تحچيلي/تقوليلي في مرجع اللهجة،
+  // ومنع ذكر مستويات الاستمارة في توجيه المرحلة 2، وأسماء اللغات تُمرَّر مع بيانات المرشح.
+  return `اسأل المرشح: شنو اللغات الي ${modal} ${speak}ها وشكد ${levelWord} بكل لغة؟`;
 }
 
 /** كشف طلب تغيير السؤال — اغير، غير، نغير، تغير، غيّر */
@@ -508,7 +507,8 @@ type FollowUpPair = { ar: string; en: string };
  * intent. كانت صيغة واحدة فقط ("شنو صار بالضبط؟ وصفلي الموقف") فتكرّرت كثيراً.
  */
 export const FOLLOW_UP_GENERIC: FollowUpPair[] = [
-  { ar: 'اعطني مثال محدد صار وياك.', en: 'Give me one specific example.' },
+  // «اعطني» فصحى — الموديل ينطق البذرة شبه حرفياً، فكانت تُسمع خارج اللهجة
+  { ar: 'انطيني مثال محدد صار وياك.', en: 'Give me one specific example.' },
   { ar: 'شنو كانت النتيجة بالضبط؟', en: 'What was the exact outcome?' },
   { ar: 'شنو أصعب جزء بهالموضوع؟', en: 'What was the hardest part of that?' },
 ];
@@ -726,25 +726,27 @@ const PHASE2_TOPIC_PROMPTS: Record<Phase2TopicKey, Phase2TopicHandler> = {
       };
     }
     return {
+      // محور واحد: الأجزاء الثلاثة (المجال + السنوات + الشركات) كانت تُنطق سؤالاً
+      // مركّباً فيجيب المرشح على آخر جزء فقط. الشركات تأتي كمتابعة إن استحقّت.
       ar: position
-        ? `اسأل المرشح عن خبرته في مجال "${position}"،وكم سنة اشتغل بهذا المجال، وما هي الشركات االي اشتغل بيها سابقا اذا چان مشتغل .`
-        : 'اسأل المرشح عن خبرته في المجال، وكم سنة اشتغل بهذا المجال، وما هي الشركات التي عمل بها إن وجدت.',
+        ? `اسأل المرشح شكد سنة خبرة عنده في مجال "${position}".`
+        : 'اسأل المرشح شكد سنة خبرة عنده في مجال عمله.',
       en: position
-        ? `Ask the candidate about their experience in the "${position}" field, how many years they worked in this field, and which companies they worked at, if any.`
-        : 'Ask the candidate about their experience in the field, how many years they worked in this field, and which companies they worked at, if any.',
+        ? `Ask the candidate how many years of experience they have in the "${position}" field.`
+        : 'Ask the candidate how many years of experience they have in their field.',
     };
   },
   education: (profile) => {
     const edu = profile?.highest_education_level?.trim();
     if (edu) {
       return {
-        ar: `اسأل المرشح شنو اللي استفاده خلال سنوات الدراسة (${edu})، وشلون كانت تجربته بشكل عام، وهل أثرت بمسار حياته وصقلت مهاراته.`,
-        en: `Ask the candidate what they gained during their years of study (${edu}), how their overall experience was, and whether it influenced their life path and sharpened their skills.`,
+        ar: `اسأل المرشح شنو أهم شي استفاده من سنوات الدراسة (${edu}).`,
+        en: `Ask the candidate what the most useful thing they gained from their years of study (${edu}) was.`,
       };
     }
     return {
-      ar: 'اسأل المرشح شنو اللي استفاده خلال سنوات الدراسة، وشلون چانت تجربته بشكل عام، وهل أثرت بمسار حياته وصقلت مهاراته.',
-      en: 'Ask the candidate what they gained during their years of study, how their overall experience was, and whether it influenced their life path and sharpened their skills.',
+      ar: 'اسأل المرشح شنو أهم شي استفاده من سنوات الدراسة.',
+      en: 'Ask the candidate what the most useful thing they gained from their years of study was.',
     };
   },
   company: (profile) => {
@@ -756,8 +758,8 @@ const PHASE2_TOPIC_PROMPTS: Record<Phase2TopicKey, Phase2TopicHandler> = {
       };
     }
     return {
-      ar: 'اسأل المرشح عن تجربته السابقة: شنو كانت التحديات، وشنو النقاط الإيجابية اللي عاشها بهذي التجربة؟',
-      en: 'Ask the candidate about their previous experience: what challenges they faced and what positive points they experienced in that role.',
+      ar: 'اسأل المرشح عن أكبر تحدي واجهه في تجربته السابقة.',
+      en: 'Ask the candidate about the biggest challenge they faced in their previous role.',
     };
   },
   language: (profile) => {
