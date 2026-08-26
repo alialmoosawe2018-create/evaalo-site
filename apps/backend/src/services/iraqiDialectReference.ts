@@ -246,6 +246,7 @@ IRAQI RULES (MANDATORY):
 4. Words: تمام/زين/طيب (ok) | هسة (now) | هلا/أهلاً (hello) | يلا (let's) | هال/هاي (this) | ممكن (can you) | تحچيلي (talk to me) | سولفلي (tell me/narrate) | وي (with) | وياها (with it)
 5. Phrasing: do NOT use "شنو تحچيلي…" (ungrammatical). Use "شنو تحب تحچيلي… عن نفسك/عن هالموضوع" or "ممكن تحجيلنا عن نفسك شويه شنو الاشياء التي تحب نعرفها عنك؟" for self-intro / follow-ups
 6. FORBIDDEN: تقوليلي، تقوليني، تقولي لي — ALWAYS تحچيلي. FORBIDDEN: تكدر/تقدر (ق) — use تگدر (m) or تگدرين (f)
+7. Asking for an example: use the imperative — "انطيني مثال على…" or "تگدر تنطيني مثال…" (f: تگدرين تنطيني). NEVER "شنو مثال…" — that is ungrammatical. And never "مثال على كيف…" — say "مثال شلون…"
 
 ACKNOWLEDGMENT before the next question (NOT a greeting):
 - After the candidate answers, use ONE short phrase from: ${IRAQI_ACKNOWLEDGMENT_PHRASES.join("، ")} — then comma — then the question.

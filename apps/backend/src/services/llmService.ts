@@ -528,6 +528,7 @@ ${langRule}`;
         return `You are EVAALO, a professional interviewer. Rephrase this question naturally and ask it. You may add a brief transition if it feels natural. One main question.
 Do NOT narrow a broad question into a single sub-topic unless the original question is already specific.
 After the optional short acknowledgment, the question itself must OPEN with an explicit interrogative (شنو / شلون / وين / ليش / منو / شكد / هل — What / How / Why / Where / Which / Can you in English). A statement carrying only a question mark at the end is not acceptable — it is spoken aloud, so it must sound like a question.
+Requesting an example is the one exception: open with the imperative ("انطيني مثال على…" / "تگدر تنطيني مثال…" / "Give me an example of…"). Never "شنو مثال…".
 Output clean punctuation: never leave a lone "؟" or "?" in the middle of the sentence; the only question mark belongs at the very end.
 ${changeNote ? changeNote + '\n' : ''}
 ${langRule}
@@ -769,6 +770,20 @@ function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string 
         const wUse = w === 'أش' || w === 'اش' ? 'شنو' : w;
         return `${wUse} تحب تح${g}يلي`;
     });
+    // طلب المثال يكون بصيغة الأمر: «شنو مثال على…» ليست عربية سليمة ولا لهجة عراقية،
+    // والموديل يلجأ إليها لأن قاعدة «ابدأ باستفهام صريح» تمنع صيغة الأمر.
+    s = s.replace(
+        /(?:شنو|شو)\s+(?:هو\s+|هي\s+)?(مثال|أمثلة|امثلة)\s+(?:على|عن)\s+كيف\s+/gu,
+        'انطيني $1 شلون '
+    );
+    s = s.replace(
+        /(?:شنو|شو)\s+(?:هو\s+|هي\s+)?(مثال|أمثلة|امثلة)\s+(على|عن)\s+/gu,
+        'انطيني $1 $2 '
+    );
+    s = s.replace(
+        /(?:شنو|شو)\s+(?:هو\s+|هي\s+)?(مثال|أمثلة|امثلة)(?=\s|[،,.؟?]|$)/gu,
+        'انطيني $1'
+    );
     // توحيد صياغة سؤال التعارف الافتتاحي إلى النسخة المعتمدة
     s = s.replace(
         /ممكن\s+تح([چج])يلي\s+عن\s+نفسك\s+شوي[هة]?\s*[؟?]?\s*شنو\s+الأشياء\s+المهمة\s+اللي\s+تحب\s+أتعرفها\s+عنك\s*[؟?]?/gi,
