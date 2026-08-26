@@ -12,6 +12,8 @@ These cover the pure detectors that the guard in ``assistant`` relies on.
 
 from __future__ import annotations
 
+import asyncio
+
 from voice_interview.active_question import (
     MODE_ASK,
     MODE_FOLLOW_UP,
@@ -281,3 +283,104 @@ def test_followup_does_not_mark_a_new_competency_covered():
     # Follow-up deepens the active competency; it must not mark a competency as
     # freshly covered here.
     assert "comp_x" not in agent._memory.asked_competency_keys
+
+
+# --- the final closing must actually CONCLUDE the session, not just be spoken ---
+# Real transcript defect: the guard said the closing but never tore the room
+# down, so the agent kept replying until the candidate left ("لم يختم").
+def test_final_closing_flags_conclude_after_reply():
+    agent = _assistant(["شنو خبرتك بالتوظيف؟"])
+    agent._memory.wrap_up_offered = True
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_ASK)
+    out = agent._guard_repetition_and_language("شنو أدواتك المفضلة بالعمل؟")
+    assert "يراجع إجاباتك" in out  # final closing emitted
+    # ...and the one-shot teardown flag is armed so the room is actually closed.
+    assert agent._conclude_after_reply is True
+
+
+def test_winddown_advances_once_per_turn_no_collapse():
+    # The guard runs twice per turn (transcription_node + tts_node). A wrap-up
+    # offer must NOT collapse into the final closing within the same turn — both
+    # passes return the SAME wind-down line, and closing waits for a later turn.
+    agent = _assistant([])  # empty bank → no fresh anchor
+    dup = "شنو قنوات الاستقطاب اللي تعتمد عليها بالتوظيف؟"
+    agent._memory.asked_questions.extend([f"سؤال سابق رقم {i}؟" for i in range(9)] + [dup])
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_RESUME)
+    first = agent._guard_repetition_and_language(dup)  # transcription pass
+    second = agent._guard_repetition_and_language(dup)  # tts pass, SAME turn_index
+    assert "أكو شي تحب تضيفه" in first  # wrap-up offered
+    assert second == first  # identical line on the second pass (chat == audio)
+    assert agent._memory.final_closing_sent is False  # did NOT collapse to closing
+    assert agent._conclude_after_reply is False  # nothing to tear down yet
+
+
+def test_winddown_closing_delivered_on_following_turn():
+    agent = _assistant([])
+    dup = "شنو قنوات الاستقطاب اللي تعتمد عليها بالتوظيف؟"
+    agent._memory.asked_questions.extend([f"سؤال سابق رقم {i}؟" for i in range(9)] + [dup])
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_RESUME)
+    agent._guard_repetition_and_language(dup)  # turn 0: offers wrap-up
+    assert agent._memory.wrap_up_offered is True
+    # candidate answered → a new turn advances turn_index
+    agent._memory.turn_index = 1
+    out = agent._guard_repetition_and_language("خلص، ما عندي شي أضيفه")
+    assert "يراجع إجاباتك" in out  # NOW the final closing
+    assert agent._memory.final_closing_sent is True
+    assert agent._conclude_after_reply is True
+
+
+class _FakeJobCtx:
+    def __init__(self) -> None:
+        self.deleted = False
+        self.shutdown_reason: str | None = None
+
+    async def delete_room(self) -> None:
+        self.deleted = True
+
+    def shutdown(self, reason: str | None = None) -> None:
+        self.shutdown_reason = reason
+
+
+def test_conclude_interview_deletes_room(monkeypatch):
+    agent = _assistant(["q"])
+    fake = _FakeJobCtx()
+    monkeypatch.setattr("voice_interview.assistant.get_job_context", lambda: fake)
+    # ctx=None → derives (missing) session speech defensively, then tears down.
+    asyncio.run(agent._conclude_interview(None))
+    assert fake.deleted is True
+
+
+def test_schedule_conclude_tears_down_room(monkeypatch):
+    agent = _assistant(["q"])
+    agent._auto_end_enabled = True
+    agent._conclude_after_reply = True
+    fake = _FakeJobCtx()
+    monkeypatch.setattr("voice_interview.assistant.get_job_context", lambda: fake)
+
+    async def _run() -> None:
+        agent._schedule_conclude_after_reply()
+        pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        if pending:
+            await asyncio.gather(*pending)
+
+    asyncio.run(_run())
+    assert fake.deleted is True  # room torn down
+    assert agent._conclude_after_reply is False  # one-shot consumed
+
+
+def test_schedule_conclude_noop_when_auto_end_disabled(monkeypatch):
+    agent = _assistant(["q"])
+    agent._auto_end_enabled = False
+    agent._conclude_after_reply = True
+    fake = _FakeJobCtx()
+    monkeypatch.setattr("voice_interview.assistant.get_job_context", lambda: fake)
+
+    async def _run() -> None:
+        agent._schedule_conclude_after_reply()
+        pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        if pending:
+            await asyncio.gather(*pending)
+
+    asyncio.run(_run())
+    assert fake.deleted is False  # legacy behavior: keep the room open
+    assert agent._conclude_after_reply is False  # flag still cleared (one-shot)

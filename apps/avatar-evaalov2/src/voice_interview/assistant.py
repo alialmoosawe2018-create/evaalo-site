@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -111,6 +112,18 @@ _IDENTITY_REPLY_AR = (
 _IDENTITY_REPLY_EN = (
     "I'm Evaalo's interview assistant. I'm here to learn about your experience for this role. "
     "When you're ready, we can continue."
+)
+
+# Wind-down lines emitted by the reply-guard when the bank is exhausted. Kept as
+# module constants so the two guard passes per turn (transcription_node + tts_node)
+# return the exact same text, and so tests can assert on them.
+_WRAP_UP_PROMPT_AR = (
+    "شكراً على وقتك وإجاباتك. أعتقد غطّينا المحاور الأساسية — "
+    "أكو شي تحب تضيفه قبل ما نختم المقابلة؟"
+)
+_FINAL_CLOSING_AR = (
+    "شكراً على وقتك وإجاباتك. فريق الموارد البشرية راح يراجع "
+    "إجاباتك ويتواصل وياك بالخطوات القادمة."
 )
 
 
@@ -658,6 +671,17 @@ class InterviewAssistant(Agent):
         self._turn_clarify_source: str = ""
         self._turn_plan: TurnPlan | None = None
         self._turn_cross_domain_guard: str = "pass"
+        # Wind-down state machine (offer wrap-up → final closing → conclude). The
+        # reply-guard runs twice per turn (transcription_node + tts_node), so it
+        # only advances once per ``turn_index`` and memoizes the line it emitted;
+        # ``_conclude_after_reply`` is a one-shot set when the deterministic final
+        # closing is emitted, so the session is actually torn down after it plays.
+        self._winddown_turn: int = -1
+        self._winddown_line: str | None = None
+        self._conclude_after_reply: bool = False
+        # Hold a reference to the fire-and-forget conclude task so it is not
+        # garbage-collected before it tears the room down.
+        self._conclude_task: asyncio.Task[None] | None = None
         self._role_is_people_focused = _role_is_people_focused(self._position)
         self._memory = InterviewMemory()
         if self._career_level and not self._memory.active_experience_track:
@@ -734,11 +758,48 @@ class InterviewAssistant(Agent):
 
         return function_tool(end_interview, name="end_interview")
 
-    async def _conclude_interview(self, ctx: RunContext) -> None:
-        """Wait for the closing remark to finish, then close the session from the agent side."""
+    def _schedule_conclude_after_reply(self) -> None:
+        """Close the session after a guard-emitted final closing plays.
+
+        When the reply-guard substitutes the deterministic final closing for a new
+        question, it replaces the LLM's turn — so the model never calls the
+        ``end_interview`` tool and the room is never torn down. This one-shot hook,
+        called from the reply pipeline (tts_node), performs the same teardown as the
+        tool so the interview actually concludes instead of lingering until the
+        candidate leaves. Gated by ``INTERVIEW_AUTO_END`` (same gate as the tool).
+        """
+        if not self._conclude_after_reply:
+            return
+        self._conclude_after_reply = False  # one-shot
+        if not self._auto_end_enabled:
+            logger.info("[reply-guard] final closing emitted but auto-end disabled; room kept open")
+            return
+        try:
+            self._conclude_task = asyncio.create_task(self._conclude_interview())
+            logger.info("[reply-guard] final closing → agent-initiated conclude scheduled")
+        except Exception as ex:
+            logger.warning("[reply-guard] schedule conclude failed: %s", ex)
+
+    async def _conclude_interview(self, ctx: RunContext | None = None) -> None:
+        """Wait for the closing remark to finish, then close the session from the agent side.
+
+        ``ctx`` is provided when called from the ``end_interview`` tool; the
+        guard-triggered path passes ``None`` and derives the current speech from the
+        live session instead.
+        """
         # Let the goodbye the agent just spoke play out fully before tearing down.
         try:
-            speech = getattr(ctx, "speech_handle", None) or ctx.session.current_speech
+            speech = None
+            if ctx is not None:
+                speech = getattr(ctx, "speech_handle", None) or getattr(
+                    ctx.session, "current_speech", None
+                )
+            else:
+                try:
+                    sess = self.session
+                except Exception:
+                    sess = None
+                speech = getattr(sess, "current_speech", None) if sess is not None else None
             if speech is not None:
                 await speech.wait_for_playout()
         except Exception as ex:
@@ -1339,13 +1400,26 @@ class InterviewAssistant(Agent):
         # (Guidance/clarify/follow-up still pass so the candidate can finish their
         # last thought.)
         mem = self._memory
+        # This guard runs twice per turn (transcription_node + tts_node). The
+        # wind-down state machine must advance at most once per turn and return
+        # the same line both times, so chat and audio agree and we never collapse
+        # the wrap-up offer and the final closing into a single turn.
+        turn = mem.turn_index
+        if self._winddown_turn == turn and self._winddown_line is not None:
+            return self._winddown_line
         if mem.wrap_up_offered and not mem.final_closing_sent and mode in (MODE_ASK, MODE_RESUME):
             mem.final_closing_sent = True
-            logger.info("[reply-guard] post-wrap-up: final closing instead of a new question")
-            return (
-                "شكراً على وقتك وإجاباتك. فريق الموارد البشرية راح يراجع "
-                "إجاباتك ويتواصل وياك بالخطوات القادمة."
+            # The guard replaced the LLM's turn, so the model never calls
+            # end_interview. Trigger the same teardown ourselves after the closing
+            # plays, otherwise the session lingers and the agent keeps replying
+            # until the candidate leaves (the "interview never concluded" bug).
+            self._conclude_after_reply = True
+            self._winddown_turn = turn
+            self._winddown_line = _FINAL_CLOSING_AR
+            logger.info(
+                "[reply-guard] post-wrap-up: final closing + agent-initiated conclude scheduled"
             )
+            return _FINAL_CLOSING_AR
         recent = self._memory.asked_questions[-12:]
         is_hybrid = contains_hybrid_latin_arabic_token(text)
         # Duplicate check applies to turns that ask a NEW question (ask / topic
@@ -1367,17 +1441,15 @@ class InterviewAssistant(Agent):
             )
             return enforce_single_question_response(anchor, self._turn_plan)
         # No fresh question is left, so a replacement would just recycle a covered
-        # one. Offer a single graceful wrap-up instead of repeating; the LLM can
-        # then conclude via end_interview. Only once, and only late enough that we
-        # have genuinely covered ground.
-        mem = self._memory
+        # one. Offer a single graceful wrap-up instead of repeating; the closing
+        # (and teardown) follows on a LATER turn, so the candidate gets a real
+        # chance to answer "anything to add?" first.
         if not mem.wrap_up_offered and len(mem.asked_questions) >= _wrap_up_min_questions():
             mem.wrap_up_offered = True
+            self._winddown_turn = turn
+            self._winddown_line = _WRAP_UP_PROMPT_AR
             logger.info("[reply-guard] no fresh anchor for %s; offering wrap-up", mode)
-            return (
-                "شكراً على وقتك وإجاباتك. أعتقد غطّينا المحاور الأساسية — "
-                "أكو شي تحب تضيفه قبل ما نختم المقابلة؟"
-            )
+            return _WRAP_UP_PROMPT_AR
         return text
 
     def _update_experience_track(self, text: str) -> None:
@@ -2556,6 +2628,10 @@ class InterviewAssistant(Agent):
                 yield guarded
 
             text = _guarded_text()
+            # If the guard just emitted the deterministic final closing, tear the
+            # session down after this closing plays (the model won't call
+            # end_interview because the guard replaced its turn).
+            self._schedule_conclude_after_reply()
 
         # Route to user's language before streaming LLM tokens — aligns with LiveKit "match reply to user" flow
         # and avoids waiting for prefetch to infer language (reduces avatar lip/audio desync on switch).
