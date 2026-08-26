@@ -30,6 +30,7 @@ from voice_interview.config import (
     env_allow_interruption,
     interview_auto_end_enabled,
     interview_end_delete_room,
+    interview_end_playout_grace_ms,
     tts_reply_prefetch_max_chars,
 )
 from voice_interview.cross_domain_guard import validate_cross_domain_output
@@ -804,6 +805,18 @@ class InterviewAssistant(Agent):
                 await speech.wait_for_playout()
         except Exception as ex:
             logger.debug("end_interview: wait_for_playout skipped: %s", ex)
+
+        # wait_for_playout returns when the agent finishes STREAMING the closing to
+        # the avatar worker, not when the avatar finishes PLAYING it. Without this
+        # grace the room is deleted mid-goodbye and the avatar vanishes on the
+        # candidate before they hear the closing (observed: closing was 7.4s audio,
+        # room deleted ~1.3s after it was scheduled).
+        grace_ms = interview_end_playout_grace_ms()
+        if grace_ms > 0:
+            try:
+                await asyncio.sleep(grace_ms / 1000)
+            except Exception as ex:
+                logger.debug("end_interview: playout grace skipped: %s", ex)
 
         try:
             job_ctx = get_job_context()

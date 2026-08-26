@@ -75,6 +75,26 @@ def interview_end_delete_room() -> bool:
     return os.getenv("INTERVIEW_END_DELETE_ROOM", "true").lower() in ("1", "true", "yes")
 
 
+def interview_end_playout_grace_ms() -> int:
+    """Extra wait after the agent-side playout completes before tearing the room down.
+
+    With the Beyond Presence avatar, ``SpeechHandle.wait_for_playout()`` returns when
+    the agent finishes STREAMING the closing audio to the avatar worker — NOT when the
+    avatar finishes PLAYING it (the avatar buffers + lip-syncs, adding several seconds).
+    Deleting the room immediately therefore cuts the goodbye off and the candidate sees
+    the avatar vanish mid-sentence. This grace lets the avatar finish the closing before
+    the room is deleted. Default 9000ms (covers the ~7.5s fixed closing line). Set
+    ``INTERVIEW_END_PLAYOUT_GRACE_MS=0`` to disable (e.g. non-avatar pipelines).
+    """
+    raw = (os.getenv("INTERVIEW_END_PLAYOUT_GRACE_MS") or "").strip()
+    if not raw:
+        return 9000
+    try:
+        return max(0, int(float(raw)))
+    except ValueError:
+        return 9000
+
+
 def interview_profile_normalized() -> str | None:
     """Single switch for pipeline temperament (see LiveKit AgentSession tuning).
 

@@ -345,9 +345,31 @@ def test_conclude_interview_deletes_room(monkeypatch):
     agent = _assistant(["q"])
     fake = _FakeJobCtx()
     monkeypatch.setattr("voice_interview.assistant.get_job_context", lambda: fake)
+    monkeypatch.setattr("voice_interview.assistant.interview_end_playout_grace_ms", lambda: 0)
     # ctx=None → derives (missing) session speech defensively, then tears down.
     asyncio.run(agent._conclude_interview(None))
     assert fake.deleted is True
+
+
+def test_conclude_waits_playout_grace_before_delete(monkeypatch):
+    # With the avatar, wait_for_playout returns before the avatar finishes playing
+    # the closing, so we add a grace before deleting the room — otherwise the
+    # goodbye is cut off and the avatar vanishes mid-sentence.
+    import voice_interview.assistant as _asst
+
+    agent = _assistant(["q"])
+    fake = _FakeJobCtx()
+    monkeypatch.setattr("voice_interview.assistant.get_job_context", lambda: fake)
+    monkeypatch.setattr("voice_interview.assistant.interview_end_playout_grace_ms", lambda: 40)
+    slept: list[float] = []
+
+    async def _spy_sleep(d):
+        slept.append(d)
+
+    monkeypatch.setattr(_asst.asyncio, "sleep", _spy_sleep)
+    asyncio.run(agent._conclude_interview(None))
+    assert any(abs(d - 0.04) < 1e-6 for d in slept)  # 40ms grace was awaited
+    assert fake.deleted is True  # deletion still happens, after the grace
 
 
 def test_schedule_conclude_tears_down_room(monkeypatch):
@@ -356,6 +378,7 @@ def test_schedule_conclude_tears_down_room(monkeypatch):
     agent._conclude_after_reply = True
     fake = _FakeJobCtx()
     monkeypatch.setattr("voice_interview.assistant.get_job_context", lambda: fake)
+    monkeypatch.setattr("voice_interview.assistant.interview_end_playout_grace_ms", lambda: 0)
 
     async def _run() -> None:
         agent._schedule_conclude_after_reply()
