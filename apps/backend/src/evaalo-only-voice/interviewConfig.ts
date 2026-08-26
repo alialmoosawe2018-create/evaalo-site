@@ -352,8 +352,20 @@ export const PHASE1_TOPICS: Record<number, string> = {
 /** Phase 2 — مواضيع ديناميكية حسب بيانات المرشح الفعلية */
 export const PHASE2_TOPIC_KEYS = ['skill', 'certification', 'education', 'company', 'language'] as const;
 
-/** Phase 3 — أسئلة إنجليزية */
+/**
+ * Phase 3 — أسئلة إنجليزية.
+ * عدد الأسئلة الدوّارة من البنك أدناه؛ يُضاف إليها سؤال الترجمة الثابت فيصبح
+ * إجمالي المرحلة الثالثة 6 أسئلة.
+ */
 export const PHASE3_MAX_QUESTIONS = 5;
+
+/**
+ * سؤال الترجمة — يُطرح دائماً كسؤال سادس وأخير في المرحلة الثالثة، حرفياً بلا
+ * إعادة صياغة من الـ LLM (الصياغة كانت تُذيب الجملة المطلوب ترجمتها). الجملة نفسها
+ * تُختار بالتناوب حسب الجلسة في questionEngine.
+ */
+export const PHASE3_TRANSLATION_QUESTION =
+  'Could you translate this sentence for me: \'Good communication is the key to a successful team\'?';
 
 export const PHASE3_QUESTIONS = [
   'Can you tell us a little bit about yourself in English?',
@@ -365,7 +377,6 @@ export const PHASE3_QUESTIONS = [
   'Describe a time you had to meet a tight deadline.',
   'How do you prioritize your tasks?',
   'Tell me about a small win or achievement you had last week.',
-  'Could you translate this sentence for me: \'Good communication is the key to a successful team\'?',
   'Where do you see yourself in five years?',
 ];
 

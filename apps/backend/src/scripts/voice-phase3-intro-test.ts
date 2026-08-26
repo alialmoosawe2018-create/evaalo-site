@@ -18,7 +18,11 @@
  * Run: npx tsx src/scripts/voice-phase3-intro-test.ts
  */
 import { getControllerOutput } from '../evaalo-only-voice/interviewController.js';
-import { selectNextQuestion } from '../evaalo-only-voice/questionEngine.js';
+import {
+    buildPhase3QuestionPlan,
+    isPhase3TranslationQuestion,
+    selectNextQuestion,
+} from '../evaalo-only-voice/questionEngine.js';
 import {
     createInterviewState,
     getInterviewState,
@@ -47,8 +51,7 @@ function runTurn(
     const state = getInterviewState(sessionId);
     const controller = getControllerOutput(userMessageCount, state, 'ar');
     const selected = selectNextQuestion(controller, state, 'ar', opts.changeRequested ?? false);
-    const englishIntroEmitted =
-        controller.phase === 3 && selected?.isFixed === true && selected?.isInterviewEnd !== true;
+    const englishIntroEmitted = controller.phase === 3 && selected?.isEnglishIntro === true;
     onExchangeComplete(sessionId, 'reply', userMessageCount, {
         phase3Reached: controller.phase === 3,
         englishIntroEmitted,
@@ -108,6 +111,46 @@ check('baseline: intro text correct', (introB.selected?.text ?? '').includes('أ
 const qB = runTurn(B, 14);
 check('baseline: next turn is an English question', hasArabic(qB.selected?.text ?? ''), false);
 removeInterviewState(B);
+
+// --- Scenario C: the translation question is a fixed 6th question --------------
+// It used to be one entry in an 11-question bank, so a 5-question rotation only
+// reached it in ~45% of sessions — and when it did, the LLM rephrased it and the
+// sentence to translate could vanish.
+for (const sessionId of ['p3-plan-1', 'p3-plan-2', 'p3-plan-3', 'p3-plan-4']) {
+    const planned = buildPhase3QuestionPlan(sessionId);
+    check(`plan(${sessionId}) has 6 questions`, planned.length, 6);
+    check(`plan(${sessionId}) ends with the translation question`, isPhase3TranslationQuestion(planned[5]), true);
+    check(
+        `plan(${sessionId}) has no translation question among the rotating five`,
+        planned.slice(0, 5).some(isPhase3TranslationQuestion),
+        false
+    );
+}
+
+const C = 'p3-intro-C';
+createInterviewState(C);
+for (let i = 0; i < 13; i += 1) runTurn(C, i);
+runTurn(C, 13); // intro
+// Five rotating English questions, then the translation question, then the closing.
+for (let i = 0; i < 5; i += 1) {
+    const turn = runTurn(C, 14 + i);
+    check(`rotating question ${i + 1} is not the translation one`, isPhase3TranslationQuestion(turn.selected?.text ?? ''), false);
+    check(`rotating question ${i + 1} goes through the LLM`, turn.selected?.isFixed, false);
+}
+check('englishQuestionsAsked reached 5 after the rotation', getInterviewState(C)?.englishQuestionsAsked, 5);
+
+const translation = runTurn(C, 19);
+check('6th question is the translation question', isPhase3TranslationQuestion(translation.selected?.text ?? ''), true);
+check('translation question is sent verbatim (isFixed)', translation.selected?.isFixed, true);
+check('translation question is not the interview end', translation.selected?.isInterviewEnd, undefined);
+check('translation question is not treated as the intro', translation.selected?.isEnglishIntro, undefined);
+// The bug this guards: inferring the intro from isFixed froze the counter here, so
+// the translation question repeated forever and the interview never closed.
+check('counter advanced past the translation question', getInterviewState(C)?.englishQuestionsAsked, 6);
+
+const closing = runTurn(C, 20);
+check('interview ends after the translation question', closing.selected?.isInterviewEnd, true);
+removeInterviewState(C);
 
 if (failures > 0) {
     console.error(`\n${failures} case(s) failed`);

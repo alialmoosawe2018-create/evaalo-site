@@ -1043,11 +1043,11 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         ? inferTopicFromQuestion(llmReply)
         : undefined;
       // إشارتا Phase 3 لمحاسبة الحالة: هل نحن في مرحلة الـ controller 3، وهل كان رد
-      // هذا الدور إعلان اختبار الإنجليزية الثابت («جاهز؟») لا سؤالاً/خاتمة.
-      const englishIntroEmitted =
-        currentPhase === 3 &&
-        selectedQuestion?.isFixed === true &&
-        selectedQuestion?.isInterviewEnd !== true;
+      // هذا الدور إعلان اختبار الإنجليزية («جاهز؟»).
+      // العلَم صريح الآن: كان يُستنتج من isFixed، فأي رسالة ثابتة أخرى داخل المرحلة
+      // الثالثة (تنبيه تهرّب، أو سؤال الترجمة الحرفي) كانت تُحسب «إعلاناً» فيتجمّد
+      // عدّاد أسئلة الإنجليزية ويُعاد السؤال نفسه.
+      const englishIntroEmitted = currentPhase === 3 && selectedQuestion?.isEnglishIntro === true;
       onExchangeComplete(sessionId, llmReply, userMessageCount, {
         mandatoryQuestion1Asked: mandatoryQuestionDue === 1,
         mandatoryQuestion2Asked: mandatoryQuestionDue === 2,

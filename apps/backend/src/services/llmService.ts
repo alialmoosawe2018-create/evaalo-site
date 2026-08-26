@@ -305,7 +305,7 @@ Do NOT ask any English question yet. Wait for the candidate to respond (جاهز
 ═══════════════════════════════════════════════════════════════
 ${phase3Transition}
 You MUST respond in ENGLISH ONLY (except the first message which is the Arabic announcement "هسة راح أختبر لغتك الإنكليزية. جاهز؟" — no English question in that message).
-After the candidate responds to "جاهز؟", ask 3–5 questions in English to assess fluency, vocabulary, grammar.
+After the candidate responds to "جاهز؟", ask 5 questions in English to assess fluency, vocabulary, grammar. The Question Engine then adds a final translation question verbatim — never ask it yourself.
 Examples: ${PHASE3_QUESTIONS.map((q) => `"${q}"`).join(' | ')}
 Keep responses with more room (about 35–55 words per turn). Speak ONLY in English after the announcement.`;
 }
@@ -320,6 +320,8 @@ export interface SelectedQuestion {
     preferArabic?: boolean;
     /** رسالة ثابتة — لا نستخدم LLM، نذهب مباشرة لـ TTS */
     isFixed?: boolean;
+    /** إعلان اختبار الإنجليزية («جاهز؟») — الإشارة الوحيدة التي تُثبّت englishTestAnnounced */
+    isEnglishIntro?: boolean;
     /** الرسالة الختامية — المقابلة انتهت؛ الخادم يغلق الاتصال بعد انتهاء التشغيل */
     isInterviewEnd?: boolean;
     /** topic فقط — Engine يوجّه، LLM يبني السؤال من topic + إجابة المرشح */

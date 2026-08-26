@@ -14,6 +14,7 @@ import {
   PHASE2_TOPIC_KEYS,
   PHASE3_QUESTIONS,
   PHASE3_MAX_QUESTIONS,
+  PHASE3_TRANSLATION_QUESTION,
   isVoiceTopicMemoryEnabled,
   type InterviewEvaluationIntent,
 } from './interviewConfig.js';
@@ -642,20 +643,33 @@ function hashString(seed: string): number {
   return Math.abs(h >>> 0);
 }
 
-function buildPhase3QuestionPlan(sessionId?: string): string[] {
+/**
+ * خطة المرحلة الثالثة: أسئلة دوّارة من البنك حسب الجلسة، ثم سؤال الترجمة **دائماً**
+ * في النهاية. قبل ذلك كان سؤال الترجمة عنصراً في البنك، فلا يصل إلا في ~45% من
+ * الجلسات حسب نقطة بداية التدوير.
+ */
+export function buildPhase3QuestionPlan(sessionId?: string): string[] {
   const bank = PHASE3_QUESTIONS;
   const max = Math.min(PHASE3_MAX_QUESTIONS, bank.length);
-  if (bank.length <= max) return bank.slice(0, max);
-  const start = hashString(sessionId ?? 'phase3') % bank.length;
-  const picked: string[] = [];
-  for (let i = 0; i < bank.length && picked.length < max; i++) {
-    picked.push(bank[(start + i) % bank.length]);
+  const rotating: string[] = [];
+  if (bank.length <= max) {
+    rotating.push(...bank.slice(0, max));
+  } else {
+    const start = hashString(sessionId ?? 'phase3') % bank.length;
+    for (let i = 0; i < bank.length && rotating.length < max; i++) {
+      rotating.push(bank[(start + i) % bank.length]);
+    }
   }
-  return picked;
+  return [...rotating, PHASE3_TRANSLATION_QUESTION];
+}
+
+/** هل هذا هو سؤال الترجمة؟ (النص يتغيّر بتغيّر الجملة، لا تُقارَن الحروف حرفياً) */
+export function isPhase3TranslationQuestion(text: string): boolean {
+  return /^Could you translate this sentence for me:/i.test(text.trim());
 }
 
 function resolveDynamicPhase3Question(text: string, baseIdx: number, sessionId?: string): string {
-  if (!/^Could you translate this sentence for me:/i.test(text)) return text;
+  if (!isPhase3TranslationQuestion(text)) return text;
   const sentenceIdx =
     (hashString(`${sessionId ?? 'phase3'}|translate`) + baseIdx) % PHASE3_DYNAMIC_TRANSLATION_SENTENCES.length;
   const sentence = PHASE3_DYNAMIC_TRANSLATION_SENTENCES[sentenceIdx];
@@ -924,6 +938,7 @@ export function selectNextQuestion(
         text: 'هسة راح أختبر لغتك الإنكليزية. جاهز؟',
         preferArabic: true,
         isFixed: true, // لا LLM — رسالة ثابتة مباشرة لـ TTS
+        isEnglishIntro: true,
       };
     }
     const baseIdx = state?.englishQuestionsAsked ?? 0;
@@ -938,11 +953,14 @@ export function selectNextQuestion(
         isInterviewEnd: true,
       };
     }
-    const phase3Question = resolveDynamicPhase3Question(phase3Plan[idx], baseIdx, state?.sessionId);
+    const plannedQuestion = phase3Plan[idx];
+    const phase3Question = resolveDynamicPhase3Question(plannedQuestion, baseIdx, state?.sessionId);
     return {
       text: phase3Question,
       evaluates: PHASE3_EVALUATES,
       preferArabic: false, // Phase 3 always English
+      // سؤال الترجمة يُرسل حرفياً: إعادة الصياغة تُذيب الجملة المطلوب ترجمتها فيضيع الاختبار
+      isFixed: isPhase3TranslationQuestion(plannedQuestion),
     };
   }
 
