@@ -69,6 +69,8 @@ export function resolveCandidateEvaluation(candidate) {
             communication: toPercentFrom10(voice.communication),
             problemSolving: toPercentFrom10(voice.problem_solving),
             recommendation: voice.recommendation || '',
+            status: voice.status || '',
+            insufficient: String(voice.status || '').toLowerCase() === 'insufficient_data',
             feedback: voice.summary || voice.final_hr_evaluation || '',
         };
     }
@@ -79,6 +81,8 @@ export function resolveCandidateEvaluation(candidate) {
             source: 'written',
             score: toScore(written.overall_score),
             recommendation: written.recommendation || '',
+            status: written.status || '',
+            insufficient: String(written.status || '').toLowerCase() === 'insufficient_data',
             feedback: written.summary || written.final_hr_evaluation || '',
         };
     }

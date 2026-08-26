@@ -814,6 +814,14 @@ function buildStrictStage1WrittenPatch(data: Record<string, unknown>): Record<st
     const rubricResults = normalizeRubricResultsFromWebhook(data);
     if (rubricResults) patch.rubricResults = rubricResults;
 
+    // Persist the scorer status (scored / insufficient_data / manual_review) so
+    // the UI can honestly explain a downgraded recommendation instead of showing
+    // a bare high score next to "Consider".
+    const statusVal = pickLooseFromSources(sources, ['status']);
+    if (statusVal !== undefined && statusVal !== null && String(statusVal).trim() !== '') {
+        patch.status = String(statusVal).trim();
+    }
+
     return patch;
 }
 
@@ -896,6 +904,12 @@ function buildStrictStage2VoicePatch(data: Record<string, unknown>): Record<stri
     if (rec) patch.recommendation = rec;
     if (rawRec && rec && rawRec !== rec) {
         console.warn(`[STAGE2 REC CLAMP] overall_score=${n} recommendation ${rawRec}→${rec}`);
+    }
+
+    // Persist the scorer status so the UI can explain a downgraded recommendation.
+    const statusVal = pickLooseFromSources(sources, ['status']);
+    if (statusVal !== undefined && statusVal !== null && String(statusVal).trim() !== '') {
+        patch.status = String(statusVal).trim();
     }
 
     return patch;

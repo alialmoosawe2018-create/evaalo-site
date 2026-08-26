@@ -328,6 +328,7 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
             final_hr_evaluation: String,
             recommendation: { type: String, enum: ['Hire', 'Consider', 'Reject'] },
             summary: String,
+            status: { type: String },
             rubricResults: [
                 {
                     rubricItemId: { type: String, required: true, trim: true },
@@ -358,6 +359,7 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
                 enum: ['Hire', 'Consider', 'Reject', 'Incomplete'],
             },
             summary: String,
+            status: { type: String },
         },
         videoInterviewEvaluation: {
             role_understanding: { type: Number, min: 0, max: 10 },
