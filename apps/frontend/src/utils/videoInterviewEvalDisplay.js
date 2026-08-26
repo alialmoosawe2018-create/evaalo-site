@@ -164,6 +164,19 @@ export function buildVideoFinalHrText(evaluation, t, translateRecLabel) {
 }
 
 /**
+ * True when a blueprint competency row carries a REAL 1–5 score. The v2 scorer
+ * emits `score: null` for a competency it could not assess (no evidence), and
+ * `Number(null)` coerces to 0 — so a naive `Number.isFinite` check treats those
+ * as a real "0/5". Guard against that: null / empty / out-of-range = not assessed.
+ */
+export function isAssessedBlueprintRow(row) {
+    if (!row || row.assessed === false) return false;
+    if (row.score == null || row.score === '') return false;
+    const n = Number(row.score);
+    return Number.isFinite(n) && n >= 1;
+}
+
+/**
  * True when a video evaluation should be treated as "insufficient data": the
  * scorer produced a recommendation/score but there is no competency evidence to
  * back it. This covers two cases:
@@ -182,12 +195,9 @@ export function isInsufficientVideoEvaluation(evaluation) {
     const status = String(evaluation.status || '').trim().toLowerCase();
     if (status === 'insufficient_data' || status === 'insufficient') return true;
 
-    // Any real assessed blueprint competency => sufficient.
+    // Any real assessed blueprint competency (1–5 score) => sufficient.
     const comps = Array.isArray(evaluation.competencyScores) ? evaluation.competencyScores : [];
-    const anyAssessed = comps.some(
-        (r) => r?.assessed !== false && Number.isFinite(Number(r?.score)),
-    );
-    if (anyAssessed) return false;
+    if (comps.some(isAssessedBlueprintRow)) return false;
 
     // Any legacy named competency score => sufficient.
     const legacyKeys = [...VIDEO_TABLE_COMPETENCY_KEYS, 'role_understanding', 'final_role_fit'];
@@ -241,7 +251,9 @@ export function buildBlueprintCompetencyRows(evaluation) {
         const key = row?.competencyKey || '';
         const label = normalizeStageEvalText(row?.title) || humanizeCompetencyKey(key);
         const scoreNum = Number(row?.score);
-        const assessed = row?.assessed !== false && Number.isFinite(scoreNum);
+        // `score: null` (the scorer could not assess this competency) must read as
+        // "not assessed", NOT "0/5" — Number(null) coerces to 0, so check properly.
+        const assessed = isAssessedBlueprintRow(row);
         return {
             key,
             label,
