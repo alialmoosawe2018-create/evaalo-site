@@ -466,26 +466,28 @@ def test_schedule_conclude_noop_when_auto_end_disabled(monkeypatch):
     assert agent._conclude_after_reply is False  # flag still cleared (one-shot)
 
 
-# --- interview LLM upgraded to gpt-5-mini (reasoning model → no temperature) ---
-def test_openai_llm_kwargs_default_is_gpt5_mini_no_temperature(monkeypatch):
+# --- interview LLM: default gpt-4o-mini; gpt-5 (reasoning) handled but not default ---
+def test_openai_llm_kwargs_default_is_gpt4o_mini(monkeypatch):
+    # Reverted to gpt-4o-mini: gpt-5-mini starved on the pinned low token cap.
     from voice_interview.config import build_openai_llm_kwargs, model_is_reasoning
 
     monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_MAX_COMPLETION_TOKENS", raising=False)
+    assert model_is_reasoning("gpt-4o-mini") is False
+    kw = build_openai_llm_kwargs()
+    assert kw["model"] == "gpt-4o-mini"
+    assert "temperature" in kw  # gpt-4o family takes our low temperature
+    assert kw["max_completion_tokens"] == 160
+
+
+def test_openai_llm_kwargs_gpt5_mini_omits_temperature(monkeypatch):
+    # The reasoning-model handling stays correct for an explicit opt-in.
+    from voice_interview.config import build_openai_llm_kwargs, model_is_reasoning
+
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-5-mini")
     monkeypatch.delenv("OPENAI_MAX_COMPLETION_TOKENS", raising=False)
     assert model_is_reasoning("gpt-5-mini") is True
     kw = build_openai_llm_kwargs()
     assert kw["model"] == "gpt-5-mini"
     assert "temperature" not in kw  # reasoning model rejects a custom temperature
-    assert kw["max_completion_tokens"] == 512  # extra headroom for reasoning tokens
-
-
-def test_openai_llm_kwargs_gpt4o_keeps_temperature(monkeypatch):
-    from voice_interview.config import build_openai_llm_kwargs, model_is_reasoning
-
-    monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
-    monkeypatch.delenv("OPENAI_MAX_COMPLETION_TOKENS", raising=False)
-    assert model_is_reasoning("gpt-4o-mini") is False
-    kw = build_openai_llm_kwargs()
-    assert kw["model"] == "gpt-4o-mini"
-    assert "temperature" in kw  # gpt-4o family still takes our low temperature
-    assert kw["max_completion_tokens"] == 160
+    assert kw["max_completion_tokens"] == 512  # bigger cap for reasoning tokens

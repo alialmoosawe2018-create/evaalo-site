@@ -24,10 +24,16 @@ def model_is_reasoning(model: str) -> bool:
 
 def build_openai_llm_kwargs() -> dict[str, Any]:
     """Assemble kwargs for the interview LLM. Model via ``OPENAI_MODEL`` (default
-    ``gpt-5-mini`` — latest generation, low latency for live voice). Pure/testable:
-    no network, no LLM construction, no heavy plugin imports."""
+    ``gpt-4o-mini`` — low, predictable latency for live voice). Pure/testable: no
+    network, no LLM construction, no heavy plugin imports.
+
+    NOTE: gpt-5 / o-series are reasoning models and are handled correctly here
+    (no temperature, bigger default cap), but they were reverted as the live
+    default: on this deployment ``OPENAI_MAX_COMPLETION_TOKENS`` is pinned low
+    (~96), which a reasoning model spends on hidden reasoning tokens, leaving an
+    empty reply. To use gpt-5-mini, ALSO raise that cap to >= 512."""
     api_key = os.getenv("OPENAI_API_KEY")
-    model = (os.getenv("OPENAI_MODEL") or "gpt-5-mini").strip() or "gpt-5-mini"
+    model = (os.getenv("OPENAI_MODEL") or "gpt-4o-mini").strip() or "gpt-4o-mini"
     is_reasoning = model_is_reasoning(model)
     kwargs: dict[str, Any] = {"model": model}
     # temperature is accepted only by non-reasoning models (e.g. gpt-4o family).
