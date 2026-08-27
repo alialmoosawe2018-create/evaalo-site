@@ -231,8 +231,70 @@ function testPartialLegacyObserve(): void {
     if (!gate.ok) assert.ok(gate.issues.length > 0);
 }
 
+/** The exact flat shape the Stage 3 v2 scorer returns. */
+function blueprintV2Payload(): Record<string, unknown> {
+    return {
+        id: '507f1f77bcf86cd799439011',
+        sessionId: 'sess-v2-001',
+        ingress: 'stage3',
+        evaluationSource: 'video',
+        overall_score: 0,
+        recommendation: 'Reject',
+        status: 'insufficient_data',
+        blueprint_coverage: 0.33,
+        competencyScores: [
+            { competencyKey: 'sourcing', title: 'Sourcing', score: 4, assessed: true, evidence: ['Built a pipeline'] },
+            { competencyKey: 'role_intake', title: 'Role intake', score: null, assessed: false, evidence: [] },
+        ],
+        generic_ratings: { role_judgment_problem_solving: 'Good', ownership_accountability: 'Not Assessed' },
+        strengths: ['Clear sourcing narrative'],
+        weaknesses: ['No intake evidence'],
+        final_hr_evaluation: 'Coverage too thin to stand behind a hire decision.',
+        summary: 'Covered sourcing only.',
+    };
+}
+
+function testBlueprintV2FieldsSurviveNormalization(): void {
+    const evalRec = extractNormalizedStage3VideoEval(blueprintV2Payload());
+
+    // The v2 scorer sends these flat at the top level. Dropping them here strips
+    // the whole blueprint verdict on the way into the DB, leaving a bare
+    // score/recommendation that reads like a generic evaluation.
+    assert.equal(evalRec.status, 'insufficient_data');
+    assert.equal(evalRec.blueprint_coverage, 0.33);
+    assert.equal(evalRec.final_hr_evaluation, 'Coverage too thin to stand behind a hire decision.');
+    assert.deepEqual(evalRec.strengths, ['Clear sourcing narrative']);
+    assert.deepEqual(evalRec.weaknesses, ['No intake evidence']);
+    assert.deepEqual(evalRec.generic_ratings, {
+        role_judgment_problem_solving: 'Good',
+        ownership_accountability: 'Not Assessed',
+    });
+    assert.equal(Array.isArray(evalRec.competencyScores), true);
+    assert.equal((evalRec.competencyScores as unknown[]).length, 2);
+}
+
+function testZeroScoreSurvivesNormalization(): void {
+    // A withheld score is a real 0, not an absent field — it must not be filtered
+    // out as falsy, or the UI falls back to showing the previous passing score.
+    const evalRec = extractNormalizedStage3VideoEval(blueprintV2Payload());
+    assert.equal(evalRec.overall_score, 0);
+    assert.equal(evalRec.recommendation, 'Reject');
+}
+
+function testNotAssessedCompetencyKeepsItsNullScore(): void {
+    const evalRec = extractNormalizedStage3VideoEval(blueprintV2Payload());
+    const rows = evalRec.competencyScores as Array<Record<string, unknown>>;
+    const notAssessed = rows.find((r) => r.competencyKey === 'role_intake');
+    assert.ok(notAssessed);
+    assert.equal(notAssessed.assessed, false);
+    assert.equal(notAssessed.score, null);
+}
+
 function main(): void {
     testTopLevelLegacyFlat();
+    testBlueprintV2FieldsSurviveNormalization();
+    testZeroScoreSurvivesNormalization();
+    testNotAssessedCompetencyKeepsItsNullScore();
     testNestedVideoInterviewEvaluation();
     testNestedAiEvaluationFallback();
     testTopLevelWinsOverNested();

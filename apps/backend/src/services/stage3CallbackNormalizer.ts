@@ -45,6 +45,27 @@ const SUMMARY_ALIASES = ['summary', 'Summary'];
 
 const COMPETENCY_SCORES_ALIASES = ['competencyScores', 'competency_scores'];
 
+/**
+ * Fields the blueprint-driven (Stage 3 v2) scorer returns flat at the top level.
+ *
+ * The normalizer rebuilds its output from scratch, so anything not collected here
+ * never reaches the patch builder — which stripped the entire blueprint verdict
+ * and left a bare score/recommendation that read like a generic evaluation.
+ */
+const BLUEPRINT_V2_FIELDS: Array<[canonical: string, aliases: string[]]> = [
+    ['status', ['status']],
+    ['blueprint_coverage', ['blueprint_coverage', 'blueprintCoverage']],
+    ['generic_ratings', ['generic_ratings', 'genericRatings']],
+    ['strengths', ['strengths', 'Strengths']],
+    ['weaknesses', ['weaknesses', 'Weaknesses']],
+    [
+        'final_hr_evaluation',
+        ['final_hr_evaluation', 'finalHrEvaluation', 'Final HR Evaluation'],
+    ],
+    ['red_flags', ['red_flags', 'redFlags', 'red_flags_fired']],
+    ['critical_concerns', ['critical_concerns', 'criticalConcerns']],
+];
+
 /** Metadata preserved for gate / ingress (not part of video eval patch). */
 const METADATA_KEYS = new Set([
     'id',
@@ -164,6 +185,9 @@ function collectFromSources(
     const compScores = pickLooseFromSources(sources, COMPETENCY_SCORES_ALIASES);
     if (isMeaningfulValue(compScores)) {
         mergeVideoField(target, 'competencyScores', compScores, preferExisting);
+    }
+    for (const [canonical, aliases] of BLUEPRINT_V2_FIELDS) {
+        mergeVideoField(target, canonical, pickLooseFromSources(sources, aliases), preferExisting);
     }
 }
 
