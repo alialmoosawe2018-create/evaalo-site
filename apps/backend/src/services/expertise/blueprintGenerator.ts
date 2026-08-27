@@ -502,7 +502,7 @@ function buildFallback(
             language
         )
         : null;
-    const compKeys = (l1?.competencies ?? taxonomy.expectedCompetencies).slice(0, 5);
+    const compKeys = (l1?.competencies ?? taxonomy.expectedCompetencies).slice(0, 8);
     const competencies: GeneratedCompetency[] = compKeys.map((key) =>
         taxonomyCompetencyToGenerated(key, jobTitle, specialization, language)
     );
@@ -750,7 +750,7 @@ export async function generateExpertiseAndBlueprint(campaign: {
 Rules:
 - Output language for anchorQuestions, questionObjective, expectedEvidence, redFlags, scoreRubric, followUpRules: ${language === 'ar' ? 'Arabic' : 'English'}.
 - Provide EXACTLY 3 anchorQuestions (fixed core questions for all candidates of this campaign). They must be specific to the role, ask for a real example + data/steps + outcome — never generic "tell me about yourself".
-- Provide 4 to 6 competencies (minimum 4). Each competency: a snake_case competencyKey, a title, priority (critical|high|medium), a questionObjective, expectedEvidence (3-6 items), redFlags (2-4 items), a scoreRubric for levels 1..5 (each a short qualitative description), and followUpRules (1-3 rules — each rule is exactly ONE short question with ONE question mark, never a compound checklist).
+- Provide 6 to 8 competencies (minimum 6). Each competency: a snake_case competencyKey, a title, priority (critical|high|medium), a questionObjective, expectedEvidence (3-6 items), redFlags (2-4 items), a scoreRubric for levels 1..5 (each a short qualitative description), and followUpRules (1-3 rules — each rule is exactly ONE short question with ONE question mark, never a compound checklist).
 - requiredSkills/toolsAndSystems/responsibilities/mustAssess/expectedEvidence/redFlags/qualityRisk describe the JOB (not a candidate). Keep concise.
 - Be concrete and domain-specific. Do not invent facts; derive from the job context.${arabicAnchorStyleSuffix(language)}`;
 
@@ -780,7 +780,7 @@ Rules:
         const anchorQuestions = sanitizeAnchorQuestions(sanitizeStringArray(parsed.anchorQuestions, 3));
         const rawCompetencies = Array.isArray(parsed.competencies) ? parsed.competencies : [];
         const competencies: GeneratedCompetency[] = rawCompetencies
-            .slice(0, 6)
+            .slice(0, 8)
             .map((c: any): GeneratedCompetency => ({
                 competencyKey: String(c.competencyKey || '').trim() || 'competency',
                 title: String(c.title || '').trim() || 'Competency',
@@ -802,7 +802,7 @@ Rules:
             }));
 
         // إن أعاد LLM مخرجات ناقصة جوهرياً، ارجع للـfallback.
-        if (anchorQuestions.length < 3 || competencies.length < 4) {
+        if (anchorQuestions.length < 3 || competencies.length < 6) {
             console.warn('⚠️ blueprintGenerator: LLM output incomplete — using fallback');
             const fb = buildFallback(
                 jobTitle,
