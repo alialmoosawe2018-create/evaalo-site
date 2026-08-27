@@ -31,6 +31,7 @@ from voice_interview.config import (
     interview_auto_end_enabled,
     interview_end_delete_room,
     interview_end_playout_grace_ms,
+    interview_wait_nudge_enabled,
     tts_reply_prefetch_max_chars,
 )
 from voice_interview.cross_domain_guard import validate_cross_domain_output
@@ -2500,6 +2501,16 @@ class InterviewAssistant(Agent):
             frame = self._build_decision_frame(diag)
             action = self._infer_action_from_frame(diag)
 
+            # Candidate is still mid-answer (incomplete / resume). Do NOT speak a
+            # "take your time, go on…" nudge — it fires on a pause and talks OVER
+            # them, i.e. interrupts. Stay silent and let them finish; their next
+            # words open a fresh turn. (Replaces the CONTINUATION_POOL nudges;
+            # restore the old spoken nudge with INTERVIEW_WAIT_NUDGE=true.)
+            if action == "wait_for_completion" and not interview_wait_nudge_enabled():
+                self._update_memory_post_decision(diag, action)
+                logger.info("wait_for_completion → staying silent (continuation nudge suppressed)")
+                raise StopResponse()
+
             if frame:
                 turn_ctx.add_message(role="system", content=frame)
             else:
@@ -2524,6 +2535,10 @@ class InterviewAssistant(Agent):
                 "yes" if frame else "no",
             )
             self._update_memory_post_decision(diag, action)
+        except StopResponse:
+            # Control-flow signal (identity reply / silent wait) — must reach the
+            # framework so the LLM turn is actually suppressed, not swallowed here.
+            raise
         except Exception as ex:
             logger.warning("on_user_turn_completed heuristic failed: %s", ex, exc_info=True)
 

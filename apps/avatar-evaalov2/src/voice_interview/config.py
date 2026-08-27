@@ -54,6 +54,17 @@ def interview_defaults_enabled() -> bool:
     return os.getenv("SPEECHMATICS_INTERVIEW_DEFAULTS", "true").lower() in ("1", "true", "yes")
 
 
+def interview_wait_nudge_enabled() -> bool:
+    """Speak a continuation nudge ("take your time, go on…") when the candidate's
+    turn looks unfinished.
+
+    Default ``false``: the agent STAYS SILENT and lets the candidate finish, because
+    the nudge fires on a pause and talks OVER them — it interrupts. Set
+    ``INTERVIEW_WAIT_NUDGE=true`` to restore the old spoken nudge behavior.
+    """
+    return os.getenv("INTERVIEW_WAIT_NUDGE", "false").lower() in ("1", "true", "yes")
+
+
 def interview_auto_end_enabled() -> bool:
     """Expose the ``end_interview`` tool so the agent can close the session itself.
 

@@ -14,6 +14,10 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+from livekit.agents.llm import ChatContext, ChatMessage
+from livekit.agents.llm.tool_context import StopResponse
+
 from voice_interview.active_question import (
     MODE_ASK,
     MODE_FOLLOW_UP,
@@ -389,6 +393,59 @@ def test_schedule_conclude_tears_down_room(monkeypatch):
     asyncio.run(_run())
     assert fake.deleted is True  # room torn down
     assert agent._conclude_after_reply is False  # one-shot consumed
+
+
+# --- continuation nudges REMOVED: stay silent on an unfinished turn, don't interrupt ---
+def test_wait_nudge_disabled_by_default():
+    from voice_interview.config import interview_wait_nudge_enabled
+
+    # Default is silent — the spoken "take your time…" nudge is off.
+    assert interview_wait_nudge_enabled() is False
+
+
+def test_incomplete_turn_infers_wait_for_completion():
+    agent = _assistant(["q"])
+    # The three signals that used to trigger a continuation nudge.
+    assert agent._infer_action_from_frame({"is_incomplete_turn": True}) == "wait_for_completion"
+    assert agent._infer_action_from_frame({"is_answer_in_progress": True}) == "wait_for_completion"
+    assert agent._infer_action_from_frame({"resume_active": True}) == "wait_for_completion"
+
+
+def test_incomplete_turn_stays_silent_no_nudge(monkeypatch):
+    # A mid-answer turn must produce NO agent reply (StopResponse), instead of a
+    # spoken continuation nudge that talks over the candidate.
+    agent = _assistant(["q"])
+    monkeypatch.setattr(
+        "voice_interview.assistant.analyze_user_answer",
+        lambda *a, **k: {"is_incomplete_turn": True},
+    )
+    monkeypatch.setattr(agent, "_apply_entity_policy", lambda text, diag: diag)
+    monkeypatch.setattr("voice_interview.assistant.interview_wait_nudge_enabled", lambda: False)
+
+    tc = ChatContext.empty()
+    msg = ChatMessage(role="user", content=["أنا كنت أشتغل و"])
+    before = len(tc.items)
+    with pytest.raises(StopResponse):
+        asyncio.run(agent.on_user_turn_completed(tc, msg))
+    # No decision-frame system message was injected — the agent said nothing.
+    assert len(tc.items) == before
+
+
+def test_incomplete_turn_nudges_when_flag_enabled(monkeypatch):
+    # With the legacy flag on, a mid-answer turn does NOT stay silent (it proceeds
+    # to inject the decision frame so the LLM can nudge).
+    agent = _assistant(["q"])
+    monkeypatch.setattr(
+        "voice_interview.assistant.analyze_user_answer",
+        lambda *a, **k: {"is_incomplete_turn": True},
+    )
+    monkeypatch.setattr(agent, "_apply_entity_policy", lambda text, diag: diag)
+    monkeypatch.setattr("voice_interview.assistant.interview_wait_nudge_enabled", lambda: True)
+
+    tc = ChatContext.empty()
+    msg = ChatMessage(role="user", content=["أنا كنت أشتغل و"])
+    # Should NOT raise StopResponse — the nudge path is taken.
+    asyncio.run(agent.on_user_turn_completed(tc, msg))
 
 
 def test_schedule_conclude_noop_when_auto_end_disabled(monkeypatch):
