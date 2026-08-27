@@ -10,7 +10,7 @@ import '../design-styles.css';
 import apiClient, { ApiError } from '../services/apiClient';
 import { useLanguage } from '../contexts/LanguageContext';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
-import { canonicalStageRecommendation, hasMeaningfulStageEvaluation, normalizeStageEvalStringList } from '../utils/stageRecommendation.js';
+import { hasMeaningfulStageEvaluation, normalizeStageEvalStringList } from '../utils/stageRecommendation.js';
 import { scriptTextProps } from '../utils/textScript.js';
 import ScreeningCampaignList from '../components/screening/ScreeningCampaignList.jsx';
 import StageRefreshButton from '../components/screening/StageRefreshButton.jsx';
@@ -54,7 +54,8 @@ import {
     isBlueprintVideoEvaluation,
     isInsufficientVideoEvaluation,
     qualitativeBandFromTenScore,
-    qualitativeTextColor,
+    resolveVideoRecommendation,
+    shouldHideOverallScore,
 } from '../utils/videoInterviewEvalDisplay.js';
 
 /** المرحلة لمسار المقارنة (Stage 3). */
@@ -173,6 +174,16 @@ const VideoInterview = () => {
                 return recommendationMatchesFilter(c.videoInterviewEvaluation?.recommendation, filter);
             }),
         [campaignCandidates, filter]
+    );
+
+    // Blueprint (Stage 3 v2) evaluations have their own competencies per role, so
+    // the eight fixed trait columns cannot describe them. Collapse the header into
+    // one spanning column unless a legacy evaluation still needs those columns.
+    const allRowsAreBlueprint = useMemo(
+        () =>
+            filteredCandidates.length > 0 &&
+            filteredCandidates.every((c) => isBlueprintVideoEvaluation(c.videoInterviewEvaluation)),
+        [filteredCandidates]
     );
 
     useStageEvalDeepLink({
@@ -522,7 +533,7 @@ const VideoInterview = () => {
             link: interviewLink,
             score: candidate.videoInterviewEvaluation?.overall_score || 0,
             recommendation: translateRecLabel(
-                canonicalStageRecommendation(candidate.videoInterviewEvaluation?.recommendation)
+                resolveVideoRecommendation(candidate.videoInterviewEvaluation)
             ),
             email: email || na,
             phone: phone || na,
@@ -763,70 +774,34 @@ const VideoInterview = () => {
                                             minWidth: '250px',
                                             borderRight: '1px solid rgba(34, 211, 238, 0.3)'
                                         }}>{t('stageEval_colCandidate')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('videoInterview_colProfessionalDepth')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('videoInterview_colProblemHandling')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('videoInterview_colDecisionMaking')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('videoInterview_colPrioritization')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('videoInterview_colProcessThinking')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('videoInterview_colResponsibility')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('videoInterview_colLearningAbility')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('videoInterview_colJobReadiness')}</th>
+                                        {allRowsAreBlueprint ? (
+                                            <th colSpan={8} style={{
+                                                padding: '16px',
+                                                textAlign: 'center',
+                                                color: '#22d3ee',
+                                                fontWeight: 600,
+                                                fontSize: '14px',
+                                                borderRight: '1px solid rgba(34, 211, 238, 0.3)'
+                                            }}>{t('videoInterview_sectionCompetencies')}</th>
+                                        ) : ([
+                                            'videoInterview_colProfessionalDepth',
+                                            'videoInterview_colProblemHandling',
+                                            'videoInterview_colDecisionMaking',
+                                            'videoInterview_colPrioritization',
+                                            'videoInterview_colProcessThinking',
+                                            'videoInterview_colResponsibility',
+                                            'videoInterview_colLearningAbility',
+                                            'videoInterview_colJobReadiness',
+                                        ].map((labelKey) => (
+                                            <th key={labelKey} style={{
+                                                padding: '16px',
+                                                textAlign: 'center',
+                                                color: '#22d3ee',
+                                                fontWeight: 600,
+                                                fontSize: '14px',
+                                                borderRight: '1px solid rgba(34, 211, 238, 0.3)'
+                                            }}>{t(labelKey)}</th>
+                                        )))}
                                         <th style={{ 
                                             padding: '16px', 
                                             textAlign: 'center', 
@@ -871,7 +846,7 @@ const VideoInterview = () => {
                                     {filteredCandidates.map((candidate, index) => {
                                         const evaluation = candidate.videoInterviewEvaluation;
                                         const scoreColors = getScoreColor(evaluation?.overall_score || 0);
-                                        const recCanon = canonicalStageRecommendation(evaluation?.recommendation);
+                                        const recCanon = resolveVideoRecommendation(evaluation);
                                         const recColors = getRecommendationColor(recCanon);
                                         const finalHrEvaluationText = buildVideoFinalHrText(
                                             evaluation,
@@ -884,6 +859,7 @@ const VideoInterview = () => {
                                         const isBlueprint = isBlueprintVideoEvaluation(evaluation);
                                         const competencyRows = isBlueprint ? buildBlueprintCompetencyRows(evaluation) : [];
                                         const insufficientEval = isInsufficientVideoEvaluation(evaluation);
+                                        const hideScore = shouldHideOverallScore(evaluation);
                                         const evalStrengths = normalizeStageEvalStringList(evaluation?.strengths);
                                         const evalWeaknesses = normalizeStageEvalStringList(evaluation?.weaknesses);
                                         const candidateId = candidate._id || candidate.id;
@@ -1058,8 +1034,12 @@ const VideoInterview = () => {
                                                                     fontSize: '12px', maxWidth: '280px'
                                                                 }}>
                                                                     <span {...scriptTextProps(row.label)} style={{ color: '#CBD5E1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</span>
-                                                                    <span style={{ fontWeight: 700, color: row.assessed ? qualitativeTextColor(row.band) : '#94A3B8', flexShrink: 0 }}>
-                                                                        {row.assessed ? `${row.score}/5` : t('videoInterview_notAssessed')}
+                                                                    <span
+                                                                        aria-label={row.met ? t('videoInterview_competencyMet') : t('videoInterview_competencyNotMet')}
+                                                                        title={row.assessed ? '' : t('videoInterview_notAssessed')}
+                                                                        style={{ fontWeight: 700, color: row.met ? '#10B981' : '#EF4444', flexShrink: 0 }}
+                                                                    >
+                                                                        {row.met ? '✓' : '✗'}
                                                                     </span>
                                                                     {row.redFlags.length > 0 ? (
                                                                         <span style={{ color: '#EF4444', flexShrink: 0 }} title={row.redFlags.join(' • ')}>⚑</span>
@@ -1180,17 +1160,20 @@ const VideoInterview = () => {
                                                         alignItems: 'center',
                                                         gap: '10px'
                                                     }}>
+                                                        {/* An insufficient interview still carries a computed
+                                                            percentage; showing it reads as a real pass mark, so
+                                                            it is withheld and the verdict is shown on its own. */}
                                                         <div style={{
                                                             display: 'inline-block',
                                                             padding: '8px 16px',
                                                             borderRadius: '8px',
-                                                            background: insufficientEval ? 'rgba(148, 163, 184, 0.15)' : scoreColors.bg,
-                                                            color: insufficientEval ? '#94A3B8' : scoreColors.text,
+                                                            background: hideScore ? 'rgba(148, 163, 184, 0.15)' : scoreColors.bg,
+                                                            color: hideScore ? '#94A3B8' : scoreColors.text,
                                                             fontWeight: 700,
                                                             fontSize: '18px',
                                                             lineHeight: 1.2
                                                         }}>
-                                                            {evaluation?.overall_score ?? 0}%
+                                                            {hideScore ? '—' : `${evaluation?.overall_score ?? 0}%`}
                                                         </div>
                                                         {insufficientEval ? (
                                                             <div style={{
@@ -1209,7 +1192,8 @@ const VideoInterview = () => {
                                                                 <span aria-hidden="true">⚠</span>
                                                                 {t('videoInterview_insufficientBadge')}
                                                             </div>
-                                                        ) : (
+                                                        ) : null}
+                                                        {recCanon === 'N/A' ? null : (
                                                             <div style={{
                                                                 display: 'inline-block',
                                                                 padding: '6px 12px',
@@ -1301,8 +1285,13 @@ const VideoInterview = () => {
                                                                                     <div key={row.key} style={{ borderTop: '1px solid rgba(148,163,184,0.15)', paddingTop: '12px' }}>
                                                                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
                                                                                             <span {...scriptTextProps(row.label)} style={{ fontWeight: 600, color: '#E2E8F0' }}>{row.label}</span>
-                                                                                            <span style={{ fontWeight: 700, flexShrink: 0, color: row.assessed ? qualitativeTextColor(row.band) : '#94A3B8' }}>
-                                                                                                {row.assessed ? `${row.score}/5` : t('videoInterview_notAssessed')}
+                                                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0, fontWeight: 700, color: row.met ? '#10B981' : '#EF4444' }}>
+                                                                                                <span aria-hidden="true">{row.met ? '✓' : '✗'}</span>
+                                                                                                <span style={{ fontWeight: 600, fontSize: '12px', color: row.assessed ? undefined : '#94A3B8' }}>
+                                                                                                    {row.assessed
+                                                                                                        ? (row.met ? t('videoInterview_competencyMet') : t('videoInterview_competencyNotMet'))
+                                                                                                        : t('videoInterview_notAssessed')}
+                                                                                                </span>
                                                                                             </span>
                                                                                         </div>
                                                                                         {row.evidence.length > 0 ? (

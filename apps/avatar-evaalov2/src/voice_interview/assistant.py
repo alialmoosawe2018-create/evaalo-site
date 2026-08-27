@@ -179,6 +179,37 @@ def _max_consecutive_waits() -> int:
     return max(1, min(5, n))
 
 
+_COMPETENCY_PRIORITY_RANK: dict[str, int] = {"critical": 0, "high": 1, "medium": 2}
+
+
+def _anchor_intro_count() -> int:
+    """How many fixed blueprint anchor questions open the interview.
+
+    The shared anchor backbone is what makes candidates of one campaign
+    comparable; everything after it is driven by the blueprint competencies.
+    """
+    raw = (os.getenv("INTERVIEW_ANCHOR_INTRO_COUNT") or "").strip()
+    if not raw:
+        return 3
+    try:
+        n = int(raw)
+    except ValueError:
+        return 3
+    return max(0, min(6, n))
+
+
+def _max_followups_per_competency() -> int:
+    """Depth allowed inside one competency before moving to the next one."""
+    raw = (os.getenv("INTERVIEW_MAX_FOLLOWUPS_PER_COMPETENCY") or "").strip()
+    if not raw:
+        return 1
+    try:
+        n = int(raw)
+    except ValueError:
+        return 1
+    return max(0, min(4, n))
+
+
 def _wrap_up_min_questions() -> int:
     """Min questions already asked before the guard may offer a wrap-up instead
     of repeating when no fresh question is left."""
@@ -244,6 +275,13 @@ class InterviewMemory:
     asked_competency_keys: set[str] = field(default_factory=set)
     rejected_competency_keys: set[str] = field(default_factory=set)
     current_competency_key: str = ""
+    # Depth spent inside each competency (follow-ups, hook probes, bank fillers).
+    # Capped by ``_max_followups_per_competency`` so the interview keeps moving
+    # instead of circling one theme for a third of its questions.
+    competency_followup_counts: dict[str, int] = field(default_factory=dict)
+    # Fixed anchor questions already sent. The competency engine stays quiet
+    # until the shared backbone is done.
+    anchor_questions_sent: int = 0
     active_question_text: str = ""
     active_question_status: str = STATUS_IDLE
     sent_question_id: str = ""
@@ -328,6 +366,7 @@ class InterviewMemory:
             "path_cursor": self.path_cursor,
             "track_anchor_cursor": self.track_anchor_cursor,
             "current_competency_key": self.current_competency_key or "",
+            "anchor_questions_sent": self.anchor_questions_sent,
             "asked_competency_keys": sorted(self.asked_competency_keys),
             "rejected_competency_keys": sorted(self.rejected_competency_keys),
             "active_question_status": self.active_question_status or STATUS_IDLE,
@@ -1215,6 +1254,8 @@ class InterviewAssistant(Agent):
                 return guided
 
         if diag.get("is_incomplete_turn") or diag.get("is_answer_in_progress"):
+            if not interview_wait_nudge_enabled():
+                return None  # nudges disabled — the turn gate keeps us silent
             if mem.consecutive_wait_count >= _max_consecutive_waits():
                 return None  # too many nudges — advance to a fresh question
             return self._set_turn_recommendation(
@@ -1238,11 +1279,14 @@ class InterviewAssistant(Agent):
                     question_id=mem.sent_question_id or None,
                 )
 
-        if diag.get("is_story_starter") or (
-            diag.get("is_shallow")
-            and diag.get("is_substantive_answer")
-            and not diag.get("is_rich_answer")
-            and mem.active_question_status in (STATUS_AWAITING_ANSWER, STATUS_ANSWERING)
+        if self._competency_followup_budget_left(mem) and (
+            diag.get("is_story_starter")
+            or (
+                diag.get("is_shallow")
+                and diag.get("is_substantive_answer")
+                and not diag.get("is_rich_answer")
+                and mem.active_question_status in (STATUS_AWAITING_ANSWER, STATUS_ANSWERING)
+            )
         ):
             parent = mem.parent_question_id or mem.sent_question_id or ""
             # Role-neutral difficulty probe, varied opener (was HR-specific).
@@ -1262,6 +1306,13 @@ class InterviewAssistant(Agent):
         if diag.get("is_rich_answer"):
             return None
 
+        # Continuation nudges ("خذ راحتك…") fire on a pause and talk OVER the
+        # candidate. When they are disabled this path must yield instead of
+        # broadcasting one: the turn gate only silences replies whose inferred
+        # action is wait_for_completion, and this path is also reached with
+        # other actions (unsure / shallow), which is how the nudges kept leaking.
+        if not interview_wait_nudge_enabled():
+            return None
         if mem.consecutive_wait_count >= _max_consecutive_waits():
             return None  # too many nudges — advance to a fresh question
         return self._set_turn_recommendation(
@@ -1760,12 +1811,18 @@ class InterviewAssistant(Agent):
                     path_key=mem.pending_path_key or None,
                 )
 
-        if diag.get("is_rich_answer") or diag.get("suggest_followup"):
+        # Depth inside the current competency is budgeted: one follow-up, then
+        # the competency engine below moves on. Without this cap the follow-up
+        # branches keep re-probing whatever the candidate happened to mention,
+        # which is how a single competency ate six of twenty-five questions.
+        depth_left = self._competency_followup_budget_left(mem)
+
+        if depth_left and (diag.get("is_rich_answer") or diag.get("suggest_followup")):
             hook_follow = self._pick_hook_or_entity_followup(diag, link_policy)
             if hook_follow:
                 return self._set_turn_recommendation(hook_follow, source="hook_followup")
 
-        if diag.get("is_rich_answer"):
+        if depth_left and diag.get("is_rich_answer"):
             allowed = link_policy.get("allowed_link_entities") or []
             if allowed:
                 follow = self._find_competency_followup(allowed[0])
@@ -1790,13 +1847,15 @@ class InterviewAssistant(Agent):
                 source="intro_self",
             )
 
-        # Coverage floor (interview-prep "Structured"): before improvising, make
-        # sure every critical competency has had at least one evidence-seeking
-        # question. Gated on priority=="critical", so blueprints without that
-        # field (e.g. legacy/test fixtures) keep the old bank-anchor behaviour.
-        floor = self._pick_uncovered_critical_competency(mem)
-        if floor is not None:
-            return floor
+        # Blueprint competencies drive the interview once the shared anchor
+        # backbone is done: every competency gets its own evidence-seeking
+        # question, in priority order, exactly once. The bank is demoted to a
+        # fallback for depth — it used to be the driver, which is why whole
+        # competencies were never asked and the transcript had nothing to score.
+        if not self._anchor_intro_pending(mem):
+            competency_q = self._pick_next_competency_question(mem)
+            if competency_q is not None:
+                return competency_q
 
         result = self._pick_track_aware_anchor(mem) or anchor
         return self._set_turn_recommendation(
@@ -1804,34 +1863,93 @@ class InterviewAssistant(Agent):
             source="track_anchor" if result else "bank",
         )
 
-    def _pick_uncovered_critical_competency(self, mem: InterviewMemory) -> str | None:
-        """Return a question for the first critical competency not yet asked.
+    def _ordered_blueprint_competencies(self) -> list[dict[str, Any]]:
+        """Blueprint competencies sorted critical → high → medium (stable)."""
+        ranked = [
+            (
+                _COMPETENCY_PRIORITY_RANK.get(
+                    str(comp.get("priority") or "high").strip().lower(), 1
+                ),
+                index,
+                comp,
+            )
+            for index, comp in enumerate(self._blueprint_competencies)
+            if isinstance(comp, dict)
+        ]
+        ranked.sort(key=lambda item: (item[0], item[1]))
+        return [comp for _, _, comp in ranked]
 
-        Reads ``self._blueprint_competencies`` directly (works for taxonomy-
-        generated blueprints that have no interview_paths). Draws the question
-        from the competency's own ``followUpRules``/``followUps`` (interview-prep
-        methodology), falling back to a behavioural probe on its title.
+    def _competency_question_text(self, comp: dict[str, Any]) -> str:
+        """One spoken question that will produce scoreable evidence.
+
+        The blueprint generator emits each ``followUpRules`` entry as a single
+        short question, so those are used as-is. Taxonomy fallbacks emit
+        instructions instead ("ask for a specific example…"), so those are turned
+        into a behavioural probe built from ``questionObjective``/``title`` and
+        grounded in the first ``expectedEvidence`` item.
         """
-        for comp in self._blueprint_competencies:
-            if str(comp.get("priority") or "").strip().lower() != "critical":
-                continue
+        for rule in comp.get("followUpRules") or comp.get("followUps") or []:
+            text = str(rule).strip()
+            if text and ("؟" in text or "?" in text):
+                return text
+
+        subject = (
+            str(comp.get("title") or "").strip()
+            or str(comp.get("questionObjective") or comp.get("objective") or "").strip()
+        )
+        if not subject:
+            return ""
+        evidence = next(
+            (
+                str(item).strip()
+                for item in (comp.get("expectedEvidence") or comp.get("evidence") or [])
+                if str(item).strip()
+            ),
+            "",
+        )
+        if evidence:
+            return f"احچيلي عن موقف حقيقي يبيّن {subject}، وياريت تذكر {evidence}؟"
+        return f"احچيلي عن موقف حقيقي يبيّن {subject}، شنو سويت وشنو كانت النتيجة؟"
+
+    def _anchor_intro_pending(self, mem: InterviewMemory) -> bool:
+        """True while the fixed anchor backbone is still being asked."""
+        if not self._bank_questions:
+            return False
+        return mem.anchor_questions_sent < min(
+            _anchor_intro_count(), len(self._bank_questions)
+        )
+
+    def _competency_followup_budget_left(self, mem: InterviewMemory) -> bool:
+        """False once the current competency has had its allowance of depth."""
+        ckey = (mem.current_competency_key or "").strip()
+        if not ckey:
+            return True
+        return mem.competency_followup_counts.get(ckey, 0) < _max_followups_per_competency()
+
+    def _pick_next_competency_question(self, mem: InterviewMemory) -> str | None:
+        """Primary question driver: ask every blueprint competency once.
+
+        Walks ``self._blueprint_competencies`` in priority order and returns a
+        question for the first competency that has not been covered yet, so the
+        transcript carries one evidence block per competency — without which the
+        Stage-3 scorer falls back to ``insufficient_data`` and a generic score.
+        Returns ``None`` when everything is covered; the caller then falls back
+        to the question bank for depth.
+        """
+        for comp in self._ordered_blueprint_competencies():
             ckey = str(comp.get("competencyKey") or comp.get("key") or "").strip()
-            if not ckey or ckey in mem.asked_competency_keys:
+            if not ckey:
                 continue
-            follow_ups = [
-                str(f).strip()
-                for f in (comp.get("followUpRules") or comp.get("followUps") or [])
-                if str(f).strip()
-            ]
-            question = follow_ups[0] if follow_ups else ""
+            if ckey in mem.asked_competency_keys or ckey in mem.rejected_competency_keys:
+                continue
+            question = self._competency_question_text(comp)
             if not question:
-                title = str(comp.get("title") or "").strip()
-                if not title:
-                    continue
-                question = f"احچيلي عن خبرتك بـ{title}؟"
+                continue
+            mem.current_competency_key = ckey
+            mem.pending_competency_key = ckey
             return self._set_turn_recommendation(
                 collapse_to_single_question(question),
-                source="competency_floor",
+                source="competency_engine",
                 competency_key=ckey,
             )
         return None
@@ -1977,6 +2095,18 @@ class InterviewAssistant(Agent):
             # Remember the last real question so we never re-ask it verbatim.
             if mode in (MODE_ASK, MODE_FOLLOW_UP):
                 mem.last_sent_question_norm = normalize_text(question_text)
+            # Any question that is not a fresh competency ask spends depth on the
+            # competency currently on the table, so the picker advances instead
+            # of re-probing the same theme for a third of the interview.
+            if (
+                mode != MODE_WAIT
+                and plan.source != "competency_engine"
+                and mem.current_competency_key
+            ):
+                spent = mem.current_competency_key
+                mem.competency_followup_counts[spent] = (
+                    mem.competency_followup_counts.get(spent, 0) + 1
+                )
 
         if mode == MODE_WAIT:
             if mem.active_question_status in (STATUS_ANSWERING, STATUS_CLARIFYING):
@@ -2017,6 +2147,8 @@ class InterviewAssistant(Agent):
                     mem.asked_question_keys.add(sent_key)
             if plan.question_id:
                 mem.sent_question_guard.add(plan.question_id)
+        if plan.source in ("bank", "track_anchor") and count_question_marks(guarded) >= 1:
+            mem.anchor_questions_sent += 1
         # Mark a competency covered the moment it is ASKED (any source, not just
         # the coverage floor), so it is never re-served as a new question later —
         # the main cause of repeated same-competency questions after the candidate
@@ -2506,7 +2638,15 @@ class InterviewAssistant(Agent):
             # them, i.e. interrupts. Stay silent and let them finish; their next
             # words open a fresh turn. (Replaces the CONTINUATION_POOL nudges;
             # restore the old spoken nudge with INTERVIEW_WAIT_NUDGE=true.)
-            if action == "wait_for_completion" and not interview_wait_nudge_enabled():
+            # The planned turn is checked too, not just the inferred action: the
+            # active-question path can emit a MODE_WAIT nudge on turns whose
+            # action is "rephrase"/"advance", and those were slipping through.
+            planned_wait = bool(
+                self._turn_plan and self._turn_plan.response_mode == MODE_WAIT
+            )
+            if (
+                action == "wait_for_completion" or planned_wait
+            ) and not interview_wait_nudge_enabled():
                 self._update_memory_post_decision(diag, action)
                 logger.info("wait_for_completion → staying silent (continuation nudge suppressed)")
                 raise StopResponse()

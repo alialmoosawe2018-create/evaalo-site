@@ -381,6 +381,10 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
                         {
                             competencyKey: { type: String, required: true },
                             title: { type: String },
+                            // false when the transcript held no evidence for this
+                            // competency. Without it a not-assessed row is
+                            // indistinguishable from a missing score.
+                            assessed: { type: Boolean },
                             score: { type: Number, min: 1, max: 5 },
                             evidence: { type: [String], default: undefined },
                             redFlags: { type: [String], default: undefined },

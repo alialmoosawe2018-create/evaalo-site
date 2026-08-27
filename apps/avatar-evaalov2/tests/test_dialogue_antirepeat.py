@@ -7,6 +7,8 @@ turns running and emitted the exact same "خذ راحتك" nudge five times.
 
 from __future__ import annotations
 
+import pytest
+
 from voice_interview.active_question import (
     MODE_ASK,
     MODE_WAIT,
@@ -103,14 +105,25 @@ def test_first_ask_is_not_altered() -> None:
 # ── Continuation nudge: rotation + cap ───────────────────────────────────────
 
 
-def test_wait_nudge_uses_continuation_pool() -> None:
+def test_wait_nudge_silent_by_default() -> None:
+    # INTERVIEW_WAIT_NUDGE defaults to false: the nudge fires on a pause and
+    # talks over the candidate, so no path may broadcast one.
+    agent = _make_assistant()
+    agent._memory.consecutive_wait_count = 0
+    out = agent._active_question_locked_pick({"is_incomplete_turn": True}, agent._memory, {})
+    assert out is None
+
+
+def test_wait_nudge_uses_continuation_pool(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INTERVIEW_WAIT_NUDGE", "true")
     agent = _make_assistant()
     agent._memory.consecutive_wait_count = 0
     out = agent._active_question_locked_pick({"is_incomplete_turn": True}, agent._memory, {})
     assert out in CONTINUATION_POOL
 
 
-def test_wait_nudges_vary_across_turns() -> None:
+def test_wait_nudges_vary_across_turns(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INTERVIEW_WAIT_NUDGE", "true")
     agent = _make_assistant()
     mem = agent._memory
     outs = []
@@ -120,7 +133,8 @@ def test_wait_nudges_vary_across_turns() -> None:
     assert len(set(outs)) >= 2  # not the same nudge every time
 
 
-def test_wait_cap_advances_instead_of_nudging() -> None:
+def test_wait_cap_advances_instead_of_nudging(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("INTERVIEW_WAIT_NUDGE", "true")
     agent = _make_assistant()
     mem = agent._memory
     mem.consecutive_wait_count = _max_consecutive_waits()

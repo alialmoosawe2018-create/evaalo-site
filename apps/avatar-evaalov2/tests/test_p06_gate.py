@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from voice_interview.active_question import (
     MODE_CLARIFY,
     MODE_FOLLOW_UP,
@@ -173,8 +175,11 @@ def test_gate_resume_waits_no_path_advance() -> None:
     assert rec is not None
 
 
-def test_gate_open_question_blocks_bank_and_path() -> None:
+def test_gate_open_question_blocks_bank_and_path(monkeypatch: pytest.MonkeyPatch) -> None:
     """Gate 4: open question blocks bank anchor, path advance, competency jump."""
+    # Spoken nudges are off by default (they interrupt); enable them here so the
+    # gate's WAIT decision is observable as a recommendation instead of silence.
+    monkeypatch.setenv("INTERVIEW_WAIT_NUDGE", "true")
     agent = _recruiter()
     mem = agent._memory
     mem.active_question_text = "شنو قنوات الاستقطاب؟"

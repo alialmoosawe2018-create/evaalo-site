@@ -140,14 +140,16 @@ export function buildVideoFinalHrText(evaluation, t, translateRecLabel) {
     );
     if (explicit) return explicit;
 
-    const recCanon = canonicalStageRecommendation(evaluation?.recommendation);
+    const recCanon = resolveVideoRecommendation(evaluation);
     if (recCanon === 'N/A' && evaluation?.overall_score == null) return null;
 
     const recLabel = translateRecLabel(recCanon);
     const score =
-        evaluation?.overall_score != null && Number.isFinite(Number(evaluation.overall_score))
-            ? Number(evaluation.overall_score)
-            : '';
+        shouldHideOverallScore(evaluation) ||
+        evaluation?.overall_score == null ||
+        !Number.isFinite(Number(evaluation.overall_score))
+            ? ''
+            : Number(evaluation.overall_score);
 
     const noteKey =
         recCanon === 'Hire'
@@ -212,19 +214,56 @@ export function isInsufficientVideoEvaluation(evaluation) {
 }
 
 /**
- * True when the evaluation is the blueprint-driven (Stage 3 v2) shape:
- * it carries scored competencyScores and does NOT carry the legacy 10 trait fields.
+ * True when the evaluation came from the blueprint-driven (Stage 3 v2) scorer.
+ *
+ * Any v2 marker counts — a competencyScores array (even one the scorer could not
+ * fill), an explicit insufficient_data status, or the generic_ratings block. An
+ * empty array used to fall through to the legacy 8-column table, which showed a
+ * v2 result as eight "N/A" traits that were never measured in the first place.
  */
 export function isBlueprintVideoEvaluation(evaluation) {
     if (!evaluation) return false;
-    const comps = Array.isArray(evaluation.competencyScores) ? evaluation.competencyScores : [];
-    if (comps.length === 0) return false;
-    const legacyKeys = [...VIDEO_TABLE_COMPETENCY_KEYS, 'role_understanding', 'final_role_fit'];
-    const hasLegacyTrait = legacyKeys.some((k) => {
-        const v = evaluation[k];
-        return v !== undefined && v !== null && v !== '';
-    });
-    return !hasLegacyTrait;
+
+    if (Array.isArray(evaluation.competencyScores)) return true;
+    const status = String(evaluation.status || '').trim().toLowerCase();
+    if (status === 'insufficient_data' || status === 'insufficient') return true;
+    const generic = evaluation.generic_ratings;
+    if (generic && typeof generic === 'object' && !Array.isArray(generic)) return true;
+
+    // No v2 marker: only a record from the retired 8-trait scorer belongs in the
+    // legacy layout.
+    return false;
+}
+
+/**
+ * Lowest 1–5 score that still counts as "met" (✓). Reviewers read a competency
+ * as pass/fail, not as a number, so the numeric score stays internal to the
+ * overall calculation and only the verdict is shown.
+ */
+export const COMPETENCY_MET_MIN_SCORE = 3;
+
+/** A competency is met only when it was actually assessed AND cleared the bar. */
+export function isCompetencyMet(row) {
+    if (!isAssessedBlueprintRow(row)) return false;
+    return Number(row.score) >= COMPETENCY_MET_MIN_SCORE;
+}
+
+/**
+ * True when no overall percentage may be shown. An insufficient interview still
+ * carries a computed number, and showing it reads as a real pass mark.
+ */
+export function shouldHideOverallScore(evaluation) {
+    return isInsufficientVideoEvaluation(evaluation);
+}
+
+/**
+ * The recommendation to display. An interview that covered too little of the role
+ * cannot support a pass, so it always reads Reject — the v2 scorer now says so
+ * itself, but records written before that fix still carry a stale "Consider".
+ */
+export function resolveVideoRecommendation(evaluation) {
+    if (isInsufficientVideoEvaluation(evaluation)) return 'Reject';
+    return canonicalStageRecommendation(evaluation?.recommendation);
 }
 
 /** Map a blueprint 1–5 competency score to good (4–5) | average (3) | weak (1–2). */
@@ -258,6 +297,7 @@ export function buildBlueprintCompetencyRows(evaluation) {
             key,
             label,
             assessed,
+            met: isCompetencyMet(row),
             score: assessed ? scoreNum : null,
             band: assessed ? fiveScoreBand(scoreNum) : null,
             evidence: normalizeStageEvalStringList(row?.evidence),
