@@ -746,13 +746,30 @@ export async function generateExpertiseAndBlueprint(campaign: {
               `Expected competency themes: ${taxonomy.expectedCompetencies.join(', ')}.\n` +
               (taxTerminology.length ? `Light domain terminology to weave in: ${taxTerminology.join(', ')}.\n` : '');
 
+        // Interview seniority steers which competencies to GENERATE (not just the
+        // agent's runtime overlay). A support title (e.g. "HR Assistant") kept at
+        // catalog `mid` for UI reasons must still generate execution-scoped
+        // competencies, not the mid-level "process ownership / stakeholder
+        // management / KPI ownership" that the domain themes below would otherwise
+        // seed. deriveInterviewLevel downgrades such titles to junior.
+        const interviewLevel = deriveInterviewLevel(
+            jobTitle,
+            String(roleResolution.careerLevel || 'mid'),
+        );
+        const isEntryLevel =
+            interviewLevel === 'intern' ||
+            interviewLevel === 'graduate' ||
+            interviewLevel === 'junior';
+        const seniorityRule = isEntryLevel
+            ? `\n- SENIORITY (entry / support role — ${jobTitle || 'this role'}): the competencies MUST be EXECUTION and SUPPORT scoped — e.g. accuracy and attention to detail, following procedures/policies, coordination and scheduling, HRIS/Excel/data-entry basics, responsiveness, and confidentiality. Do NOT generate ownership/strategy competencies (process ownership, owning KPIs/targets/results, strategic or data-driven decision ownership, "stakeholder management"): this role executes and supports, it does not own outcomes. If the domain themes below list such competencies, REPLACE them with execution-scoped ones. Prefer plain phrasing (e.g. "coordinating with colleagues and managers") over corporate jargon like "stakeholder management".`
+            : `\n- SENIORITY: interview at the ${interviewLevel} level — scope competencies to what this level genuinely owns.`;
         const sys = `You are an expert technical interviewer and hiring strategist. Produce a specialized interview blueprint for ONE specific job.
 Rules:
 - Output language for anchorQuestions, questionObjective, expectedEvidence, redFlags, scoreRubric, followUpRules: ${language === 'ar' ? 'Arabic' : 'English'}.
 - Provide EXACTLY 3 anchorQuestions (fixed core questions for all candidates of this campaign). They must be specific to the role, ask for a real example + data/steps + outcome — never generic "tell me about yourself".
 - Provide 6 to 8 competencies (minimum 6). Each competency: a snake_case competencyKey, a title, priority (critical|high|medium), a questionObjective, expectedEvidence (3-6 items), redFlags (2-4 items), a scoreRubric for levels 1..5 (each a short qualitative description), and followUpRules (1-3 rules — each rule is exactly ONE short question with ONE question mark, never a compound checklist).
 - requiredSkills/toolsAndSystems/responsibilities/mustAssess/expectedEvidence/redFlags/qualityRisk describe the JOB (not a candidate). Keep concise.
-- Be concrete and domain-specific. Do not invent facts; derive from the job context.${arabicAnchorStyleSuffix(language)}`;
+- Be concrete and domain-specific. Do not invent facts; derive from the job context.${seniorityRule}${arabicAnchorStyleSuffix(language)}`;
 
         const user = `${packHint}\nJob title: ${jobTitle || '(not explicitly provided — infer from context)'}\n\nJob context (campaign criteria + advertisement):\n${criteriaText || '(minimal — infer reasonable specifics)'}`;
 
