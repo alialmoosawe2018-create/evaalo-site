@@ -774,15 +774,16 @@ Rules:
         const user = `${packHint}\nJob title: ${jobTitle || '(not explicitly provided — infer from context)'}\n\nJob context (campaign criteria + advertisement):\n${criteriaText || '(minimal — infer reasonable specifics)'}`;
 
         // Blueprint GENERATION model (separate from the live interview agent,
-        // which stays gpt-4o-mini for latency). Default gpt-4o-mini: it already
-        // produces excellent seniority-scoped competencies in ~5s. gpt-5-mini is
-        // available via BLUEPRINT_LLM_MODEL — it yields slightly more role-specific
-        // competencies but takes ~60s and needs a big token budget (verified), so
-        // it is opt-in. Reasoning models (gpt-5 / o-series) reject a custom
-        // temperature and use max_completion_tokens; a large budget
-        // (BLUEPRINT_LLM_MAX_TOKENS, default 16000) keeps reasoning tokens from
-        // starving the JSON output.
-        const genModel = (process.env.BLUEPRINT_LLM_MODEL || 'gpt-4o-mini').trim() || 'gpt-4o-mini';
+        // which stays gpt-4o-mini for latency). Default gpt-5-mini — it yields
+        // more role-specific, seniority-scoped competencies (verified live); the
+        // trade-off is ~60s generation + a big token budget, acceptable because
+        // generation is a one-off OFFLINE call. Switch back with
+        // BLUEPRINT_LLM_MODEL=gpt-4o-mini (~5s, still good). Reasoning models
+        // (gpt-5 / o-series) reject a custom temperature and use
+        // max_completion_tokens; a large budget (BLUEPRINT_LLM_MAX_TOKENS, default
+        // 16000) keeps reasoning tokens from starving the JSON output (at 2200 it
+        // returns empty).
+        const genModel = (process.env.BLUEPRINT_LLM_MODEL || 'gpt-5-mini').trim() || 'gpt-5-mini';
         const genIsReasoning = /^(gpt-5|o1|o3|o4)/i.test(genModel);
         const response = await openai.chat.completions.create({
             model: genModel,
