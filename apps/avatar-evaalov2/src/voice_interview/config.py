@@ -7,10 +7,48 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
 logger = logging.getLogger("agent")
+
+
+def model_is_reasoning(model: str) -> bool:
+    """GPT-5 and the o-series are reasoning models: they reject a custom
+    ``temperature`` (only the default is allowed) and the LiveKit OpenAI plugin
+    auto-selects a low-latency ``reasoning_effort`` for them."""
+    m = (model or "").strip().lower()
+    return m.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
+def build_openai_llm_kwargs() -> dict[str, Any]:
+    """Assemble kwargs for the interview LLM. Model via ``OPENAI_MODEL`` (default
+    ``gpt-5-mini`` — latest generation, low latency for live voice). Pure/testable:
+    no network, no LLM construction, no heavy plugin imports."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    model = (os.getenv("OPENAI_MODEL") or "gpt-5-mini").strip() or "gpt-5-mini"
+    is_reasoning = model_is_reasoning(model)
+    kwargs: dict[str, Any] = {"model": model}
+    # temperature is accepted only by non-reasoning models (e.g. gpt-4o family).
+    # Lower = faster, shorter, more decisive tokens → faster first audio to avatar.
+    if not is_reasoning:
+        kwargs["temperature"] = float(os.getenv("OPENAI_TEMPERATURE", "0.22"))
+    if api_key:
+        kwargs["api_key"] = api_key
+    # Output cap (~80 words for a clear Arabic question). Reasoning models spend
+    # part of the budget on hidden reasoning tokens, so give them more headroom to
+    # avoid a truncated reply. Override with OPENAI_MAX_COMPLETION_TOKENS.
+    default_max = "512" if is_reasoning else "160"
+    raw_max = (os.getenv("OPENAI_MAX_COMPLETION_TOKENS", default_max) or "").strip()
+    if raw_max and raw_max != "0":
+        try:
+            cap = int(raw_max)
+            if cap > 0:
+                kwargs["max_completion_tokens"] = cap
+        except ValueError:
+            logger.warning("Invalid OPENAI_MAX_COMPLETION_TOKENS=%s (ignored)", raw_max)
+    return kwargs
 
 # src/voice_interview/config.py -> parents: voice_interview, src, project root
 _env_path = Path(__file__).resolve().parent.parent.parent / ".env.local"

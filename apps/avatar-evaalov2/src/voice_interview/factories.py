@@ -19,6 +19,7 @@ from voice_interview.config import (
     LEGACY_WRONG_AVATAR_ID,
     avatar_fast_response,
     avatar_stability_mode,
+    build_openai_llm_kwargs,
     interview_defaults_enabled,
 )
 
@@ -295,27 +296,12 @@ def maybe_warmup_elevenlabs() -> None:
 
 
 def create_openai_llm():
-    api_key = os.getenv("OPENAI_API_KEY")
-    # Lower = faster tokens + shorter answers (better for avatar latency). Override with OPENAI_TEMPERATURE.
-    # Slightly lower = shorter, more decisive tokens → faster first audio to avatar.
-    temp = float(os.getenv("OPENAI_TEMPERATURE", "0.22"))
-    kwargs: dict[str, Any] = {"model": "gpt-4o-mini", "temperature": temp}
-    if api_key:
-        kwargs["api_key"] = api_key
-    # Default ~80 words / 2-3 short sentences — enough for clear Arabic questions. Override in .env.local.
-    raw_max = (os.getenv("OPENAI_MAX_COMPLETION_TOKENS", "160") or "").strip()
-    if raw_max and raw_max != "0":
-        try:
-            cap = int(raw_max)
-            if cap > 0:
-                kwargs["max_completion_tokens"] = cap
-        except ValueError:
-            logger.warning("Invalid OPENAI_MAX_COMPLETION_TOKENS=%s (ignored)", raw_max)
+    kwargs = build_openai_llm_kwargs()
     llm = openai.LLM(**kwargs)
-    logger.debug(
+    logger.info(
         "OpenAI LLM model=%s temperature=%s max_completion_tokens=%s",
         kwargs["model"],
-        temp,
+        kwargs.get("temperature", "unset (reasoning model)"),
         kwargs.get("max_completion_tokens", "unset"),
     )
     return llm
