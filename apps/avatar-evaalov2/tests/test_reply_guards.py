@@ -480,6 +480,18 @@ def test_openai_llm_kwargs_default_is_gpt4o_mini(monkeypatch):
     assert kw["max_completion_tokens"] == 160
 
 
+def test_openai_llm_kwargs_tolerates_malformed_temperature(monkeypatch):
+    # A bad OPENAI_TEMPERATURE (once set to "0.4,OPENAI_MAX_COMPLETION_TOKENS=150"
+    # by a comma-mangled secret) must NOT crash the agent job.
+    from voice_interview.config import build_openai_llm_kwargs
+
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
+    monkeypatch.setenv("OPENAI_TEMPERATURE", "0.4,OPENAI_MAX_COMPLETION_TOKENS=150")
+    monkeypatch.delenv("OPENAI_MAX_COMPLETION_TOKENS", raising=False)
+    kw = build_openai_llm_kwargs()  # must not raise
+    assert kw["temperature"] == 0.22  # falls back to the default
+
+
 def test_openai_llm_kwargs_gpt5_mini_omits_temperature(monkeypatch):
     # The reasoning-model handling stays correct for an explicit opt-in.
     from voice_interview.config import build_openai_llm_kwargs, model_is_reasoning

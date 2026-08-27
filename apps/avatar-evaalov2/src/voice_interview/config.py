@@ -38,8 +38,15 @@ def build_openai_llm_kwargs() -> dict[str, Any]:
     kwargs: dict[str, Any] = {"model": model}
     # temperature is accepted only by non-reasoning models (e.g. gpt-4o family).
     # Lower = faster, shorter, more decisive tokens → faster first audio to avatar.
+    # Parse defensively: a malformed OPENAI_TEMPERATURE must NOT crash the job
+    # (a bad secret once set it to "0.4,OPENAI_MAX_COMPLETION_TOKENS=150").
     if not is_reasoning:
-        kwargs["temperature"] = float(os.getenv("OPENAI_TEMPERATURE", "0.22"))
+        raw_temp = (os.getenv("OPENAI_TEMPERATURE", "0.22") or "0.22").strip()
+        try:
+            kwargs["temperature"] = float(raw_temp)
+        except ValueError:
+            logger.warning("Invalid OPENAI_TEMPERATURE=%r (using 0.22)", raw_temp)
+            kwargs["temperature"] = 0.22
     if api_key:
         kwargs["api_key"] = api_key
     # Output cap (~80 words for a clear Arabic question). Reasoning models spend
