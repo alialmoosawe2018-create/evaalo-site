@@ -241,6 +241,99 @@ async function loadBlueprintBundleSafe(campaignId?: string): Promise<LockedBluep
     }
 }
 
+/** يبني لقطة الـBlueprint المُرسَلة للوكيل ولمصحّح Stage 3 (شكل واحد لكل المسارات). */
+function buildBlueprintSnapshot(
+    bundle: LockedBlueprintBundle | null
+): Record<string, unknown> | undefined {
+    if (!bundle?.blueprint) return undefined;
+    const profileRoleResolution =
+        bundle.profile?.roleResolution
+        || (bundle.profile as Record<string, any> | undefined)?.roleResolution;
+    return {
+        blueprintId: bundle.blueprint.blueprintId,
+        profileId: bundle.blueprint.profileId,
+        version: bundle.blueprint.version,
+        blueprintContentVersion:
+            bundle.blueprint.blueprintContentVersion || bundle.profile?.blueprintContentVersion,
+        packVersion: bundle.blueprint.packVersion || bundle.profile?.packVersion,
+        packMatchConfidence:
+            bundle.blueprint.packMatchConfidence || bundle.profile?.packMatchConfidence,
+        blueprintGeneratedAt: (
+            bundle.blueprint.blueprintGeneratedAt || bundle.profile?.blueprintGeneratedAt
+        )?.toISOString?.(),
+        language: bundle.blueprint.language,
+        knowledgeDepth: bundle.blueprint.knowledgeDepth || bundle.profile?.knowledgeDepth,
+        roleResolution: profileRoleResolution || undefined,
+        anchorQuestions: bundle.blueprint.anchorQuestions,
+        competencies: (bundle.blueprint.competencies || []).map((c) => ({
+            competencyKey: c.competencyKey,
+            title: c.title,
+            priority: c.priority,
+            questionObjective: c.questionObjective,
+            expectedEvidence: c.expectedEvidence,
+            redFlags: c.redFlags,
+            scoreRubric: c.scoreRubric,
+            followUpRules: c.followUpRules,
+        })),
+        domainPackKey: bundle.profile?.domainPackKey,
+        specialization: bundle.profile?.specialization,
+        terminology: (bundle.profile?.terminology || []).slice(0, 18),
+        experienceTrackKeys: (
+            ((bundle.blueprint as unknown as Record<string, unknown>)
+                .experienceTracks as Array<Record<string, unknown>> | undefined)
+            || ((bundle.profile as unknown as Record<string, unknown> | null)
+                ?.experienceTracks as Array<Record<string, unknown>> | undefined)
+            || []
+        )
+            .map((t: Record<string, unknown>) => String(t.trackKey || ''))
+            .filter(Boolean)
+            .slice(0, 6),
+        interviewPathKeys: (
+            ((bundle.blueprint as unknown as Record<string, unknown>)
+                .interviewPaths as Array<Record<string, unknown>> | undefined)
+            || ((bundle.profile as unknown as Record<string, unknown> | null)
+                ?.interviewPaths as Array<Record<string, unknown>> | undefined)
+            || []
+        )
+            .map((p: Record<string, unknown>) => String(p.pathKey || ''))
+            .filter(Boolean)
+            .slice(0, 2),
+    };
+}
+
+/** أقصى انتظار عند بدء المقابلة لتوليد Blueprint جارٍ بالفعل (ms). */
+const BLUEPRINT_START_WAIT_MS = Math.max(
+    0,
+    Number(process.env.BLUEPRINT_START_WAIT_MS ?? 12000) || 0
+);
+const BLUEPRINT_START_POLL_MS = 1000;
+
+/**
+ * ينتظر Blueprint الحملة إن كان توليده ما زال جارياً.
+ *
+ * `ensureBlueprintForCampaign` يُطلَق بلا انتظار عند إنشاء الحملة ويستغرق ~دقيقة.
+ * مرشّح يفتح الرابط قبل أن يُقفَل يبدأ مقابلة بلا كفاءات — فيرجع الوكيل لبنك
+ * الأسئلة ويصل نصّ المقابلة إلى المصحّح بلا أدلّة كفاءات.
+ */
+async function awaitBlueprintBundle(campaignId?: string): Promise<LockedBlueprintBundle | null> {
+    const first = await loadBlueprintBundleSafe(campaignId);
+    if (first || !campaignId || BLUEPRINT_START_WAIT_MS <= 0) return first;
+
+    const deadline = Date.now() + BLUEPRINT_START_WAIT_MS;
+    while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, BLUEPRINT_START_POLL_MS));
+        const bundle = await loadBlueprintBundleSafe(campaignId);
+        if (bundle) {
+            console.log(`✅ awaitBlueprintBundle: blueprint landed for ${campaignId} before start`);
+            return bundle;
+        }
+    }
+    console.warn(
+        `⚠️ awaitBlueprintBundle: no locked blueprint for ${campaignId} after ${BLUEPRINT_START_WAIT_MS}ms — starting without competencies`
+    );
+    return null;
+}
+
 /** يحمّل لقطة سياق الهيد هانتر من المرشح (إن كان headHunterContextId موجوداً). */
 async function loadHeadHunterContextForCandidate(
     candidate: Record<string, any>
@@ -877,67 +970,9 @@ router.post('/start', async (req, res) => {
         }
 
         // Blueprint المتخصص (إن وُجد مقفل للحملة) — يُحقن في الوكيل ويُلتقط snapshot للثبات والتقييم.
-        const startBlueprintBundle = isTestMode ? null : await loadBlueprintBundleSafe(normalizedCampaignId);
+        const startBlueprintBundle = isTestMode ? null : await awaitBlueprintBundle(normalizedCampaignId);
         const startBlueprintMeta = buildBlueprintMetadata(startBlueprintBundle);
-        const profileRoleResolution =
-            startBlueprintBundle?.profile?.roleResolution
-            || (startBlueprintBundle?.profile as Record<string, any> | undefined)?.roleResolution;
-        const blueprintSnapshot = startBlueprintBundle?.blueprint
-            ? {
-                  blueprintId: startBlueprintBundle.blueprint.blueprintId,
-                  profileId: startBlueprintBundle.blueprint.profileId,
-                  version: startBlueprintBundle.blueprint.version,
-                  blueprintContentVersion: startBlueprintBundle.blueprint.blueprintContentVersion
-                      || startBlueprintBundle.profile?.blueprintContentVersion,
-                  packVersion: startBlueprintBundle.blueprint.packVersion
-                      || startBlueprintBundle.profile?.packVersion,
-                  packMatchConfidence: startBlueprintBundle.blueprint.packMatchConfidence
-                      || startBlueprintBundle.profile?.packMatchConfidence,
-                  blueprintGeneratedAt: (
-                      startBlueprintBundle.blueprint.blueprintGeneratedAt
-                      || startBlueprintBundle.profile?.blueprintGeneratedAt
-                  )?.toISOString?.(),
-                  language: startBlueprintBundle.blueprint.language,
-                  knowledgeDepth:
-                      startBlueprintBundle.blueprint.knowledgeDepth
-                      || startBlueprintBundle.profile?.knowledgeDepth,
-                  roleResolution: profileRoleResolution || undefined,
-                  anchorQuestions: startBlueprintBundle.blueprint.anchorQuestions,
-                  competencies: (startBlueprintBundle.blueprint.competencies || []).map((c) => ({
-                      competencyKey: c.competencyKey,
-                      title: c.title,
-                      priority: c.priority,
-                      questionObjective: c.questionObjective,
-                      expectedEvidence: c.expectedEvidence,
-                      redFlags: c.redFlags,
-                      scoreRubric: c.scoreRubric,
-                      followUpRules: c.followUpRules,
-                  })),
-                  domainPackKey: startBlueprintBundle.profile?.domainPackKey,
-                  specialization: startBlueprintBundle.profile?.specialization,
-                  terminology: (startBlueprintBundle.profile?.terminology || []).slice(0, 18),
-                  experienceTrackKeys: (
-                      ((startBlueprintBundle.blueprint as unknown as Record<string, unknown>)
-                          .experienceTracks as Array<Record<string, unknown>> | undefined)
-                      || ((startBlueprintBundle.profile as unknown as Record<string, unknown> | null)
-                          ?.experienceTracks as Array<Record<string, unknown>> | undefined)
-                      || []
-                  )
-                      .map((t: Record<string, unknown>) => String(t.trackKey || ''))
-                      .filter(Boolean)
-                      .slice(0, 6),
-                  interviewPathKeys: (
-                      ((startBlueprintBundle.blueprint as unknown as Record<string, unknown>)
-                          .interviewPaths as Array<Record<string, unknown>> | undefined)
-                      || ((startBlueprintBundle.profile as unknown as Record<string, unknown> | null)
-                          ?.interviewPaths as Array<Record<string, unknown>> | undefined)
-                      || []
-                  )
-                      .map((p: Record<string, unknown>) => String(p.pathKey || ''))
-                      .filter(Boolean)
-                      .slice(0, 2),
-              }
-            : undefined;
+        const blueprintSnapshot = buildBlueprintSnapshot(startBlueprintBundle);
 
         const organizationId =
             !isTestMode && (candidate as { organizationId?: string }).organizationId
@@ -1528,10 +1563,23 @@ router.post('/end', async (req, res) => {
                 session?.jobCriteriaSnapshot && typeof session.jobCriteriaSnapshot === 'object'
                     ? (session.jobCriteriaSnapshot as Record<string, unknown>)
                     : undefined;
-            const blueprintSnapshot =
+            // لو بدأت المقابلة قبل أن يُقفَل blueprint الحملة، لا تحمل الجلسة لقطة —
+            // فيصل النصّ للمصحّح بلا كفاءات ويسقط حتماً إلى insufficient_data.
+            // التوليد انتهى قطعاً الآن، فنلتقطها هنا بدل خسارة التقييم كلّه.
+            let blueprintSnapshot =
                 session?.blueprintSnapshot && typeof session.blueprintSnapshot === 'object'
                     ? (session.blueprintSnapshot as Record<string, unknown>)
                     : undefined;
+            if (!blueprintSnapshot && session?.campaignId) {
+                blueprintSnapshot = buildBlueprintSnapshot(
+                    await loadBlueprintBundleSafe(session.campaignId)
+                );
+                if (blueprintSnapshot) {
+                    console.log(
+                        `ℹ️ /end: recovered blueprint snapshot for ${sessionId} (campaign ${session.campaignId}) — session started before the lock`
+                    );
+                }
+            }
             sendVideoTranscriptToN8N({
                 sessionId,
                 candidateId: session?.candidateId?.toString?.() || candidateIdToRemove || undefined,
