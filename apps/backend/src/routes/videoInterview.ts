@@ -304,7 +304,7 @@ function buildBlueprintSnapshot(
 /** أقصى انتظار عند بدء المقابلة لتوليد Blueprint جارٍ بالفعل (ms). */
 const BLUEPRINT_START_WAIT_MS = Math.max(
     0,
-    Number(process.env.BLUEPRINT_START_WAIT_MS ?? 12000) || 0
+    Number(process.env.BLUEPRINT_START_WAIT_MS ?? 30000) || 0
 );
 const BLUEPRINT_START_POLL_MS = 1000;
 
@@ -332,6 +332,30 @@ async function awaitBlueprintBundle(campaignId?: string): Promise<LockedBlueprin
         `⚠️ awaitBlueprintBundle: no locked blueprint for ${campaignId} after ${BLUEPRINT_START_WAIT_MS}ms — starting without competencies`
     );
     return null;
+}
+
+/**
+ * يستخرج campaignId عند الإنهاء دون الاعتماد على مستند الجلسة.
+ *
+ * وضع الاختبار لا يحفظ جلسة، ومسار «إعادة استخدام جلسة» يخرج من /start قبل
+ * إنشائها — ففي الحالتين تبقى الجلسة null ويضيع campaignId ومعه لقطة الكفاءات.
+ */
+async function resolveCampaignIdForEnd(
+    session: { campaignId?: unknown } | null,
+    candidateId?: string
+): Promise<string | undefined> {
+    const fromSession =
+        typeof session?.campaignId === 'string' ? session.campaignId.trim() : '';
+    if (fromSession) return fromSession;
+    if (!candidateId || !/^[0-9a-fA-F]{24}$/.test(candidateId)) return undefined;
+
+    const candidate = (await Candidate.findById(candidateId)
+        .select('campaignId')
+        .lean()
+        .catch(() => null)) as { campaignId?: unknown } | null;
+    const fromCandidate =
+        typeof candidate?.campaignId === 'string' ? candidate.campaignId.trim() : '';
+    return fromCandidate || undefined;
 }
 
 /** يحمّل لقطة سياق الهيد هانتر من المرشح (إن كان headHunterContextId موجوداً). */
@@ -1566,19 +1590,23 @@ router.post('/end', async (req, res) => {
             // لو بدأت المقابلة قبل أن يُقفَل blueprint الحملة، لا تحمل الجلسة لقطة —
             // فيصل النصّ للمصحّح بلا كفاءات ويسقط حتماً إلى insufficient_data.
             // التوليد انتهى قطعاً الآن، فنلتقطها هنا بدل خسارة التقييم كلّه.
+            const resolvedCampaignId = await resolveCampaignIdForEnd(
+                session,
+                resolvedCandidateId
+            );
             let blueprintSnapshot =
                 session?.blueprintSnapshot && typeof session.blueprintSnapshot === 'object'
                     ? (session.blueprintSnapshot as Record<string, unknown>)
                     : undefined;
-            if (!blueprintSnapshot && session?.campaignId) {
+            if (!blueprintSnapshot && resolvedCampaignId) {
                 blueprintSnapshot = buildBlueprintSnapshot(
-                    await loadBlueprintBundleSafe(session.campaignId)
+                    await loadBlueprintBundleSafe(resolvedCampaignId)
                 );
-                if (blueprintSnapshot) {
-                    console.log(
-                        `ℹ️ /end: recovered blueprint snapshot for ${sessionId} (campaign ${session.campaignId}) — session started before the lock`
-                    );
-                }
+                console.log(
+                    blueprintSnapshot
+                        ? `ℹ️ /end: recovered blueprint snapshot for ${sessionId} (campaign ${resolvedCampaignId})`
+                        : `⚠️ /end: no locked blueprint for campaign ${resolvedCampaignId} — ${sessionId} will score without competencies`
+                );
             }
             sendVideoTranscriptToN8N({
                 sessionId,
@@ -1589,7 +1617,7 @@ router.post('/end', async (req, res) => {
                     (session as any)?.language ||
                     (session as any)?.blueprintSnapshot?.language ||
                     'auto',
-                campaignId: session?.campaignId || undefined,
+                campaignId: resolvedCampaignId,
                 ...(jobCriteriaSnapshot ? { jobCriteria: jobCriteriaSnapshot } : {}),
                 ...(blueprintSnapshot ? { blueprintSnapshot } : {}),
                 ...(isPublicSession ? { mode: 'public' as const } : {}),
