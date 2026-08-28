@@ -34,6 +34,8 @@ import {
     INTERVIEW_LINK_ALREADY_USED,
 } from '../services/interviewLinkAccess.js';
 import {
+    buildBlueprintSnapshot,
+    ensureBlueprintForCampaign,
     getLockedBlueprintForCampaign,
     isBlueprintFeatureEnabled,
     type LockedBlueprintBundle,
@@ -239,66 +241,6 @@ async function loadBlueprintBundleSafe(campaignId?: string): Promise<LockedBluep
         console.warn(`⚠️ loadBlueprintBundleSafe failed for ${id}:`, err?.message || err);
         return null;
     }
-}
-
-/** يبني لقطة الـBlueprint المُرسَلة للوكيل ولمصحّح Stage 3 (شكل واحد لكل المسارات). */
-function buildBlueprintSnapshot(
-    bundle: LockedBlueprintBundle | null
-): Record<string, unknown> | undefined {
-    if (!bundle?.blueprint) return undefined;
-    const profileRoleResolution =
-        bundle.profile?.roleResolution
-        || (bundle.profile as Record<string, any> | undefined)?.roleResolution;
-    return {
-        blueprintId: bundle.blueprint.blueprintId,
-        profileId: bundle.blueprint.profileId,
-        version: bundle.blueprint.version,
-        blueprintContentVersion:
-            bundle.blueprint.blueprintContentVersion || bundle.profile?.blueprintContentVersion,
-        packVersion: bundle.blueprint.packVersion || bundle.profile?.packVersion,
-        packMatchConfidence:
-            bundle.blueprint.packMatchConfidence || bundle.profile?.packMatchConfidence,
-        blueprintGeneratedAt: (
-            bundle.blueprint.blueprintGeneratedAt || bundle.profile?.blueprintGeneratedAt
-        )?.toISOString?.(),
-        language: bundle.blueprint.language,
-        knowledgeDepth: bundle.blueprint.knowledgeDepth || bundle.profile?.knowledgeDepth,
-        roleResolution: profileRoleResolution || undefined,
-        anchorQuestions: bundle.blueprint.anchorQuestions,
-        competencies: (bundle.blueprint.competencies || []).map((c) => ({
-            competencyKey: c.competencyKey,
-            title: c.title,
-            priority: c.priority,
-            questionObjective: c.questionObjective,
-            expectedEvidence: c.expectedEvidence,
-            redFlags: c.redFlags,
-            scoreRubric: c.scoreRubric,
-            followUpRules: c.followUpRules,
-        })),
-        domainPackKey: bundle.profile?.domainPackKey,
-        specialization: bundle.profile?.specialization,
-        terminology: (bundle.profile?.terminology || []).slice(0, 18),
-        experienceTrackKeys: (
-            ((bundle.blueprint as unknown as Record<string, unknown>)
-                .experienceTracks as Array<Record<string, unknown>> | undefined)
-            || ((bundle.profile as unknown as Record<string, unknown> | null)
-                ?.experienceTracks as Array<Record<string, unknown>> | undefined)
-            || []
-        )
-            .map((t: Record<string, unknown>) => String(t.trackKey || ''))
-            .filter(Boolean)
-            .slice(0, 6),
-        interviewPathKeys: (
-            ((bundle.blueprint as unknown as Record<string, unknown>)
-                .interviewPaths as Array<Record<string, unknown>> | undefined)
-            || ((bundle.profile as unknown as Record<string, unknown> | null)
-                ?.interviewPaths as Array<Record<string, unknown>> | undefined)
-            || []
-        )
-            .map((p: Record<string, unknown>) => String(p.pathKey || ''))
-            .filter(Boolean)
-            .slice(0, 2),
-    };
 }
 
 /** أقصى انتظار عند بدء المقابلة لتوليد Blueprint جارٍ بالفعل (ms). */
@@ -696,9 +638,20 @@ router.post('/prepare', async (req, res) => {
         }
 
         // Blueprint المتخصص (إن وُجد مقفل للحملة) — fail-open: الغياب يعني رجوع لبنك JSON.
-        const prepareBlueprintMeta = isTestMode
+        // /start قد يعيد استخدام هذه الغرفة دون dispatch جديد، فلا بد أن تصل الكفاءات هنا.
+        let prepareBlueprintBundle = isTestMode
             ? null
-            : buildBlueprintMetadata(await loadBlueprintBundleSafe(prepareCampaignId));
+            : await awaitBlueprintBundle(prepareCampaignId);
+        if (!isTestMode && !prepareBlueprintBundle && prepareCampaignId) {
+            try {
+                prepareBlueprintBundle = await ensureBlueprintForCampaign(prepareCampaignId);
+            } catch (ensureErr: any) {
+                console.warn(
+                    `⚠️ /prepare: ensureBlueprintForCampaign failed for ${prepareCampaignId}: ${ensureErr?.message || ensureErr}`
+                );
+            }
+        }
+        const prepareBlueprintMeta = buildBlueprintMetadata(prepareBlueprintBundle);
 
         if (process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET) {
             try {
@@ -921,6 +874,38 @@ router.post('/start', async (req, res) => {
         const reusedStartSession = resolvePreparedSessionReuse(candidateId, normalizedCampaignIdEarly);
         if (reusedStartSession) {
             console.log(`ℹ️ Reusing existing session for candidate ${candidateId} (prevents duplicate avatar)`);
+            // /prepare لا يحفظ في Mongo. بدون هذا السطر يصل /end بجلسة null
+            // فيضيع campaignId ولقطة الكفاءات ويُقيَّم النص بلا blueprint.
+            if (!isTestMode) {
+                try {
+                    const alreadySaved = await VideoInterviewSession.findOne({
+                        sessionId: reusedStartSession.sessionId,
+                    }).select('_id').lean();
+                    if (!alreadySaved) {
+                        const reuseBundle = await loadBlueprintBundleSafe(normalizedCampaignIdEarly);
+                        const reuseSnapshot = buildBlueprintSnapshot(reuseBundle);
+                        const inheritedOrgId =
+                            (candidate as { organizationId?: string }).organizationId &&
+                            (candidate as { organizationId?: string }).organizationId !== DEFAULT_ORG_ID
+                                ? (candidate as { organizationId: string }).organizationId
+                                : undefined;
+                        await VideoInterviewSession.create({
+                            sessionId: reusedStartSession.sessionId,
+                            candidateId: candidate._id,
+                            campaignId: normalizedCampaignIdEarly,
+                            conversationHistory: [],
+                            status: 'active',
+                            startedAt: new Date(),
+                            ...(reuseSnapshot ? { blueprintSnapshot: reuseSnapshot } : {}),
+                            ...(inheritedOrgId ? { organizationId: inheritedOrgId } : {}),
+                        });
+                    }
+                } catch (persistErr: any) {
+                    console.warn(
+                        `⚠️ /start reuse: failed to persist session ${reusedStartSession.sessionId}: ${persistErr?.message || persistErr}`
+                    );
+                }
+            }
             return res.status(200).json({
                 success: true,
                 sessionId: reusedStartSession.sessionId,
@@ -1594,18 +1579,32 @@ router.post('/end', async (req, res) => {
                 session,
                 resolvedCandidateId
             );
-            let blueprintSnapshot =
+            // لقطة تُعدّ صالحة فقط إن حملت كفاءات فعليّة؛ لقطة فارغة {} أو جزئية
+            // (بدأت المقابلة قبل قفل blueprint الحملة) لا تنفع المصحّح وتُسقَط لاحقاً.
+            const snapshotHasCompetencies = (
+                snap: Record<string, unknown> | undefined | null
+            ): snap is Record<string, unknown> =>
+                !!snap &&
+                Array.isArray((snap as any).competencies) &&
+                (snap as any).competencies.length > 0;
+            const sessionSnapshot =
                 session?.blueprintSnapshot && typeof session.blueprintSnapshot === 'object'
                     ? (session.blueprintSnapshot as Record<string, unknown>)
                     : undefined;
+            let blueprintSnapshot = snapshotHasCompetencies(sessionSnapshot)
+                ? sessionSnapshot
+                : undefined;
+            // إن لم تحمل الجلسة كفاءات (جلسة غير محفوظة أو لقطة فارغة/جزئية) نُعيد البناء
+            // من blueprint الحملة المقفل — التوليد انتهى قطعاً الآن، فنلتقطها بدل خسارة التقييم كلّه.
             if (!blueprintSnapshot && resolvedCampaignId) {
-                blueprintSnapshot = buildBlueprintSnapshot(
+                const rebuilt = buildBlueprintSnapshot(
                     await loadBlueprintBundleSafe(resolvedCampaignId)
                 );
+                if (snapshotHasCompetencies(rebuilt)) blueprintSnapshot = rebuilt;
                 console.log(
                     blueprintSnapshot
-                        ? `ℹ️ /end: recovered blueprint snapshot for ${sessionId} (campaign ${resolvedCampaignId})`
-                        : `⚠️ /end: no locked blueprint for campaign ${resolvedCampaignId} — ${sessionId} will score without competencies`
+                        ? `ℹ️ /end: recovered blueprint snapshot for ${sessionId} (campaign ${resolvedCampaignId}, ${(blueprintSnapshot as any).competencies.length} competencies)`
+                        : `⚠️ /end: no locked blueprint competencies for campaign ${resolvedCampaignId} — ${sessionId} will score without competencies`
                 );
             }
             sendVideoTranscriptToN8N({

@@ -20,6 +20,65 @@ export interface LockedBlueprintBundle {
     profile: IJobExpertiseProfile | null;
 }
 
+/**
+ * شكل اللقطة المُرسَلة للوكيل ولمصحّح Stage 3. مسار واحد لكل الاستدعاءات حتى
+ * لا يضيع scoreRubric / expectedEvidence بين /start و /end و n8n.
+ */
+export function buildBlueprintSnapshot(
+    bundle: LockedBlueprintBundle | null
+): Record<string, unknown> | undefined {
+    if (!bundle?.blueprint) return undefined;
+    const profile = bundle.profile as (IJobExpertiseProfile & Record<string, unknown>) | null;
+    const profileRoleResolution = bundle.profile?.roleResolution || profile?.roleResolution;
+    const blueprintExtra = bundle.blueprint as IInterviewBlueprint & Record<string, unknown>;
+    return {
+        blueprintId: bundle.blueprint.blueprintId,
+        profileId: bundle.blueprint.profileId,
+        version: bundle.blueprint.version,
+        blueprintContentVersion:
+            bundle.blueprint.blueprintContentVersion || bundle.profile?.blueprintContentVersion,
+        packVersion: bundle.blueprint.packVersion || bundle.profile?.packVersion,
+        packMatchConfidence:
+            bundle.blueprint.packMatchConfidence || bundle.profile?.packMatchConfidence,
+        blueprintGeneratedAt: (
+            bundle.blueprint.blueprintGeneratedAt || bundle.profile?.blueprintGeneratedAt
+        )?.toISOString?.(),
+        language: bundle.blueprint.language,
+        knowledgeDepth: bundle.blueprint.knowledgeDepth || bundle.profile?.knowledgeDepth,
+        roleResolution: profileRoleResolution || undefined,
+        anchorQuestions: bundle.blueprint.anchorQuestions,
+        competencies: (bundle.blueprint.competencies || []).map((c) => ({
+            competencyKey: c.competencyKey,
+            title: c.title,
+            priority: c.priority,
+            questionObjective: c.questionObjective,
+            expectedEvidence: c.expectedEvidence,
+            redFlags: c.redFlags,
+            scoreRubric: c.scoreRubric,
+            followUpRules: c.followUpRules,
+        })),
+        domainPackKey: bundle.profile?.domainPackKey,
+        specialization: bundle.profile?.specialization,
+        terminology: (bundle.profile?.terminology || []).slice(0, 18),
+        experienceTrackKeys: (
+            (blueprintExtra.experienceTracks as Array<Record<string, unknown>> | undefined)
+            || (profile?.experienceTracks as Array<Record<string, unknown>> | undefined)
+            || []
+        )
+            .map((t: Record<string, unknown>) => String(t.trackKey || ''))
+            .filter(Boolean)
+            .slice(0, 6),
+        interviewPathKeys: (
+            (blueprintExtra.interviewPaths as Array<Record<string, unknown>> | undefined)
+            || (profile?.interviewPaths as Array<Record<string, unknown>> | undefined)
+            || []
+        )
+            .map((p: Record<string, unknown>) => String(p.pathKey || ''))
+            .filter(Boolean)
+            .slice(0, 2),
+    };
+}
+
 /** يجلب نسخة الـBlueprint المقفلة للحملة (إن وُجدت) مع الProfile. */
 export async function getLockedBlueprintForCampaign(
     campaignId: string

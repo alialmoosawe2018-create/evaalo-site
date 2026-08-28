@@ -23,6 +23,10 @@ import { inferStage1EvaluationLanguage } from './stage1EvaluationLanguage.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
 import { extractTextFromCv, CvExtractionError } from './cvTextExtractor.js';
+import {
+    buildBlueprintSnapshot,
+    getLockedBlueprintForCampaign,
+} from './expertise/ensureBlueprint.js';
 
 // الحصول على مسار المجلد الحالي
 const __filename = fileURLToPath(import.meta.url);
@@ -749,6 +753,35 @@ export const sendVideoTranscriptToN8N = async (payload: {
         // Stage 3: share-link language only (same as Stage 1/2 — no transcript auto-detect / auto).
         const shareLanguage = normalizeShareEvaluationLanguage(payload.language);
         const effectiveLanguage = shareLanguage ?? 'ar';
+
+        // /prepare + /start reuse never persist a session, so /end often has no
+        // snapshot even when the campaign's blueprint has been locked for minutes.
+        // Fill it here — the last hop before n8n — whenever campaignId is known.
+        let blueprintSnapshot =
+            payload.blueprintSnapshot && Object.keys(payload.blueprintSnapshot).length > 0
+                ? payload.blueprintSnapshot
+                : undefined;
+        if (!blueprintSnapshot && campaignId) {
+            try {
+                blueprintSnapshot = buildBlueprintSnapshot(
+                    await getLockedBlueprintForCampaign(campaignId)
+                );
+                if (blueprintSnapshot) {
+                    const n = Array.isArray(blueprintSnapshot.competencies)
+                        ? blueprintSnapshot.competencies.length
+                        : 0;
+                    console.log(
+                        `[n8n video] recovered blueprint snapshot for campaign ${campaignId} (${n} competencies)`
+                    );
+                }
+            } catch (bpErr: unknown) {
+                const message = bpErr instanceof Error ? bpErr.message : String(bpErr);
+                console.warn(
+                    `[n8n video] blueprint snapshot lookup failed for ${campaignId}: ${message}`
+                );
+            }
+        }
+
         const body: Record<string, unknown> = {
             event: 'video_interview_transcript',
             evaluationSource: 'video' as const,
@@ -769,8 +802,8 @@ export const sendVideoTranscriptToN8N = async (payload: {
         if (payload.jobCriteria && Object.keys(payload.jobCriteria).length > 0) {
             body.jobCriteria = payload.jobCriteria;
         }
-        if (payload.blueprintSnapshot && Object.keys(payload.blueprintSnapshot).length > 0) {
-            body.blueprintSnapshot = payload.blueprintSnapshot;
+        if (blueprintSnapshot && Object.keys(blueprintSnapshot).length > 0) {
+            body.blueprintSnapshot = blueprintSnapshot;
         }
         if (isPublic) {
             body.source = 'public_screening';
@@ -784,8 +817,13 @@ export const sendVideoTranscriptToN8N = async (payload: {
             applicationId,
         });
         appendStageOutboundFields(body, stageBundle);
+        const competencyCount = Array.isArray(
+            (body.blueprintSnapshot as { competencies?: unknown } | undefined)?.competencies
+        )
+            ? ((body.blueprintSnapshot as { competencies: unknown[] }).competencies.length)
+            : 0;
         console.log(
-            `[n8n video] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} transcriptChars=${String(body.fullTranscript || '').length}`
+            `[n8n video] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} transcriptChars=${String(body.fullTranscript || '').length} blueprintCompetencies=${competencyCount}`
         );
         const response = await fetch(videoWebhookUrl, {
             method: 'POST',
