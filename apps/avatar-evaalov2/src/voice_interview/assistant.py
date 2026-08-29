@@ -1974,7 +1974,13 @@ class InterviewAssistant(Agent):
             parts.append(
                 "SINGLE-QUESTION RULE (mandatory): your reply must contain exactly ONE question mark. "
                 "Do not add secondary questions with و/وشلون/وكيف.\n"
-                f'Recommended question (rephrase naturally; ONE question only): "{single[:300]}"'
+                "PHRASING RULE: ask in the candidate's language. When it is Arabic, say it in natural spoken "
+                "Arabic and translate or gloss any English HR jargon instead of dropping it in raw "
+                "(source effectiveness → فعاليّة قنوات الاستقطاب، time-to-fill → مدة شغل الوظيفة، "
+                "intake meeting → اجتماع تحديد المتطلبات، scorecard → بطاقة تقييم، boolean search → بحث منطقي، "
+                "pipeline → مسار المرشّحين، ATS/HRIS → نظام التوظيف). Keep at most one English term, and only if "
+                "you add its Arabic meaning right after. Ask ONE concrete thing.\n"
+                f'Recommended question (rephrase into natural language per the rules; ONE question only): "{single[:300]}"'
             )
         elif diag.get("meta_request") == "ask_interviewer":
             parts.append(
@@ -2606,6 +2612,15 @@ class InterviewAssistant(Agent):
                 pass
 
             mem = self._memory
+            # Interview already closed: the deterministic wrap-up has sent the final
+            # closing line ("the HR team will review your answers and contact you")
+            # and teardown is scheduled. A later candidate turn — a goodbye, a stray
+            # add-on — must NOT spawn another question, otherwise the agent asks one
+            # more competency question AFTER the close while the room is still winding
+            # down (observed on real interviews). Stay silent until teardown.
+            if mem.final_closing_sent:
+                logger.info("post-closing user turn → staying silent (interview concluded)")
+                raise StopResponse()
             diag = analyze_user_answer(
                 text,
                 active_question_text=mem.active_question_text,

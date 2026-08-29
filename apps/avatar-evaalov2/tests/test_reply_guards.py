@@ -466,6 +466,51 @@ def test_schedule_conclude_noop_when_auto_end_disabled(monkeypatch):
     assert agent._conclude_after_reply is False  # flag still cleared (one-shot)
 
 
+def test_post_closing_user_turn_stays_silent(monkeypatch):
+    # After the final closing line is sent, a later candidate turn (a goodbye) must
+    # NOT trigger another question — the agent stays silent until teardown. This is
+    # the stray "one more competency question after the close" bug.
+    agent = _assistant(["q"])
+    agent._memory.final_closing_sent = True
+    monkeypatch.setattr(
+        "voice_interview.assistant.analyze_user_answer",
+        lambda *a, **k: {"is_substantive_answer": True},
+    )
+    monkeypatch.setattr(agent, "_apply_entity_policy", lambda text, diag: diag)
+
+    tc = ChatContext.empty()
+    msg = ChatMessage(role="user", content=["شكرا باي باي"])
+    before = len(tc.items)
+    with pytest.raises(StopResponse):
+        asyncio.run(agent.on_user_turn_completed(tc, msg))
+    assert len(tc.items) == before  # no decision frame injected → no question
+
+
+def test_recommended_question_frame_carries_phrasing_rule():
+    # A recommended question is handed to the LLM with a PHRASING RULE that makes it
+    # ask in natural Arabic and gloss English HR jargon rather than dropping raw
+    # terms like "source effectiveness" mid-sentence.
+    agent = _assistant(["q"])
+    frame = agent._wrap_decision_frame(
+        "BODY",
+        {"is_substantive_answer": True},
+        agent._memory,
+        {},
+        "What is your source effectiveness and time-to-fill?",
+    )
+    assert "PHRASING RULE" in frame
+    assert "SINGLE-QUESTION RULE" in frame
+    assert "فعاليّة قنوات الاستقطاب" in frame  # a concrete gloss the model should follow
+
+
+def test_frame_without_recommended_has_no_phrasing_rule():
+    agent = _assistant(["q"])
+    frame = agent._wrap_decision_frame(
+        "BODY", {"is_substantive_answer": True}, agent._memory, {}, None
+    )
+    assert "PHRASING RULE" not in frame
+
+
 # --- interview LLM: default gpt-4o-mini; gpt-5 (reasoning) handled but not default ---
 def test_openai_llm_kwargs_default_is_gpt4o_mini(monkeypatch):
     # Reverted to gpt-4o-mini: gpt-5-mini starved on the pinned low token cap.
