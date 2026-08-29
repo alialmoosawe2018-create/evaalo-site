@@ -1033,27 +1033,49 @@ const VideoInterview = () => {
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                                             {competencyRows.length === 0 ? (
                                                                 <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>
-                                                            ) : competencyRows.map((row) => (
+                                                            ) : competencyRows.map((row) => {
+                                                                // Box tint = the verdict at a glance: green when the competency was
+                                                                // answered well (met), red when answered poorly, and the neutral
+                                                                // translucent grey when it was not assessed at all.
+                                                                const chipBg = !row.assessed
+                                                                    ? 'rgba(148, 163, 184, 0.10)'
+                                                                    : row.met
+                                                                      ? 'rgba(16, 185, 129, 0.16)'
+                                                                      : 'rgba(239, 68, 68, 0.16)';
+                                                                const chipBorder = !row.assessed
+                                                                    ? 'rgba(148, 163, 184, 0.22)'
+                                                                    : row.met
+                                                                      ? 'rgba(16, 185, 129, 0.5)'
+                                                                      : 'rgba(239, 68, 68, 0.5)';
+                                                                // Not assessed is not a failure, so show a neutral dash, not a red ✗.
+                                                                const chipSymbol = !row.assessed ? '–' : row.met ? '✓' : '✗';
+                                                                const chipSymbolColor = !row.assessed
+                                                                    ? '#94A3B8'
+                                                                    : row.met
+                                                                      ? '#10B981'
+                                                                      : '#EF4444';
+                                                                return (
                                                                 <span key={row.key} style={{
                                                                     display: 'inline-flex', alignItems: 'center', gap: '6px',
                                                                     padding: '5px 10px', borderRadius: '8px',
-                                                                    background: 'rgba(148, 163, 184, 0.12)',
-                                                                    border: '1px solid rgba(148, 163, 184, 0.25)',
+                                                                    background: chipBg,
+                                                                    border: `1px solid ${chipBorder}`,
                                                                     fontSize: '12px', maxWidth: '280px'
                                                                 }}>
                                                                     <span {...scriptTextProps(row.label)} style={{ color: '#CBD5E1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</span>
                                                                     <span
-                                                                        aria-label={row.met ? t('videoInterview_competencyMet') : t('videoInterview_competencyNotMet')}
+                                                                        aria-label={!row.assessed ? t('videoInterview_notAssessed') : row.met ? t('videoInterview_competencyMet') : t('videoInterview_competencyNotMet')}
                                                                         title={row.assessed ? '' : t('videoInterview_notAssessed')}
-                                                                        style={{ fontWeight: 700, color: row.met ? '#10B981' : '#EF4444', flexShrink: 0 }}
+                                                                        style={{ fontWeight: 700, color: chipSymbolColor, flexShrink: 0 }}
                                                                     >
-                                                                        {row.met ? '✓' : '✗'}
+                                                                        {chipSymbol}
                                                                     </span>
                                                                     {row.redFlags.length > 0 ? (
                                                                         <span style={{ color: '#EF4444', flexShrink: 0 }} title={row.redFlags.join(' • ')}>⚑</span>
                                                                     ) : null}
                                                                 </span>
-                                                            ))}
+                                                                );
+                                                            })}
                                                         </div>
                                                     </td>
                                                 ) : (<>
