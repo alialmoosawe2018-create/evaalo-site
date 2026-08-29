@@ -643,7 +643,7 @@ export const accountAreaExtras = {
         pricing_video_pack_note: '50 دقيقة فيديو إضافية بـ 20 دولار (فريق، احترافية، أعمال)',
         pricing_usage_costs_heading: 'تكلفة البطاقة لكل عملية',
         pricing_usage_voice: 'مقابلة صوتية',
-        pricing_usage_video: 'مقابلة مرئية',
+        pricing_usage_video: 'مقابلة فيديو',
         pricing_usage_search: 'مستكشف المواهب',
         pricing_usage_screening: 'فرز المرشحين',
         pricing_usage_top_candidates: 'تقرير أفضل المرشحين',

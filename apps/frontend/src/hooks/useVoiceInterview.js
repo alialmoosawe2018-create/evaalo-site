@@ -791,7 +791,17 @@ export default function useVoiceInterview(options = {}) {
       if (event?.code === 4001) {
         setLinkConsumed(true);
       }
-      if (event?.code === 1000 && event?.reason === 'interview_complete') {
+      // A normal close means the interview is over — show the completion screen.
+      // 'interview_complete' is the explicit server signal, but the server may also
+      // close normally without it (e.g. the time limit is reached) and the candidate
+      // pressing End closes the socket too. Treat any normal (1000) close that
+      // happened while the interview was actually running (serverState was set) as
+      // complete, so the candidate always lands on a clear "submitted" screen instead
+      // of a frozen call.
+      if (
+        event?.code === 1000 &&
+        (event?.reason === 'interview_complete' || serverStateRef.current !== null)
+      ) {
         setInterviewComplete(true);
       }
     };
