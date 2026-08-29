@@ -780,7 +780,7 @@ export async function generateExpertiseAndBlueprint(campaign: {
             : `\n- SENIORITY: ${SENIORITY_SCOPE[interviewLevel] || `interview at the ${interviewLevel} level — scope competencies to what this level genuinely owns`}. Competencies at a lower level must NOT be inflated to ownership/strategy, and a higher level must NOT be reduced to routine task execution.`;
         const sys = `You are an expert technical interviewer and hiring strategist. Produce a specialized interview blueprint for ONE specific job.
 Rules:
-- Output language for anchorQuestions, questionObjective, expectedEvidence, redFlags, scoreRubric, followUpRules: ${language === 'ar' ? 'Arabic' : 'English'}.
+- Output language for title, anchorQuestions, questionObjective, expectedEvidence, redFlags, scoreRubric, followUpRules: ${language === 'ar' ? 'Arabic' : 'English'}. The competencyKey stays a snake_case English identifier; only the human-readable title follows this language.
 - Provide EXACTLY 3 anchorQuestions (fixed core questions for all candidates of this campaign). They must be specific to the role, ask for a real example + data/steps + outcome — never generic "tell me about yourself".
 - Provide 6 to 8 competencies (minimum 6). Each competency: a snake_case competencyKey, a title, priority (critical|high|medium), a questionObjective, expectedEvidence (3-6 items), redFlags (2-4 items), a scoreRubric for levels 1..5 (each a short qualitative description), and followUpRules (1-3 rules — each rule is exactly ONE short question with ONE question mark, never a compound checklist).
 - requiredSkills/toolsAndSystems/responsibilities/mustAssess/expectedEvidence/redFlags/qualityRisk describe the JOB (not a candidate). Keep concise.
