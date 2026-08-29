@@ -1034,44 +1034,26 @@ const VideoInterview = () => {
                                                             {competencyRows.length === 0 ? (
                                                                 <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>
                                                             ) : competencyRows.map((row) => {
-                                                                // Box tint = the verdict at a glance: green when the competency was
-                                                                // answered well (met), red when answered poorly, and the neutral
-                                                                // translucent grey when it was not assessed at all.
-                                                                const chipBg = !row.assessed
-                                                                    ? 'rgba(148, 163, 184, 0.10)'
-                                                                    : row.met
-                                                                      ? 'rgba(16, 185, 129, 0.16)'
-                                                                      : 'rgba(239, 68, 68, 0.16)';
-                                                                const chipBorder = !row.assessed
-                                                                    ? 'rgba(148, 163, 184, 0.22)'
-                                                                    : row.met
-                                                                      ? 'rgba(16, 185, 129, 0.5)'
-                                                                      : 'rgba(239, 68, 68, 0.5)';
                                                                 // Not assessed is not a failure, so show a neutral dash, not a red ✗.
+                                                                // Label color lives in CSS (theme-aware): the old inline #CBD5E1 washed
+                                                                // out on the light green tint in light mode.
+                                                                const chipTone = !row.assessed ? 'na' : row.met ? 'met' : 'miss';
                                                                 const chipSymbol = !row.assessed ? '–' : row.met ? '✓' : '✗';
-                                                                const chipSymbolColor = !row.assessed
-                                                                    ? '#94A3B8'
-                                                                    : row.met
-                                                                      ? '#10B981'
-                                                                      : '#EF4444';
                                                                 return (
-                                                                <span key={row.key} style={{
-                                                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                                                    padding: '5px 10px', borderRadius: '8px',
-                                                                    background: chipBg,
-                                                                    border: `1px solid ${chipBorder}`,
-                                                                    fontSize: '12px', maxWidth: '280px'
-                                                                }}>
-                                                                    <span {...scriptTextProps(row.label)} style={{ color: '#CBD5E1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.label}</span>
+                                                                <span
+                                                                    key={row.key}
+                                                                    className={`stage-eval-competency-chip stage-eval-competency-chip--${chipTone}`}
+                                                                >
+                                                                    <span {...scriptTextProps(row.label, 'stage-eval-competency-chip__label')}>{row.label}</span>
                                                                     <span
+                                                                        className="stage-eval-competency-chip__symbol"
                                                                         aria-label={!row.assessed ? t('videoInterview_notAssessed') : row.met ? t('videoInterview_competencyMet') : t('videoInterview_competencyNotMet')}
                                                                         title={row.assessed ? '' : t('videoInterview_notAssessed')}
-                                                                        style={{ fontWeight: 700, color: chipSymbolColor, flexShrink: 0 }}
                                                                     >
                                                                         {chipSymbol}
                                                                     </span>
                                                                     {row.redFlags.length > 0 ? (
-                                                                        <span style={{ color: '#EF4444', flexShrink: 0 }} title={row.redFlags.join(' • ')}>⚑</span>
+                                                                        <span className="stage-eval-competency-chip__flag" title={row.redFlags.join(' • ')}>⚑</span>
                                                                     ) : null}
                                                                 </span>
                                                                 );
@@ -1310,20 +1292,34 @@ const VideoInterview = () => {
                                                                         {competencyRows.length === 0 ? (
                                                                             <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>
                                                                         ) : (
-                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                                                                {competencyRows.map((row) => (
-                                                                                    <div key={row.key} style={{ borderTop: '1px solid rgba(148,163,184,0.15)', paddingTop: '12px' }}>
-                                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '6px' }}>
-                                                                                            <span {...scriptTextProps(row.label)} style={{ fontWeight: 600, color: '#E2E8F0' }}>{row.label}</span>
-                                                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0, fontWeight: 700, color: row.met ? '#10B981' : '#EF4444' }}>
-                                                                                                <span aria-hidden="true">{row.met ? '✓' : '✗'}</span>
-                                                                                                <span style={{ fontWeight: 600, fontSize: '12px', color: row.assessed ? undefined : '#94A3B8' }}>
-                                                                                                    {row.assessed
-                                                                                                        ? (row.met ? t('videoInterview_competencyMet') : t('videoInterview_competencyNotMet'))
-                                                                                                        : t('videoInterview_notAssessed')}
-                                                                                                </span>
+                                                                            <div className="stage-eval-competency-detail-list">
+                                                                                {competencyRows.map((row) => {
+                                                                                    const chipTone = !row.assessed ? 'na' : row.met ? 'met' : 'miss';
+                                                                                    const chipSymbol = !row.assessed ? '–' : row.met ? '✓' : '✗';
+                                                                                    const statusLabel = !row.assessed
+                                                                                        ? t('videoInterview_notAssessed')
+                                                                                        : row.met
+                                                                                          ? t('videoInterview_competencyMet')
+                                                                                          : t('videoInterview_competencyNotMet');
+                                                                                    return (
+                                                                                    <div key={row.key} className="stage-eval-competency-detail-item">
+                                                                                        {/* Same colored chip as the Role Understanding table cell —
+                                                                                            label + mark in one box, not status on the opposite side. */}
+                                                                                        <span
+                                                                                            className={`stage-eval-competency-chip stage-eval-competency-chip--${chipTone}`}
+                                                                                        >
+                                                                                            <span {...scriptTextProps(row.label, 'stage-eval-competency-chip__label')}>{row.label}</span>
+                                                                                            <span
+                                                                                                className="stage-eval-competency-chip__symbol"
+                                                                                                aria-label={statusLabel}
+                                                                                                title={!row.assessed ? statusLabel : ''}
+                                                                                            >
+                                                                                                {chipSymbol}
                                                                                             </span>
-                                                                                        </div>
+                                                                                            {row.redFlags.length > 0 ? (
+                                                                                                <span className="stage-eval-competency-chip__flag" title={row.redFlags.join(' • ')}>⚑</span>
+                                                                                            ) : null}
+                                                                                        </span>
                                                                                         {row.evidence.length > 0 ? (
                                                                                             <ul {...scriptTextProps(row.evidence.join(' '), 'stage-eval-detail-card__list')}>
                                                                                                 {row.evidence.map((ev, i) => (
@@ -1332,12 +1328,13 @@ const VideoInterview = () => {
                                                                                             </ul>
                                                                                         ) : null}
                                                                                         {row.redFlags.length > 0 ? (
-                                                                                            <div style={{ color: '#EF4444', fontSize: '13px', marginTop: '4px' }} {...scriptTextProps(row.redFlags.join(' • '))}>
+                                                                                            <div className="stage-eval-competency-detail-item__flags" {...scriptTextProps(row.redFlags.join(' • '))}>
                                                                                                 {'⚑ '}{row.redFlags.join(' • ')}
                                                                                             </div>
                                                                                         ) : null}
                                                                                     </div>
-                                                                                ))}
+                                                                                    );
+                                                                                })}
                                                                             </div>
                                                                         )}
                                                                     </div>

@@ -307,7 +307,7 @@ export function humanizeCompetencyKey(key) {
 /** Normalize evaluation.competencyScores into display rows for the blueprint (v2) view. */
 export function buildBlueprintCompetencyRows(evaluation) {
     const comps = Array.isArray(evaluation?.competencyScores) ? evaluation.competencyScores : [];
-    return comps.map((row) => {
+    const rows = comps.map((row) => {
         const key = row?.competencyKey || '';
         const label = normalizeStageEvalText(row?.title) || humanizeCompetencyKey(key);
         const scoreNum = Number(row?.score);
@@ -325,4 +325,13 @@ export function buildBlueprintCompetencyRows(evaluation) {
             redFlags: normalizeStageEvalStringList(row?.redFlags),
         };
     });
+    // Assessed competencies stay in source order; unassessed sink to the bottom so
+    // the reviewer sees covered role areas first (table chips + detail list).
+    return rows
+        .map((row, index) => ({ row, index }))
+        .sort((a, b) => {
+            if (a.row.assessed !== b.row.assessed) return a.row.assessed ? -1 : 1;
+            return a.index - b.index;
+        })
+        .map(({ row }) => row);
 }

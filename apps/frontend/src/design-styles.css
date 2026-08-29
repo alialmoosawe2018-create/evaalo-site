@@ -15121,6 +15121,123 @@ body.rtl-text .stage-eval-detail-card__muted {
     font-size: 13px;
 }
 
+/* Stage 3 competency chips — label color is theme-aware (inline #CBD5E1
+   washed out on the light green tint in light mode). */
+.stage-eval-competency-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    max-width: 280px;
+    border: 1px solid transparent;
+}
+
+.stage-eval-competency-chip--met {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.5);
+}
+
+.stage-eval-competency-chip--miss {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+.stage-eval-competency-chip--na {
+    background: rgba(148, 163, 184, 0.10);
+    border-color: rgba(148, 163, 184, 0.22);
+}
+
+.stage-eval-competency-chip__label {
+    color: #e2e8f0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stage-eval-competency-chip__symbol {
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.stage-eval-competency-chip--met .stage-eval-competency-chip__symbol {
+    color: #34d399;
+}
+
+.stage-eval-competency-chip--miss .stage-eval-competency-chip__symbol {
+    color: #f87171;
+}
+
+.stage-eval-competency-chip--na .stage-eval-competency-chip__symbol {
+    color: #94a3b8;
+}
+
+.stage-eval-competency-chip__flag {
+    color: #ef4444;
+    flex-shrink: 0;
+}
+
+.stage-eval-competency-detail__label {
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.stage-eval-competency-detail__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    font-weight: 700;
+}
+
+.stage-eval-competency-detail__status--met {
+    color: #34d399;
+}
+
+.stage-eval-competency-detail__status--miss {
+    color: #f87171;
+}
+
+.stage-eval-competency-detail__status--na {
+    color: #94a3b8;
+}
+
+.stage-eval-competency-detail__status-label {
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.stage-eval-competency-detail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.stage-eval-competency-detail-item {
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    padding-top: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.stage-eval-competency-detail-item .stage-eval-competency-chip {
+    max-width: 100%;
+}
+
+.stage-eval-competency-detail-item .stage-eval-competency-chip__label {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+}
+
+.stage-eval-competency-detail-item__flags {
+    color: #ef4444;
+    font-size: 13px;
+}
+
 .stage-eval-written-fit-cell {
     color: #cbd5e1;
     font-size: 15px;
@@ -15236,6 +15353,69 @@ html[data-app-theme='light'] .stage-eval-detail-card__list {
 
 html[data-app-theme='light'] .stage-eval-detail-card__muted {
     color: var(--app-text-muted) !important;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--met {
+    background: rgba(16, 185, 129, 0.14);
+    border-color: rgba(5, 150, 105, 0.45);
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--miss {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(185, 28, 28, 0.4);
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--na {
+    background: rgba(148, 163, 184, 0.14);
+    border-color: rgba(100, 116, 139, 0.28);
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip__label {
+    color: #1e293b !important;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--met .stage-eval-competency-chip__label {
+    color: #065f46 !important;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--miss .stage-eval-competency-chip__label {
+    color: #991b1b !important;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--na .stage-eval-competency-chip__label {
+    color: #475569 !important;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--met .stage-eval-competency-chip__symbol {
+    color: #059669;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--miss .stage-eval-competency-chip__symbol {
+    color: #dc2626;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--na .stage-eval-competency-chip__symbol {
+    color: #64748b;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-detail__label {
+    color: #0f172a !important;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-detail__status--met {
+    color: #059669;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-detail__status--miss {
+    color: #dc2626;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-detail__status--na {
+    color: #64748b;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-detail-item {
+    border-top-color: rgba(148, 163, 184, 0.22);
 }
 
 html[data-app-theme='light'] .stage-eval-written-fit-cell {
