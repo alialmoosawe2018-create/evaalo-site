@@ -15219,12 +15219,16 @@ body.rtl-text .stage-eval-detail-card__muted {
     padding-top: 12px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    /* stretch so evidence lists stay full-width (RTL Arabic then hugs the
+       right). flex-start was shrinking the <ul> to content width and parking
+       it on the start edge — short Arabic lines looked centered. */
+    align-items: stretch;
     gap: 8px;
 }
 
 .stage-eval-competency-detail-item .stage-eval-competency-chip {
     max-width: 100%;
+    align-self: flex-start;
 }
 
 .stage-eval-competency-detail-item .stage-eval-competency-chip__label {

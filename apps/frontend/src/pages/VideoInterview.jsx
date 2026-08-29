@@ -1391,17 +1391,6 @@ const VideoInterview = () => {
                                                                     })()}
                                                                 </div>
 
-                                                                {/* Final HR Evaluation */}
-                                                                <div className="stage-eval-detail-card">
-                                                                    <h4 className="stage-eval-detail-card__title">
-                                                                        {t('stageEval_finalHrEval')}
-                                                                    </h4>
-                                                                    {(() => {
-                                                                        const text = finalHrEvaluationText || t('stageEval_none');
-                                                                        return <p {...scriptTextProps(text, 'stage-eval-detail-card__body')}>{text}</p>;
-                                                                    })()}
-                                                                </div>
-
                                                                 {/* Strengths (Stage 3 v2) */}
                                                                 {evalStrengths.length > 0 ? (
                                                                     <div className="stage-eval-detail-card">
@@ -1429,6 +1418,17 @@ const VideoInterview = () => {
                                                                         </ul>
                                                                     </div>
                                                                 ) : null}
+
+                                                                {/* Final HR Evaluation — last so the verdict closes the detail panel */}
+                                                                <div className="stage-eval-detail-card">
+                                                                    <h4 className="stage-eval-detail-card__title">
+                                                                        {t('stageEval_finalHrEval')}
+                                                                    </h4>
+                                                                    {(() => {
+                                                                        const text = finalHrEvaluationText || t('stageEval_none');
+                                                                        return <p {...scriptTextProps(text, 'stage-eval-detail-card__body')}>{text}</p>;
+                                                                    })()}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </td>
