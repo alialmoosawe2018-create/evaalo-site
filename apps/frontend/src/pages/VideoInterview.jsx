@@ -51,8 +51,8 @@ import {
     buildVideoFinalHrText,
     buildVideoRedFlags,
     formatTableTenScore,
-    isBlueprintVideoEvaluation,
     isInsufficientVideoEvaluation,
+    isLegacyVideoEvaluation,
     qualitativeBandFromTenScore,
     resolveVideoRecommendation,
     shouldHideOverallScore,
@@ -178,11 +178,15 @@ const VideoInterview = () => {
 
     // Blueprint (Stage 3 v2) evaluations have their own competencies per role, so
     // the eight fixed trait columns cannot describe them. Collapse the header into
-    // one spanning column unless a legacy evaluation still needs those columns.
+    // one spanning column UNLESS a row is positively a legacy 8-trait record. Keying
+    // off "not legacy" (rather than "every row is blueprint") keeps the single
+    // column as the default while data is still loading, so the header never flashes
+    // the old eight columns for a beat before the competencies resolve.
     const allRowsAreBlueprint = useMemo(
         () =>
-            filteredCandidates.length > 0 &&
-            filteredCandidates.every((c) => isBlueprintVideoEvaluation(c.videoInterviewEvaluation)),
+            !filteredCandidates.some((c) =>
+                isLegacyVideoEvaluation(c.videoInterviewEvaluation)
+            ),
         [filteredCandidates]
     );
 
@@ -856,7 +860,11 @@ const VideoInterview = () => {
                                         const roleUnderstandingText = buildRoleUnderstandingDetail(evaluation, t);
                                         const finalRoleFitText = buildFinalRoleFitDetail(evaluation, t);
                                         const redFlags = buildVideoRedFlags(evaluation, t);
-                                        const isBlueprint = isBlueprintVideoEvaluation(evaluation);
+                                        // Default to the blueprint layout; fall back to the legacy
+                                        // eight columns only for a record positively identified as an
+                                        // old 8-trait result. A still-loading eval renders as blueprint
+                                        // (empty competencies) instead of flashing the old columns.
+                                        const isBlueprint = !isLegacyVideoEvaluation(evaluation);
                                         const competencyRows = isBlueprint ? buildBlueprintCompetencyRows(evaluation) : [];
                                         const insufficientEval = isInsufficientVideoEvaluation(evaluation);
                                         const hideScore = shouldHideOverallScore(evaluation);

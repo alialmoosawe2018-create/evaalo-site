@@ -236,6 +236,27 @@ export function isBlueprintVideoEvaluation(evaluation) {
 }
 
 /**
+ * True ONLY for a record from the retired 8-trait scorer: it carries at least one
+ * of the eight numeric trait fields and has no v2 (blueprint) marker. Everything
+ * else — including an empty or still-loading record — is treated as NOT legacy.
+ *
+ * The table uses this (rather than `!isBlueprintVideoEvaluation`) to pick a layout,
+ * so the blueprint layout is the DEFAULT: an evaluation that has not finished
+ * loading its v2 fields no longer flashes the old eight-column table for a beat
+ * before the competencies resolve — the legacy layout appears only for a record
+ * positively identified as an old 8-trait result.
+ */
+export function isLegacyVideoEvaluation(evaluation) {
+    if (!evaluation) return false;
+    if (isBlueprintVideoEvaluation(evaluation)) return false;
+    const legacyKeys = [...VIDEO_TABLE_COMPETENCY_KEYS, 'role_understanding', 'final_role_fit'];
+    return legacyKeys.some((k) => {
+        const v = evaluation[k];
+        return v != null && v !== '' && Number.isFinite(Number(v));
+    });
+}
+
+/**
  * Lowest 1–5 score that still counts as "met" (✓). Reviewers read a competency
  * as pass/fail, not as a number, so the numeric score stays internal to the
  * overall calculation and only the verdict is shown.
