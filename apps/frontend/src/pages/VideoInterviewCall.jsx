@@ -311,6 +311,14 @@ const VideoInterviewCall = () => {
     const showTranscriptPanel = useMemo(() => isLocalHostDebug(), []);
 
     const [prepDone, setPrepDone] = useState(false);
+    /** Set when the prep "Continue" button is pressed: the interview then auto-starts
+     *  once the call view mounts, so the candidate does not have to press a second
+     *  "Start" button — Continue is the start. */
+    const [autoStartRequested, setAutoStartRequested] = useState(false);
+    /** True once the interview has ended (candidate pressed End, or the agent
+     *  concluded and the room closed): swap the live call UI for a clear
+     *  "your responses were submitted" screen instead of leaving a frozen page. */
+    const [interviewEnded, setInterviewEnded] = useState(false);
 
     const [isReady, setIsReady] = useState(true); // ✅ يظهر زر "Start Video Interview" مباشرة
     const [preparationTime, setPreparationTime] = useState(() =>
@@ -1203,6 +1211,10 @@ const VideoInterviewCall = () => {
                     
                     setIsConnected(false);
                     devLog('ℹ️ Room disconnected (INFO) - Agent session closed normally');
+                    // The interview was live and the room closed (agent concluded, or
+                    // the session ended): show the candidate the completion screen
+                    // rather than leaving the call UI frozen with the avatar gone.
+                    if (interviewStartedAtRef.current) setInterviewEnded(true);
                 });
 
                 room.on(RoomEvent.Reconnecting, () => {
@@ -2766,11 +2778,25 @@ const VideoInterviewCall = () => {
         }
     };
 
+    // "Continue" on the prep screen is the start: once the call view has mounted
+    // (prepDone), auto-run startInterview once, so there is no separate Start click.
+    useEffect(() => {
+        if (!prepDone || !autoStartRequested) return;
+        if (isStartingRef.current || interviewStartedAtRef.current) return;
+        setAutoStartRequested(false);
+        startInterview();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [prepDone, autoStartRequested]);
+
     // Audio path: LiveKit only (no backend WS STT). Legacy cleanup: endInterview().
 
     // إنهاء المقابلة — options.force: true يتجاوز الحارس (unmount / إغلاق الصفحة)
     const endInterview = async (options = {}) => {
         const force = options.force === true;
+        // Candidate-initiated end: switch to the completion screen immediately so
+        // they get clear "submitted" feedback while cleanup runs. `force` is the
+        // unmount/pagehide path — no UI to update there.
+        if (!force) setInterviewEnded(true);
         if (!force && interviewStartedAtRef.current != null) {
             const elapsed = Date.now() - interviewStartedAtRef.current;
             if (elapsed < MIN_MS_BEFORE_END_BUTTON) {
@@ -3067,12 +3093,56 @@ const VideoInterviewCall = () => {
         );
     }
 
+    if (interviewEnded) {
+        return (
+            <div
+                dir={isRtl ? 'rtl' : 'ltr'}
+                style={{
+                    minHeight: '100vh',
+                    background: 'linear-gradient(160deg, #f5f3ff 0%, #eef2ff 40%, #f8fafc 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px',
+                }}
+            >
+                <div style={{
+                    maxWidth: '520px',
+                    width: '100%',
+                    background: '#fff',
+                    borderRadius: '20px',
+                    padding: '40px 32px',
+                    textAlign: 'center',
+                    boxShadow: '0 12px 40px rgba(30, 41, 59, 0.12)',
+                }}>
+                    <div style={{
+                        width: '72px',
+                        height: '72px',
+                        borderRadius: '50%',
+                        background: 'rgba(16, 185, 129, 0.12)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 20px',
+                        fontSize: '38px',
+                    }}>✅</div>
+                    <h1 style={{ fontSize: '24px', fontWeight: 700, margin: '0 0 12px', color: '#0f172a' }}>
+                        {t('voiceInterview_completedTitle')}
+                    </h1>
+                    <p style={{ fontSize: '15px', lineHeight: 1.6, color: '#475569', margin: 0 }}>
+                        {t('voiceInterview_completedMessage')}
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     if (!prepDone) {
         return (
             <VoiceInterviewPrepTips
                 title={t('publicVideoScreening_title')}
                 subtitle={candidateSubtitle}
-                onContinue={() => setPrepDone(true)}
+                onContinue={() => { setPrepDone(true); setAutoStartRequested(true); }}
                 dir={isRtl ? 'rtl' : 'ltr'}
             />
         );
