@@ -977,6 +977,16 @@ export async function adjustCredits(input: AdjustCreditsInput): Promise<{
 // Status payload for /api/billing/status
 // ────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Per-org throttle for the Stripe reconcile kicked off by status reads. The
+ * reconcile hits the Stripe API (a network round-trip), so running it inline on
+ * every /billing/status is what makes the spending page wait seconds. Webhooks
+ * already keep the plan fresh in real time, so we only need it as a periodic
+ * safety net — at most once per org per this window, in the background.
+ */
+const lastStatusReconcileAt = new Map<string, number>();
+const STATUS_RECONCILE_TTL_MS = 5 * 60 * 1000;
+
 export async function getBillingStatus(organizationId: string): Promise<{
     organizationId: string;
     planId: BillingPlanId | null;
@@ -1000,11 +1010,22 @@ export async function getBillingStatus(organizationId: string): Promise<{
     lifecycleState: SubscriptionLifecycleState | null;
     pendingCheckoutPlanId: BillingPlanId | null;
 }> {
-    try {
-        await reconcileOrgPlanWithStripe(organizationId);
-    } catch (err) {
-        console.warn('[billing/status] stripe reconcile skipped:', (err as Error).message);
+    // Reconcile with Stripe in the BACKGROUND, throttled per org — the status
+    // returns immediately from Mongo instead of waiting on a live Stripe round-trip
+    // (webhooks already apply plan changes in real time; this is only a safety net).
+    {
+        const now = Date.now();
+        if (now - (lastStatusReconcileAt.get(organizationId) ?? 0) >= STATUS_RECONCILE_TTL_MS) {
+            lastStatusReconcileAt.set(organizationId, now);
+            void reconcileOrgPlanWithStripe(organizationId).catch((err) => {
+                // Let the next read retry rather than wait out the full window.
+                lastStatusReconcileAt.delete(organizationId);
+                console.warn('[billing/status] background stripe reconcile skipped:', (err as Error).message);
+            });
+        }
     }
+    // Mongo-only in the common path (early-returns once a balance exists), so keep
+    // it inline — a brand-new billing period still gets its credits before we answer.
     try {
         await ensurePeriodCreditsSeeded(organizationId);
     } catch (err) {
