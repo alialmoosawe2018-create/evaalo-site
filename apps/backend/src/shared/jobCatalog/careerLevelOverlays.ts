@@ -87,16 +87,54 @@ export function getCareerLevelOverlay(level: string): CareerLevelOverlay {
  * career-level overlay), treat clear support titles as `junior` — the catalog
  * level and UI are untouched.
  */
-export function deriveInterviewLevel(jobTitle: string, catalogLevel: string): string {
+/**
+ * Roles that are execution/support scope even though the catalog stores them at
+ * `mid` (the hidden base level). Keyed by STABLE roleKey — more reliable than a
+ * title regex, and independent of how the display title is worded. Extend this set
+ * as support roles are added; the title heuristic below still catches ones whose
+ * title self-identifies (…assistant/clerk/receptionist/…).
+ */
+export const SUPPORT_ROLE_KEYS = new Set<string>([
+    'hr_assistant',
+    'administrative_assistant',
+    'office_assistant',
+    'receptionist',
+    'data_entry_clerk',
+    'data_entry_operator',
+    'secretary',
+    'cashier',
+    'bank_teller',
+]);
+
+/**
+ * True when a role should be interviewed at execution/support scope: either its
+ * stable roleKey is flagged, or the title reads as a support role.
+ */
+export function isSupportScopeRole(jobTitle: string, roleKey?: string | null): boolean {
+    const key = String(roleKey || '').trim().toLowerCase();
+    if (key && SUPPORT_ROLE_KEYS.has(key)) return true;
+    const t = String(jobTitle || '').toLowerCase();
+    return (
+        /\b(assistant|aide|clerk|trainee|apprentice|receptionist|secretary|cashier|teller|operator|data[ _-]?entry)\b/.test(
+            t,
+        ) ||
+        /مساعد|كاتب\b|متدرّ?ب|مبتدئ|استقبال|سكرتير|أمين\s*صندوق|صرّ?اف|مدخل\s*بيانات|مشغّ?ل/.test(
+            String(jobTitle || ''),
+        )
+    );
+}
+
+export function deriveInterviewLevel(
+    jobTitle: string,
+    catalogLevel: string,
+    roleKey?: string | null,
+): string {
     const level = String(catalogLevel || 'mid');
     if (level === 'intern' || level === 'graduate' || level === 'junior') return level;
-    const t = String(jobTitle || '').toLowerCase();
-    const isSupportTitle =
-        /\b(assistant|aide|clerk|trainee|apprentice)\b/.test(t) ||
-        /مساعد|كاتب\b|متدرّ?ب|مبتدئ/.test(String(jobTitle || ''));
-    // Only ever downgrade (mid → junior); never upgrade a senior title.
-    if (isSupportTitle && level === 'mid') return 'junior';
-    return level;
+    // Only the hidden `mid` default is ever corrected; an explicit senior/manager/…
+    // pick is honored as-is (never upgrade, never override a real choice).
+    if (level !== 'mid') return level;
+    return isSupportScopeRole(jobTitle, roleKey) ? 'junior' : level;
 }
 
 export function buildOverlayPromptBlock(level: string): string {

@@ -198,6 +198,14 @@ function main(): void {
         // …and a senior support title is never downgraded.
         assertEq(deriveInterviewLevel('Senior HR Assistant', 'senior'), 'senior', 'senior assistant stays senior');
         assertEq(deriveInterviewLevel('Executive Assistant', 'junior'), 'junior', 'already-junior passes through');
+        // roleKey-driven support scope — the title need not self-identify.
+        assertEq(deriveInterviewLevel('Front Desk Staff', 'mid', 'receptionist'), 'junior', 'receptionist roleKey → junior');
+        assertEq(deriveInterviewLevel('Window Staff', 'mid', 'bank_teller'), 'junior', 'bank_teller roleKey → junior');
+        // Broadened title heuristic catches more execution/support titles.
+        assertEq(deriveInterviewLevel('Data Entry Operator', 'mid'), 'junior', 'data entry title → junior');
+        assertEq(deriveInterviewLevel('موظف استقبال', 'mid'), 'junior', 'Arabic receptionist title → junior');
+        // An explicit senior+ pick is honored even for a support roleKey (never downgraded).
+        assertEq(deriveInterviewLevel('Receptionist', 'manager', 'receptionist'), 'manager', 'explicit manager pick honored');
     }
 
     // Generalized invariant behind the regression above

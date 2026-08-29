@@ -560,6 +560,7 @@ function attachRoleContext(
     const overlayLevel = deriveInterviewLevel(
         roleResolution.displayTitle || result.jobTitle,
         careerLevel,
+        roleResolution.roleKey,
     );
     const overlay = buildOverlayPromptBlock(overlayLevel);
     const executiveExtra =
@@ -755,6 +756,7 @@ export async function generateExpertiseAndBlueprint(campaign: {
         const interviewLevel = deriveInterviewLevel(
             jobTitle,
             String(roleResolution.careerLevel || 'mid'),
+            roleResolution.roleKey,
         );
         const isEntryLevel =
             interviewLevel === 'intern' ||
