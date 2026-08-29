@@ -6663,6 +6663,15 @@ body.rtl-text #features:not(.features--demo) .features-hub-core > .simple-icon-w
         direction: rtl;
     }
 
+    /* Evaalo bottom card only (ar/ku mobile): short label + RTL flex-end parked
+       the word on the far left, away from the icon. Center it in the text cell. */
+    html[lang="ar"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom .icon-text-content,
+    html[lang="ku"] #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom .icon-text-content,
+    body.rtl-text #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-bottom .icon-text-content {
+        text-align: center !important;
+        align-items: center !important;
+    }
+
     /* Hub row cards — LTR: icon|text (match English mobile cards) */
     #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top,
     #features:not(.features--demo) .icon-highlights-grid--hub > .simple-icon-wrapper--grid-centered-top.simple-icon-wrapper--icon-end,
