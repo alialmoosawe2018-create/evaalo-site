@@ -18,7 +18,14 @@ import { getUserStorageKeySuffix, userScopedStorageKey } from './userStorageKey'
  * nothing — the fetch that follows replaces it. One key serves all three boards
  * because `/api/candidates` answers them all.
  */
-const SNAPSHOT_KEY_BASE = 'evaalo-stage-board-v1';
+// The snapshot stores raw candidate rows, so its shape follows whatever the
+// evaluation format currently is. When that format changes (e.g. Stage 2 ratings
+// moved the band word to the front so it renders concisely, or Stage 3 adopted the
+// blueprint competency layout), a snapshot written under the old format paints the
+// old shape for a beat before the fresh fetch replaces it — a visible flash. Bump
+// this key whenever the stored shape changes so stale snapshots are dropped instead
+// of painted; a board just opens on its brief loading line once, then caches fresh.
+const SNAPSHOT_KEY_BASE = 'evaalo-stage-board-v2';
 
 /** Beyond this a snapshot would crowd the origin's quota; a board works without one. */
 const SNAPSHOT_MAX_CHARS = 1_500_000;
