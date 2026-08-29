@@ -760,9 +760,22 @@ export async function generateExpertiseAndBlueprint(campaign: {
             interviewLevel === 'intern' ||
             interviewLevel === 'graduate' ||
             interviewLevel === 'junior';
+        // Per-level scope so senior/manager/executive genuinely differ (not just a
+        // generic "at the X level" line). Unmapped levels fall back to the generic
+        // phrasing. Entry/support has its own strong branch above.
+        const SENIORITY_SCOPE: Record<string, string> = {
+            mid: 'interview at the MID (individual-contributor) level: center the competencies on independent, reliable EXECUTION of the core role with sound judgment — quality and accuracy of work, problem-solving within scope, applying process, and improving their own deliverables. Do NOT assume people-management, team ownership, budget authority, or org-level strategy.',
+            senior: 'interview at the SENIOR (individual-contributor expert) level: center on DEPTH of expertise and OWNERSHIP of complex/ambiguous work — driving improvements, setting standards, mentoring peers, and owning outcomes in their own area, WITHOUT necessarily managing people. Include influence and technical/functional leadership; do NOT assume direct reports or budget ownership.',
+            lead: 'interview at the LEAD level: combine deep expertise with directing a small group or workstream — technical/functional leadership, coordinating others, and owning delivery of a scoped area. Not full people-management or org strategy.',
+            supervisor: 'interview at the SUPERVISOR level: center on FRONT-LINE team leadership — overseeing a small team\'s day-to-day execution, scheduling and workload, on-the-job coaching, quality and adherence to process, and escalating issues. Owns the team\'s operational output, NOT budget or function-level strategy.',
+            manager: 'interview at the MANAGER level: center on delivering RESULTS THROUGH A TEAM — people leadership (hiring, developing, feedback), planning and prioritization across the team, stakeholder alignment, process/target ownership, and unblocking others. Balance hands-on judgment with team outcomes; de-emphasize pure task execution.',
+            head: 'interview at the HEAD-OF-FUNCTION level: center on owning an entire function or department — setting functional direction and standards, owning the function\'s targets and outcomes, leading managers or a large team, resource/budget ownership, and cross-functional influence. More strategic than a single-team manager, below enterprise executive.',
+            director: 'interview at the DIRECTOR level: center on senior leadership of a large area or multiple teams — strategy and results for the domain, org design within it, budget/resource ownership, developing managers, and cross-functional leadership. De-emphasize task-level execution.',
+            executive: 'interview at the EXECUTIVE level: center on STRATEGY and ORGANIZATIONAL leadership — vision and direction, org design, cross-functional and enterprise trade-offs, resource/budget ownership, and aligning stakeholders at scale. De-emphasize task-level execution entirely.',
+        };
         const seniorityRule = isEntryLevel
             ? `\n- SENIORITY (entry / support role — ${jobTitle || 'this role'}): the competencies MUST be EXECUTION and SUPPORT scoped — e.g. accuracy and attention to detail, following procedures/policies, coordination and scheduling, HRIS/Excel/data-entry basics, responsiveness, and confidentiality. Do NOT generate ownership/strategy competencies (process ownership, owning KPIs/targets/results, strategic or data-driven decision ownership, "stakeholder management"): this role executes and supports, it does not own outcomes. If the domain themes below list such competencies, REPLACE them with execution-scoped ones. Prefer plain phrasing (e.g. "coordinating with colleagues and managers") over corporate jargon like "stakeholder management".`
-            : `\n- SENIORITY: interview at the ${interviewLevel} level — scope competencies to what this level genuinely owns.`;
+            : `\n- SENIORITY: ${SENIORITY_SCOPE[interviewLevel] || `interview at the ${interviewLevel} level — scope competencies to what this level genuinely owns`}. Competencies at a lower level must NOT be inflated to ownership/strategy, and a higher level must NOT be reduced to routine task execution.`;
         const sys = `You are an expert technical interviewer and hiring strategist. Produce a specialized interview blueprint for ONE specific job.
 Rules:
 - Output language for anchorQuestions, questionObjective, expectedEvidence, redFlags, scoreRubric, followUpRules: ${language === 'ar' ? 'Arabic' : 'English'}.
