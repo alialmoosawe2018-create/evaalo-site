@@ -223,6 +223,20 @@ def _wrap_up_min_questions() -> int:
     return max(3, n)
 
 
+def _wrap_up_max_questions() -> int:
+    """Hard cap on total questions asked. Once reached the interview winds down
+    even if fresh bank questions still exist — otherwise a bank-driven interview
+    (no blueprint) keeps improvising new anchors and never concludes."""
+    raw = (os.getenv("INTERVIEW_WRAP_UP_MAX_QUESTIONS") or "").strip()
+    fallback = 20
+    if raw:
+        try:
+            fallback = int(raw)
+        except ValueError:
+            fallback = 20
+    return max(_wrap_up_min_questions() + 2, fallback)
+
+
 def _unsure_pivot_threshold() -> int:
     raw = (os.getenv("HEURISTIC_UNSURE_PIVOT_THRESHOLD") or "").strip()
     if not raw:
@@ -1704,6 +1718,24 @@ class InterviewAssistant(Agent):
     ) -> str | None:
         mem = self._memory
         mem.pending_path_advance = False
+        # Hard cap on interview length: even when fresh bank questions still exist,
+        # an interview that has already asked this many questions must wind down —
+        # otherwise a bank-driven interview (no blueprint) keeps finding "fresh"
+        # anchors forever and never concludes (observed: 24+ questions, no wrap-up).
+        # Offer the single wrap-up once; the closing + teardown follow on later turns
+        # via the existing wind-down state machine.
+        if (
+            not mem.wrap_up_offered
+            and len(mem.asked_questions) >= _wrap_up_max_questions()
+        ):
+            mem.wrap_up_offered = True
+            self._winddown_turn = mem.turn_index
+            self._winddown_line = _WRAP_UP_PROMPT_AR
+            logger.info(
+                "[interview] hard question cap reached (%d) → offering wrap-up",
+                len(mem.asked_questions),
+            )
+            return _WRAP_UP_PROMPT_AR
         anchor = self._pick_next_bank_anchor()
 
         if diag.get("is_topic_change_request"):

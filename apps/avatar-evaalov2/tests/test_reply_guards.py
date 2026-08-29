@@ -511,6 +511,30 @@ def test_frame_without_recommended_has_no_phrasing_rule():
     assert "PHRASING RULE" not in frame
 
 
+def test_hard_question_cap_offers_wrap_up(monkeypatch):
+    # A bank-driven interview (no blueprint) keeps finding "fresh" anchors and never
+    # concludes. Once the hard question cap is hit it must wind down: offer the
+    # wrap-up once, even though fresh bank questions still exist.
+    monkeypatch.setenv("INTERVIEW_WRAP_UP_MIN_QUESTIONS", "3")
+    monkeypatch.setenv("INTERVIEW_WRAP_UP_MAX_QUESTIONS", "5")
+    agent = _assistant(["q1", "q2", "q3", "q4", "q5", "q6"])
+    agent._memory.asked_questions = ["a", "b", "c", "d", "e"]
+    agent._memory.wrap_up_offered = False
+    out = agent._pick_recommended_question({}, agent._memory, {})
+    assert agent._memory.wrap_up_offered is True
+    assert isinstance(out, str) and out.strip()  # a wrap-up line, not another question
+
+
+def test_below_hard_cap_still_asks(monkeypatch):
+    # Below the cap the interview keeps asking, does not prematurely wrap up.
+    monkeypatch.setenv("INTERVIEW_WRAP_UP_MAX_QUESTIONS", "20")
+    agent = _assistant(["q1", "q2", "q3"])
+    agent._memory.asked_questions = ["a", "b"]
+    agent._memory.wrap_up_offered = False
+    agent._pick_recommended_question({}, agent._memory, {})
+    assert agent._memory.wrap_up_offered is False
+
+
 # --- interview LLM: default gpt-4o-mini; gpt-5 (reasoning) handled but not default ---
 def test_openai_llm_kwargs_default_is_gpt4o_mini(monkeypatch):
     # Reverted to gpt-4o-mini: gpt-5-mini starved on the pinned low token cap.
