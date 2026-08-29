@@ -884,20 +884,72 @@ router.post('/start', async (req, res) => {
                     if (!alreadySaved) {
                         const reuseBundle = await loadBlueprintBundleSafe(normalizedCampaignIdEarly);
                         const reuseSnapshot = buildBlueprintSnapshot(reuseBundle);
-                        const inheritedOrgId =
-                            (candidate as { organizationId?: string }).organizationId &&
-                            (candidate as { organizationId?: string }).organizationId !== DEFAULT_ORG_ID
+                        const reuseOrganizationId =
+                            (candidate as { organizationId?: string }).organizationId
                                 ? (candidate as { organizationId: string }).organizationId
-                                : undefined;
+                                : DEFAULT_ORG_ID;
+                        const inheritedOrgId =
+                            reuseOrganizationId !== DEFAULT_ORG_ID ? reuseOrganizationId : undefined;
+
+                        // Arm video billing on the prewarm-reuse path too. The full /start
+                        // path acquires the video lock and freezes the minute snapshot; the
+                        // reuse path used to skip it, so a prewarmed interview ran without a
+                        // lock and /end could never settle it — the minutes escaped the video
+                        // pool entirely (billingStatus stayed undefined, nothing was deducted
+                        // and nothing appeared in the operations log). Mirror the full path.
+                        let reuseVideoBilling: Extract<StartVideoResult, { ok: true }> | null = null;
+                        if (BILLING_ENFORCE && usageTypeForInterviewMode(interviewMode) === 'VIDEO_SECONDS') {
+                            const gate = await checkCredits(
+                                reuseOrganizationId,
+                                'VIDEO_SECONDS',
+                                PREFLIGHT_SECONDS
+                            );
+                            if (!gate.ok && gate.code !== 'INSUFFICIENT_CREDITS') {
+                                return res.status(billingHttpStatus(gate.code)).json({
+                                    success: false,
+                                    code: gate.code,
+                                    message: gate.message,
+                                });
+                            }
+                            const lock = await startVideoSession({
+                                organizationId: reuseOrganizationId,
+                                sessionId: reusedStartSession.sessionId,
+                                maxInterviewSeconds: MAX_INTERVIEW_SECONDS,
+                            });
+                            if (!lock.ok) {
+                                const httpStatus =
+                                    lock.code === 'ACTIVE_SESSION' ? 409 : billingHttpStatus(lock.code);
+                                return res.status(httpStatus).json({
+                                    success: false,
+                                    code: lock.code,
+                                    message: lock.message,
+                                });
+                            }
+                            reuseVideoBilling = lock;
+                        }
+
                         await VideoInterviewSession.create({
                             sessionId: reusedStartSession.sessionId,
                             candidateId: candidate._id,
                             campaignId: normalizedCampaignIdEarly,
                             conversationHistory: [],
                             status: 'active',
+                            interviewMode,
                             startedAt: new Date(),
                             ...(reuseSnapshot ? { blueprintSnapshot: reuseSnapshot } : {}),
                             ...(inheritedOrgId ? { organizationId: inheritedOrgId } : {}),
+                            // Video billing snapshot — frozen at start; /end + sweep settle against it.
+                            ...(reuseVideoBilling
+                                ? {
+                                      billingStartedAt: new Date(),
+                                      maxAllowedVideoSeconds: reuseVideoBilling.maxAllowedVideoSeconds,
+                                      includedVideoSecondsAtStart:
+                                          reuseVideoBilling.includedVideoSecondsAtStart,
+                                      purchasedVideoSecondsAtStart:
+                                          reuseVideoBilling.purchasedVideoSecondsAtStart,
+                                      billingStatus: 'active',
+                                  }
+                                : {}),
                         });
                     }
                 } catch (persistErr: any) {
