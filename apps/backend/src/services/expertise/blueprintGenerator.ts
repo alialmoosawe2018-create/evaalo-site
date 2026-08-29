@@ -782,7 +782,8 @@ export async function generateExpertiseAndBlueprint(campaign: {
 Rules:
 - Output language for title, anchorQuestions, questionObjective, expectedEvidence, redFlags, scoreRubric, followUpRules: ${language === 'ar' ? 'Arabic' : 'English'}. The competencyKey stays a snake_case English identifier; only the human-readable title follows this language.
 - Provide EXACTLY 3 anchorQuestions (fixed core questions for all candidates of this campaign). They must be specific to the role, ask for a real example + data/steps + outcome — never generic "tell me about yourself".
-- Provide 6 to 8 competencies (minimum 6). Each competency: a snake_case competencyKey, a title, priority (critical|high|medium), a questionObjective, expectedEvidence (3-6 items), redFlags (2-4 items), a scoreRubric for levels 1..5 (each a short qualitative description), and followUpRules (1-3 rules — each rule is exactly ONE short question with ONE question mark, never a compound checklist).
+- Provide EXACTLY 10 competencies. Keep priorities balanced: AT MOST 2 "critical", the rest "high"/"medium" (over-using critical makes the assessment gate too strict). The 10 must be MUTUALLY DISTINCT (no two probing the same thing) and TOGETHER cover the role's core responsibilities.
+- Each competency: a snake_case competencyKey; a title; priority (critical|high|medium); a questionObjective that draws out a real Situation -> Action -> Result example (not a yes/no); expectedEvidence (3-6 concrete signals an interviewer could observe in the transcript); redFlags (2-4 SPECIFIC behavioral warning signs detectable from a transcript, never vague like "lacks skills"); a scoreRubric for levels 1..5 where each band describes OBSERVABLE behaviour, not a bare adjective; and followUpRules (1-3 rules — each exactly ONE short question with ONE question mark, never a compound checklist).
 - requiredSkills/toolsAndSystems/responsibilities/mustAssess/expectedEvidence/redFlags/qualityRisk describe the JOB (not a candidate). Keep concise.
 - Be concrete and domain-specific. Do not invent facts; derive from the job context.${seniorityRule}${arabicAnchorStyleSuffix(language)}`;
 
@@ -825,7 +826,7 @@ Rules:
         const anchorQuestions = sanitizeAnchorQuestions(sanitizeStringArray(parsed.anchorQuestions, 3));
         const rawCompetencies = Array.isArray(parsed.competencies) ? parsed.competencies : [];
         const competencies: GeneratedCompetency[] = rawCompetencies
-            .slice(0, 8)
+            .slice(0, 10)
             .map((c: any): GeneratedCompetency => ({
                 competencyKey: String(c.competencyKey || '').trim() || 'competency',
                 title: String(c.title || '').trim() || 'Competency',
@@ -847,7 +848,7 @@ Rules:
             }));
 
         // إن أعاد LLM مخرجات ناقصة جوهرياً، ارجع للـfallback.
-        if (anchorQuestions.length < 3 || competencies.length < 6) {
+        if (anchorQuestions.length < 3 || competencies.length < 8) {
             console.warn('⚠️ blueprintGenerator: LLM output incomplete — using fallback');
             const fb = buildFallback(
                 jobTitle,
