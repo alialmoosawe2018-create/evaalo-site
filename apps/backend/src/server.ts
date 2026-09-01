@@ -1480,6 +1480,12 @@ connectDatabase().then(() => {
         .then((m) => m.startBillingSchedulers())
         .catch((e) => console.warn(`⚠️ Failed to start billing schedulers: ${e?.message || e}`));
 
+    // Keep the LiveKit interview worker warm so the first interview after an idle
+    // stretch / agent redeploy doesn't eat the ~20s cold-start (blank/late avatar).
+    void import('./services/agentKeepWarmService.js')
+        .then((m) => m.startAgentKeepWarm())
+        .catch((e) => console.warn(`⚠️ Failed to start agent keep-warm: ${e?.message || e}`));
+
     const outboxRetryMs = Number(process.env.STAGE1_OUTBOX_RETRY_MS || 5 * 60 * 1000);
     if (Number.isFinite(outboxRetryMs) && outboxRetryMs > 0) {
         setInterval(() => {

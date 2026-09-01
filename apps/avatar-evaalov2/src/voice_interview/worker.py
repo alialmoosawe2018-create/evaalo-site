@@ -62,6 +62,7 @@ from voice_interview.job_questions import (
 )
 from voice_interview.entity_policy import build_role_glossary
 from voice_interview.experience_tracks import parse_experience_tracks, parse_interview_paths
+from voice_interview.keep_warm import is_keep_warm_job
 from voice_interview.netutil import is_websocket_closing_error
 from voice_interview.transcript_hooks import attach_user_transcript_routing
 from playback_patches import configure_and_apply_playback_patches
@@ -765,6 +766,16 @@ async def my_agent(ctx: JobContext):
             logger.debug("job metadata: %s", meta)
         except Exception as e:
             logger.warning("metadata parse failed: %s", e)
+
+    # Keep-warm ping (backend heartbeat): we already connected + parsed metadata,
+    # which is enough to keep the container warm. Return BEFORE building the avatar /
+    # LLM / TTS so the ping costs ~nothing (no Beyond Presence, ElevenLabs, OpenAI).
+    if is_keep_warm_job(meta, ctx.room.name if ctx.room else None):
+        logger.info(
+            "keep-warm ping (room=%s) — worker kept warm; no avatar/LLM/TTS started",
+            ctx.room.name if ctx.room else "?",
+        )
+        return
 
     interview_context = _build_interview_context(meta)
     interview_state = _build_interview_state(meta)
