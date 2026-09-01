@@ -334,6 +334,14 @@ export default function AIHeadHunter() {
 
     const submitBusy = loading || awaitingPollResult;
 
+    // مؤشّر «خطوات عمل الوكيل» في مساحة النتائج يظهر أثناء `loading`، لكن تقدّم البحث
+    // الحيّ يُتتبَّع بـ`awaitingPollResult` (الاستطلاع صامت لا يرفع loading). ندمج
+    // الإشارتين حتى تظهر الخطوات طوال انتظار نتيجة n8n، لا أن تُعرض النتائج مباشرة.
+    const n8nInboundView = useMemo(
+        () => ({ ...n8nInbound, loading: n8nInbound.loading || awaitingPollResult }),
+        [n8nInbound, awaitingPollResult]
+    );
+
     const searchContext = useMemo(
         () => ({ position, location, yearsExperience, ageRange, query }),
         [position, location, yearsExperience, ageRange, query],
@@ -926,7 +934,7 @@ export default function AIHeadHunter() {
                                     <div className="headhunter-discovery__main">
                                         <HeadHunterResultsWorkspace
                                             hh={hh}
-                                            n8nInbound={n8nInbound}
+                                            n8nInbound={n8nInboundView}
                                             searchContext={searchContext}
                                             t={t}
                                         />

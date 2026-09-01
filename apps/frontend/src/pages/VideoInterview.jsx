@@ -73,7 +73,9 @@ function campaignLabels(t) {
 function groupsFromSnapshot(snapshot, t) {
     const { evaluated, pending } = splitVideoCandidates(snapshot.candidates);
     return buildScreeningCampaignGroups(evaluated, pending, snapshot.meta, campaignLabels(t), {
-        metaPending: !snapshot.metaComplete,
+        // اللقطة ذاكرة مؤقّتة — لا تُعلن حذف حملة أبداً (وإلا تومض «حملة محذوفة» على
+        // حملة قائمة حتى يصحّحها الجلب الحيّ). الحذف يُقرَّر فقط من ميتا حيّة مؤكَّدة.
+        metaPending: true,
     });
 }
 

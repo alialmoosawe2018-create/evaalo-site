@@ -11,7 +11,7 @@ import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMe
 import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection } from "../services/sttRouterService.js";
-import { getLLMResponse, getTimeEndedClosingMessage, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, polishVoiceArabicReply, type InterviewPhase } from "../services/llmService.js";
+import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, polishVoiceArabicReply, type InterviewPhase } from "../services/llmService.js";
 import { textToSpeech, textToSpeechWithTimestamps } from "../services/ttsService.js";
 import Candidate from "../models/Candidate.js";
 import RecruitmentCampaign from "../models/RecruitmentCampaign.js";
@@ -1213,19 +1213,28 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         if (isVoiceTest) break;
         if (timeEndedSent) break;
         timeEndedSent = true;
-        console.log(`[TIME_ENDED] ${sessionId.substring(0, 8)}...`);
+        console.log(`[TIME_ENDED] ${sessionId.substring(0, 8)}... concluding + closing`);
+        // انتهى الوقت = نهاية المقابلة. نوقف الاستماع فوراً (وإلا يدخل المرشح في حلقة
+        // اعتذارات لا تنتهي، والوكيل يظل يتكلّم حتى سقف المدة القصوى)، ثم نُشغّل ختاماً
+        // ثابتاً بلغة الجلسة — لا LLM، لتفادي أخطاء الصياغة/الهلوسة — ونغلق الاتصال من
+        // جهة الخادم كما في المسار الطبيعي (isInterviewEnd).
+        voiceState = "IDLE";
+        closeSTTRouterConnection(sessionId);
         (async () => {
           try {
             const history = conversationHistory.get(sessionId) || [];
-            const closingMsg = await getTimeEndedClosingMessage(history, interviewLanguage);
+            const closingMsg =
+              interviewLanguage === 'en'
+                ? 'Thank you for your time. The interview has now ended, and our HR team will review your answers and contact you with the next steps.'
+                : 'شكراً على وقتك. انتهت المقابلة الآن، وسيراجع فريق الموارد البشرية إجاباتك ويتواصل معك بالخطوات التالية.';
             startSpeaking();
             send(ws, { type: "agent_reply", text: closingMsg });
             history.push({ role: "assistant", content: closingMsg });
             conversationHistory.set(sessionId, history);
             const sendChunk = (c: Buffer) => {
-          recordChunk("agent", "mp3", c);
-          send(ws, { type: "audio_chunk", chunkBase64: c.toString("base64"), format: "mp3" });
-        };
+              recordChunk("agent", "mp3", c);
+              send(ws, { type: "audio_chunk", chunkBase64: c.toString("base64"), format: "mp3" });
+            };
             await textToSpeech(closingMsg, interviewLanguage, sendChunk);
             send(ws, { type: "tts_complete" });
             const playbackEnded = new Promise<void>((resolve) => {
@@ -1238,9 +1247,12 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
             });
             await playbackEnded;
             await new Promise((r) => setTimeout(r, voiceTiming.postPlaybackResumeMs));
-            if (ws.readyState === ws.OPEN) startListening();
           } catch (err: any) {
             console.warn(`[TIME_ENDED] ${sessionId.substring(0, 8)}... ${err?.message || err}`);
+          } finally {
+            updateState(sessionId, "IDLE");
+            send(ws, { type: "state", state: "IDLE" });
+            if (ws.readyState === ws.OPEN) ws.close(1000, "interview_complete");
           }
         })();
         break;
