@@ -2012,6 +2012,12 @@ class InterviewAssistant(Agent):
                 "intake meeting → اجتماع تحديد المتطلبات، scorecard → بطاقة تقييم، boolean search → بحث منطقي، "
                 "pipeline → مسار المرشّحين، ATS/HRIS → نظام التوظيف). Keep at most one English term, and only if "
                 "you add its Arabic meaning right after. Ask ONE concrete thing.\n"
+                "CLARITY RULE: keep it short and answerable in one breath — no throat-clearing, no compound "
+                "clauses, no restating the whole competency. If the recommended question probes a skill, ask for "
+                "ONE specific real situation from the candidate's own experience "
+                "(\"احچيلي عن موقف…\"/\"اعطني مثال محدد…\") instead of a generic \"شنو تسوي عادة\"; if it is a "
+                "short follow-up, keep it short. A brief warm lead-in (\"زين،\"/\"تمام،\") is welcome, but never "
+                "a second question.\n"
                 f'Recommended question (rephrase into natural language per the rules; ONE question only): "{single[:300]}"'
             )
         elif diag.get("meta_request") == "ask_interviewer":
