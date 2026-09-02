@@ -236,7 +236,22 @@ def env_allow_interruption() -> bool:
     Defaults: allow interruptions on. Calmer avatar: raise ``MIN_INTERRUPTION_DURATION`` (~0.9-1.2s)
     or set ``INTERVIEW_HARD_NO_INTERRUPT=true`` with ``ALLOW_INTERRUPTION=false``.
     ``INTERVIEW_FORCE_ALLOW_INTERRUPTION=true`` forces allow.
+
+    **Interview profile is HALF-DUPLEX by default** (like the voice interview): while the
+    avatar speaks, LiveKit skips new user finals so the candidate's speech never overlaps
+    the agent. Opt back into barge-in with ``INTERVIEW_ALLOW_BARGE_IN=true``. The legacy
+    ``INTERVIEW_FORCE_ALLOW_INTERRUPTION`` is intentionally ignored on the interview path.
     """
+    # Interview = half-duplex unless explicitly opted into barge-in. Decided here so it
+    # holds regardless of any legacy ALLOW/FORCE secrets still set in LiveKit Cloud.
+    if interview_defaults_enabled():
+        allow = os.getenv("INTERVIEW_ALLOW_BARGE_IN", "false").lower() in ("1", "true", "yes")
+        logger.info(
+            "interview interruption: allow_interruptions=%s (half-duplex default; set INTERVIEW_ALLOW_BARGE_IN=true to allow barge-in)",
+            allow,
+        )
+        return allow
+
     explicit = os.getenv("ALLOW_INTERRUPTION", "true").lower() == "true"
     if os.getenv("INTERVIEW_FORCE_ALLOW_INTERRUPTION", "false").lower() in ("1", "true", "yes"):
         return True
