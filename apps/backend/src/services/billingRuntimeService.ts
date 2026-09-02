@@ -1409,7 +1409,16 @@ export async function reconcileOrgPlanWithStripe(
         return { changed: false, planId: mapping.planId, cycle: mapping.cycle };
     }
 
-    await applySubscriptionUpdate({
+    // Captured against the PRE-update state so we can tell a genuine renewal (the
+    // period rolled forward, same plan) apart from a plan change or status flip.
+    const planChanged = state.planId !== mapping.planId;
+    // A genuine renewal = the period rolled forward past an EXISTING period end.
+    // A null prior end means initial seeding (checkout / ensurePeriodCreditsSeeded
+    // own that) — not a renewal, so don't refill here and risk a double seed.
+    const periodAdvanced =
+        !!state.currentPeriodEnd && periodEnd.getTime() > state.currentPeriodEnd.getTime();
+
+    const updated = await applySubscriptionUpdate({
         stripeSubscriptionId: state.stripeSubscriptionId,
         planId: mapping.planId,
         cycle: mapping.cycle,
@@ -1418,6 +1427,28 @@ export async function reconcileOrgPlanWithStripe(
         cancelAtPeriodEnd,
         subscriptionStatus,
     });
+
+    // Missed / late `invoice.paid` fallback. When reconcile is the one advancing the
+    // billing period forward (same plan, still active), applySubscriptionUpdate only
+    // rolls the dates — it does NOT refill the monthly allowance (that path resets
+    // only on a plan change). Seed the renewal here so the org is not shorted its
+    // monthly credits / included video for the new period. Idempotent per period via
+    // the `stripe:reconcile-seed:<sub>:<periodStart>` ledger key; a later invoice.paid
+    // for the same period is then skipped by its own out-of-order guard, so there is
+    // no double refill. (A plan change already reset inside applySubscriptionUpdate.)
+    if (!planChanged && periodAdvanced && isBillingActive(subscriptionStatus)) {
+        await seedBalanceForStripe(
+            organizationId,
+            mapping.planId,
+            periodStart,
+            periodEnd,
+            { source: 'reconcile', stripeSubscriptionId: state.stripeSubscriptionId },
+            updated ?? undefined,
+        );
+        console.log(
+            `[billing] reconcile refilled new period org=${organizationId} plan=${mapping.planId} periodStart=${periodStart.toISOString()}`,
+        );
+    }
 
     console.log(
         `[billing] reconciled org=${organizationId} mongo=${state.planId}/${state.billingCycle} → stripe=${mapping.planId}/${mapping.cycle}`,
