@@ -38,6 +38,11 @@ function injectCss() {
     document.head.appendChild(style);
 }
 
+// Inject at module load so the stylesheet is in <head> before the component ever
+// paints — avoids a one-frame flash of the raw, unstyled checklist (looked like
+// overlapping/broken data when the search steps first appeared).
+injectCss();
+
 export default function AiWorkingIndicator({ kind, stepMs = 2600 }) {
     const { currentLang } = useLanguage();
     const steps = getAiWorkingSteps(kind, currentLang);
@@ -45,9 +50,9 @@ export default function AiWorkingIndicator({ kind, stepMs = 2600 }) {
     const [elapsed, setElapsed] = useState(0);
     const startRef = useRef(Date.now());
 
-    useEffect(() => {
-        injectCss();
-    }, []);
+    // Belt-and-suspenders: also ensure the CSS is present before this render paints
+    // (module-load injection already covers the common case).
+    injectCss();
 
     // Advance through the steps, holding on the last one until the parent unmounts us.
     useEffect(() => {
