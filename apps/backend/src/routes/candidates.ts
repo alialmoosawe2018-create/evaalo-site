@@ -179,6 +179,92 @@ router.get('/', conditionalRequireAuth(), requirePermission('candidate.read'), a
     }
 });
 
+// GET /api/candidates/notification-summary
+// The notifications badge needs a count, not the candidate list. Serving it from
+// GET / meant every protected page downloaded ~413 KB (105 rows x 39 fields,
+// `videoInterviewEvaluation` alone ~4 KB each) to produce one number, and that
+// cost grows linearly with the tenant's candidate count.
+//
+// The final count cannot be computed here: it depends on `lastViewedAt` and the
+// dismissed-notification keys, which live in the viewer's localStorage. So this
+// returns the same rows as GET /, projected down to exactly the fields the
+// client predicates read — `getCandidateActivityTime` (the three dates),
+// `getNotificationDismissKey` (_id) and `screeningAnalysisHoldUntil`
+// (entryStage, files length, createdAt, and the scalar keys
+// `hasMeaningfulStageEvaluation` tests). Field names and shapes are unchanged,
+// so the shared frontend helpers work against this response untouched.
+//
+// MUST stay above `GET /:id`, which would otherwise capture this path.
+const EVAL_PREDICATE_KEYS = [
+    'recommendation',
+    'overall_score',
+    'summary',
+    'final_hr_evaluation',
+    'role_understanding',
+    'professional_depth',
+    'final_role_fit',
+] as const;
+
+/** Keep only the keys `hasMeaningfulStageEvaluation` looks at; null stays null. */
+function projectEvaluation(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== 'object') return null;
+    const src = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const k of EVAL_PREDICATE_KEYS) {
+        if (src[k] != null) out[k] = src[k];
+    }
+    return Object.keys(out).length > 0 ? out : null;
+}
+
+router.get(
+    '/notification-summary',
+    conditionalRequireAuth(),
+    requirePermission('candidate.read'),
+    async (req: Request, res: Response) => {
+        try {
+            if (mongoose.connection.readyState !== 1) {
+                return res.json({ success: true, count: 0, data: [] });
+            }
+            const orgId = getOrgId(req);
+            const viewFilter = { hiddenFromViews: { $nin: ['candidates'] } };
+            // Same Application-first / legacy-Candidate fallback as GET /, so an
+            // org still on legacy rows keeps its badge instead of silently
+            // counting zero.
+            const appRows = await listApplicationsAsStageRows({
+                organizationId: orgId,
+                extraFilter: viewFilter,
+            });
+            const rows =
+                appRows.length > 0
+                    ? appRows
+                    : ((await candidateRepo.listLegacyScoped(orgId, {
+                          ...viewFilter,
+                      })) as unknown as Record<string, unknown>[]);
+            const data = rows.map((r) => ({
+                _id: r._id,
+                createdAt: r.createdAt,
+                updatedAt: r.updatedAt,
+                interviewDate: r.interviewDate,
+                entryStage: r.entryStage,
+                // Only the length is read, but it must stay an array for
+                // `Array.isArray(c.files)`; ids keep it real data, not a stub.
+                files: Array.isArray(r.files)
+                    ? (r.files as Record<string, unknown>[]).map((f) => ({ _id: f?._id }))
+                    : [],
+                writtenInterviewEvaluation: projectEvaluation(r.writtenInterviewEvaluation),
+                voiceInterviewEvaluation: projectEvaluation(r.voiceInterviewEvaluation),
+                videoInterviewEvaluation: projectEvaluation(r.videoInterviewEvaluation),
+            }));
+            return res.json({ success: true, count: data.length, data });
+        } catch (error: any) {
+            console.error('❌ notification-summary failed:', error?.message);
+            // The badge is not worth failing a page over — an empty list just
+            // renders no badge, and the next cycle retries.
+            return res.json({ success: true, count: 0, data: [] });
+        }
+    }
+);
+
 // Mock مرشح للتطوير (عند استخدام candidateId=xxx أو test)
 const MOCK_CANDIDATE = {
     _id: '000000000000000000000001',

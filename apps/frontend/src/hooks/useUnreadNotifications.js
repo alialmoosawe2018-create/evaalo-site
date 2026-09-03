@@ -13,6 +13,13 @@ import {
 
 export function useUnreadNotifications() {
     const { pathname } = useLocation();
+    // `refresh` used to list `pathname` in its deps purely for the
+    // notifications-tab early return. That rebuilt the callback on every
+    // navigation, which re-ran the effect below and refetched the whole list on
+    // each page view. The path is read through a ref instead, so the badge
+    // fetches once per session and then on focus / the 45s cycle.
+    const pathnameRef = useRef(pathname);
+    pathnameRef.current = pathname;
     // AppBottomNav calls this hook above its own visibility check, and the nav is
     // mounted for every route — so without this guard a signed-out visitor on any
     // public page hit two authed endpoints on mount, on focus and every 45s, each
@@ -27,7 +34,7 @@ export function useUnreadNotifications() {
             setUnreadCount(0);
             return;
         }
-        if (isNotificationsTabActive(pathname)) {
+        if (isNotificationsTabActive(pathnameRef.current)) {
             setUnreadCount(0);
             return;
         }
@@ -35,7 +42,7 @@ export function useUnreadNotifications() {
         try {
             const [profileResult, candidatesResult] = await Promise.all([
                 getMyProfile().catch(() => null),
-                apiClient.get('/api/candidates').catch(() => null),
+                apiClient.get('/api/candidates/notification-summary').catch(() => null),
             ]);
 
             const clearedAtIso = profileResult?.preferences?.dashboardRecentInterviewsClearedAt ?? null;
@@ -62,7 +69,7 @@ export function useUnreadNotifications() {
         } catch {
             setUnreadCount(0);
         }
-    }, [pathname, isAuthenticated]);
+    }, [isAuthenticated]);
 
     refreshRef.current = refresh;
 

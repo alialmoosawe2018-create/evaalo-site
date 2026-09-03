@@ -81,17 +81,45 @@ export const BillingProvider = ({ children }) => {
     const [activeOrgId, setActiveOrgId] = useState(
         () => (typeof window !== 'undefined' && window.Clerk?.organization?.id) || null,
     );
+    // Whether Clerk has finished loading — NOT whether an org exists. The fetch
+    // effect below depends on `activeOrgId`, which is null on first render
+    // because Clerk has not loaded yet and then flips to the real id, so the
+    // effect ran twice and every protected page issued two ~1.4s
+    // /api/billing/status calls. Waiting for this flag collapses that to one.
+    // It must be "Clerk loaded", not "org present": a user with no organization
+    // never gets an id, and gating on the id would leave them never fetching.
+    const [clerkReady, setClerkReady] = useState(
+        () => typeof window !== 'undefined' && Boolean(window.Clerk?.loaded),
+    );
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
         const read = () => {
             const id = window.Clerk?.organization?.id || null;
             setActiveOrgId((prev) => (prev === id ? prev : id));
+            const ready = Boolean(window.Clerk?.loaded);
+            setClerkReady((prev) => (prev === ready ? prev : ready));
         };
         read();
         const interval = setInterval(read, 3000);
+        // The 3s cadence is right for spotting an org SWITCH, but far too slow
+        // for the initial load: Clerk resolves ~1.2s in, and making the first
+        // billing call wait for the next 3s tick would trade a duplicate
+        // request for a slower balance. Poll tightly until Clerk is up, then
+        // stop and leave the 3s interval to watch for switches.
+        let readyPoll = null;
+        if (!window.Clerk?.loaded) {
+            readyPoll = setInterval(() => {
+                if (window.Clerk?.loaded) {
+                    read();
+                    clearInterval(readyPoll);
+                    readyPoll = null;
+                }
+            }, 100);
+        }
         const detach = window.Clerk?.addListener?.(read);
         return () => {
             clearInterval(interval);
+            if (readyPoll) clearInterval(readyPoll);
             if (typeof detach === 'function') detach();
         };
     }, []);
@@ -190,6 +218,13 @@ export const BillingProvider = ({ children }) => {
                 aliveRef.current = false;
             };
         }
+        // Hold the first call until Clerk has loaded, so the null-org pass does
+        // not spend a request that the org-resolved pass immediately repeats.
+        if (!clerkReady) {
+            return () => {
+                aliveRef.current = false;
+            };
+        }
         fetchStatus().catch(() => undefined);
         const interval = setInterval(() => {
             fetchStatus().catch(() => undefined);
@@ -234,7 +269,7 @@ export const BillingProvider = ({ children }) => {
                 refreshTimerRef.current = null;
             }
         };
-    }, [fetchStatus, stopFastRefresh, isAuthenticated, activeOrgId]);
+    }, [fetchStatus, stopFastRefresh, isAuthenticated, activeOrgId, clerkReady]);
 
     const refetch = useCallback(async () => {
         try {
