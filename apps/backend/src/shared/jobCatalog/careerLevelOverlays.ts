@@ -137,6 +137,7 @@ export function deriveInterviewLevel(
     return isSupportScopeRole(jobTitle, roleKey) ? 'junior' : level;
 }
 
+
 export function buildOverlayPromptBlock(level: string): string {
     const o = getCareerLevelOverlay(level);
     const lines = [

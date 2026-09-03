@@ -140,11 +140,29 @@ export function deriveInterviewLevel(
 
 export function buildOverlayPromptBlock(level: string): string {
     const o = getCareerLevelOverlay(level);
-    return [
+    const lines = [
         `Career level overlay (${level}):`,
         `- Question difficulty: ${o.questionDifficulty}`,
         `- Leadership expectations: ${o.leadershipExpectations}`,
         `- Strong answers should show: ${o.expectedEvidenceBias}`,
         `- Rubric emphasis: ${o.rubricEmphasis}`,
-    ].join('\n');
+    ];
+    // Entry/support roles: steer competency SELECTION toward the role's real scope,
+    // not just question difficulty. Without this the LLM tends to reuse mid-level
+    // competencies (owning processes/KPIs, "stakeholder management") that a support
+    // role cannot evidence, and the candidate scores as "insufficient".
+    if (o.questionDifficulty === 'foundational') {
+        lines.push(
+            '- Competency scope: choose competencies that reflect EXECUTION and SUPPORT within ' +
+                'defined processes — e.g. accuracy and attention to detail, following procedures ' +
+                'and policies, coordination and scheduling, tool/data-entry basics, responsiveness, ' +
+                'and confidentiality. Do NOT frame competencies around owning processes, owning ' +
+                'KPIs/targets, strategic decisions, data-driven decision ownership, or "managing ' +
+                'stakeholder expectations" — this role supports and executes, it does not own ' +
+                'outcomes. For relationship skills prefer plain, role-fit phrasing such as ' +
+                '"coordinating with colleagues and managers" (التنسيق مع الزملاء والمديرين) rather ' +
+                'than the corporate term "stakeholder management" (إدارة أصحاب المصلحة).',
+        );
+    }
+    return lines.join('\n');
 }
