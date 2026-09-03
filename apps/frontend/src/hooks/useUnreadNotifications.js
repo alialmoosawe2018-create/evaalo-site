@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { apiClient } from '../services/apiClient';
 import { getMyProfile } from '../services/profileService';
 import { isNotificationsTabActive } from '../utils/appRoutes';
@@ -12,11 +13,20 @@ import {
 
 export function useUnreadNotifications() {
     const { pathname } = useLocation();
+    // AppBottomNav calls this hook above its own visibility check, and the nav is
+    // mounted for every route — so without this guard a signed-out visitor on any
+    // public page hit two authed endpoints on mount, on focus and every 45s, each
+    // cycle costing a 401, a token refresh and another 401.
+    const { isAuthenticated } = useAuth();
     const [unreadCount, setUnreadCount] = useState(0);
     const analysisTimerRef = useRef(null);
     const refreshRef = useRef(null);
 
     const refresh = useCallback(async () => {
+        if (!isAuthenticated) {
+            setUnreadCount(0);
+            return;
+        }
         if (isNotificationsTabActive(pathname)) {
             setUnreadCount(0);
             return;
@@ -52,7 +62,7 @@ export function useUnreadNotifications() {
         } catch {
             setUnreadCount(0);
         }
-    }, [pathname]);
+    }, [pathname, isAuthenticated]);
 
     refreshRef.current = refresh;
 
@@ -73,6 +83,7 @@ export function useUnreadNotifications() {
     }, [pathname]);
 
     useEffect(() => {
+        if (!isAuthenticated) return undefined;
         refresh();
 
         const onFocus = () => refresh();
@@ -93,7 +104,7 @@ export function useUnreadNotifications() {
             window.removeEventListener('evaalo:notification-dismissed', onCleared);
             window.clearInterval(intervalId);
         };
-    }, [refresh]);
+    }, [refresh, isAuthenticated]);
 
     return unreadCount;
 }
