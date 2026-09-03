@@ -9,8 +9,8 @@ captured. Opening a session and running `/site-watch` reports the whole backlog.
 
 | Date | Severity | Area | Finding | Location | Status |
 |------|----------|------|---------|----------|--------|
-| 2026-09-03 | broken | perf — every protected page | `/api/candidates` (**413 KB, 105 records, 39 fields each, ~2.8 s**) is downloaded on EVERY protected page — `/notifications`, `/account/members`, `/interview-templates`, `/search-history`, `/employees` — only to compute the notifications badge number. `useUnreadNotifications` is mounted by AppBottomNav on every route and lists `pathname` in the `refresh` deps, so it refetches the whole list on every navigation. Cost scales linearly with tenant size: a customer with 1,000 candidates pulls ~4 MB per page view. Measured on 11 protected routes. | `hooks/useUnreadNotifications.js:38,64` | open — proposal below, NOT applied |
-| 2026-09-03 | rough edge | perf — every protected page | `/api/billing/status` is fetched **twice** per page load (~1.4 s each), on 10 of 11 routes. Cause: the effect depends on `activeOrgId`, which initialises to `window.Clerk?.organization?.id` — `null` on first render because Clerk has not loaded — then flips to the real id, re-running the effect. The two calls are ~1.25 s apart, matching Clerk's load time. | `contexts/BillingContext.jsx:81,237` | open — proposal below, NOT applied |
+| 2026-09-03 | broken | perf — every protected page | `/api/candidates` (**413 KB, 105 records, 39 fields each, ~2.8 s**) is downloaded on EVERY protected page — `/notifications`, `/account/members`, `/interview-templates`, `/search-history`, `/employees` — only to compute the notifications badge number. `useUnreadNotifications` is mounted by AppBottomNav on every route and lists `pathname` in the `refresh` deps, so it refetches the whole list on every navigation. Cost scales linearly with tenant size: a customer with 1,000 candidates pulls ~4 MB per page view. Measured on 11 protected routes. | `hooks/useUnreadNotifications.js:38,64` | **fixed** (0451373, 6f9988e) — verified live: 413 KB -> 27 KB (-93%), once per session |
+| 2026-09-03 | rough edge | perf — every protected page | `/api/billing/status` is fetched **twice** per page load (~1.4 s each), on 10 of 11 routes. Cause: the effect depends on `activeOrgId`, which initialises to `window.Clerk?.organization?.id` — `null` on first render because Clerk has not loaded — then flips to the real id, re-running the effect. The two calls are ~1.25 s apart, matching Clerk's load time. | `contexts/BillingContext.jsx:81,237` | **fixed** (0451373) — verified live: one call per page load |
 | 2026-09-03 | rough edge | auth race | Occasional genuine 401 then retry: on `/employees`, `/api/candidates` returned 401 at 486 ms and 200 at 3034 ms in the same load — the request fires before the Clerk token is attached. Self-healing, so no user-visible break, but it burns a round trip and logs a console error. | `hooks/useUnreadNotifications.js:38` | open |
 | 2026-09-03 | polish | a11y — candidates | The select checkbox in the candidates table has no accessible name (no label, `aria-label`, or wrapping label). Every other input across the 11 protected pages is correctly labelled. | `pages/Candidates.jsx` | open |
 | 2026-09-03 | verified | protected pages — 11 routes | Swept `/dashboard /workflow /candidates /ai-head-hunter /ai-cv-comparison /search-history /interview-templates /employees /notifications /account /account/billing /account/members /account/usage` signed in. **No page-level horizontal overflow (0 px) on any route at 375x812**, no missing `alt`, table rows render (105 candidates, first row at 434 ms). Two candidate false alarms were checked and dismissed: the console's 401/404 wall was my own diagnostic calls plus a cumulative buffer (per-load resource timing shows all 200), and the Arabic weekly-activity chart at `left:-367px` is the normal RTL scroll origin — `canScroll:true`, content fully reachable in both languages. | — | verified |
@@ -24,7 +24,7 @@ captured. Opening a session and running `/site-watch` reports the whole backlog.
 | 2026-09-03 | broken | perf / public pages | Signed-out visitors poll two authed endpoints every 45s: `useUnreadNotifications` calls `getMyProfile()` + `GET /api/candidates` with no auth guard, so each cycle is 401 → token refresh → 401 again. It runs on every route because `AppBottomNav` calls the hook before its `if (!visible) return null`, and the nav is mounted in App.jsx for all routes. Wasted requests + backend load + console noise on marketing pages. NOT caught by /site-watch (401 is excluded there as normal control flow) — found by the first /site-sweep. | `hooks/useUnreadNotifications.js` (refresh + the 45s interval effect); mounted via `components/AppBottomNav.jsx:67`, `App.jsx:158` | **fixed** (c1a0e50) — verified live: 21s on a public page as a signed-out visitor now makes **0** API calls |
 | 2026-09-03 | — | setup | Observability pipeline deployed (ErrorBoundary, 404 route, Express error handler, `/api/site-errors`, `/health/ready`). Baseline: no findings yet. | — | fixed |
 
-## Proposed diffs — protected-page sweep, 2026-09-03 (NOT applied)
+## Protected-page sweep, 2026-09-03 — both proposals APPLIED and verified in production
 
 `/site-sweep` reports and proposes only. These two are the whole of the
 site-wide request waste; both are small and independent.
@@ -72,3 +72,22 @@ change. Saves one ~1.4 s authenticated request on every protected page load.
 Both are safe to verify the same way they were found: load any protected route
 and read `performance.getEntriesByType('resource')` — the expected result is one
 `/api/billing/status` and no `/api/candidates` on pages that show no candidates.
+
+### Outcome, measured on production after deploy
+
+Build `2026-09-03T18:50:10Z`, VPS mirror `0e598bb`.
+
+| | before | after |
+|---|---|---|
+| badge payload | 413 KB (105 rows x 39 fields) | **27 KB** (-93%) |
+| badge fetches | one per page view | one per session (+ focus / 45 s) |
+| `/api/billing/status` per page load | 2 (~1.4 s each) | **1** |
+
+Equivalence was checked, not assumed: the notification key set computed from the
+lean rows is byte-identical to the set computed from the full list (105/105, no
+diff), `files` lengths match on all 15 rows that have files, and `entryStage`
+matches on every row — so the 60 s analysis-grace branch behaves the same.
+
+Still open, and deliberately out of scope here: `/dashboard` fetches
+`/api/candidates` twice and `/api/users/me` up to three times in one load. That
+is the dashboard's own components, not the badge, and wants its own look.
