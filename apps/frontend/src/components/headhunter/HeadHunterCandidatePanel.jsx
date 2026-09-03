@@ -195,26 +195,21 @@ export default function HeadHunterCandidatePanel({
 }) {
     const availText = candidate ? availabilityLabel(t, candidate.availability) : '';
 
-    if (!candidate) {
-        return null;
-    }
-
-    const id = candidate.id;
+    // Every hook must run before the `!candidate` early return below. When the panel
+    // closes (candidate -> null) React would otherwise see a different number of
+    // hooks between renders and throw "Rendered fewer hooks than expected", so each
+    // one reads candidate optionally instead of sitting after the guard.
+    const id = candidate?.id;
+    const photoUrl = candidate?.photo_url;
 
     const [photoBroken, setPhotoBroken] = useState(false);
     useEffect(() => {
         setPhotoBroken(false);
-    }, [id, candidate.photo_url]);
-
-    const panelNameId = `hh-panel-${String(id).replace(/[^\w.-]/g, '_')}`;
-    const showPhoto = Boolean(candidate.photo_url) && !photoBroken;
-
-    const skills = candidate.skills || [];
-    const languages = candidate.languages || [];
+    }, [id, photoUrl]);
 
     const experienceSorted = useMemo(
-        () => sortExperienceTimelineDescending(candidate.experience_timeline || []),
-        [candidate.experience_timeline],
+        () => sortExperienceTimelineDescending(candidate?.experience_timeline || []),
+        [candidate?.experience_timeline],
     );
 
     const experienceGrouped = useMemo(
@@ -223,23 +218,34 @@ export default function HeadHunterCandidatePanel({
     );
 
     const contact = useMemo(
-        () => buildHeadHunterContactChannels(candidate),
-        [candidate.phone, candidate.email, candidate.linkedin_url],
+        () => (candidate ? buildHeadHunterContactChannels(candidate) : null),
+        [candidate],
     );
 
-    const hasExperience = experienceSorted.length > 0;
-    const hasSmartMatch = candidate.match_score != null && Number.isFinite(candidate.match_score);
     const matchCriteria = useMemo(
         () =>
-            (candidate.match_insights || [])
+            (candidate?.match_insights || [])
                 .map((ins) => {
                     const raw = String(ins?.text || '').trim();
                     const label = (raw.split(':')[0] || raw).trim();
                     return { label, matched: ins?.kind === 'positive' };
                 })
                 .filter((c) => c.label),
-        [candidate.match_insights],
+        [candidate?.match_insights],
     );
+
+    if (!candidate) {
+        return null;
+    }
+
+    const panelNameId = `hh-panel-${String(id).replace(/[^\w.-]/g, '_')}`;
+    const showPhoto = Boolean(photoUrl) && !photoBroken;
+
+    const skills = candidate.skills || [];
+    const languages = candidate.languages || [];
+
+    const hasExperience = experienceSorted.length > 0;
+    const hasSmartMatch = candidate.match_score != null && Number.isFinite(candidate.match_score);
 
     return (
         <aside className="headhunter-panel" aria-label={candidate.full_name || t('aiHeadHunterUnknownName')}>
