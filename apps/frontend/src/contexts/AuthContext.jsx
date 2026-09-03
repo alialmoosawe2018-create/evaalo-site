@@ -25,6 +25,9 @@ const CLERK_ENABLED = USE_CLERK && CLERK_AVAILABLE;
 const AuthContext = createContext(null);
 
 function buildSharedActions(setSession, setError, setLoading) {
+    // `setLoading` here toggles the SUBMIT state (a login/signup request is in
+    // flight), NOT provider initialization. The auth pages disable their inputs on
+    // this only, so a stuck provider load can never freeze the form.
     const login = async ({ email, password, remember }) => {
         setError(null);
         setLoading(true);
@@ -140,17 +143,37 @@ function ClerkAuthProvider({ children }) {
     const { isLoaded: sessionLoaded, session: clerkSession } = useSession();
 
     const [session, setSession] = useState(() => authService.getCurrentSession());
-    const [loading, setLoading] = useState(true);
+    // `initializing` = waiting for Clerk to load. `submitting` = a login/signup
+    // request is in flight. These MUST stay separate: the old single `loading`
+    // started true and only cleared once Clerk loaded, so a failed/slow Clerk
+    // script left every auth input `disabled` forever (the "can't type until I
+    // refresh" report). Inputs now gate on `submitting` only.
+    const [initializing, setInitializing] = useState(true);
+    const [initTimedOut, setInitTimedOut] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         if (!userLoaded || !sessionLoaded) {
-            setLoading(true);
+            setInitializing(true);
             return;
         }
         setSession(authService.getCurrentSession());
-        setLoading(false);
+        setInitializing(false);
     }, [userLoaded, sessionLoaded, clerkUser?.id, clerkSession?.id, clerkSession?.lastActiveAt]);
+
+    // Fallback: if Clerk has not loaded after a grace period (blocked CDN, ad/
+    // privacy blocker, flaky network), stop pretending to initialize so the login
+    // form is usable and can surface a retry, instead of a silently dead page.
+    useEffect(() => {
+        if (userLoaded && sessionLoaded) {
+            setInitTimedOut(false);
+            return undefined;
+        }
+        const ms = Number(import.meta.env.VITE_CLERK_LOAD_TIMEOUT_MS) || 9000;
+        const timer = setTimeout(() => setInitTimedOut(true), ms);
+        return () => clearTimeout(timer);
+    }, [userLoaded, sessionLoaded]);
 
     // Revoking a session from another device is invisible here until Clerk next
     // refreshes, which for a backgrounded tab can be a long time. Re-reading when
@@ -176,7 +199,7 @@ function ClerkAuthProvider({ children }) {
         runUserDataMigration(user).catch(() => {});
     }, [userLoaded, sessionLoaded, clerkUser?.id]);
 
-    const actions = useMemo(() => buildSharedActions(setSession, setError, setLoading), []);
+    const actions = useMemo(() => buildSharedActions(setSession, setError, setSubmitting), []);
     const clearError = useCallback(() => setError(null), []);
     const refreshSession = useCallback(() => {
         setSession(authService.getCurrentSession());
@@ -187,26 +210,34 @@ function ClerkAuthProvider({ children }) {
         token: session?.token ?? null,
         session,
         isAuthenticated: Boolean(session?.token),
-        loading,
+        // `loading` stays = "still initializing" for ProtectedRoute's splash, but
+        // clears once the grace period lapses so a blocked Clerk never hard-locks
+        // the app. Auth pages use `submitting` / `authReady` instead.
+        loading: initializing && !initTimedOut,
+        initializing,
+        authReady: (userLoaded && sessionLoaded) || initTimedOut,
+        clerkTimedOut: initTimedOut && !(userLoaded && sessionLoaded),
+        submitting,
         error,
         ...actions,
         clearError,
         refreshSession,
         provider: 'clerk',
         clerk,
-    }), [session, loading, error, actions, clearError, refreshSession, clerk]);
+    }), [session, initializing, initTimedOut, submitting, userLoaded, sessionLoaded, error, actions, clearError, refreshSession, clerk]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 function MockAuthProvider({ children }) {
     const [session, setSession] = useState(() => authService.getCurrentSession());
-    const [loading, setLoading] = useState(true);
+    const [initializing, setInitializing] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         setSession(authService.getCurrentSession());
-        setLoading(false);
+        setInitializing(false);
     }, []);
 
     useEffect(() => {
@@ -215,7 +246,7 @@ function MockAuthProvider({ children }) {
         runUserDataMigration(user).catch(() => {});
     }, [session?.user?.id, session?.user?.email]);
 
-    const actions = useMemo(() => buildSharedActions(setSession, setError, setLoading), []);
+    const actions = useMemo(() => buildSharedActions(setSession, setError, setSubmitting), []);
     const clearError = useCallback(() => setError(null), []);
     const refreshSession = useCallback(() => {
         setSession(authService.getCurrentSession());
@@ -226,14 +257,18 @@ function MockAuthProvider({ children }) {
         token: session?.token ?? null,
         session,
         isAuthenticated: Boolean(session?.token),
-        loading,
+        loading: initializing,
+        initializing,
+        authReady: !initializing,
+        clerkTimedOut: false,
+        submitting,
         error,
         ...actions,
         clearError,
         refreshSession,
         provider: 'mock',
         clerk: null,
-    }), [session, loading, error, actions, clearError, refreshSession]);
+    }), [session, initializing, submitting, error, actions, clearError, refreshSession]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

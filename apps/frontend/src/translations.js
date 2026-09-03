@@ -642,6 +642,8 @@ export const translations = {
         errClerkInvalidCode: "The verification code is incorrect. Please try again.",
         errClerkExpiredCode: "This code has expired. Request a new one.",
         errClerkRateLimit: "Too many attempts. Please wait a moment and try again.",
+        authLoadFailed: "The sign-in system is taking too long to load — your network or a browser extension may be blocking it.",
+        authReload: "Reload the page",
         // Auth — verify email screen
         verifyEmailTitle: "Verify your email",
         verifyEmailSubtitle: "Enter the 6-digit code we just sent to confirm your address.",
@@ -2230,6 +2232,8 @@ export const translations = {
         errClerkInvalidCode: "رمز التحقق غير صحيح. حاول مجدداً.",
         errClerkExpiredCode: "انتهت صلاحية هذا الرمز. اطلب رمزاً جديداً.",
         errClerkRateLimit: "محاولات كثيرة. انتظر قليلاً وحاول مجدداً.",
+        authLoadFailed: "نظام تسجيل الدخول يتأخّر في التحميل — قد يكون سبب ذلك شبكتك أو إضافة في المتصفّح تحجبه.",
+        authReload: "أعد تحميل الصفحة",
         // Auth — verify email screen
         verifyEmailTitle: "تحقق من بريدك الإلكتروني",
         verifyEmailSubtitle: "أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه لك للتأكيد.",
@@ -3812,6 +3816,8 @@ export const translations = {
         errClerkInvalidCode: "کۆدی پشتڕاستکردنەوە هەڵەیە. دووبارە هەوڵ بدەرەوە.",
         errClerkExpiredCode: "ئەم کۆدە بەسەرچوو. کۆدێکی نوێ بخوازە.",
         errClerkRateLimit: "هەوڵدانی زۆر. تکایە چاوەڕێ بکە و دووبارە هەوڵ بدەرەوە.",
+        authLoadFailed: "سیستەمی چوونەژوورەوە زۆر خایاندی بۆ بارکردن — لەوانەیە ئینتەرنێتەکەت یان زیادکراوێکی وێبگەڕ ڕێی لێ بگرێت.",
+        authReload: "پەڕەکە دووبارە بارکە",
         // Auth — verify email screen
         verifyEmailTitle: "ئیمەیڵەکەت پشتڕاست بکەرەوە",
         verifyEmailSubtitle: "کۆدە ٦ ژمارەییەکە کە ناردمان داخل بکە بۆ پشتڕاستکردنەوە.",

@@ -15,7 +15,7 @@ const EMAIL_RX = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const Signup = () => {
     const { t } = useLanguage();
     const navigate = useNavigate();
-    const { signup, isAuthenticated, loading, error, clearError, refreshSession } = useAuth();
+    const { signup, isAuthenticated, submitting, authReady, error, clearError, refreshSession } = useAuth();
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -96,7 +96,7 @@ const Signup = () => {
 
                 {/* Straight to Onboarding: a new account always needs it, and Onboarding
                     bounces anyone who doesn't to /dashboard — so this drops a whole hop. */}
-                <AuthSocialButtons mode="signUp" redirectComplete="/onboarding" disabled={loading} />
+                <AuthSocialButtons mode="signUp" redirectComplete="/onboarding" disabled={submitting} />
 
                 <label className="auth-field">
                     <span className="auth-field__label">{t('fullNameLabel')}</span>
@@ -107,7 +107,7 @@ const Signup = () => {
                         onChange={(e) => setName(e.target.value)}
                         placeholder={t('fullNamePlaceholder')}
                         className={`auth-input ${fieldErrors.name ? 'auth-input--error' : ''}`}
-                        disabled={loading}
+                        disabled={submitting}
                     />
                     {fieldErrors.name && <span className="auth-field__error">{fieldErrors.name}</span>}
                 </label>
@@ -121,7 +121,7 @@ const Signup = () => {
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder={t('emailPlaceholder')}
                         className={`auth-input ${fieldErrors.email ? 'auth-input--error' : ''}`}
-                        disabled={loading}
+                        disabled={submitting}
                     />
                     {fieldErrors.email && <span className="auth-field__error">{fieldErrors.email}</span>}
                 </label>
@@ -136,7 +136,7 @@ const Signup = () => {
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder={t('passwordPlaceholder')}
                             className={`auth-input ${fieldErrors.password ? 'auth-input--error' : ''}`}
-                            disabled={loading}
+                            disabled={submitting}
                         />
                         <button
                             type="button"
@@ -160,7 +160,7 @@ const Signup = () => {
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         placeholder={t('confirmPasswordPlaceholder')}
                         className={`auth-input ${fieldErrors.confirmPassword ? 'auth-input--error' : ''}`}
-                        disabled={loading}
+                        disabled={submitting}
                     />
                     {fieldErrors.confirmPassword && <span className="auth-field__error">{fieldErrors.confirmPassword}</span>}
                 </label>
@@ -174,8 +174,8 @@ const Signup = () => {
                     <span>{t('rememberMe')}</span>
                 </label>
 
-                <button type="submit" className="auth-submit" disabled={loading}>
-                    {loading ? t('creatingAccount') : t('createAccount')}
+                <button type="submit" className="auth-submit" disabled={submitting || !authReady}>
+                    {submitting ? t('creatingAccount') : t('createAccount')}
                 </button>
             </form>
         </AuthShell>

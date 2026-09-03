@@ -11,7 +11,7 @@ const CODE_LEN = 6;
 const ForgotPassword = () => {
     const { t } = useLanguage();
     const navigate = useNavigate();
-    const { forgotPassword, resetPassword, loading, error, clearError } = useAuth();
+    const { forgotPassword, resetPassword, submitting, authReady, error, clearError } = useAuth();
 
     // step: 'request' (إدخال البريد) → 'reset' (إدخال الكود + كلمة مرور جديدة)
     const [step, setStep] = useState('request');
@@ -102,13 +102,13 @@ const ForgotPassword = () => {
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder={t('emailPlaceholder')}
                             className={`auth-input ${fieldError ? 'auth-input--error' : ''}`}
-                            disabled={loading}
+                            disabled={submitting}
                         />
                         {fieldError && <span className="auth-field__error">{fieldError}</span>}
                     </label>
 
-                    <button type="submit" className="auth-submit" disabled={loading}>
-                        {loading ? t('sending') : t('sendResetLink')}
+                    <button type="submit" className="auth-submit" disabled={submitting || !authReady}>
+                        {submitting ? t('sending') : t('sendResetLink')}
                     </button>
                 </form>
             ) : (
@@ -134,7 +134,7 @@ const ForgotPassword = () => {
                             onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, CODE_LEN))}
                             placeholder="••••••"
                             className="auth-input"
-                            disabled={loading}
+                            disabled={submitting}
                             maxLength={CODE_LEN}
                         />
                     </label>
@@ -148,7 +148,7 @@ const ForgotPassword = () => {
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder={t('passwordPlaceholder')}
                             className="auth-input"
-                            disabled={loading}
+                            disabled={submitting}
                         />
                     </label>
 
@@ -161,13 +161,13 @@ const ForgotPassword = () => {
                             onChange={(e) => setConfirm(e.target.value)}
                             placeholder={t('passwordPlaceholder')}
                             className={`auth-input ${fieldError ? 'auth-input--error' : ''}`}
-                            disabled={loading}
+                            disabled={submitting}
                         />
                         {fieldError && <span className="auth-field__error">{fieldError}</span>}
                     </label>
 
-                    <button type="submit" className="auth-submit" disabled={loading}>
-                        {loading ? t('resetting') : t('resetPasswordSubmit')}
+                    <button type="submit" className="auth-submit" disabled={submitting || !authReady}>
+                        {submitting ? t('resetting') : t('resetPasswordSubmit')}
                     </button>
                 </form>
             )}

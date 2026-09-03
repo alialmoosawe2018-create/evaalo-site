@@ -12,7 +12,7 @@ const Login = () => {
     const { t } = useLanguage();
     const navigate = useNavigate();
     const location = useLocation();
-    const { login, isAuthenticated, loading, error, clearError } = useAuth();
+    const { login, isAuthenticated, submitting, authReady, clerkTimedOut, error, clearError } = useAuth();
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -75,7 +75,20 @@ const Login = () => {
                     <div className="auth-alert" role="alert">{friendlyError(error)}</div>
                 )}
 
-                <AuthSocialButtons mode="signIn" redirectComplete={from} disabled={loading} />
+                {clerkTimedOut && (
+                    <div className="auth-alert" role="alert">
+                        {t('authLoadFailed')}{' '}
+                        <button
+                            type="button"
+                            className="auth-link"
+                            onClick={() => window.location.reload()}
+                        >
+                            {t('authReload')}
+                        </button>
+                    </div>
+                )}
+
+                <AuthSocialButtons mode="signIn" redirectComplete={from} disabled={submitting || !authReady} />
 
                 <label className="auth-field">
                     <span className="auth-field__label">{t('emailLabel')}</span>
@@ -86,7 +99,7 @@ const Login = () => {
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder={t('emailPlaceholder')}
                         className={`auth-input ${fieldErrors.email ? 'auth-input--error' : ''}`}
-                        disabled={loading}
+                        disabled={submitting}
                     />
                     {fieldErrors.email && <span className="auth-field__error">{fieldErrors.email}</span>}
                 </label>
@@ -101,7 +114,7 @@ const Login = () => {
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder={t('passwordPlaceholder')}
                             className={`auth-input ${fieldErrors.password ? 'auth-input--error' : ''}`}
-                            disabled={loading}
+                            disabled={submitting}
                         />
                         <button
                             type="button"
@@ -133,9 +146,9 @@ const Login = () => {
                 <button
                     type="submit"
                     className="auth-submit"
-                    disabled={loading}
+                    disabled={submitting || !authReady}
                 >
-                    {loading ? t('signingIn') : t('signIn')}
+                    {submitting ? t('signingIn') : t('signIn')}
                 </button>
             </form>
         </AuthShell>
