@@ -1,0 +1,32 @@
+name: checks
+
+# Runs the same gate as `npm run check` locally: backend type-check, frontend
+# lint (bug rules only), frontend build. Until now only 7 billing paths were
+# covered by CI, so most changes shipped with nothing verifying them.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Type-check (backend)
+        run: npm run type-check
+
+      - name: Lint (frontend)
+        run: npm run lint --workspace=apps/frontend
+
+      - name: Build (frontend)
+        run: npm run build --workspace=apps/frontend
