@@ -24433,3 +24433,19 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
     }
 }
 
+
+/* ===== Touch devices (iPad / phone): drop GPU-hostile compositing =====
+   Safari on iOS gives every `backdrop-filter` its own compositing layer. This
+   sheet has ~470 of them — on cards, buttons, the sidebar and nav — so an iPad
+   thrashes: scrolling and taps stutter, and a layer that fails to composite is
+   painted as a solid BLACK box (the "dashboard button turns black" report).
+   The frosted-glass look is purely decorative, so drop it exactly where it costs
+   the most. Desktop (fine pointer) keeps it. */
+@media (hover: none), (pointer: coarse) {
+    *,
+    *::before,
+    *::after {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+}
