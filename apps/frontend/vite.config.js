@@ -91,7 +91,31 @@ export default defineConfig(({ mode }) => {
   build: {
     outDir: 'dist',
     /** Sourcemaps only outside production — they expose the full source publicly. */
-    sourcemap: mode !== 'production'
+    sourcemap: mode !== 'production',
+    /**
+     * Split the app out of one ~3.3 MB JS blob into cacheable chunks. The single
+     * bundle made Safari on iPad parse/execute megabytes on every load, which
+     * amplified the touch/scroll/language-switch jank. The translation tables
+     * (~480 KB across translations.js + translations/) and the big vendor libs
+     * rarely change, so isolating them lets the browser cache them across deploys
+     * and shrinks the main app chunk it must parse. This is a bundling change
+     * only — `t()` stays synchronous (the translation chunk is still statically
+     * imported, just delivered as its own file).
+     */
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const nid = id.replace(/\\/g, '/')
+          if (nid.includes('/src/translations')) return 'translations'
+          if (nid.includes('/node_modules/')) {
+            if (nid.includes('@clerk')) return 'vendor-clerk'
+            if (nid.includes('livekit')) return 'vendor-livekit'
+            return 'vendor'
+          }
+          return undefined
+        },
+      },
+    },
   },
   define: {
     global: 'globalThis',
