@@ -79,7 +79,14 @@ export function normalizeStageEvalStringList(raw) {
 export function hasMeaningfulStageEvaluation(e) {
     return Boolean(
         e &&
-            (e.recommendation ||
+            // `hasContent` is set only by the lean
+            // /api/candidates/notification-summary projection, which reports
+            // whether an evaluation exists without shipping its text (the two
+            // narrative fields below are only ever tested for presence here, and
+            // they are the bulk of the payload). Full evaluation objects never
+            // carry this key, so their behaviour is unchanged.
+            (e.hasContent === true ||
+                e.recommendation ||
                 e.overall_score != null ||
                 e.summary ||
                 e.final_hr_evaluation ||

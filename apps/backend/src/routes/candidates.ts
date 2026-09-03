@@ -205,15 +205,21 @@ const EVAL_PREDICATE_KEYS = [
     'final_role_fit',
 ] as const;
 
-/** Keep only the keys `hasMeaningfulStageEvaluation` looks at; null stays null. */
-function projectEvaluation(value: unknown): Record<string, unknown> | null {
+/**
+ * The client only asks "does this stage have a real evaluation?" — it never
+ * reads the content here. Two of the keys it tests (`summary`,
+ * `final_hr_evaluation`) are long narrative text and are the bulk of the
+ * response, so report the answer instead of shipping the evidence:
+ * `{ hasContent: true }`, which `hasMeaningfulStageEvaluation` accepts.
+ */
+function projectEvaluation(value: unknown): { hasContent: true } | null {
     if (!value || typeof value !== 'object') return null;
     const src = value as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
-    for (const k of EVAL_PREDICATE_KEYS) {
-        if (src[k] != null) out[k] = src[k];
-    }
-    return Object.keys(out).length > 0 ? out : null;
+    const meaningful = EVAL_PREDICATE_KEYS.some((k) => {
+        const v = src[k];
+        return typeof v === 'string' ? v.length > 0 : v != null;
+    });
+    return meaningful ? { hasContent: true } : null;
 }
 
 router.get(
