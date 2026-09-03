@@ -2,9 +2,16 @@ import fs from 'fs';
 
 // The n8n API token must come from the environment. It was previously hard-coded
 // here and is therefore burned in git history — it MUST be rotated in n8n.
+// Load the gitignored root .env if present, so the token never has to be exported
+// by hand. process.loadEnvFile is built into Node 20.6+/22+ — no dependency.
+try {
+  process.loadEnvFile(new URL('../.env', import.meta.url));
+} catch {
+  /* no .env here — fall back to a real environment variable */
+}
 const TOKEN = process.env.N8N_API_TOKEN;
 if (!TOKEN) {
-  console.error('Missing N8N_API_TOKEN. Export it before running this script.');
+  console.error('Missing N8N_API_TOKEN. Put it in the gitignored root .env, or export it.');
   process.exit(1);
 }
 const MCP_URL = 'https://n8n.evaalo.com/mcp-server/http';
