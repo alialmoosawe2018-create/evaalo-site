@@ -185,6 +185,12 @@ const AVATAR_MIC_UNMUTE_DELAY_MS =
     _envMicDelay != null && _envMicDelay !== '' && !Number.isNaN(Number(_envMicDelay))
         ? Number(_envMicDelay)
         : 200;
+/** إعادة محاولة فتح الميك: بوّابة الفتح قد تبقى مغلقة بعد انقضاء التأخير أعلاه، لأن
+ *  ActiveSpeakers من LiveKit و lk.agent.state كلاهما يتأخّر خلف ذيل صوت الأفاتار.
+ *  نستطلع البوّابة بحدّ أقصى بدل محاولة واحدة تستسلم وتترك الميك مكتوماً. */
+const MIC_UNMUTE_RETRY_MS = 120;
+const MIC_UNMUTE_MAX_WAIT_MS = 2500;
+
 /** عند انتهاء صوت الأفاتار فعلياً: كم ننتظر قبل عرض listening إذا بقي lk.agent.state متأخراً على speaking. */
 const _envAgentUiAudioIdle = import.meta.env?.VITE_AGENT_STATE_AUDIO_IDLE_MS;
 const AGENT_UI_AUDIO_IDLE_MS =
@@ -704,19 +710,24 @@ const VideoInterviewCall = () => {
             clearTimeout(avatarMicUnmuteTimerRef.current);
             avatarMicUnmuteTimerRef.current = null;
         }
-        avatarMicUnmuteTimerRef.current = window.setTimeout(() => {
-            if (!canEnableMicNow()) {
-                avatarMicUnmuteTimerRef.current = window.setTimeout(() => {
-                    avatarMicUnmuteTimerRef.current = null;
-                    if (canEnableMicNow() && micTrackRef.current) {
-                        micTrackRef.current.enabled = true;
-                    }
-                }, 120);
+        // Previously this retried the gate exactly once and then gave up. When the
+        // avatar's audio tail outlived that single retry the mic stayed disabled
+        // until some later room event happened to fire — the candidate speaks and
+        // nothing is heard for seconds. Poll the gate instead, with a ceiling so a
+        // stuck `speaking` state cannot hold the mic shut forever.
+        let waitedMs = 0;
+        const tryUnmute = () => {
+            avatarMicUnmuteTimerRef.current = null;
+            if (!isInterviewActiveRef.current) return;
+            if (canEnableMicNow()) {
+                if (micTrackRef.current) micTrackRef.current.enabled = true;
                 return;
             }
-            avatarMicUnmuteTimerRef.current = null;
-            if (micTrackRef.current) micTrackRef.current.enabled = true;
-        }, AVATAR_MIC_UNMUTE_DELAY_MS);
+            if (waitedMs >= MIC_UNMUTE_MAX_WAIT_MS) return;
+            waitedMs += MIC_UNMUTE_RETRY_MS;
+            avatarMicUnmuteTimerRef.current = window.setTimeout(tryUnmute, MIC_UNMUTE_RETRY_MS);
+        };
+        avatarMicUnmuteTimerRef.current = window.setTimeout(tryUnmute, AVATAR_MIC_UNMUTE_DELAY_MS);
     }, [canEnableMicNow]);
 
     const ensureAvatarLivekitVideoElement = useCallback((container) => {
