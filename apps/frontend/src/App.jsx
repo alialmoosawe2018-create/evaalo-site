@@ -52,6 +52,8 @@ function MaybeClerkProvider({ children }) {
     );
 }
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
+import NotFound from './pages/NotFound';
 import Navigation from './components/Navigation';
 import InsufficientCreditsToast from './components/InsufficientCreditsToast';
 import Login from './pages/Login';
@@ -154,6 +156,7 @@ function App() {
                             <InsufficientCreditsToast />
                             <CandidateInterviewBodyClass />
                             <AppBottomNav />
+                            <ErrorBoundary>
                             <Routes>
                                 {/* Public pages */}
                                 <Route path="/" element={<Home />} />
@@ -212,7 +215,10 @@ function App() {
                                 <Route path="/account/billing/success" element={<ProtectedRoute><AccountBillingSuccess /></ProtectedRoute>} />
                                 <Route path="/account/billing/cancel" element={<ProtectedRoute><AccountBillingCancel /></ProtectedRoute>} />
                                 <Route path="/account/members" element={<ProtectedRoute><AccountMembers /></ProtectedRoute>} />
+                                {/* Catch-all: an unknown URL used to render the shell and nothing else. */}
+                                <Route path="*" element={<NotFound />} />
                             </Routes>
+                            </ErrorBoundary>
                             </BillingProvider>
                             </OrganizationProvider>
                         </AuthProvider>

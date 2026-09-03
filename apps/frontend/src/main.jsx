@@ -2,10 +2,14 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { API_BASE_URL } from './config/apiBase.js'
+import { initErrorReporter, reportError } from './observability/errorReporter'
 import './index.css'
 
 // Helps verify production API routing after deploy (visible once in console).
 console.info('[evaalo] API_BASE_URL =', API_BASE_URL)
+
+// Before anything renders, so even a crash during the first paint is captured.
+initErrorReporter()
 
 /**
  * A deploy replaces every content-hashed chunk, so a tab opened beforehand can
@@ -26,6 +30,10 @@ window.addEventListener('vite:preloadError', (event) => {
   } catch {
     /* storage unavailable (private mode) — treat as never reloaded */
   }
+  reportError({
+    message: `vite:preloadError ${event?.payload?.message || ''}`.trim(),
+    severity: 'warn',
+  })
   if (Date.now() - lastReloadAt < CHUNK_RELOAD_COOLDOWN_MS) return
   event.preventDefault()
   try {

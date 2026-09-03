@@ -1,7 +1,12 @@
 import fs from 'fs';
 
-const TOKEN =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3YjBjOWQxMy0zYmY4LTQ5OTQtOTgxMi0zNzllOWQzMDRjMTciLCJpc3MiOiJuOG4iLCJhdWQiOiJtY3Atc2VydmVyLWFwaSIsImp0aSI6ImU5NTBiMTM3LWFiOGEtNDNmYy05NzlkLWU4NjIyOWQ1MzAxMSIsImlhdCI6MTc4MjczODQ0N30.tACr4RlFaKPjGski60FO27pGpjkc42K7d9EC-F7Um7Q';
+// The n8n API token must come from the environment. It was previously hard-coded
+// here and is therefore burned in git history — it MUST be rotated in n8n.
+const TOKEN = process.env.N8N_API_TOKEN;
+if (!TOKEN) {
+  console.error('Missing N8N_API_TOKEN. Export it before running this script.');
+  process.exit(1);
+}
 const MCP_URL = 'https://n8n.evaalo.com/mcp-server/http';
 
 async function mcpCall(toolName, args) {

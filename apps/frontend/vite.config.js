@@ -10,7 +10,8 @@ function injectRuntimeConfig(apiBase) {
   return {
     name: 'inject-runtime-config',
     transformIndexHtml(html) {
-      const script = `<script>window.__EVAALO_API_BASE__=${JSON.stringify(apiBase)};</script>`
+      const buildId = new Date().toISOString()
+      const script = `<script>window.__EVAALO_API_BASE__=${JSON.stringify(apiBase)};window.__EVAALO_BUILD__=${JSON.stringify(buildId)};</script>`
       return html.replace('</head>', `    ${script}\n</head>`)
     },
   }

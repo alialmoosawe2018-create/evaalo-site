@@ -644,6 +644,9 @@ export const translations = {
         errClerkRateLimit: "Too many attempts. Please wait a moment and try again.",
         authLoadFailed: "The sign-in system is taking too long to load — your network or a browser extension may be blocking it.",
         authReload: "Reload the page",
+        notFoundTitle: "Page not found",
+        notFoundBody: "The link may be broken or the page may have moved.",
+        notFoundHome: "Back to home",
         // Auth — verify email screen
         verifyEmailTitle: "Verify your email",
         verifyEmailSubtitle: "Enter the 6-digit code we just sent to confirm your address.",
@@ -2234,6 +2237,9 @@ export const translations = {
         errClerkRateLimit: "محاولات كثيرة. انتظر قليلاً وحاول مجدداً.",
         authLoadFailed: "نظام تسجيل الدخول يتأخّر في التحميل — قد يكون سبب ذلك شبكتك أو إضافة في المتصفّح تحجبه.",
         authReload: "أعد تحميل الصفحة",
+        notFoundTitle: "الصفحة غير موجودة",
+        notFoundBody: "قد يكون الرابط غير صحيح أو أن الصفحة نُقلت.",
+        notFoundHome: "العودة للرئيسية",
         // Auth — verify email screen
         verifyEmailTitle: "تحقق من بريدك الإلكتروني",
         verifyEmailSubtitle: "أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه لك للتأكيد.",
@@ -3818,6 +3824,9 @@ export const translations = {
         errClerkRateLimit: "هەوڵدانی زۆر. تکایە چاوەڕێ بکە و دووبارە هەوڵ بدەرەوە.",
         authLoadFailed: "سیستەمی چوونەژوورەوە زۆر خایاندی بۆ بارکردن — لەوانەیە ئینتەرنێتەکەت یان زیادکراوێکی وێبگەڕ ڕێی لێ بگرێت.",
         authReload: "پەڕەکە دووبارە بارکە",
+        notFoundTitle: "پەڕەکە نەدۆزرایەوە",
+        notFoundBody: "لەوانەیە بەستەرەکە هەڵە بێت یان پەڕەکە گوازراوەتەوە.",
+        notFoundHome: "گەڕانەوە بۆ سەرەکی",
         // Auth — verify email screen
         verifyEmailTitle: "ئیمەیڵەکەت پشتڕاست بکەرەوە",
         verifyEmailSubtitle: "کۆدە ٦ ژمارەییەکە کە ناردمان داخل بکە بۆ پشتڕاستکردنەوە.",

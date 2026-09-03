@@ -8,6 +8,7 @@
  */
 
 import { authStorage } from './authStorage';
+import { reportError } from '../observability/errorReporter';
 
 /** Dev: use Vite /api proxy on localhost and same-LAN IPs (mobile testing). */
 function isDevProxyHost(hostname) {
@@ -204,6 +205,13 @@ async function sendOnce(url, { method, body, formData, headers, signal }, forceF
             signal,
         });
     } catch (networkErr) {
+        // Network-level failure (offline, DNS, CORS, aborted). This is the only place
+        // it can be observed, so record it before it becomes an ApiError.
+        reportError({
+            message: `API network error: ${method} ${url} — ${networkErr?.message || 'network_error'}`,
+            severity: 'error',
+            httpStatus: 0,
+        });
         throw new ApiError(networkErr?.message || 'network_error', { status: 0 });
     }
 
@@ -248,6 +256,15 @@ async function send(path, options) {
     if (!response.ok) {
         emitInsufficientCredits(response.status, data);
         const message = data?.message || data?.error || `request_failed_${response.status}`;
+        // Every 4xx/5xx the app sees funnels through here — the single best place to
+        // notice a broken endpoint. 401/402 are expected control flow, not defects.
+        if (response.status !== 401 && response.status !== 402) {
+            reportError({
+                message: `API ${response.status}: ${message}`,
+                severity: response.status >= 500 ? 'error' : 'warn',
+                httpStatus: response.status,
+            });
+        }
         throw new ApiError(message, { status: response.status, data });
     }
 

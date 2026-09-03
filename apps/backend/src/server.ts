@@ -29,6 +29,8 @@ import recruitmentCampaignRoutes, {
     postVideoAiCompareN8nInbound,
 } from './routes/recruitmentCampaigns.js';
 import healthRoutes from './routes/health.js';
+import siteErrorRoutes from './routes/siteErrors.js';
+import { recordSiteErrorAsync } from './services/siteErrorService.js';
 import orgChartPdfRoutes from './routes/orgChartPdf.js';
 import orgChartRoutes from './routes/orgChart.js';
 import videoInterviewRoutes from './routes/videoInterview.js';
@@ -325,6 +327,7 @@ app.post('/webhook/n8n/campaign-compare/stage3', (req, res) =>
     postCampaignCompareN8nInbound(req, res, 'stage3')
 );
 app.use('/api/health', healthRoutes);
+app.use('/api/site-errors', siteErrorRoutes);
 app.use('/api/org-chart', orgChartRoutes);
 app.use('/api/org-chart', orgChartPdfRoutes);
 
@@ -1510,6 +1513,46 @@ connectDatabase().then(() => {
             .catch((e) => console.warn(`⚠️ Failed to start domain-event sweep: ${e?.message || e}`));
     }
 
+    // ── Terminal middleware: must be registered AFTER every route ──────────────
+    // Unmatched /api path -> a real 404 (previously fell through to nothing).
+    app.use('/api', (req, res) => {
+        recordSiteErrorAsync({
+            source: 'backend',
+            severity: 'warn',
+            message: `404 ${req.method} ${req.originalUrl}`,
+            route: req.originalUrl,
+            method: req.method,
+            httpStatus: 404,
+            userAgent: req.get('user-agent') || undefined,
+            ip: req.ip,
+        });
+        res.status(404).json({ success: false, message: 'Not found' });
+    });
+
+    // Express error handler. Without this, anything thrown in a route was swallowed
+    // by Express's default handler and left no trace anywhere — the single biggest
+    // observability gap in the backend. The 4-arg signature is required.
+    app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+        const status = Number(err?.status || err?.statusCode) || 500;
+        console.error(`❌ [${req.method} ${req.originalUrl}]`, err?.message || err);
+        recordSiteErrorAsync({
+            source: 'backend',
+            severity: status >= 500 ? 'error' : 'warn',
+            message: err?.message ? String(err.message) : 'Unhandled route error',
+            stack: typeof err?.stack === 'string' ? err.stack : undefined,
+            route: req.originalUrl,
+            method: req.method,
+            httpStatus: status,
+            userAgent: req.get('user-agent') || undefined,
+            ip: req.ip,
+        });
+        if (res.headersSent) return;
+        res.status(status).json({
+            success: false,
+            message: status >= 500 ? 'Internal server error' : (err?.message || 'Request failed'),
+        });
+    });
+
     httpServer.listen(PORT, LISTEN_HOST, () => {
         const lan = getLanIPv4();
         console.log(`🚀 Server listening on http://${LISTEN_HOST}:${PORT}`);
@@ -1579,11 +1622,24 @@ connectDatabase().then(() => {
 // معالجة الأخطاء
 // ============================================
 
-process.on('unhandledRejection', (error) => {
+process.on('unhandledRejection', (error: any) => {
     console.error('❌ Unhandled Rejection:', error);
+    recordSiteErrorAsync({
+        source: 'backend',
+        severity: 'error',
+        message: `Unhandled Rejection: ${error?.message || error}`,
+        stack: typeof error?.stack === 'string' ? error.stack : undefined,
+    });
 });
 
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', (error: any) => {
     console.error('❌ Uncaught Exception:', error);
-    process.exit(1);
+    // Best-effort write, then give the driver a moment before we die.
+    recordSiteErrorAsync({
+        source: 'backend',
+        severity: 'error',
+        message: `Uncaught Exception: ${error?.message || error}`,
+        stack: typeof error?.stack === 'string' ? error.stack : undefined,
+    });
+    setTimeout(() => process.exit(1), 250);
 });
