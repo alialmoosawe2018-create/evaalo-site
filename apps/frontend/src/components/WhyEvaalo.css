@@ -194,6 +194,19 @@ body.rtl-text .why-positioning {
     .why-evaalo {
         padding: 64px 20px;
     }
+    /* The radar is 440px — on a phone that spills over the centered heading. Shrink
+       it, fade it, and tuck it into the top corner so it stays decorative. */
+    .why-radar {
+        width: 200px;
+        height: 200px;
+        top: -64px;
+        right: -84px;
+        opacity: 0.28;
+    }
+    body.rtl-text .why-radar {
+        right: auto;
+        left: -84px;
+    }
     .why-statement {
         padding: 24px 22px;
     }

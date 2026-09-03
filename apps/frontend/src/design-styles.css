@@ -10599,13 +10599,22 @@ body.rtl-text .recent-interviews-card .dashboard-card-title {
     .vi-interview-controls {
         margin-top: 20px;
         padding: 0 8px max(8px, env(safe-area-inset-bottom));
+        /* Center the end button instead of letting it stretch full-width. */
+        display: flex;
+        justify-content: center;
     }
 
+    /* The base rule is width:100% (full-bleed) — on a phone that reads as an
+       oversized bar. Size it as a real button: content-width, centered, with a
+       sane min/max. Shared by the reception + video-interview end buttons. */
     .vi-end-interview-btn {
-        min-height: 48px;
-        padding: 12px 14px;
-        font-size: 14px;
-        border-radius: 10px;
+        width: auto;
+        min-width: 160px;
+        max-width: 100%;
+        min-height: 46px;
+        padding: 12px 26px;
+        font-size: 15px;
+        border-radius: 12px;
     }
 }
 
