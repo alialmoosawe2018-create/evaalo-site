@@ -110,6 +110,12 @@ const VoiceInterviewStage = ({
   recordingNotice = null,
   audioBlockedMessage = 'Sound is paused on this device.',
   audioBlockedAction = 'Tap to hear the interviewer',
+  // Both the live and completed screens were hardcoded dir="ltr", so the Arabic
+  // voice interview — and its completion screen — rendered left-to-right while the
+  // video stage next to it respected the language. Callers know the language; this
+  // component does not, so it takes the direction and keeps 'ltr' as the default so
+  // nothing changes for a caller that does not pass one.
+  dir = 'ltr',
   completedTitle = 'The interview has ended',
   completedMessage = null,
 }) => {
@@ -137,7 +143,7 @@ const VoiceInterviewStage = ({
   // إتمام مستقلّة — لا مؤقّت مجمّد ولا محادثة أسفلها، بل صفحة نهاية لوحدها.
   if (interviewComplete) {
     return (
-      <div className="voice-interview-stage" dir="ltr">
+      <div className="voice-interview-stage" dir={dir}>
         <div className="voice-interview-stage__card">
           <div className="voice-interview-stage__shimmer" aria-hidden />
           <div
@@ -185,7 +191,7 @@ const VoiceInterviewStage = ({
   }
 
   return (
-    <div className="voice-interview-stage" dir="ltr">
+    <div className="voice-interview-stage" dir={dir}>
       <div className="voice-interview-stage__card">
         <div className="voice-interview-stage__shimmer" aria-hidden />
         {/* Header */}

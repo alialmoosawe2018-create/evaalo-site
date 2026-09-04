@@ -130,6 +130,7 @@ const Interview = () => {
 
   return (
     <VoiceInterviewStage
+      dir={isRtl ? 'rtl' : 'ltr'}
       title={t('publicScreening_title')}
       subtitle={subtitle}
       candidateName={candidateCardName}

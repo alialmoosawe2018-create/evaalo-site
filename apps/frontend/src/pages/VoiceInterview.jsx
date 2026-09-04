@@ -126,6 +126,13 @@ const VoiceInterview = () => {
             bad: 'stageEval_rateBad',
         };
         const s = String(val).trim();
+        // The Stage 2 scorer emits an English literal when a skill had no evidence,
+        // so "Not Assessed" sat untranslated in an otherwise Arabic row. It is a
+        // rating like any other — map it here rather than at each cell, since every
+        // column in this table already goes through localizeRating.
+        if (/^(not[\s_-]?assessed|not[\s_-]?evaluated|unassessed|n\/?a)$/i.test(s)) {
+            return t('videoInterview_notAssessed');
+        }
         const exact = RATE[s.toLowerCase()];
         if (exact) return t(exact);
         // "Word (3/10)" / "Word - ..." → اعرض الكلمة المعرّبة فقط (بلا الدرجة)،

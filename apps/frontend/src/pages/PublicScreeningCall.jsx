@@ -145,6 +145,7 @@ const PublicScreeningCall = () => {
         recordingNotice={t('voiceInterview_recordingNotice')}
         audioBlockedMessage={t('voiceInterview_audioBlocked')}
         audioBlockedAction={t('voiceInterview_audioBlockedAction')}
+        dir={isRtl ? 'rtl' : 'ltr'}
         completedTitle={t('voiceInterview_completedTitle')}
         completedMessage={t('voiceInterview_completedMessage')}
       />
