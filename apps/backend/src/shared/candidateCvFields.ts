@@ -56,6 +56,13 @@ export const CANDIDATE_CV_FIELDS: readonly CvField[] = [
         type: 'tel',
     },
     {
+        id: 'location',
+        label: 'Location',
+        description:
+            'Where the candidate is based — city and country if both are present (e.g. "Baghdad, Iraq"). Use the address/contact block, not an employer address.',
+        type: 'text',
+    },
+    {
         id: 'company_applied_to',
         label: 'Company applied to',
         description:

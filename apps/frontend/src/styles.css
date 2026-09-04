@@ -2247,6 +2247,169 @@ textarea.error {
     text-align: center;
 }
 
+/* ── رفع السيفي والصورة في الاستمارة العامة ── */
+.form-page.public-screening-intake .psc-upload {
+    margin: 0 0 22px;
+    padding: 16px;
+    background: rgba(240, 253, 244, 0.6);
+    border: 1px dashed rgba(34, 197, 94, 0.45);
+    border-radius: 12px;
+}
+
+.form-page.public-screening-intake .psc-upload__head {
+    margin-bottom: 12px;
+}
+
+.form-page.public-screening-intake .psc-upload__title {
+    margin: 0 0 4px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.form-page.public-screening-intake .psc-upload__hint {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: #475569;
+}
+
+/* المدخل الحقيقي مخفي — الزر هو الواجهة */
+.form-page.public-screening-intake .psc-upload__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.form-page.public-screening-intake .psc-upload__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.form-page.public-screening-intake .psc-upload__btn {
+    flex: none;
+    padding: 9px 16px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    font-weight: 600;
+    color: #15803d;
+    background: #fff;
+    border: 2px solid rgba(34, 197, 94, 0.55);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.form-page.public-screening-intake .psc-upload__btn:hover:not(:disabled) {
+    background: rgba(220, 252, 231, 0.8);
+    border-color: rgba(34, 197, 94, 0.85);
+}
+
+.form-page.public-screening-intake .psc-upload__btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.form-page.public-screening-intake .psc-upload__file {
+    flex: 1 1 160px;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: #0f172a;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.form-page.public-screening-intake .psc-upload__formats {
+    flex: 1 1 160px;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.form-page.public-screening-intake .psc-upload__remove {
+    flex: none;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    font-weight: 600;
+    color: #b91c1c;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.form-page.public-screening-intake .psc-upload__note {
+    margin: 10px 0 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.form-page.public-screening-intake .psc-upload__note--ok {
+    color: #15803d;
+}
+
+.form-page.public-screening-intake .psc-upload__note--error {
+    color: #b45309;
+}
+
+.form-page.public-screening-intake .psc-form__heading--sub {
+    margin-top: 6px;
+    margin-bottom: 4px;
+    font-size: 1.02rem;
+}
+
+.form-page.public-screening-intake .psc-form__subhint {
+    margin: 0 0 16px;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.form-page.public-screening-intake .psc-photo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.form-page.public-screening-intake .psc-photo__preview {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    background: #f1f5f9;
+    border: 2px solid rgba(134, 239, 172, 0.65);
+    border-radius: 50%;
+}
+
+.form-page.public-screening-intake .psc-photo__placeholder {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    color: #94a3b8;
+    background: #f1f5f9;
+    border: 2px dashed rgba(148, 163, 184, 0.6);
+    border-radius: 50%;
+}
+
+.form-page.public-screening-intake .psc-photo__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
 .form-page.public-screening-intake .psc-submit-wrap {
     display: flex;
     justify-content: center;

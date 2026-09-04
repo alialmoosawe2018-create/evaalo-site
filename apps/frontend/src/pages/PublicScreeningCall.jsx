@@ -10,6 +10,13 @@ import {
     publicScreeningCreateErrorMessage,
     resolvePublicScreeningCandidateId,
 } from '../utils/publicScreeningIntake.js';
+import {
+    buildPublicIntakeFormData,
+    createPublicIntakeState,
+    isValidEmail,
+    missingRequiredFields,
+} from '../utils/publicIntakeForm.js';
+import PublicIntakeFields from '../components/PublicIntakeFields.jsx';
 import useVoiceInterview from '../hooks/useVoiceInterview';
 import VoiceInterviewStage from '../components/VoiceInterviewStage';
 import VoiceInterviewPrepTips from '../components/VoiceInterviewPrepTips';
@@ -38,9 +45,13 @@ const PublicScreeningCall = () => {
   const campaignId = searchParams.get('campaignId') || undefined;
   const position = searchParams.get('position') || undefined;
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  // The role from the link pre-fills the field the candidate can still correct.
+  const [intake, setIntake] = useState(() => {
+    const initial = createPublicIntakeState();
+    if (position) initial.details.position_applied_for = position;
+    return initial;
+  });
+  const fullName = intake.details.full_name;
   const [creating, setCreating] = useState(false);
   const [formError, setFormError] = useState(null);
   const [candidateId, setCandidateId] = useState(null);
@@ -68,34 +79,27 @@ const PublicScreeningCall = () => {
   const handleStart = async (e) => {
     e?.preventDefault?.();
     setFormError(null);
-    const name = fullName.trim();
-    const mail = email.trim();
-    const tel = phone.trim();
-    if (!name || !mail || !tel) {
+    if (missingRequiredFields(intake.details).length > 0) {
       setFormError(t('publicScreening_required'));
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) {
+    if (!isValidEmail(intake.details.email)) {
       setFormError(t('publicScreening_invalidEmail'));
       return;
     }
     setCreating(true);
     try {
-      const payload = {
-        full_name: name,
-        email: mail,
-        phone: tel,
-        position_applied_for: (position || '').trim() || 'General',
-        years_of_experience: 'N/A',
+      // multipart, not JSON — it is the only body shape that carries the CV
+      // and the photo. /api/candidates accepts both, so the text-only case is
+      // unchanged. Let the browser set the boundary: no Content-Type header.
+      const body = buildPublicIntakeFormData(intake, {
         entryStage: 'audio',
         sourceType: 'public_screening',
-        agreeToTerms: true,
-      };
-      if (campaignId) payload.campaignId = campaignId;
+        campaignId,
+      });
       const res = await fetch(`${API_BASE}/api/candidates`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body,
       });
       const result = await res.json().catch(() => ({}));
       const newId = resolvePublicScreeningCandidateId(res, result);
@@ -205,49 +209,13 @@ const PublicScreeningCall = () => {
           <form id="publicScreeningIntakeForm" className="psc-form" onSubmit={handleStart} noValidate>
             <h2 className="psc-form__heading">{t('publicScreening_sectionYourInfo')}</h2>
 
-            <div className="psc-fields">
-              <div className="form-group psc-field psc-field--full">
-                <label htmlFor="psc-name">{t('publicScreening_fullName')}</label>
-                <input
-                  id="psc-name"
-                  type="text"
-                  name="full_name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder={t('publicScreening_fullNamePh')}
-                  autoComplete="name"
-                  required
-                />
-              </div>
-              <div className="form-group psc-field">
-                <label htmlFor="psc-email">{t('publicScreening_email')}</label>
-                <input
-                  id="psc-email"
-                  type="email"
-                  name="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={t('publicScreening_emailPh')}
-                  autoComplete="email"
-                  dir="ltr"
-                  required
-                />
-              </div>
-              <div className="form-group psc-field">
-                <label htmlFor="psc-phone">{t('publicScreening_phone')}</label>
-                <input
-                  id="psc-phone"
-                  type="tel"
-                  name="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder={t('publicScreening_phonePh')}
-                  autoComplete="tel"
-                  dir="ltr"
-                  required
-                />
-              </div>
-            </div>
+            <PublicIntakeFields
+              idPrefix="psc"
+              value={intake}
+              onChange={setIntake}
+              disabled={creating}
+              t={t}
+            />
 
             {formError ? (
               <p className="psc-form__error" role="alert">

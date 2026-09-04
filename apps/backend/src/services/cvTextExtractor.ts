@@ -103,3 +103,69 @@ export async function extractTextFromCv(
     }
     return text;
 }
+
+// ── Optional headshot extraction (DOCX only) ────────────────────────────────
+//
+// `pdf-parse` gives us text only, so a PDF CV never yields a photo — the
+// candidate uploads one manually. DOCX embeds its images, and mammoth is
+// already a dependency, so we can pull them out with no new packages.
+//
+// There is no reliable way to know which embedded image *is* the headshot, so
+// we use the one heuristic that holds in practice: the largest image that is
+// big enough to be a photo rather than a logo or an icon.
+
+/** Below this a picture is a logo/icon/bullet, not a headshot. */
+const MIN_PHOTO_BYTES = 20 * 1024;
+/** Above this we would be embedding a huge data URL into the form response. */
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+const PHOTO_MIMES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+
+/**
+ * Best-effort headshot from a DOCX CV, as a `data:` URL.
+ *
+ * Never throws: a CV with no usable image (and any DOCX that mammoth cannot
+ * walk) simply returns `null` and the caller falls back to manual upload.
+ */
+export async function extractPhotoDataUrlFromDocx(
+    buffer: Buffer,
+    mimetype: string,
+    filename?: string
+): Promise<string | null> {
+    if (classify(mimetype, filename) !== 'docx') return null;
+
+    const candidates: Array<{ size: number; dataUrl: string }> = [];
+    try {
+        await mammoth.convertToHtml(
+            { buffer },
+            {
+                convertImage: mammoth.images.imgElement(async (image) => {
+                    try {
+                        const contentType = String(image.contentType || '').toLowerCase();
+                        if (PHOTO_MIMES.has(contentType)) {
+                            const base64 = await image.readAsBase64String();
+                            // base64 inflates by 4/3; close enough to compare sizes.
+                            const size = Math.floor((base64.length * 3) / 4);
+                            if (size >= MIN_PHOTO_BYTES && size <= MAX_PHOTO_BYTES) {
+                                candidates.push({
+                                    size,
+                                    dataUrl: `data:${contentType};base64,${base64}`,
+                                });
+                            }
+                        }
+                    } catch {
+                        /* skip this image, keep walking the document */
+                    }
+                    // We only want the bytes; the generated HTML is discarded.
+                    return { src: '' };
+                }),
+            }
+        );
+    } catch {
+        return null;
+    }
+
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => b.size - a.size);
+    return candidates[0].dataUrl;
+}
