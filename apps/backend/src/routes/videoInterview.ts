@@ -1528,6 +1528,55 @@ router.post('/audio', async (req, res) => {
  * 2. تحديث status إلى 'completed'
  * 3. حفظ endedAt timestamp
  */
+// POST /api/video-interview/heartbeat
+// The transcript lives only in the candidate's browser and is uploaded by /end, so
+// closing the tab loses the whole interview — a real session ended cleanly on the
+// agent side (reason=ok, 28 turns) and was stored with zero turns and no endedAt.
+// The same missing /end also costs money: the stale-lock sweep settles at sweep
+// time, which by construction is past the full allotment, so an abandoned 6-minute
+// interview billed the entire 20-minute cap.
+//
+// This keeps a running copy server-side and stamps a liveness marker the sweep can
+// settle against. Unauthenticated and keyed by sessionId, exactly like /end — same
+// trust model, and it only ever touches a session that is still active.
+router.post('/heartbeat', async (req, res) => {
+    try {
+        const { sessionId, conversationHistory: incomingHistory } = req.body || {};
+        if (!sessionId) {
+            return res.status(400).json({ success: false, message: 'sessionId is required' });
+        }
+        const session = await VideoInterviewSession.findOne({ sessionId }).catch(() => null) as any;
+        // Unknown or already-finished session: accept and do nothing, so a late
+        // beacon from a closing tab can never resurrect or re-open it.
+        if (!session || session.status !== 'active') {
+            return res.json({ success: true, ignored: true });
+        }
+
+        session.lastActivityAt = new Date();
+
+        const normalized: Array<{ role: 'user' | 'assistant'; content: string }> = Array.isArray(incomingHistory)
+            ? incomingHistory
+                .map((m: any) => ({
+                    role: m?.role === 'assistant' ? 'assistant' : 'user' as 'user' | 'assistant',
+                    content: String(m?.content || '').trim(),
+                }))
+                .filter((m: { content: string }) => m.content.length > 0)
+            : [];
+        // Only ever grow. A late or out-of-order beat carrying a shorter transcript
+        // must not truncate what we already hold.
+        if (normalized.length > (session.conversationHistory?.length || 0)) {
+            session.conversationHistory = normalized as any;
+            session.markModified?.('conversationHistory');
+        }
+        await session.save().catch(() => undefined);
+        return res.json({ success: true, turns: session.conversationHistory?.length || 0 });
+    } catch (error: any) {
+        // Never fail the interview over a heartbeat.
+        console.warn(`⚠️ /heartbeat failed: ${error?.message || error}`);
+        return res.json({ success: true, ignored: true });
+    }
+});
+
 router.post('/end', async (req, res) => {
     try {
         const { sessionId, conversationHistory: incomingHistory } = req.body;

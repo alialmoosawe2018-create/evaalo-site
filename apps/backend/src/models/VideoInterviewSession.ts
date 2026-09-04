@@ -76,6 +76,10 @@ export interface IVideoInterviewSession extends Document {
     };
     startedAt: Date;
     endedAt?: Date;
+    /** Last sign of life from the candidate's browser. Lets the stale-lock sweep
+     *  settle an abandoned session at the moment it actually went quiet instead of
+     *  at sweep time, which is always past the full allotment. */
+    lastActivityAt?: Date;
     // ── Video billing (V2) ────────────────────────────────────────────────
     /** Server-authoritative billing clock start (set when the room actually begins). */
     billingStartedAt?: Date;
@@ -201,6 +205,7 @@ const VideoInterviewSessionSchema = new Schema<IVideoInterviewSession>(
         },
         // ── Video billing (V2) ───────────────────────────────────────────
         billingStartedAt: { type: Date },
+        lastActivityAt: { type: Date },
         billingEndedAt: { type: Date },
         maxAllowedVideoSeconds: { type: Number, min: 0 },
         includedVideoSecondsAtStart: { type: Number, min: 0 },

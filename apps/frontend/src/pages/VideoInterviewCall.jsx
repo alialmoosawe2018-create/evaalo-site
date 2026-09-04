@@ -179,6 +179,10 @@ if (typeof global === 'undefined') {
 
 // ✅ LiveKit handles all audio - no MediaRecorder, AudioWorklet, or WebSocket needed
 
+/** كم بين نبضتين تحفظان الترانسكريبت على الخادم. 20 ثانية = فقدان أقصاه 20 ثانية
+ *  من الحوار لو مات التبويب فجأة، مقابل ~3 طلبات في الدقيقة. */
+const VIDEO_HEARTBEAT_MS = 20000;
+
 /** بعد انتهاء كلام الوكيل: تأخير قبل إعادة الميكروفون يقلّل ذيل الصدى؛ قيماً عالية (~400ms+) تُسقط أول كلمات لأن الصوت لا يُرسل للغرفة حتى enabled=true */
 const _envMicDelay = import.meta.env?.VITE_AVATAR_MIC_UNMUTE_DELAY_MS;
 const AVATAR_MIC_UNMUTE_DELAY_MS =
@@ -535,6 +539,44 @@ const VideoInterviewCall = () => {
      * pagehide أكثر موثوقية من beforeunload مع sendBeacon (راجع MDN). نُفضّل sessionId الفعلي
      * لو بدأ المستخدم المقابلة، وإلا نستخدم sessionId الراجع من /prepare.
      */
+    /**
+     * نبضة دورية: تحفظ الترانسكريبت على الخادم أثناء المقابلة بدل الاعتماد على /end.
+     *
+     * The transcript lived only in this tab until /end uploaded it, so an interview
+     * that ended cleanly on the agent side was stored with ZERO turns simply because
+     * the candidate left the tab open instead of clicking end — pagehide never fired,
+     * and the whole interview was lost with nothing to evaluate. The same missing
+     * /end billed the full allotment, because the server-side sweep had no idea when
+     * the session actually went quiet.
+     *
+     * Each beat re-sends the full transcript; the server only ever grows what it
+     * holds, so a dropped or out-of-order beat costs nothing.
+     */
+    useEffect(() => {
+        if (!isInterviewActive) return undefined;
+        const sid = sessionId || prewarmSessionIdRef.current;
+        if (!sid) return undefined;
+
+        const beat = () => {
+            try {
+                fetch(`${API_BASE}/api/video-interview/heartbeat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: sid,
+                        conversationHistory: serializeTranscript(conversationHistoryRef.current),
+                    }),
+                    keepalive: true,
+                }).catch(() => undefined);
+            } catch (_e) {
+                /* a failed heartbeat must never disturb the interview */
+            }
+        };
+        beat();
+        const id = window.setInterval(beat, VIDEO_HEARTBEAT_MS);
+        return () => window.clearInterval(id);
+    }, [isInterviewActive, sessionId]);
+
     useEffect(() => {
         const handlePageHide = () => {
             const sid = sessionId || prewarmSessionIdRef.current;

@@ -333,7 +333,19 @@ export async function sweepStaleVideoLocks(): Promise<void> {
                   ? new Date(session.startedAt).getTime()
                   : now.getTime();
             const cap = session?.maxAllowedVideoSeconds ?? 0;
-            let actualSeconds = Math.floor(Math.max(0, now.getTime() - startMs) / 1000);
+            // Settle at the last sign of life, NOT at sweep time. The sweep only sees
+            // a lock once it has expired — start + maxAllowedVideoSeconds + grace — so
+            // `now - start` always exceeded the cap and every abandoned session was
+            // billed the full allotment. Measured: a 363s interview would have settled
+            // at its 1223s cap, 3.4x what was used.
+            //
+            // lastActivityAt comes from the browser heartbeat; when it is missing (an
+            // old session, or a tab that died before the first beat) fall back to the
+            // previous behaviour rather than guessing low.
+            const endMs = session?.lastActivityAt
+                ? new Date(session.lastActivityAt).getTime()
+                : now.getTime();
+            let actualSeconds = Math.floor(Math.max(0, endMs - startMs) / 1000);
             if (cap > 0) actualSeconds = Math.min(actualSeconds, cap);
 
             // Force-end the provider side so we stop paying for an abandoned room.
