@@ -41,6 +41,7 @@ import {
 } from '../services/headHunterPhotoMirror.js';
 import { getObjectBuffer } from '../services/r2Service.js';
 import { suggestSearchCriteriaHandler } from './suggestSearchCriteriaHandler.js';
+import { buildHeadHunterCompetencyModel } from '../services/headHunterCompetencyModel.js';
 
 const router = Router();
 
@@ -1040,6 +1041,18 @@ router.post('/search', conditionalRequireAuth(), requirePermission('headhunter.s
 
     const inboundSecret = (process.env.N8N_HEADHUNTER_INBOUND_SECRET || '').trim();
 
+    // The competency model of the role being searched for: generated in the
+    // background, never shown to or edited by the recruiter, and sent alongside
+    // their own filters so n8n can rank on what the job actually requires, not
+    // only on the boxes they ticked. Null when the feature is off, unavailable,
+    // or slow — the search then goes out exactly as it did before.
+    const competencyModel = await buildHeadHunterCompetencyModel({
+        position,
+        location,
+        query: rawQuery,
+        criteria: optionalCriteria,
+    });
+
     const payload = {
         searchId,
         organizationId,
@@ -1060,6 +1073,7 @@ router.post('/search', conditionalRequireAuth(), requirePermission('headhunter.s
         optionsPhrases,
         optionsSummaryEn: optionsSummaryEn || '',
         optionsSummaryAr: optionsSummaryAr || '',
+        ...(competencyModel ? { competencyModel } : {}),
         source: 'ai-head-hunter',
         submittedAt,
     };
