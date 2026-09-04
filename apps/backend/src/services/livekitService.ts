@@ -197,6 +197,52 @@ export async function deleteLiveKitRoom(
 }
 
 /**
+ * Delete every other live room belonging to this candidate, keeping `keepRoomName`.
+ *
+ * The interview worker takes ONE job at a time and rejects the rest
+ * (`_on_job_request`: "rejecting job (worker busy)"). /prepare dispatches the agent
+ * into a prewarm room where it waits 60s for a candidate; if /start then fails to
+ * reuse that room — the reuse map is per-process memory, so a restart or a second
+ * instance loses it — a second room is created, the worker is still holding the
+ * prewarm job, and the real dispatch is refused. The candidate then sits in a room
+ * no agent will ever join, which is exactly what happened across three attempts.
+ *
+ * Scanning by name rather than by the remembered room means this still works when
+ * that memory is gone, which is precisely the case that breaks.
+ *
+ * Returns the rooms it removed. Never throws: freeing the worker is best-effort and
+ * must not block starting the interview.
+ */
+export async function deleteOtherCandidateRooms(
+    candidateId: string,
+    keepRoomName: string,
+    scope: LiveKitScope = 'interview'
+): Promise<string[]> {
+    const id = String(candidateId || '').trim();
+    if (!id) return [];
+    const removed: string[] = [];
+    try {
+        const { roomService } = getClients(scope);
+        const rooms = await roomService.listRooms();
+        const prefix = `room-video-interview-${id}-`;
+        for (const room of rooms) {
+            const name = room?.name || '';
+            if (!name.startsWith(prefix) || name === keepRoomName) continue;
+            try {
+                await roomService.deleteRoom(name);
+                removed.push(name);
+                console.log(`🧹 Freed stale interview room for candidate ${id}: ${name}`);
+            } catch (err: any) {
+                console.warn(`⚠️ Could not delete stale room ${name}:`, err?.message || err);
+            }
+        }
+    } catch (error: any) {
+        console.warn(`⚠️ deleteOtherCandidateRooms failed for ${id}:`, error?.message || error);
+    }
+    return removed;
+}
+
+/**
  * Explicit Dispatch — agentName يجب أن يطابق تسجيل الـ worker في LiveKit
  */
 export async function dispatchAgentToRoom(

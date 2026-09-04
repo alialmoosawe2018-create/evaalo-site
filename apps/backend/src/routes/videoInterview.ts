@@ -20,7 +20,8 @@ import { startVideoSession, consumeVideoSeconds, type StartVideoResult } from '.
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import type { UsageType } from '../types/billing.js';
 import { transcribeAudio } from '../services/sttService.js';
-import { createLiveKitRoom, createUserToken, dispatchAgentToRoom, deleteLiveKitRoom } from '../services/livekitService.js';
+import { createLiveKitRoom, createUserToken, dispatchAgentToRoom, deleteLiveKitRoom, deleteOtherCandidateRooms } from '../services/livekitService.js';
+import VideoPrewarmSession from '../models/VideoPrewarmSession.js';
 import { stopAgent } from '../services/agentService.js';
 import { sendVideoTranscriptToN8N } from '../services/n8nService.js';
 import {
@@ -367,6 +368,62 @@ function resolvePreparedSessionReuse(
     };
 }
 
+/**
+ * Same reuse decision, but falling back to the persisted handoff when this process
+ * has no memory of the prewarm — a restart, or a second instance answering /start.
+ * That gap is what left the agent stranded in the prewarmed room while the
+ * candidate waited in a new one.
+ *
+ * The access token is regenerated rather than stored, so nothing sensitive is kept
+ * at rest. Any failure falls back to the in-memory answer, i.e. today's behaviour.
+ */
+async function resolvePreparedSessionReuseDurable(
+    candidateId: string,
+    requestedCampaignId: string | undefined
+): Promise<{ roomName: string; token: string; sessionId: string } | null> {
+    const inMemory = resolvePreparedSessionReuse(candidateId, requestedCampaignId);
+    if (inMemory) return inMemory;
+    try {
+        const row = await VideoPrewarmSession.findOne({ candidateId }).lean().exec();
+        if (!row?.roomName || !row?.sessionId) return null;
+        const reqCamp = (requestedCampaignId || '').trim();
+        const storedCamp = (row.campaignId || '').trim();
+        if (reqCamp && storedCamp && reqCamp !== storedCamp) {
+            // Different campaign: the prewarmed room carries the wrong metadata, so
+            // drop it here too rather than leaving the agent parked in it.
+            await VideoPrewarmSession.deleteOne({ candidateId }).catch(() => undefined);
+            deleteLiveKitRoom(row.roomName).catch(() => undefined);
+            return null;
+        }
+        const token = await createUserToken(row.roomName, `user-${candidateId}`);
+        console.log(
+            `♻️ Reusing prewarmed room from persisted handoff for candidate ${candidateId} (${row.roomName})`
+        );
+        return { roomName: row.roomName, token, sessionId: row.sessionId };
+    } catch (err: any) {
+        console.warn(`⚠️ persisted prewarm lookup failed for ${candidateId}:`, err?.message || err);
+        return null;
+    }
+}
+
+/** Best-effort mirror of the in-memory handoff; never blocks the interview. */
+async function persistPrewarmHandoff(
+    candidateId: string,
+    roomName: string,
+    sessionId: string,
+    campaignId?: string
+): Promise<void> {
+    try {
+        await VideoPrewarmSession.findOneAndUpdate(
+            { candidateId },
+            { candidateId, roomName, sessionId, campaignId, createdAt: new Date() },
+            { upsert: true }
+        ).exec();
+    } catch (err: any) {
+        console.warn(`⚠️ could not persist prewarm handoff for ${candidateId}:`, err?.message || err);
+    }
+}
+
 /** Stable key for agent question bank — must match JSON keys in voice_interview/data/interview_questions.json */
 function slugForJobQuestions(position: string | undefined | null): string {
     if (!position || typeof position !== 'string') return '';
@@ -566,7 +623,7 @@ router.post('/prepare', async (req, res) => {
         const prepareCampaignIdEarly =
             (typeof campaignId === 'string' && campaignId.trim() ? campaignId.trim() : undefined)
             || prepareCandidateCampaignIdEarly;
-        const reusedSession = resolvePreparedSessionReuse(candidateId, prepareCampaignIdEarly);
+        const reusedSession = await resolvePreparedSessionReuseDurable(candidateId, prepareCampaignIdEarly);
         if (reusedSession) {
             return res.status(200).json({
                 success: true,
@@ -729,6 +786,13 @@ router.post('/prepare', async (req, res) => {
                     createdAt: Date.now(),
                     campaignId: prepareCampaignId || undefined,
                 });
+                // Mirror the handoff so /start can still find it after a restart.
+                await persistPrewarmHandoff(
+                    candidateId,
+                    livekitRoomName,
+                    sessionId,
+                    prepareCampaignId || undefined
+                );
             } catch (error: any) {
                 console.error('⚠️ Failed to prepare LiveKit room:', error.message);
                 return res.status(500).json({
@@ -871,7 +935,7 @@ router.post('/start', async (req, res) => {
         const normalizedCampaignIdEarly =
             (typeof campaignId === 'string' && campaignId.trim() ? campaignId.trim() : undefined)
             || candidateCampaignIdEarly;
-        const reusedStartSession = resolvePreparedSessionReuse(candidateId, normalizedCampaignIdEarly);
+        const reusedStartSession = await resolvePreparedSessionReuseDurable(candidateId, normalizedCampaignIdEarly);
         if (reusedStartSession) {
             console.log(`ℹ️ Reusing existing session for candidate ${candidateId} (prevents duplicate avatar)`);
             // /prepare لا يحفظ في Mongo. بدون هذا السطر يصل /end بجلسة null
@@ -1153,7 +1217,19 @@ router.post('/start', async (req, res) => {
         if (process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET) {
             try {
                 livekitRoomName = await createLiveKitRoom(sessionId);
-                
+
+                // We are NOT reusing the prewarmed room (its record was missing,
+                // expired, or for another campaign). The agent may still be sitting
+                // in it waiting out its 60s no-candidate timeout, and it takes one
+                // job at a time — it would refuse the dispatch below and the
+                // candidate would face an empty room. Tear those rooms down first.
+                const freed = await deleteOtherCandidateRooms(candidateId, livekitRoomName);
+                if (freed.length) {
+                    console.log(
+                        `🧹 /start: freed ${freed.length} stale room(s) for candidate ${candidateId} before dispatch`
+                    );
+                }
+
                 // ✅ job_id في metadata = مفتاح بنك الأسئلة: Mongo ObjectId (مفضل) أو slug من المنصب (legacy)
                 // ✅ FIX: إعداد metadata للـ Agent — job_id يحدد بنك الأسئلة على الوكيل (بدون تمرير الأسئلة)
                 const metadata: Record<string, string> = {
@@ -1248,6 +1324,12 @@ router.post('/start', async (req, res) => {
                     createdAt: Date.now(),
                     campaignId: normalizedCampaignId || undefined,
                 });
+                await persistPrewarmHandoff(
+                    candidateId,
+                    livekitRoomName,
+                    sessionId,
+                    normalizedCampaignId || undefined
+                );
             } catch (error: any) {
                 console.warn('⚠️ Failed to create LiveKit room (non-blocking):', error.message);
                 // نتابع بدون LiveKit
@@ -1633,6 +1715,9 @@ router.post('/end', async (req, res) => {
             : undefined;
         if (candidateIdToRemove) {
             activeCandidateSessions.delete(candidateIdToRemove);
+            VideoPrewarmSession.deleteOne({ candidateId: candidateIdToRemove })
+                .exec()
+                .catch(() => undefined);
         }
 
         // ✅ حذف الغرفة من LiveKit Cloud لإلغاء أي dispatch معلَّق ومنع إعادة استلامه
