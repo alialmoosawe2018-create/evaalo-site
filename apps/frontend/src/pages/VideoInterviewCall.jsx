@@ -4,6 +4,7 @@ import { Room, RoomEvent, RemoteParticipant, RemoteTrack, Track, ParticipantKind
 import { useLanguage } from '../contexts/LanguageContext';
 import { AvatarHostContainer } from '../components/videoInterview/AvatarHostContainer';
 import VoiceInterviewPrepTips from '../components/VoiceInterviewPrepTips';
+import InterviewCompletedScreen from '../components/InterviewCompletedScreen';
 import InterviewLinkBlocked from '../components/InterviewLinkBlocked.jsx';
 import { isVideoInterviewLinkConsumed, INTERVIEW_LINK_ALREADY_USED } from '../utils/interviewLinkAccess.js';
 import { parseInterviewUrlLanguage } from '../utils/interviewShareLink.js';
@@ -3219,46 +3220,14 @@ const VideoInterviewCall = () => {
     }
 
     if (interviewEnded) {
+        // Same screen the voice stage shows — one component, so the two stages cannot
+        // drift into different-looking endings again.
         return (
-            <div
+            <InterviewCompletedScreen
+                title={t('voiceInterview_completedTitle')}
+                message={t('voiceInterview_completedMessage')}
                 dir={isRtl ? 'rtl' : 'ltr'}
-                style={{
-                    minHeight: '100vh',
-                    background: 'linear-gradient(160deg, #f5f3ff 0%, #eef2ff 40%, #f8fafc 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '20px',
-                }}
-            >
-                <div style={{
-                    maxWidth: '520px',
-                    width: '100%',
-                    background: '#fff',
-                    borderRadius: '20px',
-                    padding: '40px 32px',
-                    textAlign: 'center',
-                    boxShadow: '0 12px 40px rgba(30, 41, 59, 0.12)',
-                }}>
-                    <div style={{
-                        width: '72px',
-                        height: '72px',
-                        borderRadius: '50%',
-                        background: 'rgba(16, 185, 129, 0.12)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 20px',
-                        fontSize: '38px',
-                    }}>✅</div>
-                    <h1 style={{ fontSize: '24px', fontWeight: 700, margin: '0 0 12px', color: '#0f172a' }}>
-                        {t('voiceInterview_completedTitle')}
-                    </h1>
-                    <p style={{ fontSize: '15px', lineHeight: 1.6, color: '#475569', margin: 0 }}>
-                        {t('voiceInterview_completedMessage')}
-                    </p>
-                </div>
-            </div>
+            />
         );
     }
 

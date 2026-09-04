@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect } from 'react';
 import '../design-styles.css';
+import InterviewCompletedScreen from './InterviewCompletedScreen';
 
 function formatTimeMMSS(seconds) {
   const m = Math.floor(seconds / 60);
@@ -143,50 +144,7 @@ const VoiceInterviewStage = ({
   // إتمام مستقلّة — لا مؤقّت مجمّد ولا محادثة أسفلها، بل صفحة نهاية لوحدها.
   if (interviewComplete) {
     return (
-      <div className="voice-interview-stage" dir={dir}>
-        <div className="voice-interview-stage__card">
-          <div className="voice-interview-stage__shimmer" aria-hidden />
-          <div
-            role="status"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              gap: '18px',
-              padding: '56px 24px',
-              minHeight: '320px',
-            }}
-          >
-            <span
-              aria-hidden
-              style={{
-                width: '76px',
-                height: '76px',
-                borderRadius: '50%',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '2.4rem',
-                color: '#fff',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                boxShadow: '0 8px 28px rgba(16, 185, 129, 0.4)',
-              }}
-            >
-              ✓
-            </span>
-            <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#047857' }}>
-              {completedTitle}
-            </h1>
-            {completedMessage ? (
-              <p style={{ margin: 0, maxWidth: '460px', fontSize: '1rem', lineHeight: 1.7, color: '#475569' }}>
-                {completedMessage}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      <InterviewCompletedScreen title={completedTitle} message={completedMessage} dir={dir} />
     );
   }
 
