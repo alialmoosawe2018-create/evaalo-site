@@ -201,15 +201,16 @@ def _anchor_intro_count() -> int:
 def _max_followups_per_competency() -> int:
     """Depth allowed inside one competency before moving to the next one.
 
-    Default 2, not 1: with a single follow-up the agent had to leave a competency
-    after one probe, so a thin answer ("عندي خبرة بالاكسل بس") was banked as-is and
-    the interview hopped topics instead of going deeper. Depth belongs here, which
-    is also why the blueprint anchors no longer cram steps + data + outcome into one
-    question — they ask one thing and the follow-ups collect the rest.
+    Back to 1 at the product owner's request after trying 2. The wider interview
+    — more competencies, each opened by a question that asks one thing — reads
+    better than pressing the same competency twice, and a second probe mostly fired
+    on answers with nothing left to probe ("ما اعرف", "ما صار هيك موقف"). Raise
+    INTERVIEW_MAX_FOLLOWUPS_PER_COMPETENCY to go deeper per topic instead of editing
+    this default.
     """
     raw = (os.getenv("INTERVIEW_MAX_FOLLOWUPS_PER_COMPETENCY") or "").strip()
     if not raw:
-        return 2
+        return 1
     try:
         n = int(raw)
     except ValueError:
