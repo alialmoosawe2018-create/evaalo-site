@@ -17,6 +17,7 @@ import { getCached, setCached, hasCached } from '../utils/swrCache';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserStorageKeySuffix, userScopedStorageKey } from '../utils/userStorageKey';
 import PositionSuggestCombobox from '../components/PositionSuggestCombobox.jsx';
+import HiringOutcomeCell from '../components/HiringOutcomeCell';
 import { YEARS_OF_EXPERIENCE_OPTIONS } from '../constants/yearsOfExperienceOptions.js';
 import { HIGHEST_EDUCATION_OPTIONS } from '../constants/educationLevelOptions.js';
 import '../design-styles.css';
@@ -227,6 +228,16 @@ const Candidates = () => {
     const [showCandidateModal, setShowCandidateModal] = useState(false);
     /** قائمة المرشحين مقابل لوحة ثانوية داخل نفس الصفحة */
     const [candidatesPanel, setCandidatesPanel] = useState(readStoredCandidatesPanelTab);
+
+    /** Reflect a recorded decision immediately, without refetching the whole board. */
+    const applyHiringOutcome = useCallback((applicationId, hiringOutcome) => {
+        setCandidates((prev) =>
+            prev.map((c) => {
+                const cid = c._id || c.id;
+                return String(cid) === String(applicationId) ? { ...c, hiringOutcome } : c;
+            })
+        );
+    }, []);
     /** لوحة Employees — تُحمَّل من localStorage وتحفظ تلقائياً */
     const [employeesPanelRecords, setEmployeesPanelRecords] = useState(readStoredEmployeesPanelRecords);
     const [rosterEmployeesRecords, setRosterEmployeesRecords] = useState(readStoredRosterEmployeesRecords);
@@ -1814,6 +1825,7 @@ const Candidates = () => {
                                             </th>
                                         ))}
                                         <th style={{ minWidth: '220px', width: '220px' }}>{t('candidates_colAiEval')}</th>
+                                        <th style={{ minWidth: '150px', width: '150px' }}>{t('candidates_colOutcome')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2109,6 +2121,17 @@ const Candidates = () => {
                                                 ) : (
                                                     <span style={{ color: '#94A3B8', fontSize: '12px' }}>{t('candidates_aiPending')}</span>
                                                 )}
+                                            </td>
+                                            {/* What the employer actually did. Recording it is what turns a
+                                                pile of AI verdicts into data you can check the AI against —
+                                                nothing else in the product carries that signal. */}
+                                            <td className="candidates-table-cell" style={{ minWidth: '150px' }}>
+                                                <HiringOutcomeCell
+                                                    applicationId={candidatePrimaryId(candidate)}
+                                                    outcome={candidate.hiringOutcome}
+                                                    onRecorded={(saved) => applyHiringOutcome(candidatePrimaryId(candidate), saved)}
+                                                    t={t}
+                                                />
                                             </td>
                                         </tr>
                                             );
