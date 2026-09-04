@@ -2367,10 +2367,42 @@ Use lower scores when evidence is thin; do not invent English proficiency.`
             if (phase < 3) englishFluency = 0;
             else if (phase === 3 && englishAsked === 0) englishFluency = 0;
         }
+        // Cap by how much the candidate actually said.
+        //
+        // A one-minute interview was scoring 66%. These three numbers are the root:
+        // they are computed here, and downstream Stage 2 scoring treats them as
+        // authoritative — the evidence-reading assessor is not allowed to move a
+        // rating more than one band away from them. So a polite mid score here
+        // becomes a mid score in the final report no matter how little was said, and
+        // `?? 5` turned a missing value into "Intermediate" (n>=4) rather than into
+        // "not enough to judge".
+        //
+        // Deterministic, not another instruction the model may ignore: measure the
+        // candidate's own words and cap the scores when there is not enough to judge.
+        // 6 is the Good threshold downstream and 4 the Intermediate one, so a thin
+        // interview can no longer read as Good, and a near-silent one cannot read as
+        // Intermediate.
+        const candidateWords = conversationHistory
+            .filter((m) => m.role === 'user')
+            .reduce((n, m) => n + String(m.content || '').trim().split(/\s+/).filter(Boolean).length, 0);
+        const substantiveAnswers = conversationHistory.filter(
+            (m) => m.role === 'user' && String(m.content || '').trim().split(/\s+/).filter(Boolean).length >= 4
+        ).length;
+        let evidenceCap = 10;
+        if (candidateWords < 40 || substantiveAnswers < 3) evidenceCap = 3;
+        else if (candidateWords < 120 || substantiveAnswers < 6) evidenceCap = 5;
+        if (evidenceCap < 10) {
+            console.log(
+                `ℹ️ voice eval: thin evidence (${candidateWords} candidate words, ` +
+                    `${substantiveAnswers} substantive answers) — capping priors at ${evidenceCap}`
+            );
+        }
+        const cap = (n: number, floor: number) =>
+            Math.min(evidenceCap, Math.min(10, Math.max(floor, n)));
         return {
-            communicationSkills: Math.min(10, Math.max(1, parsed.communicationSkills ?? 5)),
-            englishFluency,
-            confidenceLevel: Math.min(10, Math.max(1, parsed.confidenceLevel ?? 5)),
+            communicationSkills: cap(parsed.communicationSkills ?? 3, 1),
+            englishFluency: Math.min(evidenceCap, englishFluency),
+            confidenceLevel: cap(parsed.confidenceLevel ?? 3, 1),
         };
     } catch (err: any) {
         console.error('❌ Error evaluating voice interview:', err?.message || err);
