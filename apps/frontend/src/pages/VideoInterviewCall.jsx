@@ -351,6 +351,8 @@ const VideoInterviewCall = () => {
      * ويلغي أي dispatch معلَّق). إن ضغط المستخدم "ابدأ" لاحقاً يبقى sessionId هو نفسه.
      */
     const prewarmSessionIdRef = useRef(null);
+    /** مرآة لـ sessionId: مُعالِجات أحداث الغرفة تُنشأ عند الاتصال، فتلتقط الحالة القديمة. */
+    const sessionIdRef = useRef(null);
     const [conversationHistory, setConversationHistory] = useState([]);
     /** نسخة محدّثة دائماً من conversationHistory لقراءتها داخل endInterview/pagehide (تتجنّب closure قديمة) */
     const conversationHistoryRef = useRef([]);
@@ -670,6 +672,8 @@ const VideoInterviewCall = () => {
     // ✅ FIX: حفظ micTrack reference لتعطيل/تفعيل الميكروفون عند كلام الـ Agent
     const micTrackRef = useRef(null);
     /** تأخير إعادة الميكروفون بعد speaking — يمنع echo→STT→رد الوكيل بالتسلسل */
+    /** يمنع إرسال /end مرتين: مرة تلقائياً عند إغلاق الغرفة ومرة عند ضغط المستخدم. */
+    const autoEndSentRef = useRef(false);
     const avatarMicUnmuteTimerRef = useRef(null);
     const prevAgentStateForMicRef = useRef(null);
     const latestAgentStateForMicRef = useRef(null);
@@ -735,6 +739,11 @@ const VideoInterviewCall = () => {
         }
         setUiAgentState('speaking');
     }, [agentState]);
+
+    // Keep the ref in step with the state for the room-event closures above.
+    useEffect(() => {
+        sessionIdRef.current = sessionId;
+    }, [sessionId]);
 
     const canEnableMicNow = useCallback(() => {
         const state = latestAgentStateForMicRef.current;
@@ -1267,7 +1276,32 @@ const VideoInterviewCall = () => {
                     // The interview was live and the room closed (agent concluded, or
                     // the session ended): show the candidate the completion screen
                     // rather than leaving the call UI frozen with the avatar gone.
-                    if (interviewStartedAtRef.current) setInterviewEnded(true);
+                    if (interviewStartedAtRef.current) {
+                        setInterviewEnded(true);
+                        // …and close the session server-side. Showing the completion
+                        // screen without this left a finished interview stored as
+                        // `active` with no transcript and no evaluation whenever the
+                        // candidate simply left the tab open — the agent had already
+                        // said its closing line and gone. /end is idempotent, and a
+                        // guard keeps a later user-pressed End from sending twice.
+                        if (!autoEndSentRef.current) {
+                            autoEndSentRef.current = true;
+                            const sid = sessionIdRef.current || prewarmSessionIdRef.current;
+                            if (sid) {
+                                fetch(`${API_BASE}/api/video-interview/end`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        sessionId: sid,
+                                        conversationHistory: serializeTranscript(
+                                            conversationHistoryRef.current
+                                        ),
+                                    }),
+                                    keepalive: true,
+                                }).catch(() => undefined);
+                            }
+                        }
+                    }
                 });
 
                 room.on(RoomEvent.Reconnecting, () => {
