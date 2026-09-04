@@ -21,6 +21,7 @@ from voice_interview.config import (
     avatar_stability_mode,
     build_openai_llm_kwargs,
     interview_defaults_enabled,
+    interview_turn_floor_v2,
 )
 
 logger = logging.getLogger("agent")
@@ -740,6 +741,22 @@ def create_speechmatics_stt():
         _max_abs_floor = max(_api_min_max, _max_abs_floor)
         max_delay = min(2.0, max(_max_abs_floor, configured_max))
         eou_silence = float(os.getenv("SPEECHMATICS_EOU_SILENCE", "0.40"))
+        # Deployed secrets pin this at 0.48, which plus MIN_ENDPOINTING_DELAY ends a
+        # candidate's turn after ~0.6s of silence — mid-thought. The secrets cannot be
+        # edited in place (see interview_turn_floor_v2), so raise it here for interviews.
+        if interview_boost and interview_turn_floor_v2():
+            _eou_floor = float(os.getenv("SPEECHMATICS_INTERVIEW_EOU_FLOOR_V2", "0.70"))
+            _md_floor = float(os.getenv("SPEECHMATICS_INTERVIEW_MAX_DELAY_FLOOR_V2", "0.80"))
+            if eou_silence < _eou_floor:
+                logger.info(
+                    "interview turn floor v2: eou_silence %.2f -> %.2f", eou_silence, _eou_floor
+                )
+                eou_silence = _eou_floor
+            if max_delay < _md_floor:
+                logger.info(
+                    "interview turn floor v2: max_delay %.2f -> %.2f", max_delay, _md_floor
+                )
+                max_delay = _md_floor
         logger.debug(
             "speechmatics SPEECHMATICS_INTERVIEW_FIXED_STT: max_delay=%.2f eou_silence=%.2f (interview boost skipped)",
             max_delay,

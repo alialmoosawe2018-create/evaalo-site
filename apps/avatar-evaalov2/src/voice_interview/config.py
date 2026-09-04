@@ -286,6 +286,31 @@ def env_preemptive_generation() -> bool:
     return not avatar_stability_mode()
 
 
+def interview_turn_floor_v2() -> bool:
+    """Interview turn-taking floors that stale deployment secrets cannot undercut.
+
+    The LiveKit Cloud agent carries 71 secrets set in July, including
+    ``MIN_ENDPOINTING_DELAY=0.12`` and ``SPEECHMATICS_EOU_SILENCE=0.48`` — together
+    a 0.60s silence window, which cuts a candidate off whenever they pause to
+    think. Those values cannot be corrected in place: ``lk agent update-secrets``
+    only rewrites existing keys with ``--overwrite``, which wipes the whole set,
+    and secret values cannot be read back to restore them.
+
+    So the floors live in code, applied last so neither the legacy values nor the
+    latency-profile cap can pull them back down. This key is intentionally absent
+    from the deployed secrets, so it defaults on; adding it later as a NEW secret
+    (safe — adding does not require --overwrite) turns it off.
+    """
+    return os.getenv("INTERVIEW_TURN_FLOOR_V2", "true").lower() in ("1", "true", "yes")
+
+
+def interview_turn_floor_values() -> tuple[float, float]:
+    """(min_endpointing, max_endpointing) floors for interviews. See interview_turn_floor_v2."""
+    mn = float(os.getenv("INTERVIEW_MIN_ENDPOINTING_FLOOR_V2", "0.35"))
+    mx = float(os.getenv("INTERVIEW_MAX_ENDPOINTING_FLOOR_V2", "2.60"))
+    return mn, mx
+
+
 def apply_interview_endpointing_boost(min_ept: float, max_ept: float) -> tuple[float, float]:
     """Tune LiveKit `min_endpointing_delay` / `max_endpointing_delay` for interview + Speechmatics.
 
@@ -340,6 +365,15 @@ def apply_interview_endpointing_boost(min_ept: float, max_ept: float) -> tuple[f
         )
     if avatar_stability_mode() and avatar_fast_response():
         logger.debug("interview boost: AVATAR_FAST_RESPONSE overrides slow endpointing")
+    # LAST — after the latency cap above, which would otherwise pull max back down.
+    if interview_turn_floor_v2():
+        _fmin, _fmax = interview_turn_floor_values()
+        if min_ept < _fmin:
+            logger.info("interview turn floor v2: MIN_ENDPOINTING_DELAY %.2f -> %.2f", min_ept, _fmin)
+            min_ept = _fmin
+        if max_ept < _fmax:
+            logger.info("interview turn floor v2: MAX_ENDPOINTING_DELAY %.2f -> %.2f", max_ept, _fmax)
+            max_ept = _fmax
     return min_ept, max_ept
 
 
