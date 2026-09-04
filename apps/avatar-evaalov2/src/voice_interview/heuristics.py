@@ -765,15 +765,29 @@ def _detect_clarify_challenge(norm: str) -> bool:
     )
 
 
+# Unambiguous "explain the question" markers. "وضح" (not "توضح") is the stem, so it
+# also catches "وضحي"/"ما وضحي لي" — the ت-prefixed form alone missed those, and a
+# candidate saying "ما وضحي لي" was answered by moving on to the next question.
+_CLARIFY_STRONG_MARKERS = ("تقصد", "وضح", "معنى", "معني")
+_CLARIFY_WEAK_MARKERS = ("فهمت", "السؤال", "سؤالك")
+# Words that normally mean "what is the BEST practice?" rather than "what did you mean?".
+_CLARIFY_GUIDANCE_WORDS = ("اجراء", "إجراء", "انسب", "أنسب", "افضل", "أفضل", "صحيح")
+
+
 def _is_clarify_about_question(norm: str) -> bool:
     """True when the candidate asks what the interviewer meant — not for best practice."""
     if not _matches_any(norm, _CLARIFY_PATTERNS_AR) and not _matches_any(
         norm, _CLARIFY_PATTERNS_EN
     ):
         return False
-    if any(k in norm for k in ("اجراء", "إجراء", "انسب", "أنسب", "افضل", "أفضل", "صحيح")):
+    if any(k in norm for k in _CLARIFY_STRONG_MARKERS):
+        # A strong marker WINS over the guidance words: "شنو تقصدين بالاجراءات
+        # الداخلية؟" is asking us to explain the question, but it contains "اجراء",
+        # and the guidance check used to run first and discard it.
+        return True
+    if any(k in norm for k in _CLARIFY_GUIDANCE_WORDS):
         return False
-    return any(k in norm for k in ("تقصد", "توضح", "معنى", "معني", "فهمت", "السؤال"))
+    return any(k in norm for k in _CLARIFY_WEAK_MARKERS)
 
 
 def _detect_candidate_intent(norm: str) -> str | None:

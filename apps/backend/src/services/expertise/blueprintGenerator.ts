@@ -180,6 +180,8 @@ Arabic anchorQuestions style (mandatory when output language is Arabic):
 - Keep technical/domain terms in English or standard Arabic HR terms when natural (budget، forecast، KPI، Excel).
 - Each anchor = exactly ONE spoken question with exactly ONE question mark (~12–22 words).
 - FORBIDDEN in a single anchor: chaining with "وشلون… وكيف… وما الذي…" or multiple "؟".
+- FORBIDDEN: comma-chained demands inside one question — "اذكرلي خطواتك والزمن اللي استهلكته ونتيجة القبول؟" is THREE asks wearing one question mark. Ask for one.
+- FORBIDDEN: presupposing the candidate has done it. "شلون نسّقت مقابلات…؟" assumes; write "شنو خبرتك بتنسيق المقابلات…؟" or "شگد اشتغلت على…؟" so someone without that experience can answer plainly.
 - FORBIDDEN awkward calques: "شنو هي وظيفة صعبة"، "صف وظيفة"، "حدثني عن تجربة" — use natural Iraqi: "اذكرلي دور…"، "شلون…؟"، "شنو…؟".
 - Each anchor MUST name at least one concrete domain element (field, tool, KPI, method, or equipment) specific to the role.`;
 
@@ -781,9 +783,13 @@ export async function generateExpertiseAndBlueprint(campaign: {
         const sys = `You are an expert technical interviewer and hiring strategist. Produce a specialized interview blueprint for ONE specific job.
 Rules:
 - Output language for title, anchorQuestions, questionObjective, expectedEvidence, redFlags, scoreRubric, followUpRules: ${language === 'ar' ? 'Arabic' : 'English'}. The competencyKey stays a snake_case English identifier; only the human-readable title follows this language.
-- Provide EXACTLY 3 anchorQuestions (fixed core questions for all candidates of this campaign). They must be specific to the role, ask for a real example + data/steps + outcome — never generic "tell me about yourself".
+- Provide EXACTLY 3 anchorQuestions (fixed core questions for all candidates of this campaign). They are asked BEFORE anything is known about the candidate, so:
+  * NEVER PRESUPPOSE. An anchor asks what the candidate's EXPERIENCE WITH X is, never how they DID X. "How did you coordinate interviews using an ATS?" asserts they have; "What is your experience coordinating interviews on an ATS?" does not, and still invites detail rather than yes/no. A candidate who has not done it must be able to answer honestly without being cornered.
+  * ONE ASK PER QUESTION — one thing, not a list. Chaining demands with commas ("your steps, the time it took, and the acceptance outcome") is the same violation as chaining them with "and"; a single question mark does not make it one question. Depth belongs in the follow-up, not crammed into the anchor.
+  * SELF-CONTAINED. Name the concrete object being asked about, so the question needs no clarification: "an example of a mistake you caught" is unanswerable ("a mistake in what?"); "an example of a mistake you caught in employee data" is answerable.
+  * Specific to the role, never generic "tell me about yourself".
 - Provide EXACTLY 10 competencies. Keep priorities balanced: AT MOST 2 "critical", the rest "high"/"medium" (over-using critical makes the assessment gate too strict). The 10 must be MUTUALLY DISTINCT (no two probing the same thing) and TOGETHER cover the role's core responsibilities.
-- Each competency: a snake_case competencyKey; a title; priority (critical|high|medium); a questionObjective that draws out a real Situation -> Action -> Result example (not a yes/no); expectedEvidence (3-6 concrete signals an interviewer could observe in the transcript); redFlags (2-4 SPECIFIC behavioral warning signs detectable from a transcript, never vague like "lacks skills"); a scoreRubric for levels 1..5 where each band describes OBSERVABLE behaviour, not a bare adjective; and followUpRules (1-3 rules — each exactly ONE short question with ONE question mark, never a compound checklist).
+- Each competency: a snake_case competencyKey; a title; priority (critical|high|medium); a questionObjective that draws out a real Situation -> Action -> Result example (not a yes/no); expectedEvidence (3-6 concrete signals an interviewer could observe in the transcript); redFlags (2-4 SPECIFIC behavioral warning signs detectable from a transcript, never vague like "lacks skills"); a scoreRubric for levels 1..5 where each band describes OBSERVABLE behaviour, not a bare adjective; and followUpRules (1-3 rules — each exactly ONE short question with ONE question mark, never a compound checklist). Follow-ups are where depth lives: each asks for exactly ONE missing element (the step, OR the data used, OR the outcome), and, like the anchors, must name its concrete object and must not presuppose the candidate did the thing.
 - requiredSkills/toolsAndSystems/responsibilities/mustAssess/expectedEvidence/redFlags/qualityRisk describe the JOB (not a candidate). Keep concise.
 - Be concrete and domain-specific. Do not invent facts; derive from the job context.${seniorityRule}${arabicAnchorStyleSuffix(language)}`;
 
