@@ -85,9 +85,21 @@ async function verifyWsToken(
         };
         const userId = String(claims.sub || '');
         const organizationId = String(claims.org_id || claims.orgId || claims.o?.id || '');
-        if (!userId || !organizationId) return null;
+        if (!userId || !organizationId) {
+            // A valid token with no active organization: the socket is org-scoped, so
+            // it cannot be served. Worth distinguishing from a bad token below.
+            console.warn(
+                `[realtime] ws token rejected: ${userId ? 'no organization claim' : 'no subject'}`,
+            );
+            return null;
+        }
         return { organizationId, userId };
-    } catch {
+    } catch (err) {
+        // This used to swallow the reason and close 4401 silently, which made a
+        // browser-side "WebSocket connection failed" impossible to diagnose from the
+        // server: expired, wrong instance, malformed and clock-skew all looked the
+        // same. Log the reason only — never the token, which is a live credential.
+        console.warn('[realtime] ws token rejected:', (err as Error)?.message || String(err));
         return null;
     }
 }
