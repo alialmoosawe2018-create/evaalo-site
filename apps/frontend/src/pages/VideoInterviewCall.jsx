@@ -51,6 +51,8 @@ const USER_TRANSCRIPT_MERGE_GAP_MS = 2800;
  * لا يُدمَج إن كانت آخر رسالة من المساعد (بداية دور جديد للمستخدم).
  */
 const USER_SAME_SPEECH_TURN_GAP_MS = 12000;
+/** كم يبقى نهائي متأخّر منسوباً للإجابة السابقة بعد أن يبدأ الوكيل بالكلام. */
+const USER_STRAGGLER_WINDOW_MS = 6000;
 
 /**
  * يحوّل conversationHistory (state الواجهة) إلى صيغة الباكند { role, content }.
@@ -1666,9 +1668,45 @@ const VideoInterviewCall = () => {
                                                 msSinceUserFinal < USER_SAME_SPEECH_TURN_GAP_MS;
                                             const canMerge =
                                                 mergeShortBurst || mergeSameSpeechTurn;
+
+                                            // Straggler: the candidate was still finishing when the
+                                            // agent took the turn, so this final belongs to the answer
+                                            // BEFORE the agent's message. Appending it as a new turn
+                                            // made it the head of the next answer instead — the tail of
+                                            // one reply visibly opening the following one.
+                                            // Fold it back into the answer it came from.
+                                            const stragglerOwnerIndex =
+                                                !canMerge &&
+                                                last &&
+                                                last.role === 'assistant' &&
+                                                msSinceUserFinal < USER_STRAGGLER_WINDOW_MS &&
+                                                Date.now() - lastAssistantFinalAtRef.current <
+                                                    USER_STRAGGLER_WINDOW_MS
+                                                    ? filtered.findLastIndex(
+                                                          (m) => m.role === 'user' && m.isFinal === true
+                                                      )
+                                                    : -1;
                                         
                                         let newHistory;
-                                            if (canMerge) {
+                                            if (stragglerOwnerIndex !== -1) {
+                                                const owner = filtered[stragglerOwnerIndex];
+                                                const folded = shouldMergeUserTranscriptFinals(
+                                                    owner.content,
+                                                    fullMessage
+                                                )
+                                                    ? mergeUserTranscriptFragments(
+                                                          owner.content,
+                                                          fullMessage
+                                                      )
+                                                    : `${owner.content.trim()} ${fullMessage.trim()}`
+                                                          .replace(/\s+/g, ' ')
+                                                          .trim();
+                                                newHistory = filtered.map((m, i) =>
+                                                    i === stragglerOwnerIndex
+                                                        ? { ...m, content: folded, isFinal: true }
+                                                        : m
+                                                );
+                                            } else if (canMerge) {
                                                 let merged;
                                                 if (
                                                     shouldMergeUserTranscriptFinals(
