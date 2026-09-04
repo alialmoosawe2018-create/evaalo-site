@@ -28,7 +28,7 @@ export interface IInterviewBlueprint extends Document {
     createdByClerkUserId?: string;
     campaignId: string;
     profileId: string;
-    status: 'draft' | 'locked';
+    status: 'draft' | 'locked' | 'superseded';
     lockedAt?: Date;
     language: string; // 'ar' | 'en'
     /** الأسئلة الأساسية الثلاثة الثابتة لكل المرشحين (نموذج 3+2). */
@@ -40,6 +40,8 @@ export interface IInterviewBlueprint extends Document {
     knowledgeDepth?: 'deep_pack' | 'taxonomy_generated' | 'fallback';
     /** semver محتوى الـBlueprint (مستقل عن version الرقمي). */
     blueprintContentVersion?: string;
+    /** Phrasing-rules generation this blueprint was written under. See BLUEPRINT_STYLE_VERSION. */
+    styleVersion?: string;
     packVersion?: string;
     blueprintGeneratedAt?: Date;
     packMatchConfidence?: 'high' | 'medium' | 'low';
@@ -116,7 +118,10 @@ const InterviewBlueprintSchema = new Schema<IInterviewBlueprint>(
         },
         status: {
             type: String,
-            enum: ['draft', 'locked'],
+            // 'superseded' retires a blueprint whose PHRASING RULES are out of date
+            // without deleting it: past sessions keep their own snapshot, and the
+            // partial unique index only covers 'locked', so the replacement can lock.
+            enum: ['draft', 'locked', 'superseded'],
             default: 'draft',
             index: true,
         },
@@ -140,6 +145,7 @@ const InterviewBlueprintSchema = new Schema<IInterviewBlueprint>(
             default: undefined,
         },
         blueprintContentVersion: { type: String, trim: true },
+        styleVersion: { type: String, trim: true },
         packVersion: { type: String, trim: true },
         blueprintGeneratedAt: { type: Date },
         packMatchConfidence: {

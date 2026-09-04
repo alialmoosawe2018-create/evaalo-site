@@ -170,6 +170,19 @@ function detectLanguage(criteriaText: string): string {
     return /[\u0600-\u06FF]/.test(criteriaText) ? 'ar' : 'ar';
 }
 
+/**
+ * Bump when the PHRASING rules below change in a way that should reach campaigns
+ * that already have a locked blueprint. Blueprints are generated once and locked,
+ * so without this a rule fix only ever reached brand-new campaigns while every
+ * existing one kept asking the old questions forever.
+ *
+ * Changing this makes the next interview on an older campaign regenerate its
+ * blueprint — so candidates interviewed before and after a bump are asked
+ * differently. That is the deliberate trade: current campaigns are still being set
+ * up, and stale phrasing is the bigger cost.
+ */
+export const BLUEPRINT_STYLE_VERSION = '2026-09-04.ar-phrasing-v2';
+
 /** تعليمات صياغة anchorQuestions بالعربي — محادثة مهنية، لا ترجمة حرفية من الإنجليزية. */
 const ARABIC_ANCHOR_STYLE_RULES = `
 Arabic style for EVERY spoken line you produce — anchorQuestions AND followUpRules

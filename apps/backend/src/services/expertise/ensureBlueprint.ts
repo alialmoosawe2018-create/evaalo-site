@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import RecruitmentCampaign from '../../models/RecruitmentCampaign.js';
 import JobExpertiseProfile, { type IJobExpertiseProfile } from '../../models/JobExpertiseProfile.js';
 import InterviewBlueprint, { type IInterviewBlueprint } from '../../models/InterviewBlueprint.js';
-import { generateExpertiseAndBlueprint } from './blueprintGenerator.js';
+import { generateExpertiseAndBlueprint, BLUEPRINT_STYLE_VERSION } from './blueprintGenerator.js';
 
 /** هل ميزة الـBlueprint مفعّلة؟ (افتراضياً مفعّلة ما لم تُضبط على false صراحةً). */
 export function isBlueprintFeatureEnabled(): boolean {
@@ -104,7 +104,28 @@ export async function ensureBlueprintForCampaign(
 
     // 1) موجود ومقفل → أعِده فوراً (لا توليد مكرر).
     const existing = await getLockedBlueprintForCampaign(id);
-    if (existing) return existing;
+    if (existing) {
+        const stale = (existing.blueprint.styleVersion || '') !== BLUEPRINT_STYLE_VERSION;
+        if (!stale) return existing;
+        // The phrasing rules moved on. Retire this one and fall through to generate a
+        // replacement; sessions already recorded keep their own blueprintSnapshot, so
+        // past evaluations are untouched.
+        try {
+            await InterviewBlueprint.updateOne(
+                { blueprintId: existing.blueprint.blueprintId, status: 'locked' },
+                { $set: { status: 'superseded' } }
+            ).exec();
+            console.log(
+                `♻️ Blueprint ${existing.blueprint.blueprintId} superseded for campaign ${id} ` +
+                    `(style ${existing.blueprint.styleVersion || 'none'} → ${BLUEPRINT_STYLE_VERSION})`
+            );
+        } catch (err: any) {
+            // Could not retire it — keep serving the old one rather than failing the
+            // interview over phrasing.
+            console.warn(`⚠️ could not supersede blueprint for ${id}:`, err?.message || err);
+            return existing;
+        }
+    }
 
     // 2) اقرأ الحملة.
     const campaign = await RecruitmentCampaign.findOne({ campaignId: id }).lean();
@@ -159,6 +180,7 @@ export async function ensureBlueprintForCampaign(
             knowledgeDepth: generated.knowledgeDepth,
             terminology: generated.terminology,
             blueprintContentVersion: generated.blueprintContentVersion,
+            styleVersion: BLUEPRINT_STYLE_VERSION,
             packVersion: generated.packVersion ?? undefined,
             blueprintGeneratedAt: generated.generatedAt
                 ? new Date(generated.generatedAt)
