@@ -22,6 +22,7 @@ from voice_interview.config import (
     build_openai_llm_kwargs,
     interview_defaults_enabled,
     interview_turn_floor_v2,
+    interview_turn_detector_v2,
 )
 
 logger = logging.getLogger("agent")
@@ -200,7 +201,14 @@ def resolve_speechmatics_eou_mode(raw: str) -> Any:
 
 
 def load_vad():
-    if os.getenv("DISABLE_VAD", "true").lower() == "true":
+    disabled = os.getenv("DISABLE_VAD", "true").lower() == "true"
+    if disabled and interview_defaults_enabled() and interview_turn_detector_v2():
+        # The contextual turn detector needs VAD; the deployed DISABLE_VAD=true secret
+        # silently downgraded turn-taking to plain silence detection. See
+        # interview_turn_detector_v2 for why this is overridden here rather than there.
+        logger.info("interview turn detector v2: enabling VAD (DISABLE_VAD=true overridden)")
+        disabled = False
+    if disabled:
         return None
     try:
         return silero.VAD.load(

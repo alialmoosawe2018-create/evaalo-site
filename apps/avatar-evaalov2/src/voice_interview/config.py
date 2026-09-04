@@ -286,6 +286,25 @@ def env_preemptive_generation() -> bool:
     return not avatar_stability_mode()
 
 
+def interview_turn_detector_v2() -> bool:
+    """Force the contextual turn detector on for interviews, over DISABLE_VAD=true.
+
+    Silence alone cannot tell "الاتش ار اي اس ما" (a sentence the candidate is still
+    building) from a finished answer, so raising the silence window only trades one
+    complaint for a slower agent. LiveKit's MultilingualModel judges whether the
+    UTTERANCE is complete, which is the actual question being asked.
+
+    It needs Silero VAD, and the deployed secrets pin DISABLE_VAD=true — a value we
+    cannot edit in place (see interview_turn_floor_v2). worker.py already calls this
+    "Production default: contextual turn detector", so the secret contradicts the
+    intended design rather than expressing it.
+
+    Absent from the deployed secrets, so on by default; add it as a NEW secret set to
+    false to fall back to silence-based turn-taking.
+    """
+    return os.getenv("INTERVIEW_TURN_DETECTOR_V2", "true").lower() in ("1", "true", "yes")
+
+
 def interview_turn_floor_v2() -> bool:
     """Interview turn-taking floors that stale deployment secrets cannot undercut.
 
