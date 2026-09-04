@@ -27,6 +27,44 @@ import {
     errorMessage as wbErrorMessage,
 } from '../services/webhookIdempotency.js';
 import { dispatchStripeEvent } from '../services/stripeWebhookHandlers.js';
+import { recordSiteErrorAsync } from '../services/siteErrorService.js';
+
+/**
+ * Event types where "we did not process this" means a customer paid and received
+ * nothing. Everything else Stripe sends is safe to no-op.
+ */
+const MONEY_EVENTS = new Set(['checkout.session.completed', 'invoice.paid']);
+
+/**
+ * Surface a webhook failure in `site_errors`.
+ *
+ * Until now every failure below was a `console.log` only, which means the one
+ * defect that costs real money — Stripe charges the card, we never credit the
+ * account — was invisible until a customer complained. A wrong
+ * STRIPE_WEBHOOK_SECRET drops *every* payment this way and looks perfectly
+ * healthy from the outside.
+ *
+ * The message deliberately carries the event TYPE but never the event ID: the
+ * id changes per delivery and siteErrorService fingerprints on the message, so
+ * including it would turn one broken secret into thousands of rows instead of a
+ * single row with a rising `count`. The id goes in breadcrumbs, which is not
+ * fingerprinted.
+ */
+function reportWebhookFailure(
+    message: string,
+    httpStatus: number,
+    eventId?: string,
+): void {
+    recordSiteErrorAsync({
+        source: 'backend',
+        severity: 'error',
+        message,
+        route: '/webhook/stripe',
+        method: 'POST',
+        httpStatus,
+        breadcrumbs: eventId ? [{ eventId }] : undefined,
+    });
+}
 
 export async function stripeWebhookHandler(req: Request, res: Response): Promise<void> {
     const sig = req.headers['stripe-signature'];
@@ -38,6 +76,10 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         console.error(
             '[stripe] webhook received non-Buffer body — verify express.raw mount order in server.ts.',
         );
+        reportWebhookFailure(
+            'stripe webhook: non-Buffer body (express.raw mount order broken) — every payment is being dropped',
+            400,
+        );
         res.status(400).json({ error: 'invalid_body' });
         return;
     }
@@ -48,6 +90,13 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
     } catch (err) {
         console.warn(
             `[stripe] webhook signature verification failed: ${wbErrorMessage(err)}`,
+        );
+        // The highest-value alert in this file. Stripe is reaching us and we are
+        // rejecting it — normally a stale STRIPE_WEBHOOK_SECRET after a key
+        // rotation or a test→live cutover.
+        reportWebhookFailure(
+            `stripe webhook: signature verification failed (${wbErrorMessage(err)}) — check STRIPE_WEBHOOK_SECRET`,
+            400,
         );
         res.status(400).json({ error: 'invalid_signature' });
         return;
@@ -77,6 +126,17 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         await completeWebhook('stripe', idempotencyKey);
         if (!handled) {
             console.log(`[stripe] event type=${event.type} not handled (no-op).`);
+            // Unhandled is the normal, correct outcome for the event types the
+            // dashboard subscribes to beyond the five we translate. It is only a
+            // defect for the two that move money — and because the event is
+            // marked complete above, Stripe will not retry it.
+            if (MONEY_EVENTS.has(event.type)) {
+                reportWebhookFailure(
+                    `stripe webhook: money event ${event.type} was NOT handled — customer paid and the account was not credited`,
+                    200,
+                    event.id,
+                );
+            }
         }
         res.status(200).json({ received: true, handled });
     } catch (err) {
@@ -84,6 +144,11 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         console.error(
             `[stripe] handler error for event=${event.type} id=${event.id}:`,
             err,
+        );
+        reportWebhookFailure(
+            `stripe webhook: handler failed for ${event.type} (${message})`,
+            500,
+            event.id,
         );
         await failWebhook('stripe', idempotencyKey, message).catch(() => undefined);
         res.status(500).json({ error: 'handler_failed', message });
