@@ -274,6 +274,8 @@ export function applicationToStageListRow(
         writtenInterviewEvaluation: app.writtenInterviewEvaluation,
         voiceInterviewEvaluation: app.voiceInterviewEvaluation,
         videoInterviewEvaluation: app.videoInterviewEvaluation,
+        // Surfaced so the board can show what was already decided and not ask twice.
+        hiringOutcome: app.hiringOutcome,
         voiceRecording: app.voiceRecording,
         files: app.attachments || app.files || p.files,
         entryStage: app.entryStage || p.entryStage,

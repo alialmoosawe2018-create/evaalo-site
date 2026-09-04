@@ -109,6 +109,28 @@ export interface ICandidateApplication extends Document {
     hiddenFromStages?: Array<'screening' | 'voice' | 'video'>;
     hiddenFromViews?: Array<'candidates'>;
 
+    /**
+     * What the employer actually did — the only signal that says whether an AI
+     * evaluation was RIGHT. Nothing else in the system carries it: scores and
+     * recommendations are the model grading its own homework.
+     *
+     * The AI's verdict is snapshotted at the moment a human decides, deliberately.
+     * Reading it back later from the evaluation would be corrupted by every prompt,
+     * blueprint and scoring change shipped in between — the pair must be frozen when
+     * it is formed, or the dataset silently rewrites its own history.
+     */
+    hiringOutcome?: {
+        decision: 'hired' | 'not_hired' | 'withdrawn';
+        decidedAt: Date;
+        decidedByClerkUserId?: string;
+        /** Furthest stage the candidate reached when the decision was made. */
+        stageAtDecision?: 'screening' | 'voice' | 'video';
+        /** The AI's recommendation and score AS THEY STOOD at decision time. */
+        aiRecommendationAtDecision?: string;
+        aiScoreAtDecision?: number;
+        note?: string;
+    };
+
     applicationSnapshot?: IApplicationSnapshot;
     aiEvaluation?: ICandidate['aiEvaluation'];
     writtenInterviewEvaluation?: ICandidate['writtenInterviewEvaluation'];
@@ -309,6 +331,19 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
             type: [String],
             enum: ['candidates'],
             default: undefined,
+        },
+        hiringOutcome: {
+            type: {
+                decision: { type: String, enum: ['hired', 'not_hired', 'withdrawn'], required: true },
+                decidedAt: { type: Date, required: true },
+                decidedByClerkUserId: { type: String },
+                stageAtDecision: { type: String, enum: ['screening', 'voice', 'video'] },
+                aiRecommendationAtDecision: { type: String },
+                aiScoreAtDecision: { type: Number },
+                note: { type: String, trim: true },
+            },
+            default: undefined,
+            _id: false,
         },
         applicationSnapshot: { type: SnapshotSchema, default: undefined },
         aiEvaluation: {

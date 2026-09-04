@@ -271,6 +271,82 @@ router.get(
     }
 );
 
+// POST /api/candidates/:id/hiring-outcome
+// Record what the employer actually did. This is the only signal in the product
+// that says whether an AI evaluation was RIGHT — everything else is the model
+// grading itself, which is why "does the agent improve over time?" had no data to
+// stand on.
+//
+// The AI's verdict is frozen here rather than read back later: prompts, blueprints
+// and Stage 2 scoring all change (three of them changed today), so a pair formed
+// now and read next month would compare a human decision against a verdict that no
+// longer exists. Snapshot at decision time or the dataset rewrites its own history.
+//
+// MUST stay above `GET /:id`.
+router.post(
+    '/:id/hiring-outcome',
+    conditionalRequireAuth(),
+    requirePermission('candidate.write'),
+    async (req: Request, res: Response) => {
+        try {
+            const id = String(req.params.id || '').trim();
+            if (!mongoose.Types.ObjectId.isValid(id)) {
+                return res.status(400).json({ success: false, message: 'invalid application id' });
+            }
+            const decision = String(req.body?.decision || '').trim();
+            const VALID = ['hired', 'not_hired', 'withdrawn'];
+            if (!VALID.includes(decision)) {
+                return res
+                    .status(400)
+                    .json({ success: false, message: `decision must be one of ${VALID.join(', ')}` });
+            }
+
+            const orgId = getOrgId(req);
+            const app = await CandidateApplication.findOne({ _id: id, organizationId: orgId }).exec();
+            if (!app) {
+                return res.status(404).json({ success: false, message: 'application not found' });
+            }
+
+            // Freeze the AI verdict from the furthest stage that actually produced one,
+            // and record which stage that was — a "Hire" off a CV screen and a "Hire"
+            // after a video interview are not the same prediction.
+            const stages: Array<['screening' | 'voice' | 'video', any]> = [
+                ['video', (app as any).videoInterviewEvaluation],
+                ['voice', (app as any).voiceInterviewEvaluation],
+                ['screening', (app as any).writtenInterviewEvaluation],
+            ];
+            let stageAtDecision: 'screening' | 'voice' | 'video' | undefined;
+            let aiRecommendationAtDecision: string | undefined;
+            let aiScoreAtDecision: number | undefined;
+            for (const [stage, evaluation] of stages) {
+                const rec = evaluation?.recommendation;
+                if (!rec) continue;
+                stageAtDecision = stage;
+                aiRecommendationAtDecision = String(rec);
+                const score = Number(evaluation?.overall_score);
+                if (Number.isFinite(score)) aiScoreAtDecision = score;
+                break;
+            }
+
+            (app as any).hiringOutcome = {
+                decision,
+                decidedAt: new Date(),
+                decidedByClerkUserId: (req as any).auth?.userId || undefined,
+                stageAtDecision,
+                aiRecommendationAtDecision,
+                aiScoreAtDecision,
+                note: typeof req.body?.note === 'string' ? req.body.note.trim() : undefined,
+            };
+            await app.save();
+
+            return res.json({ success: true, hiringOutcome: (app as any).hiringOutcome });
+        } catch (error: any) {
+            console.error('❌ hiring-outcome failed:', error?.message || error);
+            return res.status(500).json({ success: false, message: 'failed to record outcome' });
+        }
+    }
+);
+
 // Mock مرشح للتطوير (عند استخدام candidateId=xxx أو test)
 const MOCK_CANDIDATE = {
     _id: '000000000000000000000001',
