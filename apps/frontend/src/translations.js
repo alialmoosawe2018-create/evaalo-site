@@ -1424,6 +1424,9 @@ export const translations = {
         publicScreening_interviewLanguageLabel: "Interview language",
         publicScreening_step1: "Your details",
         publicScreening_step2: "Voice interview",
+        // The video intake reused publicScreening_step2, so its stepper announced a
+        // "Voice interview" on the way into a VIDEO call. Separate key, same slot.
+        publicVideoScreening_step2: "Video interview",
         publicScreening_roleLabel: "Role",
         publicScreening_sectionYourInfo: "Your information",
         publicScreening_sectionPersonal: "Personal information",
@@ -3040,6 +3043,7 @@ export const translations = {
         publicScreening_interviewLanguageLabel: "لغة المقابلة",
         publicScreening_step1: "بياناتك",
         publicScreening_step2: "المقابلة الصوتية",
+        publicVideoScreening_step2: "المقابلة المرئية",
         publicScreening_roleLabel: "الوظيفة",
         publicScreening_sectionYourInfo: "معلوماتك",
         publicScreening_sectionPersonal: "المعلومات الشخصية",
@@ -4664,6 +4668,7 @@ export const translations = {
         publicScreening_interviewLanguageLabel: "زمانی چاوپێکەوتن",
         publicScreening_step1: "زانیاریەکانت",
         publicScreening_step2: "چاوپێکەوتنی دەنگی",
+        publicVideoScreening_step2: "چاوپێکەوتنی ڤیدیۆیی",
         publicScreening_roleLabel: "پۆست",
         publicScreening_sectionYourInfo: "زانیاریەکانت",
         publicScreening_sectionPersonal: "زانیاری کەسی",

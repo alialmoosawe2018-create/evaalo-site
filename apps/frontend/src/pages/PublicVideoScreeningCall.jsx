@@ -139,14 +139,14 @@ const PublicVideoScreeningCall = () => {
           ) : null}
 
           {/* مؤشر الخطوات */}
-          <div className="psc-stepper" aria-label={`${t('publicScreening_step1')} — ${t('publicScreening_step2')}`}>
+          <div className="psc-stepper" aria-label={`${t('publicScreening_step1')} — ${t('publicVideoScreening_step2')}`}>
             <div className="psc-step psc-step--active">
               <span className="psc-step__circle">1</span>
               <span className="psc-step__label">{t('publicScreening_step1')}</span>
             </div>
             <div className="psc-step psc-step--inactive">
               <span className="psc-step__circle">2</span>
-              <span className="psc-step__label">{t('publicScreening_step2')}</span>
+              <span className="psc-step__label">{t('publicVideoScreening_step2')}</span>
             </div>
           </div>
 
