@@ -350,6 +350,12 @@ export async function createVideoPackCheckout(
             line_items: [{ price: priceId, quantity }],
             success_url: successUrl,
             cancel_url: cancelUrl,
+            // The subscription checkout has accepted promotion codes all along; this
+            // one did not, so a 100%-off coupon could verify a live subscription but
+            // not a live video-pack purchase — the half that grants minutes. Without
+            // it the only way to test this path against live Stripe is to actually
+            // pay, and Stripe does not return processing fees on a refund.
+            allow_promotion_codes: true,
             client_reference_id: organizationId,
             metadata: packMeta,
             payment_intent_data: {
