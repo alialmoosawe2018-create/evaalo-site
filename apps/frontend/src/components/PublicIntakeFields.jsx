@@ -56,6 +56,12 @@ const PublicIntakeFields = ({ idPrefix, value, onChange, disabled = false, t }) 
     const cvInputRef = useRef(null);
     const photoInputRef = useRef(null);
 
+    // Parsing takes several seconds, and the candidate can keep typing through
+    // it. Merging against the props captured when the upload started would undo
+    // whatever they wrote in the meantime, so the async path reads this instead.
+    const latest = useRef(value);
+    latest.current = value;
+
     // One preview URL per picked file, revoked when it is replaced or unmounted.
     const photoUrl = useMemo(
         () => (photoFile ? URL.createObjectURL(photoFile) : ''),
@@ -89,8 +95,7 @@ const PublicIntakeFields = ({ idPrefix, value, onChange, disabled = false, t }) 
         setCvNote(null);
         // Attach the file straight away: even if parsing fails the recruiter
         // should still receive the CV the candidate chose to send.
-        let nextValue = { ...value, cvFile: file };
-        onChange(nextValue);
+        onChange({ ...latest.current, cvFile: file });
 
         try {
             const body = new FormData();
@@ -104,15 +109,15 @@ const PublicIntakeFields = ({ idPrefix, value, onChange, disabled = false, t }) 
                 setCvNote({ kind: 'error', text: t(cvErrorKey(data?.error)) });
                 return;
             }
-            const { next, filled } = mergeParsedCvFields(details, data.fields);
+            const current = latest.current;
+            const { next, filled } = mergeParsedCvFields(current.details, data.fields);
             // A photo already chosen by hand outranks one pulled from the file.
             const extracted = data.photo ? dataUrlToFile(data.photo) : null;
-            nextValue = {
-                ...nextValue,
+            onChange({
+                ...current,
                 details: next,
-                photoFile: photoFile || extracted,
-            };
-            onChange(nextValue);
+                photoFile: current.photoFile || extracted,
+            });
             setCvNote({
                 kind: filled > 0 ? 'ok' : 'error',
                 text: filled > 0 ? t('publicScreening_cvFilled') : t('publicScreening_cvNothingFound'),
