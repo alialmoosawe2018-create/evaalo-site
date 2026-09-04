@@ -172,7 +172,8 @@ function detectLanguage(criteriaText: string): string {
 
 /** تعليمات صياغة anchorQuestions بالعربي — محادثة مهنية، لا ترجمة حرفية من الإنجليزية. */
 const ARABIC_ANCHOR_STYLE_RULES = `
-Arabic anchorQuestions style (mandatory when output language is Arabic):
+Arabic style for EVERY spoken line you produce — anchorQuestions AND followUpRules
+(the interviewer reads these aloud, so a wrong word is heard, not skimmed):
 - Write as a live Iraqi professional interviewer would SPEAK — warm, direct, one short sentence per question.
 - Use MSA-leaning Iraqi light: "شنو"، "شلون"، "وين"، "ليش"، "هسه"، "كلش" — sparingly, not in every question.
 - NEVER use translation calques from English interview templates, e.g. avoid: "صف لي"، "أخبرني عن وقت"، "حدثني عن تجربة"، "امشِني خلال"، "ما الذي تفعله عندما".
@@ -183,7 +184,19 @@ Arabic anchorQuestions style (mandatory when output language is Arabic):
 - FORBIDDEN: comma-chained demands inside one question — "اذكرلي خطواتك والزمن اللي استهلكته ونتيجة القبول؟" is THREE asks wearing one question mark. Ask for one.
 - FORBIDDEN: presupposing the candidate has done it. "شلون نسّقت مقابلات…؟" assumes; write "شنو خبرتك بتنسيق المقابلات…؟" or "شگد اشتغلت على…؟" so someone without that experience can answer plainly.
 - FORBIDDEN awkward calques: "شنو هي وظيفة صعبة"، "صف وظيفة"، "حدثني عن تجربة" — use natural Iraqi: "اذكرلي دور…"، "شلون…؟"، "شنو…؟".
-- Each anchor MUST name at least one concrete domain element (field, tool, KPI, method, or equipment) specific to the role.`;
+- Each anchor MUST name at least one concrete domain element (field, tool, KPI, method, or equipment) specific to the role.
+- NAME PEOPLE AND ROLES THE WAY IRAQI HR ACTUALLY SAYS THEM. Never invent a compound
+  for a role: the person conducting the interview is "المسؤول عن المقابلة" or
+  "المدير", NEVER "معلم المقابلة". If you are unsure a role name is real Arabic
+  usage, use the plain everyday word instead.
+- EVERY WORD MUST BE A REAL, CORRECTLY SPELLED ARABIC WORD. Do not fuse or clip words
+  into something that only looks Arabic — "أوظف جديد" is not a phrase; it is "موظف
+  جديد". Read each question back as speech before emitting it.
+- Describe ACTIONS the way they are said in Arabic, not transliterated from English:
+  a candidate who has not signed yet "ما رجّع العقد موقّع" or "تأخّر بتوقيع العقد" —
+  NOT "تأخر بإرجاع عقد", which is an English sentence wearing Arabic words.
+- The test for every line: could an Iraqi HR employee say it out loud to a candidate
+  without the candidate asking "شنو تقصد؟" If not, rewrite it plainly.`;
 
 function arabicAnchorStyleSuffix(language: string): string {
     return language === 'ar' ? ARABIC_ANCHOR_STYLE_RULES : '';

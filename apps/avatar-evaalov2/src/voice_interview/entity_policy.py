@@ -296,7 +296,10 @@ _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
         "sensitive": "مثلاً موقف وازنت فيه بين السلامة وضغط الإنتاج — اذكرلي مثال بسيط؟",
         "challenge": "اذكرلي مثال عملي بسيط: شنو كان التحدي التقني وشنو سويت؟",
         "requirements": "مثلاً قبل قرار تشغيلي — شنو البيانات أو التقارير اللي راجعتها؟",
-        "default": "اذكرلي مثال عملي بسيط من خبرتك البترولية يوضح هالموضوع؟",
+        "default": (
+            "أقصد أي موقف من خبرتك البترولية بهالخصوص — مثلاً قراءة بيانات إنتاج أو "
+            "متابعة ضغط أو نتيجة محاكاة. أي واحد أقرب لك، وإذا ما مرّ عليك قلّي ونمشي لغيره؟"
+        ),
     },
     "hr_recruiter": {
         "metrics": "مثلاً Time to Fill أو Offer Acceptance — أي واحد من هذني تتابعه أكثر؟",
@@ -304,7 +307,16 @@ _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
         "sensitive": "مثلاً مرشّح رفض العرض أو مدير يبّدي مستعجل — اذكرلي موقف واحد بسيط من هالنوع؟",
         "challenge": "اذكرلي مثال عملي بسيط: شنو كان التحدي وشنو سويت؟",
         "requirements": "مثلاً وظيفة تقنية أو إدارية — شلون تاخذ متطلبات الدور من المدير قبل ما تبدي؟",
-        "default": "اذكرلي مثال عملي بسيط من خبرتك يوضح هالموضوع؟",
+        # Every other branch EXPLAINS the question before asking again; this one only
+        # demanded an example, so a candidate who said "شنو تقصدين؟" got a re-ask
+        # instead of an answer and asked again. It is also where every unmatched
+        # clarify lands. Say what is meant, ground it with concrete options, and make
+        # "it never came up" an acceptable answer — the candidate kept needing that
+        # and had no way to say it.
+        "default": (
+            "أقصد أي موقف من شغلك بهالخصوص — مثلاً تنسيق موعد أو متابعة مرشّح أو "
+            "ترتيب مستند. أي واحد أقرب لخبرتك، وإذا ما مرّ عليك قلّي ونمشي لغيره؟"
+        ),
     },
 }
 
