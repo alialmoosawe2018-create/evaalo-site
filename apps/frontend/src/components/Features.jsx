@@ -19,7 +19,7 @@ const FEATURE_CARD_COLOR = {
 };
 
 /** Same filename in public/images is cached by the browser — bump when you replace an image file. */
-const IMAGE_CACHE_BUST = '13';
+const IMAGE_CACHE_BUST = '15';
 const publicImageSrc = (filename) => `/images/${filename}?v=${IMAGE_CACHE_BUST}`;
 
 const Features = ({ showWhyChoose = true, excludeFeatureIds = [], variant = 'home' }) => {
@@ -69,7 +69,7 @@ const Features = ({ showWhyChoose = true, excludeFeatureIds = [], variant = 'hom
         { id: 'home-head-hunter', img: '1PM.png', title: t('navProductAiHeadHunter'), desc: t('homeFeatureHeadHunterDesc') },
         {
             id: 'visual-lang-7',
-            img: 'icon13-removebg-preview.png',
+            img: 'feature-candidate-comparison.png',
             title: t('visualLang7Title'),
             mobileTitle: t('visualLang7TitleMobile'),
             desc: t('visualLang7Desc'),
@@ -242,9 +242,13 @@ const Features = ({ showWhyChoose = true, excludeFeatureIds = [], variant = 'hom
                 <div className="container">
                     <div className="section-header">
                         <h2 className="section-title">{t('features')}</h2>
-                        <p className="section-description">
-                            {t('featuresSubtitle')}
-                        </p>
+                        {/* Home only — the demo page runs this section on a dark
+                            background, where .section-description is forced dark. */}
+                        {variant !== 'demo' ? (
+                            <p className="section-description">
+                                {t('featuresSubtitle')}
+                            </p>
+                        ) : null}
                     </div>
                     <div className={`icon-highlights-grid${variant !== 'demo' ? ' icon-highlights-grid--hub' : ''}`}>
                         {variant === 'demo' ? (
