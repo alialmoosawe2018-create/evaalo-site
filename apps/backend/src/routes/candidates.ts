@@ -11,6 +11,7 @@ import {
     applicationToStageListRow,
     findApplicationForCallback,
     pushApplicationEvent,
+    toApplicationAttachments,
 } from '../services/candidateApplicationService.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
@@ -1176,6 +1177,9 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
 
         // إن كان الشخص موجوداً مسبقاً ونقلنا بيانات الاستمارة من هذا الطلب، حدّث Application.
         if (!createdNewPerson) {
+            const normalizedAttachments = toApplicationAttachments(
+                candidateDataForDB.files as Parameters<typeof toApplicationAttachments>[0]
+            );
             await CandidateApplication.findByIdAndUpdate(application._id, {
                 $set: {
                     position_applied_for: candidateDataForDB.position_applied_for,
@@ -1186,16 +1190,8 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                     skills: candidateDataForDB.skills || [],
                     languages: candidateDataForDB.languages || [],
                     coverLetter: candidateDataForDB.coverLetter,
-                    files: candidateDataForDB.files,
-                    attachments: (candidateDataForDB.files || []).map((f: any) => ({
-                        type: f.kind === 'photo' ? 'photo' : 'cv',
-                        filename: f.filename,
-                        originalName: f.originalName,
-                        path: f.path,
-                        mimeType: f.mimeType,
-                        size: f.size,
-                        uploadedAt: f.uploadedAt || new Date(),
-                    })),
+                    files: normalizedAttachments,
+                    attachments: normalizedAttachments,
                     ...(campaignFormBinding
                         ? {
                               status: willSendStage1N8n ? 'pending_evaluation' : 'pending',

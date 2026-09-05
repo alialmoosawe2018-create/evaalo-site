@@ -14,6 +14,40 @@ import {
 } from '../repositories/candidateApplicationRepository.js';
 import type { CursorPage } from '../repositories/pagination.js';
 
+/** Candidate files carry `kind`; application attachments carry `type`. Both the
+ *  create path and the returning-applicant update path go through here, because
+ *  they had drifted: the update path recognised only `photo` and relabelled every
+ *  certificate as a CV, then wrote the raw kind-shaped objects into `files`,
+ *  where the schema defaulted all of them to `other`. */
+export function toApplicationAttachments(
+    files: Array<{
+        kind?: string;
+        filename?: string;
+        originalName?: string;
+        path?: string;
+        mimeType?: string;
+        size?: number;
+        uploadedAt?: Date;
+    }> | undefined | null
+) {
+    const KNOWN = new Set(['cv', 'photo', 'certificate']);
+    return (files || []).map((f) => ({
+        // An unrecognised kind is NOT a CV — mislabelling one shows a certificate
+        // where the reviewer expects the résumé.
+        type: (KNOWN.has(String(f.kind)) ? f.kind : 'other') as
+            | 'cv'
+            | 'photo'
+            | 'certificate'
+            | 'other',
+        filename: f.filename,
+        originalName: f.originalName,
+        path: f.path,
+        mimeType: f.mimeType,
+        size: f.size,
+        uploadedAt: f.uploadedAt || new Date(),
+    }));
+}
+
 export function buildApplicationSnapshot(input: {
     full_name?: string;
     current_title?: string;
@@ -164,18 +198,7 @@ export async function upsertCandidateApplication(
         position_applied_for: input.candidate.position_applied_for,
     });
 
-    const filesAsAttachments = (input.candidate.files || []).map((f) => ({
-        type: (f.kind === 'photo' || f.kind === 'certificate' ? f.kind : 'cv') as
-            | 'cv'
-            | 'photo'
-            | 'certificate',
-        filename: f.filename,
-        originalName: f.originalName,
-        path: f.path,
-        mimeType: f.mimeType,
-        size: f.size,
-        uploadedAt: f.uploadedAt || new Date(),
-    }));
+    const filesAsAttachments = toApplicationAttachments(input.candidate.files);
 
     const app = new CandidateApplication({
         organizationId: input.organizationId,
