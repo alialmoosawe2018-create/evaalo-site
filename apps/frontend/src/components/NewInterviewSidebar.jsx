@@ -31,6 +31,7 @@ import { HIGHEST_EDUCATION_OPTIONS } from '../constants/educationLevelOptions.js
 import { YEARS_OF_EXPERIENCE_OPTIONS } from '../constants/yearsOfExperienceOptions.js';
 import { AGE_RANGE_OPTIONS } from '../constants/ageRangeOptions.js';
 import { GENDER_OPTIONS } from '../constants/genderOptions.js';
+import { INDUSTRY_TYPE_OPTIONS, NEW_CAMPAIGN_INDUSTRY_OPT_KEY } from '../constants/industryTypeOptions.js';
 import { CAMPAIGN_READY_OPTIONS } from '../constants/campaignReadyOptions.js';
 import { AVAILABLE_CRITERIA_AUDIO } from '../constants/audioJobCriteria.js';
 import { buildAvailabilityOptions } from '../utils/formSelectOptions.js';
@@ -53,7 +54,7 @@ const AVAILABLE_CRITERIA = [
     { id: 'location', label: 'Location', placeholder: 'Pick Iraqi governorate or type location (▼)', type: 'text' },
     { id: 'job', label: 'Job Level', placeholder: 'Enter job level', type: 'text' },
     { id: 'company', label: 'Company', placeholder: "If you're looking for candidates from a specific company", type: 'text' },
-    { id: 'industryType', label: 'Industry Type', placeholder: 'e.g. Oil & Gas, Banking, Healthcare', type: 'text' },
+    { id: 'industryType', label: 'Industry Type', placeholder: 'Pick a sector or type your own (▼)', type: 'text' },
     { id: 'age', label: 'Age Range', placeholder: 'Pick range or type (e.g. 25-35) (▼)', type: 'text' },
     { id: 'gender', label: 'Gender', placeholder: 'MALE or FEMALE (▼)', type: 'text' },
     { id: 'educationLevel', label: 'Education Level', placeholder: 'Pick level or type (▼)', type: 'text' },
@@ -743,6 +744,15 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         () =>
             HIGHEST_EDUCATION_OPTIONS.map((o) => {
                 const key = NEW_CAMPAIGN_EDU_OPT_KEY[o.value];
+                return { value: o.value, label: key ? t(key) : o.label };
+            }),
+        [t, currentLang]
+    );
+
+    const industryOptionsLocalized = useMemo(
+        () =>
+            INDUSTRY_TYPE_OPTIONS.map((o) => {
+                const key = NEW_CAMPAIGN_INDUSTRY_OPT_KEY[o.value];
                 return { value: o.value, label: key ? t(key) : o.label };
             }),
         [t, currentLang]
@@ -2706,6 +2716,18 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                         suggestionOptions={genderOptionsLocalized}
                                         placeholder={criterion.placeholder}
                                         listboxId="ni-sidebar-gender-suggestions"
+                                        wrapperClassName="position-suggest--sidebar-wide"
+                                        {...criteriaComboboxProps(hasError)}
+                                    />
+                                ) : criterion.id === 'industryType' ? (
+                                    <PositionSuggestCombobox
+                                        id="ni-sidebar-industry-input"
+                                        name={criterion.id}
+                                        value={value ?? ''}
+                                        onChange={(e) => handleInputChange(criterion.id, e.target.value)}
+                                        suggestionOptions={industryOptionsLocalized}
+                                        placeholder={criterion.placeholder}
+                                        listboxId="ni-sidebar-industry-suggestions"
                                         wrapperClassName="position-suggest--sidebar-wide"
                                         {...criteriaComboboxProps(hasError)}
                                     />
