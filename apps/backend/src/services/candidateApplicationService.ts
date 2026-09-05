@@ -234,9 +234,11 @@ export async function upsertCandidateApplication(
         applicationSnapshot: snapshot,
         attachments: filesAsAttachments,
         files: filesAsAttachments,
-        writtenInterviewEvaluation: input.candidate.writtenInterviewEvaluation,
-        voiceInterviewEvaluation: input.candidate.voiceInterviewEvaluation,
-        videoInterviewEvaluation: input.candidate.videoInterviewEvaluation,
+        /* A new application starts unevaluated. These used to be seeded from the
+           person, so someone applying to a second campaign arrived already carrying
+           the first campaign's score and write-up — a reviewer could reject a good
+           candidate on a verdict passed for a different job. The evaluation for this
+           application is written when its own callback returns. */
         aiEvaluation: input.candidate.aiEvaluation,
         voiceRecording: input.candidate.voiceRecording,
         voiceInterviewLinkConsumedAt: input.candidate.voiceInterviewLinkConsumedAt,

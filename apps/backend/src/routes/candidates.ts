@@ -1340,8 +1340,25 @@ router.put('/:id', requirePermission('candidate.write'), async (req: Request, re
         // applicationId is targeting context only — never persisted onto Candidate.
         delete body.applicationId;
 
+        /* An evaluation belongs to one application, not to the person. Until now the
+           only writer was the copy taken when an application is created, so a
+           returning applicant carried the previous campaign's verdict into the new
+           one — and the screening list, which reads the application, disagreed with
+           the profile, which reads the person. Resolve a target for evaluations the
+           same way status already does. */
+        const EVALUATION_FIELDS = [
+            'writtenInterviewEvaluation',
+            'voiceInterviewEvaluation',
+            'videoInterviewEvaluation',
+        ] as const;
+        const evaluationPatch: Record<string, unknown> = {};
+        for (const f of EVALUATION_FIELDS) {
+            if (body[f] !== undefined) evaluationPatch[f] = body[f];
+        }
+        const hasEvaluationPatch = Object.keys(evaluationPatch).length > 0;
+
         let targetApplication: Awaited<ReturnType<typeof findApplicationForCallback>> = null;
-        if (newStatus && mongoose.Types.ObjectId.isValid(req.params.id)) {
+        if ((newStatus || hasEvaluationPatch) && mongoose.Types.ObjectId.isValid(req.params.id)) {
             targetApplication = await findApplicationForCallback({
                 applicationId: statusApplicationId,
                 candidateId: req.params.id,
@@ -1356,7 +1373,11 @@ router.put('/:id', requirePermission('candidate.write'), async (req: Request, re
                     organizationId: orgId,
                     deletedAt: null,
                 });
-                if (appCount > 0) {
+                /* Only a status change is rejected when the target is ambiguous.
+                   An evaluation that cannot be targeted still lands on the person,
+                   exactly as before — refusing it would turn a working n8n callback
+                   that omits campaign context into a 400. */
+                if (appCount > 0 && newStatus) {
                     return res.status(400).json({
                         success: false,
                         error: 'campaign_context_required',
@@ -1383,6 +1404,17 @@ router.put('/:id', requirePermission('candidate.write'), async (req: Request, re
         if (typeof body.email === 'string' && body.email.trim()) {
             await syncEmailDenormForCandidate(String(candidate._id), body.email).catch((err) =>
                 console.warn('emailDenorm sync failed:', err?.message || err)
+            );
+        }
+
+        /* Mirror the evaluation onto the application it actually belongs to. The
+           person keeps its copy for the legacy profile view; the application is
+           what the screening list reads, and what a future campaign must not
+           inherit. */
+        if (hasEvaluationPatch && targetApplication) {
+            await CandidateApplication.updateOne(
+                { _id: targetApplication._id, organizationId: orgId },
+                { $set: evaluationPatch }
             );
         }
 
