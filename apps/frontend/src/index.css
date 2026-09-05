@@ -7501,7 +7501,9 @@ body.rtl-text #features .icon-description {
     color: #1e293b !important;
     text-shadow: none !important;
     filter: none !important;
-    font-weight: 500;
+    /* Match #process, which uses the base weight — the two section subtitles
+       sit on the same cream background and must read identically. */
+    font-weight: 400;
     opacity: 1 !important;
     -webkit-text-fill-color: #1e293b !important;
     background: none !important;
@@ -9449,6 +9451,16 @@ body.rtl-text .hero-badge span {
     padding: 0 20px;
 }
 
+/* The hero text block is capped at 800px, so the title's 40px of side padding
+   is the only thing keeping "…Compare. With" (764px) from fitting on one line.
+   Drop it on desktop; mobile keeps the padding it needs. */
+@media (min-width: 769px) {
+    .hero-title {
+        padding-left: 0;
+        padding-right: 0;
+    }
+}
+
 .hero-subtitle {
     display: inline-block;
     font-size: 2.8rem;
@@ -9517,56 +9529,10 @@ body.rtl-text .hero-badge span {
         display: none;
     }
 
-    /* Kurdish: fixed 3-line title (same as mobile) — inline + <br> wraps mid-line on desktop */
-    html[lang="ku"] .hero-title__wrap--desktop {
-        display: none !important;
-    }
-
-    html[lang="ku"] .hero-title__wrap--mobile {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 100%;
-        max-width: 100%;
-    }
-
-    html[lang="ku"] .hero-title {
-        font-size: clamp(1.75rem, 2.75vw, 2.75rem);
-        line-height: 1.4;
-        background: none;
-        -webkit-background-clip: border-box;
-        background-clip: border-box;
-        -webkit-text-fill-color: #ffffff;
-        color: #ffffff;
-    }
-
-    html[lang="ku"] .hero-title__mobile-line {
-        display: block;
-        white-space: normal;
-        text-wrap: balance;
-        color: #ffffff;
-        -webkit-text-fill-color: #ffffff;
-        text-shadow: 0 2px 20px rgba(56, 189, 248, 0.28);
-    }
-
-    html[lang="ku"] .hero-title__mobile-line--1 .hero-subtitle {
-        display: inline-block;
-        font-size: 1em;
-        font-weight: 800;
-        margin: 0;
-        margin-bottom: 0;
-        vertical-align: baseline;
-        background: linear-gradient(135deg,
-            #22d3ee 0%,
-            #a5b4fc 100%);
-        background-size: 200% auto;
-        -webkit-background-clip: text;
-        background-clip: text;
-        -webkit-text-fill-color: transparent;
-        color: transparent;
-        animation: gradientShift 8s ease infinite;
-        filter: drop-shadow(0 0 20px rgba(56, 189, 248, 0.5));
-    }
+    /* Kurdish used to be forced onto the mobile 3-line title here, because the
+       old copy relied on the browser to pick the wraps and it broke mid-phrase.
+       The line breaks are now explicit <br>s in the translation, so Kurdish
+       takes the same desktop path as the other languages. */
 }
 
 .title-line {

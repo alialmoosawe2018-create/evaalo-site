@@ -11,8 +11,9 @@ const Hero = () => {
         navigate('/login');
     };
 
-    const scrollToFeatures = () => {
-        document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+    /* Scrolls to the next section down the page ("Why evaalo"), not to Features. */
+    const scrollToNextSection = () => {
+        document.getElementById('why')?.scrollIntoView({ behavior: 'smooth' });
     };
 
     return (
@@ -107,7 +108,7 @@ const Hero = () => {
                                 <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </button>
-                        <a href="#features" className="btn btn-secondary btn-large" onClick={scrollToFeatures}>
+                        <a href="#why" className="btn btn-secondary btn-large" onClick={scrollToNextSection}>
                             <span>{t('learnMore')}</span>
                         </a>
 

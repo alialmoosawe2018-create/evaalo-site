@@ -242,6 +242,9 @@ const Features = ({ showWhyChoose = true, excludeFeatureIds = [], variant = 'hom
                 <div className="container">
                     <div className="section-header">
                         <h2 className="section-title">{t('features')}</h2>
+                        <p className="section-description">
+                            {t('featuresSubtitle')}
+                        </p>
                     </div>
                     <div className={`icon-highlights-grid${variant !== 'demo' ? ' icon-highlights-grid--hub' : ''}`}>
                         {variant === 'demo' ? (
