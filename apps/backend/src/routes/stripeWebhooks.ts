@@ -50,6 +50,15 @@ const MONEY_EVENTS = new Set(['checkout.session.completed', 'invoice.paid']);
  * single row with a rising `count`. The id goes in breadcrumbs, which is not
  * fingerprinted.
  */
+/**
+ * Stripe's SDK errors carry several lines of documentation links after the
+ * actual reason. Keeping only the first line makes the alert readable and keeps
+ * the fingerprint stable when Stripe edits its help text.
+ */
+function firstLine(text: string): string {
+    return String(text).split('\n')[0].trim();
+}
+
 function reportWebhookFailure(
     message: string,
     httpStatus: number,
@@ -95,7 +104,7 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         // rejecting it — normally a stale STRIPE_WEBHOOK_SECRET after a key
         // rotation or a test→live cutover.
         reportWebhookFailure(
-            `stripe webhook: signature verification failed (${wbErrorMessage(err)}) — check STRIPE_WEBHOOK_SECRET`,
+            `stripe webhook: signature verification failed (${firstLine(wbErrorMessage(err))}) — check STRIPE_WEBHOOK_SECRET`,
             400,
         );
         res.status(400).json({ error: 'invalid_signature' });
@@ -146,7 +155,7 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
             err,
         );
         reportWebhookFailure(
-            `stripe webhook: handler failed for ${event.type} (${message})`,
+            `stripe webhook: handler failed for ${event.type} (${firstLine(message)})`,
             500,
             event.id,
         );
