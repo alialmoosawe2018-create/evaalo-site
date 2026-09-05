@@ -85,10 +85,17 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         console.error(
             '[stripe] webhook received non-Buffer body — verify express.raw mount order in server.ts.',
         );
-        reportWebhookFailure(
-            'stripe webhook: non-Buffer body (express.raw mount order broken) — every payment is being dropped',
-            400,
-        );
+        // Only alert when the caller looked like Stripe. express.raw is typed to
+        // application/json, so ANY junk POST to this public path lands here — and
+        // an internet scanner must not be able to raise "every payment is being
+        // dropped" at 3am. Real Stripe always sends both the JSON content type and
+        // a signature header, so a missing signature means it was never Stripe.
+        if (sigStr) {
+            reportWebhookFailure(
+                'stripe webhook: signed request arrived with a non-Buffer body (express.raw mount order broken) — every payment is being dropped',
+                400,
+            );
+        }
         res.status(400).json({ error: 'invalid_body' });
         return;
     }
