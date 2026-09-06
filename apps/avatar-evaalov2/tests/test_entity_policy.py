@@ -342,3 +342,63 @@ def test_competency_engine_marks_covered_at_send_time() -> None:
     q2 = agent._pick_next_competency_question(mem)
     assert agent._turn_plan.competency_key == "c2"
     assert q2 != q1
+
+
+# ── تسرّب المجال في التوضيح — من جلسة الإنتاج 38d54d72 (2026-09-06) ──────────
+#
+# طلب **محاسب** توضيحاً فجاءه: «مثلاً تنسيق موعد أو متابعة مرشّح أو ترتيب مستند»
+# — أمثلة موارد بشرية. السبب أن `hr_recruiter` كان الاحتياطي المُثبَّت لكل دور بلا
+# حزمة، فكل مهنة خارج الحزمتين تُوضَّح لها بلغة التوظيف. توضيحٌ من مهنة أخرى أسوأ
+# من لا توضيح: يوحي للمرشح بأن الوكيل لا يعرف الدور الذي يُقابله عليه.
+
+_HR_ONLY_PHRASES = (
+    "تنسيق موعد",
+    "متابعة مرشّح",
+    "ترتيب مستند",
+    "Time to Fill",
+    "Offer Acceptance",
+    "LinkedIn",
+    "استقطاب",
+)
+_PETROLEUM_ONLY_PHRASES = ("النفطي", "معدل الإنتاج", "المحاكاة", "GOR", "بيانات إنتاج")
+
+# الفروع السبعة التي يصنّفها `_classify_clarify_branch`، بسؤال يقود إلى كل واحد.
+_BRANCH_PROBES = (
+    "شنو المؤشرات اللي تتابعها؟",
+    "هل المشروع أكاديمي لو ميداني؟",
+    "شنو قنوات الاستقطاب؟",
+    "اذكرلي موقف حساس صار وياك؟",
+    "شنو التحدي اللي واجهك؟",
+    "شلون تاخذ متطلبات المهمة؟",
+    "احچيلي عن موقف اكتشفت فيه خطأ مالي؟",
+)
+
+
+@pytest.mark.parametrize("role", ["general_accountant", "nurse", "driver", ""])
+@pytest.mark.parametrize("probe", _BRANCH_PROBES)
+def test_clarify_never_leaks_another_profession(role: str, probe: str) -> None:
+    """دورٌ بلا حزمة يُوضَّح له بلغة محايدة، لا بأمثلة مهنة أخرى."""
+    text, source = simplify_clarify_for_pack(probe, domain_pack_key=role)
+    assert source == "generic", f"{role!r} لم يقع على الحزمة المحايدة: {source}"
+    for phrase in _HR_ONLY_PHRASES + _PETROLEUM_ONLY_PHRASES:
+        assert phrase not in text, f"تسرّب «{phrase}» إلى دور {role!r}: {text}"
+
+
+@pytest.mark.parametrize("probe", _BRANCH_PROBES)
+def test_generic_clarify_still_offers_a_concrete_example(probe: str) -> None:
+    """المحايد لا يعني المجرّد — يبقى فيه مثال قبل علامة الاستفهام الوحيدة."""
+    text, _ = simplify_clarify_for_pack(probe, domain_pack_key="general_accountant")
+    kept = collapse_to_single_question(text)
+    assert any(w in kept for w in ("مثلاً", "مثال")), f"بلا مثال بعد الاقتطاع: {kept}"
+
+
+@pytest.mark.parametrize(
+    "role,expected",
+    [("hr_recruiter", "hr_recruiter"), ("petroleum_engineer", "petroleum_engineer")],
+)
+def test_existing_packs_keep_their_own_wording(role: str, expected: str) -> None:
+    """الحزمتان الأصليتان لم تتأثّرا بالاحتياطي الجديد."""
+    text, source = simplify_clarify_for_pack("شنو المؤشرات اللي تتابعها؟", domain_pack_key=role)
+    assert source == expected
+    marker = "Time to Fill" if role == "hr_recruiter" else "النفطي"
+    assert marker in text, f"{role} فقد نصّه الخاص: {text}"

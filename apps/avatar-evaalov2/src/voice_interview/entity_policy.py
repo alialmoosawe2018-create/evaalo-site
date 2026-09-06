@@ -283,6 +283,40 @@ def pick_varied(pool: tuple[str, ...] | list[str], mem: Any, *, key: str = "") -
 
 
 _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
+    # حزمة محايدة المجال — الاحتياطي لأي دور بلا حزمة خاصة.
+    #
+    # كان الاحتياطي `hr_recruiter`، فكان كل دور خارج الحزمتين يُعطى أمثلة توظيف.
+    # في جلسة 38d54d72 طلب **محاسب** توضيحاً فجاءه: «مثلاً تنسيق موعد أو متابعة
+    # مرشّح أو ترتيب مستند» — أمثلة موارد بشرية لمحاسب. توضيحٌ من مهنة أخرى أسوأ
+    # من لا توضيح: يُربك المرشح ويوحي بأن الوكيل لا يعرف الدور الذي يُقابل عليه.
+    #
+    # لا تذكر هذه النصوص مهنةً بعينها: تشرح المقصود وتترك المثال للمرشح نفسه.
+    # كل نصّ جملةٌ واحدة بعلامة استفهام واحدة في آخرها، والمثال قبلها: المتصل يمرّر
+    # الناتج على `collapse_to_single_question`، فأي مثال بعد «؟» الأولى يُقتطع.
+    "generic": {
+        "metrics": (
+            "أقصد أرقام أو مؤشرات تتابعها بشغلك — مثلاً شي تقيسه أو تراقبه بشكل "
+            "دوري، أي واحد أقرب لخبرتك؟"
+        ),
+        "academic_field": (
+            "أقصد بالأكاديمي دراسة أو مشروع تخرج، وبالعملي شغل أو تدريب فعلي — "
+            "مثلاً أي نوع منهم أقرب لخبرتك؟"
+        ),
+        "sourcing": (
+            "أقصد منين تجيب المعلومات أو المواد اللي تشتغل عليها — مثلاً مصدر تعتمد "
+            "عليه أكثر من غيره؟"
+        ),
+        "sensitive": "أقصد موقف صار بيه ضغط أو خلاف بشغلك — اذكرلي مثال بسيط من تجربتك؟",
+        "challenge": "اذكرلي مثال عملي بسيط: شنو كان التحدي وشنو سويت؟",
+        "requirements": (
+            "أقصد قبل ما تبدي بمهمة، شلون تعرف المطلوب منك بالضبط — مثلاً من مديرك "
+            "أو من مستند؟"
+        ),
+        "default": (
+            "أقصد أي موقف من شغلك أنت بهالخصوص — مثال واحد من تجربتك بالدور اللي "
+            "تشتغل بيه، وإذا ما مرّ عليك قلّي ونمشي لغيره؟"
+        ),
+    },
     "petroleum_engineer": {
         "metrics": (
             "أقصد مؤشرات مرتبطة بالمشروع النفطي، مثل معدل الإنتاج أو الضغط أو نسبة الماء "
@@ -321,6 +355,10 @@ _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
 }
 
 _PACK_CLARIFY_CHALLENGE: dict[str, str] = {
+    "generic": (
+        "أعتذر إذا كان السؤال غامض. أقصد موقف من شغلك أنت بالضبط — اذكرلي مثال "
+        "عملي بسيط من تجربتك؟"
+    ),
     "petroleum_engineer": (
         "أعتذر، المثال السابق ما كان متعلق بهندسة النفط. أقصد مؤشرات مثل معدل الإنتاج "
         "أو الضغط أو نسبة الماء أو نتائج المحاكاة. هل عندك مثال أكاديمي أو ميداني؟"
@@ -361,8 +399,10 @@ def simplify_clarify_for_pack(
     """Pack-aware clarify re-ask. Returns (question, clarify_example_source)."""
     del domain_guidance, competencies  # reserved for evidence-based expansion
     n = normalize_text(last_question or "")
-    pack = (domain_pack_key or "").strip().lower() or "hr_recruiter"
-    branches = _PACK_CLARIFY_BRANCHES.get(pack) or _PACK_CLARIFY_BRANCHES["hr_recruiter"]
+    # الاحتياطي محايد المجال، لا `hr_recruiter`: دورٌ بلا حزمة يجب أن يُوضَّح له
+    # بلغة عامة، لا بأمثلة من مهنة أخرى.
+    pack = (domain_pack_key or "").strip().lower() or "generic"
+    branches = _PACK_CLARIFY_BRANCHES.get(pack) or _PACK_CLARIFY_BRANCHES["generic"]
     branch = _classify_clarify_branch(n)
     question = branches.get(branch) or branches["default"]
     source = pack if pack in _PACK_CLARIFY_BRANCHES else "generic"
@@ -371,8 +411,9 @@ def simplify_clarify_for_pack(
 
 def clarify_challenge_reply(domain_pack_key: str = "") -> tuple[str, str]:
     """Short self-correction when candidate rejects a wrong clarify example."""
-    pack = (domain_pack_key or "").strip().lower() or "hr_recruiter"
-    text = _PACK_CLARIFY_CHALLENGE.get(pack) or _PACK_CLARIFY_CHALLENGE["hr_recruiter"]
+    # نفس المبدأ: الاعتذار لا يجوز أن يجرّ أمثلة من مهنة غير مهنة المرشح.
+    pack = (domain_pack_key or "").strip().lower() or "generic"
+    text = _PACK_CLARIFY_CHALLENGE.get(pack) or _PACK_CLARIFY_CHALLENGE["generic"]
     return text, f"{pack}_challenge"
 
 
