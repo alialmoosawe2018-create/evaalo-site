@@ -245,6 +245,11 @@ export function isAskingAgentIdentity(transcript: string): boolean {
  */
 export type InterviewPolicyIntent = 'ask_result' | 'ask_evaluation' | 'ask_opinion';
 
+/** كلمة النتيجة بأشكالها — وحدها لا تكفي، انظر الشرط أدناه. */
+const RESULT_WORD_AR = /(?:(?:ال)?نتيج(?:ة|ه|ۀ)|ناتج|(?:ال)?جواب|(?:ال)?رد)(?!\p{L})/iu;
+/** إشارة أن الجملة سؤال لا خبر: علامة استفهام أو أداة استفهام عراقية/فصيحة. */
+const QUESTION_SIGNAL_AR = /[؟?]|(?<!\p{L})(?:شنو|شو|شكد|شگد|متى|امتى|شوكت|وين|هل|ليش|منو|مين)(?!\p{L})/iu;
+
 export function classifyInterviewPolicyIntent(transcript: string): InterviewPolicyIntent | null {
   const t = transcript.trim();
   if (t.length < 3 || t.length > 200) return null;
@@ -278,9 +283,16 @@ export function classifyInterviewPolicyIntent(transcript: string): InterviewPoli
   if (evalAr || evalEn) return 'ask_evaluation';
 
   const resAr =
-    /(ال)?نتيج(ة|ه|ۀ|ه)(?!\p{L})|ناتج(؟|ي|ٱ)?(?!\p{L})|متى (تطلع|تنزل|نظهر|ينعلن|يعلن|يوصل) (ال)?نتيج|شصار(ت)? (ال)?نتيج|وين (صارت|وصلت) (ال)?نتيج|انقبل|قبول|راح انقبل|راح (أ|ا)نقبل|تعرف(ني|يني) (بشكل|ناجح|منقبل|مرفوض|مقبول)/iu.test(
-      t
-    ) || /(متى|وين) (ياكلن|نعلم|نحصل|ناخذ) (على )?(ال)?(نتيج|جواب|رد)/i.test(t);
+    // ⚠️ ذكرُ «نتيجة» ليس سؤالاً عنها. كان النمط يقبل الكلمة وحدها (وكذلك «قبول»
+    // و«ناتج») فأطلق الحارسَ على إجابة عادية: في جلسة d9eb5536 قال المرشح «وطلعنا
+    // بنتيجه» وهو يصف عملاً جماعياً، فردّ الوكيل «ما عندي صلاحية أعرض النتيجة…
+    // شكراً لوقتك وأتمنى لك حظاً موفقاً» — ودّعه في منتصف المقابلة، مرتين.
+    //
+    // لم يظهر هذا قبلاً لأن النمط كان ميتاً أصلاً (‏`\b` بجوار العربية)؛ إحياؤه
+    // كشف تراخيه. فنشترط الآن إشارة سؤال صريحة مع الكلمة: علامة استفهام أو أداة.
+    (RESULT_WORD_AR.test(t) && QUESTION_SIGNAL_AR.test(t)) ||
+      /(متى|وين|شوكت) (ياكلن|نعلم|نحصل|ناخذ|تطلع|تنزل|ينعلن|يعلن|يوصل) (على )?(ال)?(نتيج|جواب|رد)/iu.test(t) ||
+      /(هل )?(انقبل|راح (أ|ا)نقبل|تعرف(ني|يني) (بشكل|ناجح|منقبل|مرفوض|مقبول))/iu.test(t);
   const resEn =
     /\b(when|how) (do|will) (i|we) (get|receive|know) (the )?(result|outcome|score|feedback)\b/i.test(
       tl

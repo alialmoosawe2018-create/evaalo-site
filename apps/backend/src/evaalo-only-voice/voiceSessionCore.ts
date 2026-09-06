@@ -1030,12 +1030,19 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         // الهوية ويستبدله بسؤال احتياطي، ولا يسمع المرشح الجواب أبداً (جلسة
         // a8a8d6fd: سأل مرتين، ورُفض الردّ مرتين). تُستثنى كما استُثني التوضيح
         // والمتابعة أصلاً.
-        const fixedAnswerTurn =
-          resolveFixedAnswerPath(cleaned, {
-            clarificationRequested,
-            currentPhase,
-            sessionLanguage: interviewLanguage,
-          }) !== null;
+        // فقط الهوية والسياسة: ردّهما نصٌّ ثابت قد يخلو من سؤال أصلاً.
+        //
+        // أما صدّ الإنجليزية المبكرة فيُلحق السؤال التالي، فيمرّ بالمدقّق بلا مشكلة
+        // — واستثناؤه كان خطأً كلّفنا فوراً: في جلسة d9eb5536 ذكر المرشح
+        // الإنجليزية أربع مرات، فأُلغي معه حارسُ التكرار وطُرح سؤال اللغات أربع
+        // مرات بصياغات شبه متطابقة حتى احتجّ: «كررت السؤال اكثر من مرة وجاوبت
+        // عليها». إبقاؤه تحت المدقّق يعيد الحارس ويستبدل المكرَّر بموضوع جديد.
+        const fixedPath = resolveFixedAnswerPath(cleaned, {
+          clarificationRequested,
+          currentPhase,
+          sessionLanguage: interviewLanguage,
+        });
+        const fixedAnswerTurn = fixedPath === 'identity' || fixedPath === 'policy';
         if (!fixedAnswerTurn && !validateLLMQuestion(llmReply, duplicateGuard)) {
           // احتياطيات المواضيع مكتوبة بالعراقية فقط — الجلسة الإنجليزية تأخذ
           // بديلاً إنجليزياً محايداً بدلاً من كسر قفل اللغة عند أول فشل تحقق.

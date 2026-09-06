@@ -56,11 +56,25 @@ for (const [input, expectedFragment] of mustFix) {
     ok(expectedFragment);
 }
 
+// المذكّرة كذلك — من جلسة d9eb5536: «وكيف تعاملت ويه؟»
+console.log('\n«ويه» المذكّرة:');
+for (const [input, expectedFragment] of [
+    ['زين، تگدر تحچيلي عن مثال محدد لتحدي واجهته وكيف تعاملت ويه؟', 'تعاملت وياه'],
+    ['طيب، شلون تعامل ويه الفريق؟', 'تعامل وياه'],
+] as [string, string][]) {
+    const out = polishVoiceArabicReply(input);
+    assert(out.includes(expectedFragment), `لم تُصحَّح «ويه»:\n  دخل: ${input}\n  خرج: ${out}`);
+    ok(expectedFragment);
+}
+
 // لا تُمسّ الصيغة الصحيحة، ولا كلمة تبدأ بالحروف نفسها.
 console.log('\nلا يمسّ ما هو سليم:');
 for (const untouched of [
     'ممتاز، شلون تعاملت وياها؟',
     'طيب، ويهاب زميلك شنو رأيه؟',
+    // «وية» حرف جرّ صحيح — الفرق عن «ويه» التاء المربوطة، فلا تُمسّ.
+    'حلو، شلون تتعامل وية ضغط العمل؟',
+    'تمام، شلون تعاملت وياه؟',
 ]) {
     const out = polishVoiceArabicReply(untouched);
     assert(

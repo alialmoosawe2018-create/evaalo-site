@@ -22,7 +22,7 @@
  * Run: npx tsx src/scripts/voice-fixed-answer-test.ts
  */
 import { resolveFixedAnswerPath } from '../services/llmService.js';
-import { validateLLMQuestion } from '../evaalo-only-voice/questionEngine.js';
+import { validateLLMQuestion, classifyInterviewPolicyIntent } from '../evaalo-only-voice/questionEngine.js';
 
 let pass = 0;
 let fail = 0;
@@ -56,6 +56,42 @@ const cannedIdentity =
     'آني إيفالو، مساعد موارد بشرية افتراضي يعمل بالذكاء الاصطناعي. دوري هو إدارة المقابلة معك خطوة بخطوة، من خلال طرح أسئلة منظمة وتحليل إجاباتك بشكل دقيق.\n\nخلينا نكمل المقابلة.';
 check('المدقّق يرفضه (ولذلك نستثنيه)', validateLLMQuestion(cannedIdentity), false);
 check('وهو فعلاً بلا سؤال', /[?؟]/.test(cannedIdentity), false);
+
+// ── ٥) ذكر «نتيجة» في إجابة ليس سؤالاً عنها ──────────────────────────────────
+// من جلسة d9eb5536: قال المرشح «وطلعنا بنتيجه» وهو يصف عملاً جماعياً، فردّ
+// الوكيل بسياسة النتائج وودّعه في منتصف المقابلة — مرتين.
+console.log('\n٥) «نتيجة» داخل إجابة عادية — لا تُطلق حارس السياسة');
+const notAsking = [
+    'عملت بها ضمن فريق كان عندنا شد داون وصار تعاون مشترك بيننا وباقي الاقسام. وطلعنا بنتيجه ورجانا تشغيل',
+    'وصلنا لنتيجة ممتازة مع الفريق',
+    'النتيجه النهائيه انه اختصرت كثير من الوقت',
+    'كان في قبول كبير للفكرة من الإدارة',
+];
+for (const t of notAsking) check(t.slice(0, 44), classifyInterviewPolicyIntent(t), null);
+
+console.log('\n٦) والسؤال الحقيقي ما زال يُلتقط');
+const asking: [string, string][] = [
+    ['متى تطلع النتيجة؟', 'ask_result'],
+    ['شصارت النتيجة؟', 'ask_result'],
+    ['يعني أحب أعرف شوكت راح تنعلن النتيجة', 'ask_result'],
+    ['شنو النتيجة؟', 'ask_result'],
+    ['هل انقبل؟', 'ask_result'],
+];
+for (const [t, want] of asking) check(t, classifyInterviewPolicyIntent(t), want);
+
+// ── ٧) صدّ الإنجليزية يبقى تحت المدقّق ──────────────────────────────────────
+// استثناؤه ألغى حارس التكرار معه، فطُرح سؤال اللغات أربع مرات في نفس الجلسة.
+console.log('\n٧) صدّ الإنجليزية يُصنَّف — لكنه لا يُستثنى من المدقّق');
+// المُحدِّد يُرجع المسار؛ والاستثناء في voiceSessionCore محصور في الهوية والسياسة،
+// وهو ما نُثبته هنا بنفس الشرط الذي يستعمله هناك.
+const EXEMPT = new Set(['identity', 'policy']);
+const engPath = resolveFixedAnswerPath(
+    'اللغة اللي اقدر احكيها هي اللغة الانجليزية ومستواي متوسط',
+    { ...base, sessionLanguage: 'ar' } as never,
+);
+check('المسار يُصنَّف صحيحاً', engPath, 'early-english');
+check('ولا يُعفى من المدقّق (فيبقى حارس التكرار)', EXEMPT.has(String(engPath)), false);
+check('بينما الهوية تُعفى', EXEMPT.has(String(resolveFixedAnswerPath('مين أنت؟', base as never))), true);
 
 console.log(`\n${fail === 0 ? '✅' : '⚠️'}  نجح ${pass} · فشل ${fail}`);
 if (fail > 0) process.exitCode = 1;
