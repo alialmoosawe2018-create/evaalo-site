@@ -19,9 +19,22 @@ function mockReq(body: Record<string, unknown>, headers: Record<string, string> 
     return { body, headers } as unknown as Request;
 }
 
+/**
+ * A request carrying a resolved org.
+ *
+ * NOT via `req.auth` — getAuthContext deliberately stopped reading that when
+ * @clerk/express v2 landed (see middleware/auth.ts), because v2 does not carry
+ * sessionClaims there. A `req.auth` mock therefore reaches no org at all:
+ * getAuth() throws outside clerkMiddleware, every request collapses to the
+ * default org, and the isolation assertion below compares 'org_default' with
+ * itself — which is exactly how this test sat red while proving nothing.
+ *
+ * `__resolvedOrg` is a real input the production path honours: resolveOrgFallback
+ * sets it when the session token carries no org claim.
+ */
 function mockOrgReq(orgId: string): Request {
     return {
-        auth: { orgId, sessionClaims: { orgId } },
+        __resolvedOrg: { id: orgId, rol: 'admin' },
     } as unknown as Request;
 }
 
@@ -93,7 +106,14 @@ function testPublicScreeningVoicePathPreserved(): void {
 function testOrgScopedQueryIsolation(): void {
     const orgA = orgScopedQuery(mockOrgReq('org_a'), { campaignId: { $in: ['c1'] } });
     const orgB = orgScopedQuery(mockOrgReq('org_b'), { campaignId: { $in: ['c1'] } });
+    // Assert the values, not just that they differ: two requests both collapsing
+    // to the same wrong org is the failure this test exists to catch, and only an
+    // exact check proves the caller's org actually reached the query.
+    assert.equal(orgA.organizationId, 'org_a');
+    assert.equal(orgB.organizationId, 'org_b');
     assert.notEqual(orgA.organizationId, orgB.organizationId);
+    // The scope is ADDED to the caller's filter, never replaces it.
+    assert.deepEqual(orgA.campaignId, { $in: ['c1'] });
 }
 
 function resolveTitleFromMeta(meta: { criteria?: Record<string, unknown>; templateName?: string } | null): string {
