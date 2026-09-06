@@ -1,0 +1,378 @@
+<title>نموذج تكاليف إيڤالو</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#f5f7f6; --surface:#ffffff; --surface-2:#eef2f0; --surface-3:#e6ece9;
+  --ink:#11201b; --muted:#566a62; --faint:#84979a;
+  --border:#dbe3df; --border-strong:#c4d0cb;
+  --accent:#0c7a5f; --accent-ink:#075a45; --accent-soft:#d6ede5;
+  --good:#15803d; --good-soft:#dcf3e3;
+  --warn:#a35708; --warn-soft:#f8ead2;
+  --crit:#b3271e; --crit-soft:#f6dcda;
+  --old:#93a29c; --old-line:#b9c4bf;
+  --shadow:0 1px 2px rgba(17,32,27,.05),0 8px 24px -12px rgba(17,32,27,.12);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1210; --surface:#111b17; --surface-2:#16211c; --surface-3:#1c2822;
+  --ink:#e9efec; --muted:#9cafa7; --faint:#6e817a;
+  --border:#23312b; --border-strong:#2f4038;
+  --accent:#3ed0a0; --accent-ink:#7fe6c2; --accent-soft:#123029;
+  --good:#4ade80; --good-soft:#123020;
+  --warn:#f4b552; --warn-soft:#2f2410;
+  --crit:#f2726a; --crit-soft:#321815;
+  --old:#66786f; --old-line:#3a4a42;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6);
+}}
+:root[data-theme="dark"]{
+  --bg:#0b1210; --surface:#111b17; --surface-2:#16211c; --surface-3:#1c2822;
+  --ink:#e9efec; --muted:#9cafa7; --faint:#6e817a;
+  --border:#23312b; --border-strong:#2f4038;
+  --accent:#3ed0a0; --accent-ink:#7fe6c2; --accent-soft:#123029;
+  --good:#4ade80; --good-soft:#123020;
+  --warn:#f4b552; --warn-soft:#2f2410;
+  --crit:#f2726a; --crit-soft:#321815;
+  --old:#66786f; --old-line:#3a4a42;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px -14px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;
+  font-size:16px; line-height:1.65; letter-spacing:-.003em;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:940px; margin:0 auto; padding:clamp(20px,4vw,56px) clamp(16px,4vw,40px) 96px}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; direction:ltr; unicode-bidi:isolate}
+h1,h2,h3{font-family:"Readex Pro","IBM Plex Sans Arabic",sans-serif; font-weight:600; text-wrap:balance; line-height:1.2}
+
+/* ---- header ---- */
+.eyebrow{font-size:.72rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); font-family:"IBM Plex Mono",monospace}
+.masthead{border-bottom:2px solid var(--ink); padding-bottom:26px; margin-bottom:8px}
+.masthead h1{font-size:clamp(1.9rem,5.4vw,3rem); margin:.35em 0 .28em; font-weight:700; letter-spacing:-.02em}
+.thesis{font-size:clamp(1.02rem,2.4vw,1.22rem); color:var(--muted); max-width:60ch; margin:0}
+.thesis b{color:var(--ink); font-weight:600}
+.meta{display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:20px; font-size:.82rem; color:var(--faint)}
+.meta span{display:inline-flex; align-items:center; gap:7px}
+.dot{width:6px; height:6px; border-radius:50%; background:var(--accent)}
+
+/* ---- section scaffolding ---- */
+section{margin-top:54px}
+.sec-head{display:flex; align-items:baseline; gap:14px; margin-bottom:18px}
+.sec-idx{font-family:"IBM Plex Mono",monospace; font-size:.8rem; color:var(--accent); font-weight:600; flex:none}
+.sec-head h2{font-size:clamp(1.25rem,3vw,1.6rem); margin:0}
+.sec-sub{color:var(--muted); margin:-6px 0 20px; max-width:66ch}
+
+/* ---- takeaway cards ---- */
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:14px}
+.card{background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:18px 18px 16px; box-shadow:var(--shadow)}
+.card .k{font-size:.78rem; color:var(--muted); font-weight:500; margin:0 0 6px}
+.card .v{font-family:"Readex Pro",sans-serif; font-weight:700; font-size:1.85rem; line-height:1.05; letter-spacing:-.02em}
+.card .v small{font-size:.85rem; font-weight:600; color:var(--muted)}
+.card .note{font-size:.78rem; color:var(--faint); margin:8px 0 0}
+.card.hi{background:linear-gradient(160deg,var(--accent-soft),var(--surface)); border-color:var(--accent-soft)}
+.card.hi .v{color:var(--accent-ink)}
+
+/* ---- tables ---- */
+.tw{overflow-x:auto; border:1px solid var(--border); border-radius:14px; background:var(--surface); box-shadow:var(--shadow)}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:.9rem}
+th,td{text-align:right; padding:12px 16px; border-bottom:1px solid var(--border)}
+thead th{font-size:.74rem; letter-spacing:.03em; color:var(--muted); font-weight:600; background:var(--surface-2);
+  text-transform:uppercase; white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-2)}
+td.name{font-weight:600}
+tfoot td{font-weight:700; background:var(--surface-2); border-top:2px solid var(--border-strong)}
+
+/* old -> new correction */
+.was{color:var(--old); text-decoration:line-through; text-decoration-color:var(--old-line); font-size:.86em; margin-inline-end:8px}
+.arrow{color:var(--faint); margin-inline:4px}
+.now{color:var(--accent-ink); font-weight:600}
+
+/* chips */
+.chip{display:inline-flex; align-items:center; gap:6px; font-size:.74rem; font-weight:600;
+  padding:3px 10px; border-radius:999px; white-space:nowrap; font-family:"IBM Plex Sans Arabic"}
+.chip.good{background:var(--good-soft); color:var(--good)}
+.chip.warn{background:var(--warn-soft); color:var(--warn)}
+.chip.crit{background:var(--crit-soft); color:var(--crit)}
+.chip.acc{background:var(--accent-soft); color:var(--accent-ink)}
+
+/* callout */
+.callout{display:flex; gap:14px; background:var(--surface); border:1px solid var(--border);
+  border-inline-start:3px solid var(--accent); border-radius:12px; padding:16px 18px; box-shadow:var(--shadow)}
+.callout.warn{border-inline-start-color:var(--warn)}
+.callout.crit{border-inline-start-color:var(--crit)}
+.callout .ci{font-size:1.15rem; flex:none; line-height:1.4}
+.callout p{margin:0; font-size:.92rem}
+.callout b{color:var(--ink)}
+
+.two{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+@media(max-width:640px){.two{grid-template-columns:1fr}}
+
+.stack{display:flex; flex-direction:column; gap:12px}
+.lead{font-size:1.02rem}
+.lead b{color:var(--accent-ink)}
+ul.tight{margin:12px 0 0; padding-inline-start:1.1em}
+ul.tight li{margin:5px 0; color:var(--muted)}
+ul.tight li b{color:var(--ink); font-weight:600}
+
+/* quota bars */
+.qrow{display:grid; grid-template-columns:1fr; gap:4px; padding:14px 0; border-bottom:1px solid var(--border)}
+.qrow:last-child{border-bottom:0}
+.qtop{display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap}
+.qname{font-weight:600; font-size:.92rem}
+.qval{font-family:"IBM Plex Mono",monospace; font-size:.82rem; color:var(--muted)}
+.qbar{height:8px; border-radius:6px; background:var(--surface-3); overflow:hidden}
+.qbar i{display:block; height:100%; border-radius:6px; background:linear-gradient(90deg,var(--warn),var(--crit))}
+
+.foot{margin-top:64px; padding-top:22px; border-top:1px solid var(--border);
+  font-size:.8rem; color:var(--faint); display:flex; flex-wrap:wrap; gap:6px 18px; justify-content:space-between}
+.assump{background:var(--surface-2); border:1px dashed var(--border-strong); border-radius:12px; padding:14px 18px; font-size:.84rem; color:var(--muted)}
+.assump b{color:var(--ink)}
+.assump .num{color:var(--ink)}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">نموذج التكاليف · النسخة الدقيقة V2</div>
+    <h1>اقتصاد إيڤالو الحقيقي</h1>
+    <p class="thesis">إيڤالو ليست عملًا بتكلفة «<b>$0.11 للدقيقة</b>». هي عمل <b>بتكلفة ثابتة منخفضة + هامش حدّي شبه صفري</b>، محكوم بـ<b>سقوف حصص مشتركة</b> تقفز التكلفة عند تجاوزها. هذا التقرير يعيد بناء الأرقام من فواتير المزوّدين الفعلية ومن مقابلاتك الحقيقية في قاعدة البيانات.</p>
+    <div class="meta">
+      <span><span class="dot"></span>مبنيّ على استهلاك فعلي (credit_ledger) + تسعير مزوّدين مباشر</span>
+      <span><span class="dot"></span>يستبدل «التقرير النهائي v2» المقدّر</span>
+      <span><span class="dot"></span>هامش مستهدف ≥ 70%</span>
+      <span><span class="dot"></span>عرض الإطلاق منشور · التسعير النهائي بعد 30 يومًا من البيانات الحقيقية</span>
+    </div>
+  </header>
+
+  <!-- EXEC SUMMARY -->
+  <section>
+    <div class="cards">
+      <div class="card hi">
+        <p class="k">الثابت الشهري — أساس التخطيط</p>
+        <div class="v"><span class="num">~$425</span></div>
+        <p class="note">خطط مستهدفة عمدًا · التشغيل الفعلي اليوم <span class="num">~$224</span></p>
+      </div>
+      <div class="card">
+        <p class="k">مدة المقابلة (اختبارية)</p>
+        <div class="v"><span class="num">5–10</span> <small>دقيقة</small></div>
+        <p class="note">تجاربك ~5 د؛ الحقيقية قد تطول — نُمذّجها كنطاق</p>
+      </div>
+      <div class="card">
+        <p class="k">هامش المساهمة لكل خطة</p>
+        <div class="v"><span class="num">86–91</span><small>%</small></div>
+        <p class="note">حتى في أسوأ حالة (كامل الرصيد صوتًا)</p>
+      </div>
+      <div class="card">
+        <p class="k">التكلفة الحدّية داخل الحصص</p>
+        <div class="v"><span class="num">~$0.02</span></div>
+        <p class="note">لكل مقابلة — STT مجاني، TTS مدفوع مسبقًا</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CORRECTIONS -->
+  <section>
+    <div class="sec-head"><span class="sec-idx">01</span><h2>ما الذي كان خاطئًا في الوثيقة</h2></div>
+    <p class="sec-sub">العمود الأيمن هو ما بُنيت عليه قرارات التسعير. لكل بند، القيمة القديمة مشطوبة والقيمة الحقيقية بجانبها.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>البند</th><th>القديم ← الحقيقي</th><th>الأثر</th></tr></thead>
+        <tbody>
+          <tr><td class="name">مدة المقابلة</td>
+            <td><span class="was num">10 د (مفترضة)</span><span class="arrow">←</span><span class="now num">5–10 د</span></td>
+            <td>التجارب ~5 د؛ نُمذّجها كنطاق</td></tr>
+          <tr><td class="name">ElevenLabs (TTS)</td>
+            <td><span class="was num">Pro $99</span><span class="arrow">←</span><span class="now num">Creator $22</span></td>
+            <td>ثابت أقل، لكن حصّة أضيق (100 د)</td></tr>
+          <tr><td class="name">Beyond Presence</td>
+            <td><span class="was num">Growth €149</span><span class="arrow">←</span><span class="now num">Starter €49</span></td>
+            <td>280 د فيديو مشمولة بدل 1,490</td></tr>
+          <tr><td class="name">LiveKit</td>
+            <td><span class="was">«مستبدل، $0»</span><span class="arrow">←</span><span class="now">مجاني، فيديو فقط</span></td>
+            <td>سقف 1,000 د ثم Ship $50</td></tr>
+          <tr><td class="name">تكلفة الصوت</td>
+            <td><span class="was num">ثابت $0.11/د</span><span class="arrow">←</span><span class="now">مقيّدة بالحصّة</span></td>
+            <td>~$0 داخل الحصّة، تقفز خارجها</td></tr>
+          <tr><td class="name">بحث LinkedIn</td>
+            <td><span class="was num">Unipile $55</span><span class="arrow">←</span><span class="now num">EnrichLayer $49</span></td>
+            <td>Unipile مُلغاة؛ حصّة الاستعلامات تُؤكَّد</td></tr>
+          <tr><td class="name">الثابت الشهري</td>
+            <td><span class="was num">$442</span><span class="arrow">←</span><span class="now num">~$425</span></td>
+            <td>قريب — الوثيقة افترضت الخطط المستهدفة نفسها</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- REAL DATA -->
+  <section>
+    <div class="sec-head"><span class="sec-idx">02</span><h2>ما تقوله بياناتك الحقيقية</h2></div>
+    <p class="sec-sub">من <span class="num">credit_ledger</span> و<span class="num">video_interview_sessions</span> — استهلاك فعلي، لا تقدير.</p>
+    <div class="two">
+      <div class="stack">
+        <div class="callout"><span class="ci">🎙️</span><p><b>المقابلة الصوتية ≈ 5 د — لكنها بيانات اختبارية.</b> 20 مقابلة جوهرية متوسطها <span class="num">302</span> ثانية، أطولها <span class="num">10.5</span> د. هذه تجاربك أنت؛ المرشحون الحقيقيون قد يطيلون — لذا نُمذّج <b>5–10 د</b>.</p></div>
+        <div class="callout warn"><span class="ci">🎬</span><p><b>الفيديو غير مستخدم فعليًا.</b> جلستان مكتملتان فقط (~<span class="num">49</span> ثانية لكل منهما). لا بيانات فيديو حقيقية بعد — مخاطر الأفتار نظرية حتى الآن.</p></div>
+      </div>
+      <div class="stack">
+        <div class="callout"><span class="ci">🔎</span><p><b>البحث الذكي هو المُهيمِن.</b> <span class="num">277</span> عملية بحث مقابل <span class="num">128</span> دقيقة صوت، <span class="num">23</span> تحليل CV، <span class="num">19</span> فرزًا. عملاؤك يبحثون أكثر بكثير مما يقابلون — وهذا يوجّه أولوية التكلفة نحو <b>EnrichLayer</b> لا الصوت.</p></div>
+        <div class="assump">مصدر التوزيع: تجميع <span class="num">credit_ledger</span> حسب <span class="num">usageType</span> (كامل العمر، غالبًا مرحلة تجريبية). أعِد الحساب بعد أول شهر بعملاء دافعين.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH STACK -->
+  <section>
+    <div class="sec-head"><span class="sec-idx">03</span><h2>المكدس الفعلي</h2></div>
+    <p class="sec-sub">مستخرج من الكود — من يدفع لمن، فعليًا.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>الطبقة</th><th>المزوّد / الموديل</th><th>الخطة</th><th>التكلفة الحدّية</th></tr></thead>
+        <tbody>
+          <tr><td class="name">STT</td><td>Speechmatics <span class="num">ar_en</span> enhanced</td><td><span class="chip good">مجانية</span></td><td class="num">~$0.002/د</td></tr>
+          <tr><td class="name">LLM</td><td>OpenAI <span class="num">gpt-4o-mini</span></td><td>حسب الاستخدام</td><td class="num">~$0.001/د</td></tr>
+          <tr><td class="name">TTS</td><td>ElevenLabs <span class="num">turbo v2.5</span></td><td>Creator $22</td><td class="num">$0.30/د كلام*</td></tr>
+          <tr><td class="name">أفتار (فيديو)</td><td>Beyond Presence · Speech-to-Video</td><td>Starter €49</td><td class="num">€0.175/د*</td></tr>
+          <tr><td class="name">الوسيط (فيديو)</td><td>LiveKit Cloud</td><td><span class="chip good">Build مجانية</span></td><td class="num">$0 → $0.01/د</td></tr>
+          <tr><td class="name">بحث LinkedIn</td><td>EnrichLayer <span class="was">(بدل Unipile)</span></td><td>Starter $49</td><td class="num">~$0.044/مرشح</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sec-sub" style="margin-top:12px">* التكلفة الحدّية تسري فقط <b>بعد نفاد الحصّة المجانية</b>. داخل الحصّة تكون التكلفة الإضافية صفرًا.</p>
+  </section>
+
+  <!-- UNIT ECONOMICS -->
+  <section>
+    <div class="sec-head"><span class="sec-idx">04</span><h2>تكلفة الوحدة — نظامان</h2></div>
+    <p class="sec-sub">جوهر التصحيح: التكلفة ليست خطًّا مستقيمًا، بل «رخيصة جدًا ثم قفزة». لمقابلة حقيقية بـ5 دقائق.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>المقابلة</th><th>داخل الحصص</th><th>بعد نفاد الحصص</th><th>المُحرّك</th></tr></thead>
+        <tbody>
+          <tr><td class="name">صوتية</td>
+            <td><span class="chip good"><span class="num">~$0.02</span></span></td>
+            <td><span class="chip warn"><span class="num">~$0.54</span></span></td>
+            <td>ElevenLabs TTS ($0.30/د كلام × 1.75 د)</td></tr>
+          <tr><td class="name">فيديو</td>
+            <td><span class="chip good"><span class="num">~$0.02</span></span></td>
+            <td><span class="chip crit"><span class="num">~$1.50</span></span></td>
+            <td>+ أفتار ($0.19/د × 5)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout" style="margin-top:14px"><span class="ci">💡</span><p><b>STT مجاني، LLM ضئيل — المُحرّك الوحيد الكبير للتكلفة الحدّية هو ElevenLabs TTS.</b> هذه أهم رافعة توفير في النظام كله (انظر القسم 08).</p></div>
+  </section>
+
+  <!-- FIXED COSTS -->
+  <section>
+    <div class="sec-head"><span class="sec-idx">05</span><h2>التكاليف الثابتة</h2></div>
+    <p class="sec-sub">خططك الفعلية اليوم. العمود الأخير = متى تُجبَر على الترقية (سقف الحصّة).</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>البند</th><th>الخطة</th><th>$/شهر</th><th>سقف الحصّة → القفزة</th></tr></thead>
+        <tbody>
+          <tr><td class="name">Beyond Presence</td><td>Growth €149</td><td class="num">$163.90</td><td><span class="num">1,490</span> د فيديو → €0.10/د</td></tr>
+          <tr><td class="name">ElevenLabs</td><td>Pro</td><td class="num">$99.00</td><td><span class="num">600</span> د كلام → $0.17/د</td></tr>
+          <tr><td class="name">عنوان رسمي في أمريكا</td><td>لأجل Stripe</td><td class="num">$59.00</td><td>—</td></tr>
+          <tr><td class="name">EnrichLayer</td><td>Starter (بحث LinkedIn)</td><td class="num">$49.00</td><td><span class="num">2,500</span> رصيد ≈ <span class="num">1,250</span> بحث → Growth <span class="num">$299</span></td></tr>
+          <tr><td class="name">رقم أمريكي للأعمال</td><td>لأجل Stripe</td><td class="num">$20.00</td><td>—</td></tr>
+          <tr><td class="name">إيميل رسمي</td><td>—</td><td class="num">$7.00</td><td>—</td></tr>
+          <tr><td class="name">VPS (+ n8n)</td><td>ذاتي</td><td class="num">$5.00</td><td>—</td></tr>
+          <tr><td class="name">النطاق</td><td>$20/سنة</td><td class="num">$1.67</td><td>—</td></tr>
+          <tr><td class="name">Speechmatics · OpenAI · MongoDB · Cloudflare</td><td>بسيطة/مجانية</td><td class="num">~$10–45</td><td>تُستبدل بالفواتير</td></tr>
+          <tr><td class="name">Unipile</td><td>مُلغاة</td><td class="num">$0.00</td><td>استبدلتها EnrichLayer</td></tr>
+        </tbody>
+        <tfoot><tr><td class="name">أساس التخطيط</td><td>خطط مستهدفة</td><td class="num">~$415–450</td><td><span class="chip acc">التشغيل الفعلي اليوم ~$224</span></td></tr></tfoot>
+      </table>
+    </div>
+    <div class="assump" style="margin-top:12px"><b>أساس التخطيط (قرارك):</b> تشغّل اليوم الخطط الأصغر (ElevenLabs Creator، BP Starter ≈ <span class="num">$224</span>)، لكنك تُسعّر عمدًا على <b>الخطط المستهدفة</b> (Pro + Growth ≈ <b><span class="num">$425</span></b>) — حتى يتحمّل السعر التوسّع فلا تُضطر لرفعه على عملائك لاحقًا. قرار سليم: الترقية تشتري <b>حصصًا أكبر</b> لا مجرد تكلفة أعلى.</div>
+  </section>
+
+  <!-- PER PLAN MARGIN -->
+  <section>
+    <div class="sec-head"><span class="sec-idx">06</span><h2>هامش كل خطة والتعادل</h2></div>
+    <p class="sec-sub">أسوأ حالة: العميل يصرف <b>كامل رصيده صوتًا وبعد نفاد كل الحصص</b>. الواقع أفضل بكثير. <b>مهم:</b> الهوامش لا تتغيّر بطول المقابلة (محكومة بالرصيد لا بالدقائق) — فحتى لو صارت المقابلات 10 د بدل 5، تبقى النِسَب كما هي؛ يتغيّر فقط عدد المقابلات وسرعة بلوغ الحصص.</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>الخطة</th><th>السعر</th><th>البطاقات (مع العرض)</th><th>دقائق صوت</th><th>أقصى تكلفة متغيرة</th><th>هامش المساهمة</th><th>عملاء التعادل*</th></tr></thead>
+        <tbody>
+          <tr><td class="name">Starter</td><td class="num">$39</td><td class="num">700</td><td class="num">47</td><td class="num">$7.00</td><td><span class="num">$32.00</span> <span class="chip good">82%</span></td><td class="num">14</td></tr>
+          <tr><td class="name">Team</td><td class="num">$99</td><td class="num">2,000</td><td class="num">133</td><td class="num">$25.50</td><td><span class="num">$73.50</span> <span class="chip good">74%</span></td><td class="num">6</td></tr>
+          <tr><td class="name">Professional</td><td class="num">$189</td><td class="num">4,500</td><td class="num">300</td><td class="num">$56.00</td><td><span class="num">$133.00</span> <span class="chip good">70%</span></td><td class="num">4</td></tr>
+          <tr><td class="name">Business</td><td class="num">$359</td><td class="num">9,000</td><td class="num">600</td><td class="num">$106.50</td><td><span class="num">$252.50</span> <span class="chip good">70%</span></td><td class="num">2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sec-sub" style="margin-top:12px">* عدد العملاء من نفس النوع لتغطية ثابت أساس التخطيط (~$425). الأرصدة أعلاه هي <b>أرصدة عرض الإطلاق المنشورة</b> (700/2,000/4,500/9,000)، والتكلفة محسوبة بسقف الحماية المتحفّظ <span class="num">$0.01</span>/بطاقة + <span class="num">$0.11</span>/دقيقة فيديو مشمولة — أي <b>أرضية دنيا</b>؛ هامشك الفعلي أعلى.</p>
+  </section>
+
+  <!-- QUOTA CEILINGS -->
+  <section>
+    <div class="sec-head"><span class="sec-idx">07</span><h2>سقوف الحصص — الخطر الحقيقي للتوسّع</h2></div>
+    <p class="sec-sub">ليست الهوامش، بل الحصص المشتركة بين <b>كل</b> عملائك. تجاوزها يرفع الثابت خطوةً واحدة.</p>
+    <div class="tw" style="padding:6px 20px">
+      <div class="qrow">
+        <div class="qtop"><span class="qname">ElevenLabs TTS — 100 د كلام</span><span class="qval">29–57 مقابلة/شهر (حسب المدة) → ثم $0.30/د</span></div>
+        <div class="qbar"><i style="width:64%"></i></div>
+      </div>
+      <div class="qrow">
+        <div class="qtop"><span class="qname">Beyond Presence — 280 د فيديو</span><span class="qval">28–56 مقابلة فيديو → ثم Growth $164</span></div>
+        <div class="qbar"><i style="width:60%"></i></div>
+      </div>
+      <div class="qrow">
+        <div class="qtop"><span class="qname">LiveKit Build — 1,000 د وكيل</span><span class="qval">100–200 مقابلة فيديو → ثم Ship $50</span></div>
+        <div class="qbar"><i style="width:30%"></i></div>
+      </div>
+      <div class="qrow">
+        <div class="qtop"><span class="qname">EnrichLayer — 2,500 رصيد ($49)</span><span class="qval">≈ 1,250 بحث/شهر → ثم Growth $299 (قفزة ×6)</span></div>
+        <div class="qbar"><i style="width:78%"></i></div>
+      </div>
+      <div class="qrow">
+        <div class="qtop"><span class="qname">Speechmatics — ساعات مجانية</span><span class="qval">حد غير معلن → راقبه أسبوعيًا</span></div>
+        <div class="qbar"><i style="width:45%"></i></div>
+      </div>
+    </div>
+    <div class="callout crit" style="margin-top:14px"><span class="ci">⚠️</span><p><b>عنق الزجاجة الأقرب = ElevenLabs (29–57 مقابلة/شهر حسب طول المقابلة).</b> كلما طالت المقابلات الحقيقية، بلغتَه أسرع. عميل Team واحد نشط قد يقترب منه وحده. بعده كل مقابلة صوتية تكلّف ~$0.5–1.1 بدل ~$0. هذه اللحظة، لا الهامش، هي ما يجب مراقبته.</p></div>
+  </section>
+
+  <!-- SENSITIVITY -->
+  <section>
+    <div class="sec-head"><span class="sec-idx">08</span><h2>الرافعة: مزوّد الـ TTS</h2></div>
+    <p class="sec-sub">بما أن TTS هو المُحرّك الوحيد الكبير، تبديل المزوّد يقصّ التكلفة الحدّية للصوت حتى 90%. لكل مقابلة (5 د) بعد نفاد الحصّة.</p>
+    <div class="cards">
+      <div class="card"><p class="k">ElevenLabs turbo (الحالي)</p><div class="v"><span class="num">$0.54</span></div><p class="note">$0.30/د كلام</p></div>
+      <div class="card hi"><p class="k">Cartesia Sonic</p><div class="v"><span class="num">$0.07</span></div><p class="note">$0.03/د — أرخص ~8×</p></div>
+      <div class="card hi"><p class="k">Inworld / Fish</p><div class="v"><span class="num">$0.03</span></div><p class="note">$0.009/د — أرخص ~16×</p></div>
+    </div>
+    <div class="callout" style="margin-top:14px"><span class="ci">🎯</span><p>القرار ليس ماليًا فقط — <b>جودة النطق العربي ودعم اللهجة</b> هما القيد. اختبر Cartesia/Inworld بالعربية قبل التبديل. إن نجح، يزيح عنق الزجاجة بالكامل تقريبًا.</p></div>
+  </section>
+
+  <!-- RECOMMENDATIONS -->
+  <section>
+    <div class="sec-head"><span class="sec-idx">09</span><h2>ماذا يعني هذا للتسعير</h2></div>
+    <div class="stack">
+      <p class="lead"><b>عملك مربح جدًا على مستوى الوحدة (هامش 86–91%).</b> القيد ليس تكلفة المقابلة، بل الحصص الثابتة والسقوف المشتركة.</p>
+      <ul class="tight">
+        <li><span class="chip good">مُنفَّذ</span> <b>عرض الإطلاق + إعادة التأطير منشوران.</b> الأرصدة صارت 700/2,000/4,500/9,000، والصفحة تقود بالنتائج لا بالرصيد الخام. تكلفة التوسيع شبه صفرية داخل الحصص — كانت مشكلة تسويقية لا مشكلة هامش.</li>
+        <li><b>راقب الحصص أسبوعيًا</b> — ElevenLabs أولًا، ثم <b>EnrichLayer</b> (البحث هو خدمتك الأكثر استخدامًا)، ثم الأفتار. شغّل <span class="num">cost-usage-snapshot.mjs</span>.</li>
+        <li><b>أكبر رافعة تكلفة = تبديل TTS</b> (توفير حتى 16×)، تليها إبقاء الفيديو على الخطة الأصغر حتى يوجد طلب حقيقي.</li>
+        <li><span class="chip crit">أشدّ قفزة</span> <b>EnrichLayer: $49 → $299 عند تجاوز 2,500 رصيد</b> (≈1,250 بحث/شهر ≈ 6–12 عميلًا نشطًا). هامش البحث ممتاز (<b>82–87%</b>، تكلفة ~$0.044/مرشح)، لكن القفزة <b>×6 دفعة واحدة</b> — وبما أن البحث خدمتك الأكثر استخدامًا فهذه <b>أول</b> قفزة ستصطدم بها، قبل ElevenLabs والأفتار.</li>
+        <li><b>وقت المقابلة الحقيقي 5 د لا 10</b> — كل حساباتك القديمة لعدد المقابلات/خطة كانت مُنصّفة؛ القيمة الفعلية للعميل ضِعف ما ظننت.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>إيڤالو · نموذج التكاليف V2 · مبنيّ على بيانات فعلية</span>
+    <span class="num">أساس مستهدف: ثابت ~$425 · ElevenLabs Pro · BP Growth · EnrichLayer $49 · سقف $0.01/بطاقة · نسبة كلام 35% · مقابلة 5–10 د</span>
+  </div>
+
+</div>

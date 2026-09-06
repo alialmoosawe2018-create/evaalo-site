@@ -71,3 +71,9 @@ temp/
 
 # Graphify knowledge-graph build output (local, regenerable via `graphify update .`)
 graphify-out/
+
+# Per-machine Claude Code settings: the hook commands are absolute paths to one
+# developer's home directory, so committing this would break every other machine.
+# Shared project config belongs in .claude/launch.json and CLAUDE.md, which ARE tracked.
+.claude/settings.json
+.claude/settings.local.json
