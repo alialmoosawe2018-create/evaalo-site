@@ -12,6 +12,16 @@
 //
 // The application owns the job it was filed for, so that is what this reads.
 //
+// And within the application, the CAMPAIGN's role outranks the title the
+// applicant typed. `position_applied_for` is what they said about THEMSELVES,
+// which is often a different job from the one being filled: measured on
+// production, 4 of 6 recent applications disagreed with their campaign — one of
+// them "Mud Engineer" against a campaign hiring a Senior HR Specialist. Since
+// this value is what the agent asks about and what the scorer is told the
+// interview was for, reading their wording meant interviewing and grading
+// against a job nobody was hiring for, while the rubric came from the campaign
+// all along. Their own words remain on the application and on the profile.
+//
 // The failure mode is deliberate. When the flag is on this NEVER falls back to
 // the person: a caller that cannot resolve an application gets empty fields and
 // shows a blank, which is visible. Falling back would restore the silent wrong
@@ -20,6 +30,7 @@
 
 import { findApplicationForCallback } from './candidateApplicationService.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
+import { loadCampaignRoles } from './campaignRole.js';
 
 export { isApplicationOwnsCampaignStateEnabled };
 
@@ -56,8 +67,17 @@ export async function resolveApplicationJobContext(opts: {
         const app = await findApplicationForCallback(opts);
         if (!app) return {};
         const snap = app.applicationSnapshot;
+        const campaignId = clean(app.campaignId);
+        // A campaign that names no role leaves the applicant's own title in place,
+        // as does a lookup failure — this must never blank out the job.
+        const campaignRole = campaignId
+            ? (await loadCampaignRoles([campaignId])).get(campaignId)
+            : undefined;
         return {
-            position_applied_for: clean(app.position_applied_for) ?? clean(snap?.position_applied_for),
+            position_applied_for:
+                clean(campaignRole) ??
+                clean(app.position_applied_for) ??
+                clean(snap?.position_applied_for),
             company_applied_to: clean(app.company_applied_to),
             campaignId: clean(app.campaignId),
             applicationId: clean(app.applicationId),

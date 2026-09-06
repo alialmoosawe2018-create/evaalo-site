@@ -20,6 +20,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import Candidate from '../models/Candidate.js';
 import CandidateApplication from '../models/CandidateApplication.js';
+import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import { resolveApplicationJobContext } from '../services/applicationJobContext.js';
 import { upsertCandidateApplication } from '../services/candidateApplicationService.js';
 import { isVoiceLinkConsumedById, markVoiceLinkConsumed } from '../services/interviewLinkAccess.js';
@@ -113,6 +114,77 @@ async function main(): Promise<void> {
             resolveApplicationJobContext({ candidateId: String(person._id), campaignId: CAMPAIGN_OLD })
         );
         assert.strictEqual(ctx?.position_applied_for, OLD_JOB);
+    });
+
+    /* ── the campaign's role outranks the applicant's own wording ──────────────
+       `position_applied_for` on the application is what the applicant typed or
+       picked about THEMSELVES, and on production it disagreed with the campaign
+       in 4 of 6 recent applications — "Mud Engineer" against a campaign hiring a
+       Senior HR Specialist. This value is what the agent asks about and what the
+       scorer is told the interview was for, so their wording meant interviewing
+       and grading against a job nobody was hiring for. */
+    const CAMPAIGN_ROLE = 'Senior HR Specialist';
+    const DECLARED = 'HR Supervisor';
+    const CAMPAIGN_WITH_ROLE = 'camp-role-004';
+    const CAMPAIGN_ROLELESS = 'camp-roleless-005';
+
+    await RecruitmentCampaign.create({
+        campaignId: CAMPAIGN_WITH_ROLE,
+        organizationId: DEFAULT_ORG_ID,
+        criteria: { position: CAMPAIGN_ROLE },
+    });
+    await RecruitmentCampaign.create({
+        campaignId: CAMPAIGN_ROLELESS,
+        organizationId: DEFAULT_ORG_ID,
+        criteria: { location: 'Baghdad' },
+    });
+    const appRole = await CandidateApplication.create({
+        candidateId: person._id,
+        applicationId: 'APP-ROLE-004',
+        emailDenorm: person.email,
+        campaignId: CAMPAIGN_WITH_ROLE,
+        position_applied_for: DECLARED,
+    });
+    await CandidateApplication.create({
+        candidateId: person._id,
+        applicationId: 'APP-ROLELESS-005',
+        emailDenorm: person.email,
+        campaignId: CAMPAIGN_ROLELESS,
+        position_applied_for: DECLARED,
+    });
+
+    await test('the interview is about the job being FILLED, not the one they typed', async () => {
+        const ctx = await withFlag(true, () =>
+            resolveApplicationJobContext({
+                candidateId: String(person._id),
+                campaignId: CAMPAIGN_WITH_ROLE,
+            })
+        );
+        assert.strictEqual(ctx?.position_applied_for, CAMPAIGN_ROLE);
+        assert.notStrictEqual(ctx?.position_applied_for, DECLARED);
+    });
+
+    await test('their own wording is not destroyed — it stays on the application', async () => {
+        const stored = await CandidateApplication.findById(appRole._id).lean();
+        assert.strictEqual(stored?.position_applied_for, DECLARED);
+    });
+
+    await test('a campaign that names no role leaves their title alone, never blank', async () => {
+        const ctx = await withFlag(true, () =>
+            resolveApplicationJobContext({
+                candidateId: String(person._id),
+                campaignId: CAMPAIGN_ROLELESS,
+            })
+        );
+        assert.strictEqual(ctx?.position_applied_for, DECLARED);
+    });
+
+    await test('a campaign with no document at all still yields the job, not a blank', async () => {
+        // CAMPAIGN_NEW has an application but no RecruitmentCampaign here.
+        const ctx = await withFlag(true, () =>
+            resolveApplicationJobContext({ candidateId: String(person._id), campaignId: CAMPAIGN_NEW })
+        );
+        assert.strictEqual(ctx?.position_applied_for, NEW_JOB);
     });
 
     await test('applicationId alone is enough — the video link carries it', async () => {
