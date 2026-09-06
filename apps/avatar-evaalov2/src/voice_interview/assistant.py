@@ -1494,7 +1494,19 @@ class InterviewAssistant(Agent):
         turn = mem.turn_index
         if self._winddown_turn == turn and self._winddown_line is not None:
             return self._winddown_line
-        if mem.wrap_up_offered and not mem.final_closing_sent and mode in (MODE_ASK, MODE_RESUME):
+        # بعد عرض الختام يُنهي الوكيلُ المقابلة، ما لم يكن الدور استجابةً لكلام
+        # المرشح الجاري: توضيحاً لسؤال الختام نفسه، أو متابعةً تتيح له إكمال فكرته
+        # الأخيرة (سلوك مقصود يحرسه test_guard_followup_after_wrapup_still_passes).
+        #
+        # كان الشرط `(MODE_ASK, MODE_RESUME)` فقط، فدورُ إرشادٍ بعد الختام يمرّ بلا
+        # وداع. القائمة الآن قائمة استثناء لا قائمة سماح، فأي وضع يُضاف مستقبلاً
+        # يُغلق افتراضياً بدل أن يصمت.
+        # (WAIT و ACKNOWLEDGE يعودان قبل هذا السطر، فهما مستثنيان أصلاً.)
+        if (
+            mem.wrap_up_offered
+            and not mem.final_closing_sent
+            and mode not in (MODE_CLARIFY, MODE_FOLLOW_UP)
+        ):
             mem.final_closing_sent = True
             # The guard replaced the LLM's turn, so the model never calls
             # end_interview. Trigger the same teardown ourselves after the closing

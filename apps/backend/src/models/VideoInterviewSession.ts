@@ -76,6 +76,20 @@ export interface IVideoInterviewSession extends Document {
     };
     startedAt: Date;
     endedAt?: Date;
+    /**
+     * How the interview ended. Nothing recorded this before, so a finished
+     * session and an abandoned one were indistinguishable afterwards — and that
+     * matters for reading the score: when the evaluation says coverage was
+     * insufficient, a candidate who walked out earned that verdict, while one
+     * who sat through the whole thing did not (session 38d54d72, where the agent
+     * offered the wrap-up, the candidate answered «ما عندي», and no one could
+     * tell who hung up).
+     *
+     * `page_hide`   — the browser was closed or backgrounded (sendBeacon path).
+     * `user_action` — the candidate pressed End.
+     * `room_disconnect` — the LiveKit room closed; usually the agent concluding.
+     */
+    endedBy?: 'page_hide' | 'user_action' | 'room_disconnect' | 'unknown';
     /** Last sign of life from the candidate's browser. Lets the stale-lock sweep
      *  settle an abandoned session at the moment it actually went quiet instead of
      *  at sweep time, which is always past the full allotment. */
@@ -202,6 +216,10 @@ const VideoInterviewSessionSchema = new Schema<IVideoInterviewSession>(
         },
         endedAt: {
             type: Date
+        },
+        endedBy: {
+            type: String,
+            enum: ['page_hide', 'user_action', 'room_disconnect', 'unknown']
         },
         // ── Video billing (V2) ───────────────────────────────────────────
         billingStartedAt: { type: Date },

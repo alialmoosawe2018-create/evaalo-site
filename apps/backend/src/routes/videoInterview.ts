@@ -1709,7 +1709,13 @@ router.post('/heartbeat', async (req, res) => {
 
 router.post('/end', async (req, res) => {
     try {
-        const { sessionId, conversationHistory: incomingHistory } = req.body;
+        const { sessionId, conversationHistory: incomingHistory, endedBy } = req.body;
+        // من أنهى المقابلة. الواجهة تستدعي /end من ثلاثة مسارات مختلفة وكانت لا
+        // تُخبر الخادم بأيّها، فلم يكن يُميَّز مرشحٌ أكمل من مرشحٍ انسحب — وهذا
+        // يغيّر قراءة الحكم: «تغطية غير كافية» عدلٌ على من غادر، وظلمٌ على من جلس
+        // إلى النهاية بينما الوكيل هو من كرّر أسئلته.
+        const END_REASONS = ['page_hide', 'user_action', 'room_disconnect'] as const;
+        const endedByReason = END_REASONS.includes(endedBy) ? endedBy : 'unknown';
 
         if (!sessionId) {
             return res.status(400).json({
@@ -1872,7 +1878,9 @@ router.post('/end', async (req, res) => {
         if (session) {
             try {
                 (session as any).endSession();
+                (session as any).endedBy = endedByReason;
                 await session.save();
+                console.log(`ℹ️ /end: ${sessionId} endedBy=${endedByReason}`);
             } catch (saveError: any) {
                 console.warn(`⚠️ Error saving session end (non-blocking): ${(saveError as Error).message}`);
             }

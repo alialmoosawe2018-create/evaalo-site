@@ -590,7 +590,10 @@ const VideoInterviewCall = () => {
                 const blob = new Blob(
                     [JSON.stringify({
                         sessionId: sid,
-                        conversationHistory: serializeTranscript(conversationHistoryRef.current)
+                        conversationHistory: serializeTranscript(conversationHistoryRef.current),
+                        // كل مسار من الثلاثة يقول سببه: بدونها كان الخادم يرى
+                        // إنهاءً واحداً، فلا يُميَّز من أكمل المقابلة ممّن غادرها.
+                        endedBy: 'page_hide'
                     })],
                     { type: 'application/json' }
                 );
@@ -1299,6 +1302,7 @@ const VideoInterviewCall = () => {
                                         conversationHistory: serializeTranscript(
                                             conversationHistoryRef.current
                                         ),
+                                        endedBy: 'room_disconnect',
                                     }),
                                     keepalive: true,
                                 }).catch(() => undefined);
@@ -3083,7 +3087,8 @@ const VideoInterviewCall = () => {
                         },
                         body: JSON.stringify({
                             sessionId: sessionId,
-                            conversationHistory: serializeTranscript(conversationHistoryRef.current)
+                            conversationHistory: serializeTranscript(conversationHistoryRef.current),
+                            endedBy: 'user_action'
                         })
                     });
                     

@@ -20,7 +20,9 @@ from livekit.agents.llm.tool_context import StopResponse
 
 from voice_interview.active_question import (
     MODE_ASK,
+    MODE_CLARIFY,
     MODE_FOLLOW_UP,
+    MODE_GUIDANCE,
     MODE_RESUME,
     TurnPlan,
     enforce_single_question_response,
@@ -572,3 +574,27 @@ def test_openai_llm_kwargs_gpt5_mini_omits_temperature(monkeypatch):
     assert kw["model"] == "gpt-5-mini"
     assert "temperature" not in kw  # reasoning model rejects a custom temperature
     assert kw["max_completion_tokens"] == 512  # bigger cap for reasoning tokens
+
+
+def test_guard_guidance_after_wrapup_closes():
+    """بعد عرض الختام، دورُ إرشادٍ يُنهي المقابلة بدل أن يمرّ بلا وداع.
+
+    كان الشرط قائمة سماح (ASK/RESUME) فقط، فأي وضع آخر يمرّ صامتاً. صار قائمة
+    استثناء: التوضيح والمتابعة وحدهما يؤجّلان الوداع.
+    """
+    agent = _assistant(["q"])
+    agent._memory.wrap_up_offered = True
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_GUIDANCE)
+    out = agent._guard_repetition_and_language("خلي أنطيك نصيحة عن الرواتب؟")
+    assert "يراجع إجاباتك" in out
+    assert agent._memory.final_closing_sent is True
+
+
+def test_guard_clarify_after_wrapup_still_passes():
+    """التوضيح يبقى مسموحاً: المرشح لم يفهم سؤال الختام نفسه."""
+    agent = _assistant(["q"])
+    agent._memory.wrap_up_offered = True
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_CLARIFY)
+    out = agent._guard_repetition_and_language("أقصد أكو شي تحب تضيفه؟")
+    assert out == "أقصد أكو شي تحب تضيفه؟"
+    assert agent._memory.final_closing_sent is False
