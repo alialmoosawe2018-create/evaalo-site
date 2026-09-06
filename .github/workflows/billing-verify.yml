@@ -56,7 +56,13 @@ jobs:
         run: |
           if [ -z "$MONGODB_URI" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::MONGODB_URI is not set — skipping the billing runtime checks."
+            echo "::warning title=Checks skipped::MONGODB_URI is not set, so the billing runtime checks did not run."
+            {
+              echo "### :warning: The billing runtime checks did not run"
+              echo ""
+              echo "No \`MONGODB_URI\` secret is configured, so this job passed without verifying anything."
+              echo "Point it at a **test** database — these scripts write and delete records."
+            } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
