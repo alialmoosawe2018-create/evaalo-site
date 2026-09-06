@@ -15,3 +15,11 @@
 *.woff binary
 *.woff2 binary
 *.ico binary
+# Graphify's generated knowledge graph. Line-by-line merging a 10MB generated
+# JSON produces a file that looks valid and is not, so a custom driver
+# regenerates it instead. Two caveats worth knowing before relying on this:
+#   - the driver is configured per-machine (`merge.graphify.driver` in git
+#     config), so a fresh clone silently falls back to the default merge;
+#   - graphify-out/ is gitignored, so this only ever applies to a force-added
+#     copy of the file.
+graphify-out/graph.json merge=graphify
