@@ -13,6 +13,7 @@ import {
     loadPeopleByIds,
 } from '../repositories/candidateApplicationRepository.js';
 import type { CursorPage } from '../repositories/pagination.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 
 /** Candidate files carry `kind`; application attachments carry `type`. Both the
  *  create path and the returning-applicant update path go through here, because
@@ -199,6 +200,9 @@ export async function upsertCandidateApplication(
     });
 
     const filesAsAttachments = toApplicationAttachments(input.candidate.files);
+    // Off = the application owns its own state and starts clean. On = the old
+    // copy-from-person behaviour, kept only so the flag can roll back fully.
+    const seedsFromPerson = !isApplicationOwnsCampaignStateEnabled();
 
     const app = new CandidateApplication({
         organizationId: input.organizationId,
@@ -234,17 +238,26 @@ export async function upsertCandidateApplication(
         applicationSnapshot: snapshot,
         attachments: filesAsAttachments,
         files: filesAsAttachments,
-        /* A new application starts unevaluated. These used to be seeded from the
-           person, so someone applying to a second campaign arrived already carrying
-           the first campaign's score and write-up — a reviewer could reject a good
-           candidate on a verdict passed for a different job. The evaluation for this
-           application is written when its own callback returns. */
-        aiEvaluation: input.candidate.aiEvaluation,
-        voiceRecording: input.candidate.voiceRecording,
-        voiceInterviewLinkConsumedAt: input.candidate.voiceInterviewLinkConsumedAt,
-        voiceInterviewLinkConsumedSessionId: input.candidate.voiceInterviewLinkConsumedSessionId,
-        videoInterviewLinkConsumedAt: input.candidate.videoInterviewLinkConsumedAt,
-        videoInterviewLinkConsumedSessionId: input.candidate.videoInterviewLinkConsumedSessionId,
+        /* A new application starts unevaluated and unused. Seeding these from the
+           person is how one campaign's state reached the next: the score and
+           write-up of a different job, and — worse — an interview link that was
+           already spent, so the candidate opened a brand-new campaign's link and
+           was told the interview was complete. The stamp was older than the
+           application that carried it.
+
+           Each of these is written when THIS application's own interview runs. */
+        ...(seedsFromPerson
+            ? {
+                  aiEvaluation: input.candidate.aiEvaluation,
+                  voiceRecording: input.candidate.voiceRecording,
+                  voiceInterviewLinkConsumedAt: input.candidate.voiceInterviewLinkConsumedAt,
+                  voiceInterviewLinkConsumedSessionId:
+                      input.candidate.voiceInterviewLinkConsumedSessionId,
+                  videoInterviewLinkConsumedAt: input.candidate.videoInterviewLinkConsumedAt,
+                  videoInterviewLinkConsumedSessionId:
+                      input.candidate.videoInterviewLinkConsumedSessionId,
+              }
+            : {}),
         hiddenFromStages: input.candidate.hiddenFromStages,
         hiddenFromViews: input.candidate.hiddenFromViews,
         timeline: [

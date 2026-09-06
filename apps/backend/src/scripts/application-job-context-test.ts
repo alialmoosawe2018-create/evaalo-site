@@ -21,6 +21,9 @@ import mongoose from 'mongoose';
 import Candidate from '../models/Candidate.js';
 import CandidateApplication from '../models/CandidateApplication.js';
 import { resolveApplicationJobContext } from '../services/applicationJobContext.js';
+import { upsertCandidateApplication } from '../services/candidateApplicationService.js';
+import { isVoiceLinkConsumedById, markVoiceLinkConsumed } from '../services/interviewLinkAccess.js';
+import { DEFAULT_ORG_ID } from '../config/multiTenant.js';
 
 const OLD_JOB = 'Compensation and Benefits Specialist';
 const NEW_JOB = 'HR Assistant';
@@ -183,6 +186,87 @@ async function main(): Promise<void> {
         );
         assert.strictEqual(ctx?.position_applied_for, undefined);
         await CandidateApplication.updateOne({ _id: appOld._id }, { $set: { deletedAt: null } });
+    });
+
+    // ── The interview link ──────────────────────────────────────────────
+    // Reported from production: a new campaign, the same details, and the page
+    // answered "interview complete". The new application had been created
+    // carrying a consumption stamp OLDER than itself — copied off the person.
+
+    const linkPerson = await Candidate.create({
+        full_name: 'Link Reuser',
+        email: 'link@example.com',
+        phone: '07822222222',
+        position_applied_for: 'HR Assistant',
+        years_of_experience: '3-5 years',
+        voiceInterviewLinkConsumedAt: new Date('2026-09-01T10:00:00Z'),
+        videoInterviewLinkConsumedAt: new Date('2026-09-01T10:00:00Z'),
+    });
+
+    async function newApplicationFor(campaignId: string) {
+        return upsertCandidateApplication({
+            organizationId: DEFAULT_ORG_ID,
+            campaignId,
+            candidate: linkPerson as never,
+        } as never);
+    }
+
+    await test('a new campaign\'s application starts unused — the reported bug', async () => {
+        const app = await withFlag(true, () => newApplicationFor('camp-link-new'));
+        assert.strictEqual(
+            app.voiceInterviewLinkConsumedAt ?? null,
+            null,
+            'the voice link was spent in another campaign, not this one'
+        );
+        assert.strictEqual(app.videoInterviewLinkConsumedAt ?? null, null);
+        assert.ok(
+            !app.voiceInterviewLinkConsumedAt || app.voiceInterviewLinkConsumedAt >= app.createdAt,
+            'a stamp older than the application it sits on can only be inherited'
+        );
+    });
+
+    await test('and the candidate is let in: not consumed for the new campaign', async () => {
+        const blocked = await withFlag(true, () =>
+            isVoiceLinkConsumedById(String(linkPerson._id), { campaignId: 'camp-link-new' })
+        );
+        assert.strictEqual(blocked, false);
+    });
+
+    await test('flag off → the old copy-from-person behaviour still works, so rollback is whole', async () => {
+        const app = await withFlag(false, () => newApplicationFor('camp-link-legacy'));
+        assert.ok(app.voiceInterviewLinkConsumedAt, 'legacy path still seeds from the person');
+    });
+
+    await test('spending one campaign\'s link does not stamp the person', async () => {
+        const before = await Candidate.findById(linkPerson._id).lean();
+        const personStampBefore = before?.voiceInterviewLinkConsumedAt ?? null;
+        await withFlag(true, () =>
+            markVoiceLinkConsumed(String(linkPerson._id), 'sess-1', { campaignId: 'camp-link-new' })
+        );
+        const spent = await CandidateApplication.findOne({ campaignId: 'camp-link-new' }).lean();
+        assert.ok(spent?.voiceInterviewLinkConsumedAt, 'this campaign\'s link is now spent');
+        const after = await Candidate.findById(linkPerson._id).lean();
+        assert.deepStrictEqual(
+            after?.voiceInterviewLinkConsumedAt ?? null,
+            personStampBefore,
+            'the person must not collect a stamp that would burn every later campaign'
+        );
+    });
+
+    await test('a third campaign is still open after the second was spent', async () => {
+        const third = await withFlag(true, () => newApplicationFor('camp-link-third'));
+        assert.strictEqual(third.voiceInterviewLinkConsumedAt ?? null, null);
+        const blocked = await withFlag(true, () =>
+            isVoiceLinkConsumedById(String(linkPerson._id), { campaignId: 'camp-link-third' })
+        );
+        assert.strictEqual(blocked, false);
+    });
+
+    await test('the spent campaign stays spent — single use still holds where it should', async () => {
+        const blocked = await withFlag(true, () =>
+            isVoiceLinkConsumedById(String(linkPerson._id), { campaignId: 'camp-link-new' })
+        );
+        assert.strictEqual(blocked, true);
     });
 
     console.log(`\n[job-context] ${pass} passed, ${fail} failed`);

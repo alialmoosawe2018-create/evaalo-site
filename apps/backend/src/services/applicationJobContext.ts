@@ -19,6 +19,9 @@
 // ============================================
 
 import { findApplicationForCallback } from './candidateApplicationService.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
+
+export { isApplicationOwnsCampaignStateEnabled };
 
 export type ApplicationJobContext = {
     position_applied_for?: string;
@@ -26,15 +29,6 @@ export type ApplicationJobContext = {
     campaignId?: string;
     applicationId?: string;
 };
-
-/**
- * Kill switch for the whole "application owns campaign state" programme.
- * Same shape as CAMPAIGN_COMPARE_V2_ENABLED, so the deploy story is the one
- * the team already knows.
- */
-export function isApplicationOwnsCampaignStateEnabled(): boolean {
-    return (process.env.APPLICATION_OWNS_CAMPAIGN_STATE || '').trim().toLowerCase() === 'true';
-}
 
 function clean(value: unknown): string | undefined {
     const s = typeof value === 'string' ? value.trim() : '';

@@ -3,6 +3,7 @@ import CandidateApplication from '../models/CandidateApplication.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
 import { emitDomainEventBestEffort } from './domainEventService.js';
 import { DEFAULT_ORG_ID } from '../config/multiTenant.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 
 export const INTERVIEW_LINK_ALREADY_USED = 'INTERVIEW_LINK_ALREADY_USED';
 
@@ -91,6 +92,11 @@ export async function isVoiceLinkConsumedById(
     if (isInterviewTestCandidateId(candidateId)) return false;
     const app = await resolveScopedApplication({ candidateId, ...scope });
     if (app) return isVoiceLinkConsumed(app);
+    // Reading the person answers with a stamp earned in a DIFFERENT campaign,
+    // which turns a legitimate interview away. Blocking is the harmful failure
+    // here, so when the application owns the state an unresolved one means
+    // "not spent" — the application row is the real single-use guard.
+    if (isApplicationOwnsCampaignStateEnabled()) return false;
     const c = await Candidate.findById(candidateId)
         .select('voiceInterviewLinkConsumedAt')
         .lean();
@@ -104,6 +110,7 @@ export async function isVideoLinkConsumedById(
     if (isInterviewTestCandidateId(candidateId)) return false;
     const app = await resolveScopedApplication({ candidateId, ...scope });
     if (app) return isVideoLinkConsumed(app);
+    if (isApplicationOwnsCampaignStateEnabled()) return false; // see the voice path
     const c = await Candidate.findById(candidateId)
         .select('videoInterviewLinkConsumedAt')
         .lean();
@@ -138,17 +145,22 @@ export async function markVoiceLinkConsumed(
         appOk = Boolean(updated);
     }
 
-    // Dual-write توافق: لا يحرق رابط حملة أخرى إذا كان Application موجوداً — ما زال يحدّث الشخص للتوافق القديم
-    const personResult = await Candidate.findOneAndUpdate(
-        { _id: candidateId, ...notConsumed },
-        { $set: update },
-        { new: true }
-    );
+    // The person used to be stamped unconditionally, and that stamp was then
+    // copied onto every application filed afterwards — spending a link in one
+    // campaign locked the candidate out of the next. When the application owns
+    // the state, only the application is stamped.
+    const personResult = app && isApplicationOwnsCampaignStateEnabled()
+        ? null
+        : await Candidate.findOneAndUpdate(
+              { _id: candidateId, ...notConsumed },
+              { $set: update },
+              { new: true }
+          );
 
     const changed = appOk || Boolean(personResult);
     if (changed) {
         emitLinkAccessChanged({
-            organizationId: personResult?.organizationId,
+            organizationId: personResult?.organizationId || app?.organizationId,
             candidateId,
             stage: 'voice',
             consumed: true,
@@ -187,16 +199,19 @@ export async function markVideoLinkConsumed(
         appOk = Boolean(updated);
     }
 
-    const personResult = await Candidate.findOneAndUpdate(
-        { _id: candidateId, ...notConsumed },
-        { $set: update },
-        { new: true }
-    );
+    // Same as the voice path: stamping the person burned every other campaign.
+    const personResult = app && isApplicationOwnsCampaignStateEnabled()
+        ? null
+        : await Candidate.findOneAndUpdate(
+              { _id: candidateId, ...notConsumed },
+              { $set: update },
+              { new: true }
+          );
 
     const changed = appOk || Boolean(personResult);
     if (changed) {
         emitLinkAccessChanged({
-            organizationId: personResult?.organizationId,
+            organizationId: personResult?.organizationId || app?.organizationId,
             candidateId,
             stage: 'video',
             consumed: true,
