@@ -149,10 +149,7 @@ const PublicIntakeFields = ({ idPrefix, value, onChange, disabled = false, t }) 
         <>
             {/* ── رفع السيرة الذاتية (اختياري) — يملأ الحقول تلقائياً ── */}
             <div className="psc-upload">
-                <div className="psc-upload__head">
-                    <h3 className="psc-upload__title">{t('publicScreening_cvTitle')}</h3>
-                    <p className="psc-upload__hint">{t('publicScreening_cvHint')}</p>
-                </div>
+                <h3 className="psc-upload__title">{t('publicScreening_cvTitle')}</h3>
                 <input
                     ref={cvInputRef}
                     id={`${idPrefix}-cv`}
@@ -179,9 +176,7 @@ const PublicIntakeFields = ({ idPrefix, value, onChange, disabled = false, t }) 
                         <span className="psc-upload__file" title={cvFile.name}>
                             {cvFile.name}
                         </span>
-                    ) : (
-                        <span className="psc-upload__formats">{t('publicScreening_cvFormats')}</span>
-                    )}
+                    ) : null}
                     {cvFile ? (
                         <button
                             type="button"
@@ -254,12 +249,8 @@ const PublicIntakeFields = ({ idPrefix, value, onChange, disabled = false, t }) 
                 </div>
             </div>
 
-            {/* ── حقول اختيارية: لا تمنع بدء المقابلة ── */}
-            <h2 className="psc-form__heading psc-form__heading--sub">
-                {t('publicScreening_sectionOptional')}
-            </h2>
-            <p className="psc-form__subhint">{t('publicScreening_optionalHint')}</p>
-
+            {/* ── حقول اختيارية: لا تمنع بدء المقابلة. بلا عنوان قسم — كونها
+                   اختيارية يتّضح من كون زر البدء يعمل بدونها. ── */}
             <div className="psc-fields">
                 {OPTIONAL_FIELDS.map((field) => (
                     <div
@@ -333,7 +324,6 @@ const PublicIntakeFields = ({ idPrefix, value, onChange, disabled = false, t }) 
                                     {t('publicScreening_photoRemove')}
                                 </button>
                             ) : null}
-                            <span className="psc-upload__formats">{t('publicScreening_photoHint')}</span>
                         </div>
                     </div>
                     {photoError ? (
