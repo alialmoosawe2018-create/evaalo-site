@@ -95,5 +95,21 @@ test('junk is still refused — a bad status does not become a pass', () => {
     assert.strictEqual(normalizeRubricResultsFromWebhook({} as never), undefined);
 });
 
+test('multipart delivers it as a JSON string — the shape the live callback uses', () => {
+    const out = normalizeRubricResultsFromWebhook({
+        criteria_results: JSON.stringify(REAL_N8N_CALLBACK.criteria_results),
+    } as never);
+    assert.ok(out, 'a stringified array must not be dropped');
+    assert.strictEqual(out!.length, 4);
+    assert.strictEqual(out!.find((r) => r.rubricItemId === 'r_experience')!.result, 'meets');
+});
+
+test('a string that is not JSON is refused, not guessed at', () => {
+    assert.strictEqual(
+        normalizeRubricResultsFromWebhook({ criteria_results: 'not json' } as never),
+        undefined
+    );
+});
+
 console.log(`\n[rubric-results] ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

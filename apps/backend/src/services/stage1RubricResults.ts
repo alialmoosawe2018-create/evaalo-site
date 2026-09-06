@@ -67,7 +67,18 @@ function pickRubricResultsRaw(data: Record<string, unknown>): unknown {
 export function normalizeRubricResultsFromWebhook(
     data: Record<string, unknown>
 ): RubricResultItem[] | undefined {
-    const raw = pickRubricResultsRaw(data);
+    /* The Stage 1 callback is multipart/form-data, so every field arrives as a
+       string — the same reason `strengths` is sent through JSON.stringify.
+       Reading it as an array only would drop it exactly as the field-name
+       mismatch did. */
+    let raw = pickRubricResultsRaw(data);
+    if (typeof raw === 'string') {
+        try {
+            raw = JSON.parse(raw);
+        } catch {
+            return undefined;
+        }
+    }
     if (!Array.isArray(raw) || raw.length === 0) return undefined;
 
     const out: RubricResultItem[] = [];
