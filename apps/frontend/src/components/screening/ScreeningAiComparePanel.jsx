@@ -131,11 +131,17 @@ export default function ScreeningAiComparePanel({
 }) {
     const { t } = useLanguage();
 
-    // Ranking rows carry only name/email, so match each to the campaign candidate
-    // (by email first, then name) to pull the profile photo — keyed once per render.
+    // Match each ranking row to its campaign candidate to pull the profile photo.
+    // Identity first: two people in one campaign can share a name, and matching
+    // on the name alone would hang one candidate's face on the other's result.
+    // Email and name remain as fallbacks for rows that come back without ids.
     const candidateByKey = useMemo(() => {
         const map = new Map();
         for (const c of Array.isArray(candidates) ? candidates : []) {
+            const applicationId = String(c?.applicationId || '').trim();
+            if (applicationId) map.set(`app:${applicationId}`, c);
+            const personId = String(c?.candidateId || c?._id || '').trim();
+            if (personId && !map.has(`id:${personId}`)) map.set(`id:${personId}`, c);
             const email = String(c?.email || '').trim().toLowerCase();
             if (email && !map.has(email)) map.set(email, c);
             const name = String(c?.full_name || c?.fullName || c?.name || '').trim().toLowerCase();
@@ -274,6 +280,8 @@ export default function ScreeningAiComparePanel({
                                             const conf = confidencePct(row);
                                             const actionLabel = (row.decisionAction || '').trim();
                                             const matchedCandidate =
+                                                candidateByKey.get(`app:${String(row.applicationId || '').trim()}`) ||
+                                                candidateByKey.get(`id:${String(row.candidateId || '').trim()}`) ||
                                                 candidateByKey.get(String(row.candidateEmail || '').trim().toLowerCase()) ||
                                                 candidateByKey.get(String(row.candidateName || '').trim().toLowerCase()) ||
                                                 null;

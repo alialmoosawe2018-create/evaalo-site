@@ -25,7 +25,15 @@ import { getUserStorageKeySuffix, userScopedStorageKey } from './userStorageKey'
 // old shape for a beat before the fresh fetch replaces it — a visible flash. Bump
 // this key whenever the stored shape changes so stale snapshots are dropped instead
 // of painted; a board just opens on its brief loading line once, then caches fresh.
-const SNAPSHOT_KEY_BASE = 'evaalo-stage-board-v2';
+// v3: the row shape changed underneath. Rows used to inherit whatever the
+// person happened to carry — the last campaign's job title, its files, its
+// interview-link state — and now carry only what their own application holds.
+// A v2 snapshot would paint that inherited version for a beat on first open,
+// which is exactly the wrong thing to flash at a recruiter.
+const SNAPSHOT_KEY_BASE = 'evaalo-stage-board-v3';
+
+/** Earlier key bases, cleared on write so an abandoned snapshot stops holding quota. */
+const SUPERSEDED_SNAPSHOT_KEY_BASES = ['evaalo-stage-board-v2'];
 
 /** Beyond this a snapshot would crowd the origin's quota; a board works without one. */
 const SNAPSHOT_MAX_CHARS = 1_500_000;
@@ -65,6 +73,12 @@ export function writeStageBoardSnapshot({ candidates, meta, metaComplete }) {
     const persist = () => {
         try {
             const key = userScopedStorageKey(SNAPSHOT_KEY_BASE);
+            // A bumped key orphans the previous snapshot rather than replacing
+            // it, and one of those can hold 1.5MB of the origin's quota for
+            // good. Drop it the first time we write under the new key.
+            for (const stale of SUPERSEDED_SNAPSHOT_KEY_BASES) {
+                localStorage.removeItem(userScopedStorageKey(stale));
+            }
             if (!Array.isArray(candidates) || candidates.length === 0) {
                 localStorage.removeItem(key);
                 return;
