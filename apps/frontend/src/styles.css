@@ -50,10 +50,20 @@ html[lang="ku"] body,
 }
 
 /* Form page - purple gradient background (like image) */
+/* This page had TWO stacked scrollers — measured at 521px of range on html and
+   138px on body — so the wheel moved body first and jumped to html when it ran
+   out, and the other way climbing back. That hand-off is what reads as the page
+   yanking against you, and with both scrollbars hidden below, nothing on screen
+   explained it.
+
+   `overflow-y: auto` was set here explicitly, but removing it was not enough:
+   per spec, when one axis is `hidden` the other computes from `visible` to
+   `auto`, so `overflow-x: hidden` alone kept re-creating the second scroller.
+   `clip` blocks horizontal scrolling without making an element a scroll
+   container, which is what was wanted in the first place. */
 html:has(.form-page),
 body:has(.form-page) {
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow-x: clip;
     padding-top: 0 !important;
     height: auto;
     min-height: 100%;
@@ -1341,11 +1351,13 @@ html[dir="rtl"] .language-option {
         padding: 10px;
     }
 
+    /* Same single-scroller rule as the desktop block above — `clip`, not
+       `hidden`, or the second scroller comes back. A thumb drag makes the
+       hand-off even more obvious than a wheel does. */
     html:has(.form-page),
     body:has(.form-page) {
         padding: 0 !important;
-        overflow-x: hidden;
-        overflow-y: auto;
+        overflow-x: clip;
         touch-action: pan-y;
         overscroll-behavior-y: auto;
     }

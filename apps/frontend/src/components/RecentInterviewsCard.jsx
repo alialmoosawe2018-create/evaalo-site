@@ -160,11 +160,14 @@ function mapCandidateToInterview(candidate) {
     };
 }
 
-function dashboardDateLocale(lang) {
-    if (lang === 'ar') return 'ar-IQ';
-    if (lang === 'ku') return 'ckb-IQ';
-    return 'en-US';
-}
+/**
+ * This date sits on the same line as the job title, and job titles come from
+ * the data in English. Localising only the date produced rows that read
+ * "Senior HR Assistant • ٦ أيلول ٢٠٢٦" — two scripts and two numeral systems in
+ * one breath. The row is pinned to English so the line is consistent; the rest
+ * of the interface stays in the chosen language.
+ */
+const INTERVIEW_ROW_DATE_LOCALE = 'en-US';
 
 function formatDashboardInterviewDate(raw, locale) {
     const d = new Date(raw);
@@ -439,7 +442,7 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
         }
     };
 
-    const dateLocale = useMemo(() => dashboardDateLocale(currentLang), [currentLang]);
+    const dateLocale = INTERVIEW_ROW_DATE_LOCALE;
     const avatarSize = variant === 'notifications' ? 40 : 48;
     const actionBtnSize = variant === 'notifications' ? 32 : 36;
 

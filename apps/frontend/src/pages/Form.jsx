@@ -1355,22 +1355,18 @@ const LegacyApplicationForm = () => {
                             <p className="subtitle" style={{ marginTop: '12px' }}>
                                 {submitSuccess ? t('formSubmit_successHint') : t('formConfig_alreadySubmitted')}
                             </p>
-                            {/* المُوظِّف الذي يملأ الاستمارة نيابةً عن مرشح يحتاج طريقاً إلى Stage 1،
-                                لكن المتقدّم نفسه يجب أن تبقى أمامه رسالة الشكر. */}
+                            {/* المُوظِّف الذي يملأ الاستمارة نيابةً عن مرشح يحتاج طريق عودة،
+                                لكن المتقدّم نفسه يجب أن تبقى أمامه رسالة الشكر.
+                                يعود إلى لوحة التحكم لا إلى الفرز: الفرز شاشة حملة
+                                واحدة، واللوحة هي نقطة البداية الطبيعية بعد الإرسال. */}
                             {isAuthenticated && (
                                 <button
                                     type="button"
                                     className="btn btn-secondary"
                                     style={{ marginTop: '20px' }}
-                                    onClick={() =>
-                                        navigate(
-                                            campaignId
-                                                ? `/screening?campaignId=${encodeURIComponent(campaignId)}`
-                                                : '/screening',
-                                        )
-                                    }
+                                    onClick={() => navigate('/dashboard')}
                                 >
-                                    {t('formSubmit_goToScreening')}
+                                    {t('formSubmit_goToDashboard')}
                                 </button>
                             )}
                         </header>
