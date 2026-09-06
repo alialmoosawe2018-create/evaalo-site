@@ -1696,17 +1696,26 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         if (isScreeningFlow) {
             const hasPreset = Object.keys(selectedCriteria).some((k) => {
                 if (!selectedCriteria[k]) return false;
+                /* `position` and `job` name WHICH role this is; they are not
+                   something a candidate can be measured against. This check used
+                   to accept them, and the role picker fills position on its own —
+                   so a campaign could be published carrying nothing but its own
+                   job title. Those reached the evaluator with an empty rubric and
+                   every candidate came back "not enough criteria evaluated —
+                   needs human review", with no score at all. Observed on a live
+                   campaign, and on 98 of 136 historical ones. */
+                if (k === 'position' || k === 'job') return false;
+                // Nor does aiCompareTop: it is a list of people to notify, not
+                // anything the candidate is judged on.
+                if (k === 'aiCompareTop') return false;
                 if (k === 'certifications') return certificationRows.some((s) => String(s || '').trim());
                 if (k === 'skills') return skillRows.some((s) => String(s || '').trim());
                 if (k === 'languages') return languageRows.some((s) => String(s || '').trim());
-                if (k === 'aiCompareTop') return aiCompareEmailRows.some((s) => String(s || '').trim());
-                if (k === 'position') return Boolean(String(jobDetails.roleKey || jobDetails.position || '').trim());
-                if (k === 'job') return Boolean(String(jobDetails.roleKey || '').trim());
                 return Boolean(String(jobDetails[k] ?? '').trim());
             });
             const hasCustom = countFilledCustomRubricItems(customCriteria) > 0;
             if (!hasPreset && !hasCustom) {
-                newErrors.general = t('newCampaign_rubricAtLeastOne');
+                newErrors.general = t('newCampaign_rubricNeedsScoring');
             }
         } else if (Object.keys(selectedCriteria).length === 0) {
             newErrors.general = t('newCampaign_rubricAtLeastOne');

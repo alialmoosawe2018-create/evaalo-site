@@ -338,6 +338,25 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
                 }
                 throw e;
             }
+
+            /* A screening campaign whose rubric came out empty has nothing to
+               evaluate against. It was accepted until now — the check above
+               deliberately skips screening forms — and the result was a campaign
+               that looked live, took applications, and returned every one of
+               them with no score and "not enough criteria evaluated — needs
+               human review". The role title on its own is not a criterion.
+
+               The rubric builder is the authority here rather than a guess at
+               which keys count: if it produced no items, there is nothing to
+               score. */
+            if (!evaluationRubric || evaluationRubric.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'rubric_required',
+                    message:
+                        'A screening campaign needs at least one criterion to measure candidates against — a requirement, a skill, a certification, or a custom rubric item. Without one, every applicant is returned unscored.',
+                });
+            }
         }
 
         const publicApplicationToken = mintPublicApplicationToken();
