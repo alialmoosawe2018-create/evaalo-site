@@ -118,4 +118,28 @@ const changed = polishVoiceArabicReply(answered, { changeRequested: true });
 assert(changed.startsWith('طيب،'), `طلب التغيير لم يكتم المديح: ${changed}`);
 ok('طلب تغيير السؤال');
 
+// ── 3) لا اقتباس حول مصطلح في كلام مسموع ────────────────────────────────────
+console.log('\nاقتباس القالب يُنزع:');
+
+const quoted: [string, string][] = [
+    // النصّ الحرفي من جلسة 1fc16115
+    [
+        'ممتاز، تگدر تحچيلي شلون تستخدم مهارة "التواصل" في شغلك؟',
+        'مهارة التواصل',
+    ],
+    // القوالب الأخرى في questionEngine تستعمل الاصطلاح نفسه
+    ['طيب، حدثني عن شهادتك "PMP" وشلون تفيدك؟', 'شهادتك PMP'],
+    ['تمام، شنو التحديات بشركتك الحالية "زين العراق"؟', 'شركتك الحالية زين العراق'],
+];
+
+for (const [input, expectedFragment] of quoted) {
+    const out = polishVoiceArabicReply(input);
+    assert(
+        out.includes(expectedFragment),
+        `لم يُنزع الاقتباس:\n  دخل: ${input}\n  خرج: ${out}`
+    );
+    assert(!/["“”«»]/u.test(out), `بقيت علامة اقتباس: ${out}`);
+    ok(expectedFragment);
+}
+
 console.log(`\n✅ نجحت ${checks} حالة.`);

@@ -510,6 +510,13 @@ ${lastAnswer}${extracted}
 
 You decide the best question. Make it natural and relevant. You may add a brief acknowledgment if it flows well. Keep it about 45–70 words.
 
+Question quality (the candidate hears this aloud, once, with no text in front of them):
+- ONE ask. No second clause bolted on with "و" or "وكمان".
+- Do NOT presuppose. Ask whether something happens before asking how it happens — never build the question on an assumption the candidate has not stated.
+- Do NOT fuse this topic with whatever the candidate just talked about. Their last answer is context for phrasing, not a second subject to cover in the same breath. Ask about the topic plainly.
+- Self-contained: understandable without re-reading. If you cannot ask it in one clear sentence, ask something simpler about the same topic.
+- Never name the topic as a label ("مهارة التواصل" / "the skill communication"). Ask about the behaviour instead — what they do, with whom, in what situation.
+
 ${langRule}`;
     }
 
@@ -841,6 +848,16 @@ function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string 
     // البديل حدود يونيكودية على الحروف، فتُصحَّح الكلمة بعد أي فعل (تعاملت/تتعامل/سويت…)
     // دون أن تُمسّ «وياها» الصحيحة ولا كلمة تبدأ بالحروف نفسها مثل «ويهاب».
     s = s.replace(/(?<!\p{L})ويها(?!\p{L})/gu, 'وياها');
+
+    // اقتباس حول مصطلح = تسرّب قالب، لا اقتباس مقصود.
+    //
+    // توجيهات المواضيع في questionEngine تُغلّف القيمة بعلامتي اقتباس لتحديدها
+    // للنموذج — `اسأل المرشح كيف يستخدم مهارة "${skill}"` — فيردّدها النموذج
+    // بعلاماتها: في جلسة 1fc16115 نطق الوكيل «شلون تستخدم مهارة "التواصل" في
+    // شغلك؟». هذا كلام مسموع، والاقتباس فيه لا يُنطق أصلاً، فوجوده أثرُ قالبٍ لا
+    // معنى له. نُزيله حول المصطلحات القصيرة فقط، كي لا نمسّ اقتباساً لجملة كاملة
+    // قد يعيدها الوكيل عمداً عند التأكيد من فهمه.
+    s = s.replace(/["“”«»]\s*([^"“”«»\n]{1,40}?)\s*["“”«»]/gu, '$1');
     s = fixAcknowledgmentOpener(s, acknowledgmentTurn, praiseSuppressed);
     s = applyIraqiGenderPhrasing(s, gender);
     return s.replace(/\s{2,}/g, ' ').trim();
