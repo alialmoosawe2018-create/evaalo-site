@@ -114,9 +114,13 @@ export async function flushStage1EvaluationOutboxEntry(outboxId: string): Promis
             throw new Error(`Candidate not found: ${entry.candidateId}`);
         }
 
-        let campaignId = entry.campaignId || candidate.campaignId;
-        if (!campaignId && entry.campaignId) {
-            campaignId = entry.campaignId;
+        /* The outbox entry records the campaign this screening was queued for.
+           Falling back to the person's campaignId — their most recent one —
+           could dispatch a returning applicant's screening under a campaign
+           they were not queued for at all. The entry, or nothing. */
+        let campaignId = entry.campaignId;
+        if (!campaignId && !isApplicationOwnsCampaignStateEnabled()) {
+            campaignId = candidate.campaignId;
         }
 
         /* The screening payload describes an application, not a person. Sending
