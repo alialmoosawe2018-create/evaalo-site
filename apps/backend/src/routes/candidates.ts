@@ -1150,7 +1150,17 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                 orgForLookup,
             candidate,
             campaignId,
-            entryStage: candidate.entryStage,
+            /* The stage an application ENTERS at belongs to the link it came
+               from, not to the person. The person's entryStage is set once, on
+               their first application, and is not in the update whitelist — so
+               a returning applicant opening a public VOICE link filed an
+               application that still said 'screening', and it then appeared in
+               the Stage 1 list with no written evaluation to show. Already
+               whitelisted to audio/video/screening above. */
+            entryStage:
+                (typeof candidateDataForDB.entryStage === 'string'
+                    ? (candidateDataForDB.entryStage as 'screening' | 'audio' | 'video')
+                    : undefined) || candidate.entryStage,
             sourceType: candidate.sourceType,
             source:
                 typeof (candidateDataForDB as { source?: string }).source === 'string'

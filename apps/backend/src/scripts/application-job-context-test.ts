@@ -269,6 +269,41 @@ async function main(): Promise<void> {
         assert.strictEqual(blocked, true);
     });
 
+    await test('an audio link files an audio application, whatever the person says', async () => {
+        // Reported: public voice/video interviews by a returning applicant
+        // turned up in the Stage 1 list with no evaluation. The person's
+        // entryStage is written once and never updated, and the application
+        // was taking it — so a voice interview filed itself as 'screening'.
+        const screener = await Candidate.create({
+            full_name: 'Stage Router',
+            email: 'stage@example.com',
+            phone: '07833333333',
+            position_applied_for: 'HR Assistant',
+            years_of_experience: '3-5 years',
+            entryStage: 'screening',
+        });
+        const voice = await upsertCandidateApplication({
+            organizationId: DEFAULT_ORG_ID,
+            campaignId: 'camp-voice-entry',
+            entryStage: 'audio',
+            candidate: screener as never,
+        } as never);
+        assert.strictEqual(voice.entryStage, 'audio', 'the link decides the stage');
+        assert.strictEqual(
+            (await Candidate.findById(screener._id).lean())?.entryStage,
+            'screening',
+            'and the person keeps its own, untouched'
+        );
+        // Without an explicit stage the person is still the fallback, which is
+        // what the screening form relies on.
+        const inherited = await upsertCandidateApplication({
+            organizationId: DEFAULT_ORG_ID,
+            campaignId: 'camp-inherit-entry',
+            candidate: screener as never,
+        } as never);
+        assert.strictEqual(inherited.entryStage, 'screening');
+    });
+
     console.log(`\n[job-context] ${pass} passed, ${fail} failed`);
     await mongoose.disconnect();
     await mongo.stop();
