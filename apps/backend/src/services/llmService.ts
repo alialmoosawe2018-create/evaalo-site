@@ -714,11 +714,33 @@ function getProfessionalRegisterBlock(): string {
 - FORBIDDEN as acknowledgment: شلونك، شلونج، شلون، هلا — especially WRONG: "زين، شلونك؟" before a work question. No flirtatious or overly warm wording.`;
 }
 
+/**
+ * عبارات الاستحسان — تُقال بعد إجابة، لا بعد اعتراض.
+ *
+ * القائمة الكاملة تخلط التقدير («ممتاز»، «عاشت ايدك») بالإقرار المحايد («طيب»،
+ * «تمام»). التمييز ضروري لأن التوجيه في الـ system يطلب افتتاحية في كل دور، فيمدح
+ * الوكيلُ المرشحَ حتى حين لا يكون قد أجاب.
+ */
+const PRAISE_OPENER_RE = /^(?:ممتاز|عاشت\s*[اأإ]يدك|أحسنت|احسنت|زين|حلو|جيد|رائع)\s*[،,]\s*/u;
+const NEUTRAL_OPENER = 'طيب، ';
+
 /** يصحّح استخدام شلونك/شلونج خطأً كتأكيد، ويُنوّع العبارة الافتتاحية */
-function fixAcknowledgmentOpener(text: string, turnIndex = 0): string {
+function fixAcknowledgmentOpener(
+    text: string,
+    turnIndex = 0,
+    praiseSuppressed = false,
+): string {
     const acks = IRAQI_ACKNOWLEDGMENT_PHRASES.map((p) => `${p}،`);
     const pick = acks[turnIndex % acks.length] ?? 'ممتاز،';
     let s = text.trim();
+
+    // المرشح لم يُجب — طلب توضيحاً أو اعترض على السؤال. مدحُه هنا يقرأ كأن الوكيل لم
+    // يسمعه: في مقابلة حقيقية قال المرشح «يعني سؤالك مو منطقي صراحه» فردّ الوكيل
+    // «عاشت ايدك»، ثم قال «السؤال غير واضح» فردّ «ممتاز». نُبدلها بإقرار محايد بدل
+    // حذفها، حتى تبقى الجملة تبدأ بوصلة طبيعية لا بالسؤال جافاً.
+    if (praiseSuppressed) {
+        s = s.replace(PRAISE_OPENER_RE, NEUTRAL_OPENER);
+    }
 
     // "زين، شلونك؟ شنو…" — شلونك ليست تأكيداً
     s = s.replace(
@@ -745,6 +767,16 @@ function resolveAcknowledgmentTurn(ack: number | LLMContext = 0): number {
     );
 }
 
+/**
+ * هل يجب كتم المديح في هذا الدور؟ نعم حين يكون الدور استجابةً لطلب توضيح أو لطلب
+ * تغيير السؤال — أي حين لم يُجب المرشح بعد. الرايتان تُضبطان في voiceSessionCore من
+ * نيّة الرسالة، فنُعيد استعمال إشارة موجودة بدل استنتاج جديد قد يخطئ.
+ */
+function resolvePraiseSuppressed(ack: number | LLMContext): boolean {
+    if (typeof ack === 'number') return false;
+    return ack.clarificationRequested === true || ack.changeRequested === true;
+}
+
 function resolveGenderFromSanitizeArg(ack: number | LLMContext): CandidateGender {
     if (typeof ack === 'number') return 'unknown';
     return normalizeCandidateGender(ack.candidateProfile?.gender);
@@ -754,6 +786,7 @@ function resolveGenderFromSanitizeArg(ack: number | LLMContext): CandidateGender
 function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string {
     const acknowledgmentTurn = resolveAcknowledgmentTurn(ack);
     const gender = resolveGenderFromSanitizeArg(ack);
+    const praiseSuppressed = resolvePraiseSuppressed(ack);
     let s = text
         .replace(/[-_=~]{3,}/g, ' ')
         .replace(/[|]{2,}/g, ' ')
@@ -798,9 +831,17 @@ function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string 
         /ممكن\s+تح([چج])يلي\s+عن\s+نفسك\s+شوي[هة]?\s*[؟?]?\s*شنو\s+الأشياء\s+المهمة\s+اللي\s+تحب\s+أتعرفها\s+عنك\s*[؟?]?/gi,
         'ممكن تحجيلنا عن نفسك شويه شنو الاشياء التي تحب نعرفها عنك؟'
     );
-    // تصحيح صياغة "ويها" إلى "وياها" في سياق "تتعامل ..."
-    s = s.replace(/\bتتعامل\s+ويها\b/gi, 'تتعامل وياها');
-    s = fixAcknowledgmentOpener(s, acknowledgmentTurn);
+    // «ويها» ليست صيغة عراقية صحيحة — الصواب «وياها» (iraqiDialectReference: FORBIDDEN).
+    //
+    // كانت القاعدة هنا `/\bتتعامل\s+ويها\b/` وهي **ميتة**: في جافاسكربت يُعرَّف \b عبر
+    // \w أي [A-Za-z0-9_] وحدها، فلا يوجد حدّ كلمة بين مسافة وحرف عربي — القاعدة لم
+    // تُطابق يوماً، ولا حتى الحالة المضارعة التي كُتبت لأجلها. ظهر ذلك في مقابلة حقيقية
+    // نطق فيها الوكيل «وكيف تعاملت ويها؟».
+    //
+    // البديل حدود يونيكودية على الحروف، فتُصحَّح الكلمة بعد أي فعل (تعاملت/تتعامل/سويت…)
+    // دون أن تُمسّ «وياها» الصحيحة ولا كلمة تبدأ بالحروف نفسها مثل «ويهاب».
+    s = s.replace(/(?<!\p{L})ويها(?!\p{L})/gu, 'وياها');
+    s = fixAcknowledgmentOpener(s, acknowledgmentTurn, praiseSuppressed);
     s = applyIraqiGenderPhrasing(s, gender);
     return s.replace(/\s{2,}/g, ' ').trim();
 }
@@ -808,11 +849,19 @@ function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string 
 /** تصحيح نص عربي للمقابلة الصوتية (نص ثابت من المحرك أو خارج getLLMResponse). */
 export function polishVoiceArabicReply(
     text: string,
-    opts?: { gender?: string | null; acknowledgmentTurn?: number }
+    opts?: {
+        gender?: string | null;
+        acknowledgmentTurn?: number;
+        /** الدور جواب على طلب توضيح/تغيير — لا مديح فيه. */
+        clarificationRequested?: boolean;
+        changeRequested?: boolean;
+    }
 ): string {
     const ctx: LLMContext = {
         candidateProfile: opts?.gender ? { gender: opts.gender } : undefined,
         acknowledgmentTurn: opts?.acknowledgmentTurn,
+        clarificationRequested: opts?.clarificationRequested,
+        changeRequested: opts?.changeRequested,
     };
     return sanitizeVoiceReply(text, ctx);
 }
