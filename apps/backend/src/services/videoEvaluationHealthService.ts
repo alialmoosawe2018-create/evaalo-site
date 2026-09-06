@@ -11,6 +11,8 @@
 
 import VideoInterviewSession from '../models/VideoInterviewSession.js';
 import Candidate from '../models/Candidate.js';
+import { findApplicationForCallback } from './candidateApplicationService.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 
 /** المهلة قبل اعتبار التقييم متأخراً (دقائق). n8n المرحلة 3 عادة تنجز خلال دقائق. */
 function evalDeadlineMs(): number {
@@ -77,6 +79,27 @@ export async function sweepStalledVideoEvaluations(): Promise<void> {
             const candidate = await Candidate.findById(session.candidateId)
                 .select('videoInterviewEvaluation fullName')
                 .lean();
+
+            /* The evaluation is written to the application now, so looking only
+               at the person would report every completed interview as stalled —
+               this sweep would page on its own success. The session carries the
+               ids needed to find the right application; the person stays as the
+               fallback for sessions that predate applications. */
+            const application = isApplicationOwnsCampaignStateEnabled()
+                ? await findApplicationForCallback({
+                      applicationId: (session as { applicationId?: string }).applicationId,
+                      candidateId: String(session.candidateId),
+                      campaignId: (session as { campaignId?: string }).campaignId,
+                  })
+                : null;
+
+            if (application && hasVideoEvaluation(application)) {
+                await VideoInterviewSession.updateOne(
+                    { _id: session._id },
+                    { $set: { evaluationAlertSentAt: new Date() } }
+                );
+                continue;
+            }
 
             if (candidate && hasVideoEvaluation(candidate)) {
                 // التقييم وصل — علّم الجلسة كي لا نعيد فحصها.

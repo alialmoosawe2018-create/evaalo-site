@@ -295,13 +295,42 @@ export async function upsertCandidateApplication(
 }
 
 /**
+ * What genuinely describes a human rather than an application.
+ *
+ * Everything else on the Candidate document is campaign state that the person
+ * happens to be carrying: a job title, a stage, a status, a verdict, an
+ * attachment, a spent interview link. Those must come from the application.
+ */
+const PERSON_IDENTITY_KEYS = new Set([
+    '_id',
+    'full_name',
+    'email',
+    'phone',
+    'location',
+    'linkedin',
+    'gender',
+    'organizationId',
+    'createdByClerkUserId',
+]);
+
+/**
  * صف قائمة Stage: شكل يشبه Candidate القديم مع _id = Application MongoId و candidateId + applicationId.
  */
 export function applicationToStageListRow(
     app: Record<string, unknown>,
     person: Record<string, unknown> | null | undefined
 ): Record<string, unknown> {
-    const p = person || {};
+    const owned = isApplicationOwnsCampaignStateEnabled();
+    const wholePerson = person || {};
+    /* `...p` was the quiet leak: every field this function does not name
+       explicitly took the person's value, and the person's value is whichever
+       campaign touched it last. Only identity survives the spread now — the
+       fields that genuinely describe a human rather than an application. */
+    const p = owned
+        ? (Object.fromEntries(
+              Object.entries(wholePerson).filter(([k]) => PERSON_IDENTITY_KEYS.has(k))
+          ) as Record<string, unknown>)
+        : wholePerson;
     const snap =
         app.applicationSnapshot && typeof app.applicationSnapshot === 'object'
             ? (app.applicationSnapshot as Record<string, unknown>)
@@ -311,9 +340,15 @@ export function applicationToStageListRow(
         ...app,
         _id: app._id,
         id: app._id,
-        candidateId: app.candidateId || p._id,
+        candidateId: app.candidateId || wholePerson._id,
         applicationId: app.applicationId,
-        campaignId: app.campaignId || p.campaignId,
+        campaignId: app.campaignId || (owned ? undefined : wholePerson.campaignId),
+        // Named explicitly because the row is built for a campaign: without this
+        // the stage list showed a returning applicant's PREVIOUS job title.
+        position_applied_for:
+            app.position_applied_for ||
+            snap.position_applied_for ||
+            (owned ? undefined : wholePerson.position_applied_for),
         full_name: p.full_name || snap.full_name,
         email: p.email || app.emailDenorm,
         phone: p.phone,
@@ -327,13 +362,16 @@ export function applicationToStageListRow(
         // Surfaced so the board can show what was already decided and not ask twice.
         hiringOutcome: app.hiringOutcome,
         voiceRecording: app.voiceRecording,
-        files: app.attachments || app.files || p.files,
-        entryStage: app.entryStage || p.entryStage,
-        sourceType: app.sourceType || p.sourceType,
-        status: app.status || p.status,
-        organizationId: app.organizationId || p.organizationId,
-        createdAt: app.createdAt || p.createdAt,
-        updatedAt: app.updatedAt || p.updatedAt,
+        // Attachments belong to the application they were filed with. Falling
+        // back to the person is how one campaign's certificates appeared under
+        // another's — and how a missing upload looked like a present one.
+        files: app.attachments || app.files || (owned ? undefined : wholePerson.files),
+        entryStage: app.entryStage || (owned ? undefined : wholePerson.entryStage),
+        sourceType: app.sourceType || (owned ? undefined : wholePerson.sourceType),
+        status: app.status || (owned ? undefined : wholePerson.status),
+        organizationId: app.organizationId || wholePerson.organizationId,
+        createdAt: app.createdAt || wholePerson.createdAt,
+        updatedAt: app.updatedAt || wholePerson.updatedAt,
         __rowKind: 'application',
     };
 }

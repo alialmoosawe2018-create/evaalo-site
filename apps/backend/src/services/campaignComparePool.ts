@@ -7,6 +7,7 @@ import CandidateApplication, {
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import { stableJson } from '../services/webhookIdempotency.js';
 import type { CampaignCompareStage } from '../services/campaignCompareCallbackAuth.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 
 const MAX_TOP_N = 10;
 const DEFAULT_TOP_N = 5;
@@ -315,6 +316,17 @@ async function loadEligibleFromApplications(
 
     const apps = (await CandidateApplication.find(filter).lean()) as unknown as ICandidateApplication[];
     if (!apps.length) {
+        /* The legacy fallback used to run here, and its trigger was wrong in a
+           way that mattered: `apps` is empty when nobody has a QUALIFYING
+           evaluation, not only when no applications exist. So a campaign whose
+           candidates simply had not been evaluated yet fell through to a query
+           over Candidate.campaignId — which holds only a person's LATEST
+           campaign, ignores deletedAt, ignores the hidden-from-stages filter,
+           and returned the person's id dressed as applicationMongoId. The
+           comparison then ranked people from another campaign.
+
+           An empty pool is the honest answer: nobody here is eligible yet. */
+        if (isApplicationOwnsCampaignStateEnabled()) return [];
         // توافق: مرشحون قدامى بلا Application rows بعد
         return loadEligibleLegacyCandidates(compareStage, campaignId, organizationId);
     }
