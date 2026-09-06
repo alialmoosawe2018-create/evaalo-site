@@ -24,6 +24,7 @@ import { resolveApplicationJobContext } from '../services/applicationJobContext.
 import { upsertCandidateApplication } from '../services/candidateApplicationService.js';
 import { isVoiceLinkConsumedById, markVoiceLinkConsumed } from '../services/interviewLinkAccess.js';
 import { DEFAULT_ORG_ID } from '../config/multiTenant.js';
+import { attachmentKind } from '../services/n8nService.js';
 
 const OLD_JOB = 'Compensation and Benefits Specialist';
 const NEW_JOB = 'HR Assistant';
@@ -302,6 +303,42 @@ async function main(): Promise<void> {
             candidate: screener as never,
         } as never);
         assert.strictEqual(inherited.entryStage, 'screening');
+    });
+
+    await test('certificates reach the evaluator from an application, not just a person', async () => {
+        /* Reported: six certificates uploaded, visible on the profile, and the
+           screening ignored them. The payload filtered on `kind`, which only
+           person records carry — an application's attachments say `type`. Once
+           the payload started coming from the application the filter matched
+           nothing, silently. */
+        const personShaped = [
+            { kind: 'cv', mimeType: 'application/pdf' },
+            { kind: 'certificate', mimeType: 'application/pdf' },
+            { kind: 'certificate', mimeType: 'application/pdf' },
+        ];
+        const applicationShaped = [
+            { type: 'cv', mimeType: 'application/pdf' },
+            { type: 'certificate', mimeType: 'application/pdf' },
+            { type: 'certificate', mimeType: 'application/pdf' },
+        ];
+        const certs = (files: Array<Record<string, unknown>>) =>
+            files.filter((f) => attachmentKind(f) === 'certificate').length;
+        assert.strictEqual(certs(personShaped), 2, 'person-shaped files still work');
+        assert.strictEqual(certs(applicationShaped), 2, 'application-shaped files now work too');
+
+        // And a certificate must never be mistaken for the CV. The fallback
+        // picks "the first PDF that is not a certificate"; with the kind
+        // unreadable it used to accept a certificate.
+        const certFirst = [
+            { type: 'certificate', mimeType: 'application/pdf' },
+            { type: 'cv', mimeType: 'application/pdf' },
+        ];
+        const cvPick =
+            certFirst.find((f) => attachmentKind(f) === 'cv') ||
+            certFirst.find(
+                (f) => attachmentKind(f) !== 'certificate' && f.mimeType === 'application/pdf'
+            );
+        assert.strictEqual(attachmentKind(cvPick), 'cv');
     });
 
     console.log(`\n[job-context] ${pass} passed, ${fail} failed`);

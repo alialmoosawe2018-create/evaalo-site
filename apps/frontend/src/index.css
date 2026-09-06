@@ -4418,6 +4418,17 @@ body.rtl-text .nav-links {
     box-shadow: -3px -3px 10px rgba(34, 211, 238, 0.16);
 }
 
+/* A closed panel is invisible (`opacity: 0; visibility: hidden`) but still
+   `display: flex`, and a backdrop-filter on it keeps a blur layer that the
+   compositor re-evaluates on every frame. The application form carries four of
+   these — two at 504x365 — which is what still made scrolling feel heavy after
+   the double-scroller was fixed. The open panel keeps its blur untouched; only
+   the hidden ones stop paying for it. */
+.language-dropdown-menu:not(.active) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
 .language-dropdown-menu.active {
     opacity: 1;
     visibility: visible;

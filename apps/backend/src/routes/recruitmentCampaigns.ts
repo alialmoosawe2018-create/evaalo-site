@@ -305,11 +305,57 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
             shareLangRaw === 'en' ? 'en' : shareLangRaw === 'ar' || shareLangRaw === 'ku' ? 'ar' : 'ar';
         criteria.evaluationLanguage = evaluationLanguage;
 
+        /* Keys that say WHICH role this is, or how to process it — none of them
+           is something a candidate can be measured against. The role picker
+           fills `position` and its companions on its own, so counting them let
+           a campaign be published carrying nothing but its own job title. */
+        const NON_SCORING_CRITERIA = new Set([
+            'position',
+            'roleKey',
+            'careerLevel',
+            'managementTrack',
+            'labelKey',
+            'roleMatchSource',
+            'researchDomain',
+            'job',
+            'job_level',
+            'evaluationLanguage',
+            'aiCompareTop',
+            'aiCompareTopEmails',
+        ]);
+        const scoringCriteria = Object.entries(criteria).filter(
+            ([k, v]) =>
+                !NON_SCORING_CRITERIA.has(k) &&
+                v != null &&
+                !(typeof v === 'string' && !v.trim()) &&
+                !(Array.isArray(v) && v.length === 0)
+        );
+
         if (Object.keys(criteria).length === 0 && !isScreeningForm) {
             return res.status(400).json({
                 success: false,
                 error: 'Missing criteria',
                 message: 'At least one criterion is required',
+            });
+        }
+
+        /* A campaign that will be screened in writing needs something to score.
+           Without this a campaign was published carrying only its job title,
+           and every applicant came back with no score and "not enough criteria
+           evaluated — needs human review".
+
+           An earlier version of this check hung off `isScreeningForm`, which is
+           `interviewType === 'form' || formTemplateId` — and the start-process
+           flow sets neither, so the check never once ran. Audio and video
+           campaigns are the ones deliberately exempt: they are scored from the
+           interview itself, not from a written rubric. */
+        const isInterviewOnly = interviewType === 'audio' || interviewType === 'video';
+        if (!isInterviewOnly && scoringCriteria.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'rubric_required',
+                message:
+                    'A screening campaign needs at least one criterion to measure candidates against — a requirement, a skill, a certification, or a custom rubric item. Without one, every applicant is returned unscored.',
             });
         }
 
@@ -339,24 +385,6 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
                 throw e;
             }
 
-            /* A screening campaign whose rubric came out empty has nothing to
-               evaluate against. It was accepted until now — the check above
-               deliberately skips screening forms — and the result was a campaign
-               that looked live, took applications, and returned every one of
-               them with no score and "not enough criteria evaluated — needs
-               human review". The role title on its own is not a criterion.
-
-               The rubric builder is the authority here rather than a guess at
-               which keys count: if it produced no items, there is nothing to
-               score. */
-            if (!evaluationRubric || evaluationRubric.length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'rubric_required',
-                    message:
-                        'A screening campaign needs at least one criterion to measure candidates against — a requirement, a skill, a certification, or a custom rubric item. Without one, every applicant is returned unscored.',
-                });
-            }
         }
 
         const publicApplicationToken = mintPublicApplicationToken();

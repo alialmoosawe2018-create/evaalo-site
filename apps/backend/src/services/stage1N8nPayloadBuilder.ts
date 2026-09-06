@@ -8,6 +8,7 @@ import { getAllowedFieldIds } from '../shared/formTemplates/snapshot.js';
 import { deriveLegacyRubricFromCriteria } from './evaluationRubricService.js';
 import { resolveCampaignFormBinding } from './publicCampaignService.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
+import { attachmentKind } from './n8nService.js';
 
 export const STAGE1_PAYLOAD_SCHEMA_VERSION = 2;
 
@@ -74,11 +75,11 @@ function hasSubmittedValue(field: FormFieldDef, raw: unknown): boolean {
 
 function fileMetaForField(
     fieldId: string,
-    files: Array<{ kind?: string; originalName?: string; mimeType?: string; size?: number }> | undefined
+    files: Array<{ kind?: string; type?: string; originalName?: string; mimeType?: string; size?: number }> | undefined
 ): Record<string, unknown> | null {
     if (!files?.length) return null;
     if (fieldId === 'certificates') {
-        const certs = files.filter((f) => f.kind === 'certificate');
+        const certs = files.filter((f) => attachmentKind(f) === 'certificate');
         if (!certs.length) return null;
         return {
             uploaded: true,
@@ -92,9 +93,9 @@ function fileMetaForField(
     }
     const match =
         fieldId === 'cv'
-            ? files.find((f) => f.kind === 'cv') ||
-              files.find((f) => f.kind !== 'certificate' && f.mimeType === 'application/pdf')
-            : files.find((f) => f.kind === 'photo');
+            ? files.find((f) => attachmentKind(f) === 'cv') ||
+              files.find((f) => attachmentKind(f) !== 'certificate' && f.mimeType === 'application/pdf')
+            : files.find((f) => attachmentKind(f) === 'photo');
     if (!match) return null;
     return {
         uploaded: true,

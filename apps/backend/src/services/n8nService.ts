@@ -61,7 +61,9 @@ interface CandidateData {
     status?: string;
     createdAt?: Date | string;
     files?: Array<{
+        /** Person records carry `kind`; application attachments carry `type`. */
         kind?: 'cv' | 'photo' | 'certificate';
+        type?: 'cv' | 'photo' | 'certificate' | 'other';
         filename: string;
         originalName: string;
         path?: string;
@@ -174,10 +176,10 @@ function appendFlatPayloadToFormData(form: FormData, data: Record<string, unknow
 /** CV فقط لـ n8n — صورة المتقدم لا تُرسل */
 function pickCvFileForN8n(files: CandidateData['files']) {
     if (!files?.length) return null;
-    const byKind = files.find((f) => f.kind === 'cv');
+    const byKind = files.find((f) => attachmentKind(f) === 'cv');
     if (byKind) return byKind;
     // Untagged legacy records fall back to mime sniffing — a certificate PDF is not the CV.
-    return files.find((f) => f.kind !== 'certificate' && f.mimeType === 'application/pdf') || null;
+    return files.find((f) => attachmentKind(f) !== 'certificate' && f.mimeType === 'application/pdf') || null;
 }
 
 /**
@@ -187,12 +189,27 @@ function pickCvFileForN8n(files: CandidateData['files']) {
  * increment). Best-effort: a failing file is annotated, never thrown, so the
  * evaluation is never blocked by an unreadable certificate.
  */
+/**
+ * What an uploaded file actually is.
+ *
+ * The person's `files` label it `kind`; an application's `attachments` label it
+ * `type`. Reading only `kind` silently dropped every certificate from the
+ * screening payload once the payload started coming from the application — the
+ * files were in the database, visible on the profile, and invisible to the
+ * evaluator. The CV survived only by accident, through a "first PDF that is not
+ * a certificate" fallback that also stops excluding certificates when `kind` is
+ * absent, so a certificate could have been read AS the CV.
+ */
+export function attachmentKind(f: { kind?: unknown; type?: unknown } | null | undefined): string {
+    return String((f?.kind ?? f?.type) ?? '');
+}
+
 const CERT_PER_FILE_CHARS = 6000;
 const CERT_TOTAL_CHARS = 20000;
 async function buildCertificatesTextForN8n(
     files: CandidateData['files']
 ): Promise<{ certificatesText: string; certificatesCount: number } | null> {
-    const certs = (files || []).filter((f) => f.kind === 'certificate');
+    const certs = (files || []).filter((f) => attachmentKind(f) === 'certificate');
     if (!certs.length) return null;
     const parts: string[] = [];
     let idx = 0;
