@@ -92,6 +92,7 @@ import {
     findApplicationForCallback,
     pushApplicationEvent,
 } from './services/candidateApplicationService.js';
+import { isApplicationOwnsCampaignStateEnabled } from './config/applicationOwnership.js';
 import { addVideoStreamConnection } from './services/videoStreamService.js';
 import { createLiveKitRoom, createUserToken } from './services/livekitService.js';
 
@@ -603,13 +604,17 @@ async function dualWriteStageEvaluationUpdate(
         applicationId?: string;
         campaignId?: string;
         mode: 'stage1' | 'stage2' | 'stage3';
+        /** Already resolved by the caller (it needs it for the merge base). */
+        application?: Awaited<ReturnType<typeof findApplicationForCallback>>;
     }
 ): Promise<void> {
-    const app = await findApplicationForCallback({
-        applicationId: opts.applicationId,
-        candidateId,
-        campaignId: opts.campaignId,
-    });
+    const app =
+        opts.application ??
+        (await findApplicationForCallback({
+            applicationId: opts.applicationId,
+            candidateId,
+            campaignId: opts.campaignId,
+        }));
 
     if (!app) {
         await Candidate.findByIdAndUpdate(candidateId, updateData, { new: true });
@@ -655,7 +660,12 @@ async function dualWriteStageEvaluationUpdate(
 
     const writeAll = async (session?: mongoose.ClientSession): Promise<void> => {
         const o = session ? { session } : {};
-        await Candidate.findByIdAndUpdate(candidateId, updateData, { new: true, ...o });
+        // The person used to receive every stage evaluation too. It owns no
+        // campaign, so that copy could only ever describe whichever campaign
+        // wrote last — and it was the copy other readers fell back to.
+        if (!isApplicationOwnsCampaignStateEnabled()) {
+            await Candidate.findByIdAndUpdate(candidateId, updateData, { new: true, ...o });
+        }
         await CandidateApplication.findByIdAndUpdate(app._id, updateData, { new: true, ...o });
         const enqueued = await enqueueDomainEvent(
             {
@@ -1129,9 +1139,31 @@ async function handleN8nWebhook(req: StageN8nIngressRequest, res: Response, mode
         const inboundCampaignIdForWrite =
             resolveInboundCampaignId(req, dataRec) ||
             (typeof candidate.campaignId === 'string' ? candidate.campaignId : undefined);
-        const writtenExisting = toPlainSubdoc(candidate.writtenInterviewEvaluation);
-        const voiceExisting = toPlainSubdoc(candidate.voiceInterviewEvaluation);
-        const videoExisting = toPlainSubdoc(candidate.videoInterviewEvaluation);
+        /**
+         * The base a new evaluation is merged onto.
+         *
+         * It used to be the person's, which meant every field this callback did
+         * not send was filled in from whichever campaign wrote last — a partial
+         * result for one job silently completed by another job's answers. The
+         * base has to be this application's own previous evaluation, or nothing.
+         *
+         * Resolved once here and handed to the writer so the far-away database
+         * is not asked for the same document twice.
+         */
+        const inboundApp = isApplicationOwnsCampaignStateEnabled()
+            ? await findApplicationForCallback({
+                  applicationId: inboundApplicationId,
+                  candidateId,
+                  campaignId: inboundCampaignIdForWrite,
+              })
+            : null;
+        // No application resolved means no base — never the person's. Merging
+        // onto nothing leaves a visibly partial evaluation; merging onto the
+        // person leaves a complete-looking one that is partly another job's.
+        const mergeBase = isApplicationOwnsCampaignStateEnabled() ? inboundApp : candidate;
+        const writtenExisting = toPlainSubdoc(mergeBase?.writtenInterviewEvaluation);
+        const voiceExisting = toPlainSubdoc(mergeBase?.voiceInterviewEvaluation);
+        const videoExisting = toPlainSubdoc(mergeBase?.videoInterviewEvaluation);
 
         const appendWebhookFiles = (upd: Record<string, unknown>) => {
             if (!files || files.length === 0) return;
@@ -1178,6 +1210,7 @@ async function handleN8nWebhook(req: StageN8nIngressRequest, res: Response, mode
                     applicationId: inboundApplicationId,
                     campaignId: inboundCampaignIdForWrite,
                     mode: 'stage1',
+                    application: inboundApp,
                 });
                 console.log('✅ Stage1 strict written update:', candidateId);
             }
@@ -1231,6 +1264,7 @@ async function handleN8nWebhook(req: StageN8nIngressRequest, res: Response, mode
                     applicationId: inboundApplicationId,
                     campaignId: inboundCampaignIdForWrite,
                     mode: 'stage2',
+                    application: inboundApp,
                 });
                 console.log('✅ Stage2 strict voice update:', candidateId);
             }
@@ -1285,6 +1319,7 @@ async function handleN8nWebhook(req: StageN8nIngressRequest, res: Response, mode
                 applicationId: inboundApplicationId,
                 campaignId: inboundCampaignIdForWrite,
                 mode: 'stage3',
+                application: inboundApp,
             });
                 console.log('✅ Stage3 strict video update:', candidateId);
         }

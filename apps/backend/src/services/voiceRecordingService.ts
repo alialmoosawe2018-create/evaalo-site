@@ -15,6 +15,7 @@ import { randomUUID } from 'crypto';
 import Candidate from '../models/Candidate.js';
 import CandidateApplication from '../models/CandidateApplication.js';
 import { uploadBuffer, isR2Configured } from './r2Service.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 
 export interface RecordingSegment {
   /** المتحدّث في هذا المقطع. */
@@ -183,7 +184,11 @@ export async function finalizeVoiceRecording(
       sessionId,
       createdAt: new Date(),
     };
-    await Candidate.findByIdAndUpdate(candidateId, { $set: { voiceRecording } });
+    // The recording belongs to one interview, so it belongs to that interview's
+    // application. Resolve first: the person is written only when there is no
+    // application to hold it, otherwise the newest recording overwrites the
+    // person's copy and every campaign appears to share one.
+    let storedOnApplication = false;
     try {
       const { findApplicationForCallback } = await import('./candidateApplicationService.js');
       const app = await findApplicationForCallback({
@@ -193,9 +198,13 @@ export async function finalizeVoiceRecording(
       });
       if (app) {
         await CandidateApplication.findByIdAndUpdate(app._id, { $set: { voiceRecording } });
+        storedOnApplication = true;
       }
     } catch {
-      /* dual-write best-effort */
+      /* best-effort — the person write below is the fallback */
+    }
+    if (!storedOnApplication || !isApplicationOwnsCampaignStateEnabled()) {
+      await Candidate.findByIdAndUpdate(candidateId, { $set: { voiceRecording } });
     }
     console.log(`[VOICE RECORDING] ${short}... uploaded ${(result.sizeBytes / 1024).toFixed(0)}KB → ${key}`);
   } catch (err: any) {

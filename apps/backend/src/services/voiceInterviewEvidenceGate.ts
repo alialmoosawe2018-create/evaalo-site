@@ -5,6 +5,7 @@
 import Candidate from '../models/Candidate.js';
 import CandidateApplication from '../models/CandidateApplication.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import type { ConversationEntry } from './interviewLinkAccess.js';
 
 export const VOICE_EVAL_MIN_DURATION_SEC = Number(process.env.VOICE_EVAL_MIN_DURATION_SEC) || 75;
@@ -288,9 +289,13 @@ export async function persistInsufficientVoiceEvidence(input: {
         campaignId: input.campaignId || undefined,
     });
 
-    await Candidate.findByIdAndUpdate(candidateId, { $set: setUpdate }, { new: true });
     if (app) {
         await CandidateApplication.findByIdAndUpdate(app._id, { $set: setUpdate }, { new: true });
+    }
+    // The gate's verdict describes one interview. Writing it to the person made
+    // it the answer for every campaign that person ever applied to.
+    if (!app || !isApplicationOwnsCampaignStateEnabled()) {
+        await Candidate.findByIdAndUpdate(candidateId, { $set: setUpdate }, { new: true });
     }
 
     const a = input.assessment;

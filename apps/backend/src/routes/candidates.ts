@@ -13,6 +13,7 @@ import {
     pushApplicationEvent,
     toApplicationAttachments,
 } from '../services/candidateApplicationService.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
@@ -1401,9 +1402,34 @@ router.put('/:id', requirePermission('candidate.write'), async (req: Request, re
             }
         }
 
+        /* The widest write in the repository: the raw request body went straight
+           onto the person. Anything campaign-shaped in it then described the
+           person in general rather than the application it was meant for — the
+           mechanism behind a verdict from one job showing up under another.
+
+           These keys are mirrored onto the targeted application just below, so
+           when one is targeted the person no longer receives them. Fields whose
+           readers still consult the person (campaignId, evaluationContext,
+           status) stay until phase 2 moves those readers. */
+        const CAMPAIGN_OWNED_KEYS = [
+            'writtenInterviewEvaluation',
+            'voiceInterviewEvaluation',
+            'videoInterviewEvaluation',
+            'aiEvaluation',
+            'voiceRecording',
+            'voiceInterviewLinkConsumedAt',
+            'voiceInterviewLinkConsumedSessionId',
+            'videoInterviewLinkConsumedAt',
+            'videoInterviewLinkConsumedSessionId',
+        ] as const;
+        const personBody: Record<string, unknown> = { ...body };
+        if (targetApplication && isApplicationOwnsCampaignStateEnabled()) {
+            for (const key of CAMPAIGN_OWNED_KEYS) delete personBody[key];
+        }
+
         const candidate = await Candidate.findOneAndUpdate(
             orgScopedQuery(req, { _id: req.params.id }),
-            body,
+            personBody,
             { new: true, runValidators: true }
         );
 
