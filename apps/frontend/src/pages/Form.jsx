@@ -36,6 +36,11 @@ import apiClient, { ApiError } from '../services/apiClient.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
+/** Same shape as the pub-token form's key, keyed by campaign instead. */
+function submittedStorageKeyForCampaign(campaignId) {
+    return `evaalo_campaign_submitted_${campaignId}`;
+}
+
 const LegacyApplicationForm = () => {
     const { t, currentLang } = useLanguage();
     const { isAuthenticated } = useAuth();
@@ -124,6 +129,18 @@ const LegacyApplicationForm = () => {
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitSuccess, setSubmitSuccess] = useState(false);
+
+    /* Reopening a campaign link after applying used to hand back a blank form.
+       Mirrors the guard the pub-token form already has, keyed by campaign.
+       Per-browser only — the real duplicate block stays server-side. */
+    const [alreadySubmitted, setAlreadySubmitted] = useState(() => {
+        if (!campaignId || isPreviewMode) return false;
+        try {
+            return localStorage.getItem(submittedStorageKeyForCampaign(campaignId)) === '1';
+        } catch {
+            return false;
+        }
+    });
     const [cvFile, setCvFile] = useState(null);
     const [photoFile, setPhotoFile] = useState(null);
     const [certificateFiles, setCertificateFiles] = useState([]);
@@ -540,7 +557,16 @@ const LegacyApplicationForm = () => {
             console.log('Form submitted successfully:', response);
             
             setSubmitSuccess(true);
-            
+
+            if (campaignId && !isPreviewMode) {
+                try {
+                    localStorage.setItem(submittedStorageKeyForCampaign(campaignId), '1');
+                    setAlreadySubmitted(true);
+                } catch {
+                    /* private mode — the form just stays reopenable */
+                }
+            }
+
             // Clear form data
             localStorage.removeItem('applicationFormData');
             setFormData({
@@ -1203,18 +1229,9 @@ const LegacyApplicationForm = () => {
                 </div>
             </div>
 
-            <div className="form-group">
-                <label htmlFor="certifications">{ft('certifications')}</label>
-                <textarea
-                    id="certifications"
-                    name="certifications"
-                    value={formData.certifications}
-                    onChange={handleInputChange}
-                    rows="4"
-                    placeholder={fph('certifications')}
-                    {...inputPreviewProps}
-                />
-            </div>
+            {/* The certifications textarea sat here next to the certificates
+                upload, asking for the same thing twice. The field itself stays —
+                it is still a hiring criterion and the CV parser fills it. */}
         </div>
     );
 
@@ -1325,7 +1342,7 @@ const LegacyApplicationForm = () => {
         </div>
     );
 
-    if (submitSuccess) {
+    if (submitSuccess || alreadySubmitted) {
         return (
             <div className="form-page" dir={formPageDir} lang={currentLang}>
                 <div className="container">
@@ -1336,7 +1353,7 @@ const LegacyApplicationForm = () => {
                                 {t('formSubmit_success')}
                             </p>
                             <p className="subtitle" style={{ marginTop: '12px' }}>
-                                {t('formSubmit_successHint')}
+                                {submitSuccess ? t('formSubmit_successHint') : t('formConfig_alreadySubmitted')}
                             </p>
                             {/* المُوظِّف الذي يملأ الاستمارة نيابةً عن مرشح يحتاج طريقاً إلى Stage 1،
                                 لكن المتقدّم نفسه يجب أن تبقى أمامه رسالة الشكر. */}
