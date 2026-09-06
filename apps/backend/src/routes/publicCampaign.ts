@@ -122,8 +122,19 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
             };
         };
 
-        // 1) candidateId is a Candidate _id belonging to this campaign.
-        const person = await Candidate.findOne({ _id: candidateId, campaignId }).lean();
+        /* 1) candidateId is a Candidate _id that applied to this campaign.
+              Matching on Candidate.campaignId only recognised a person's MOST
+              RECENT campaign, so a returning applicant opening an older link
+              was told "Candidate not found" for a campaign they really are in.
+              Membership is decided by the application now. */
+        const person = isApplicationOwnsCampaignStateEnabled()
+            ? await (async () => {
+                  const found = await Candidate.findById(candidateId).lean();
+                  if (!found) return null;
+                  const app = await findApplicationForCallback({ candidateId, campaignId });
+                  return app ? found : null;
+              })()
+            : await Candidate.findOne({ _id: candidateId, campaignId }).lean();
         if (person) {
             const view = await scopedView({ candidateId });
             return res.json(safe(person as Record<string, unknown> as never, undefined, view));

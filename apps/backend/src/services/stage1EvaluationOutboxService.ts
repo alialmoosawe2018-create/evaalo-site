@@ -2,6 +2,11 @@ import Candidate from '../models/Candidate.js';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import Stage1EvaluationOutbox from '../models/Stage1EvaluationOutbox.js';
 import { sendToN8N } from './n8nService.js';
+import {
+    applicationToStageListRow,
+    findApplicationForCallback,
+} from './candidateApplicationService.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { canAffordScreening } from './screeningBilling.js';
 import { StageCallbackConfigurationError } from './stageCallbackAuth.js';
 
@@ -114,10 +119,34 @@ export async function flushStage1EvaluationOutboxEntry(outboxId: string): Promis
             campaignId = entry.campaignId;
         }
 
-        const candidateObj = {
-            ...candidate,
-            _id: candidate._id?.toString?.() || String(candidate._id),
-        };
+        /* The screening payload describes an application, not a person. Sending
+           the person meant a returning applicant was screened against their
+           LATEST campaign's job title, files and evaluation context rather than
+           the ones they actually applied with — the evaluator never saw the
+           application it was judging.
+
+           _id stays the person's: n8n and the stage-1 callback are keyed on it,
+           and sendToN8N attaches the applicationId separately for targeting. */
+        const application = isApplicationOwnsCampaignStateEnabled()
+            ? await findApplicationForCallback({
+                  candidateId: String(entry.candidateId),
+                  campaignId: campaignId || undefined,
+              })
+            : null;
+        const personId = candidate._id?.toString?.() || String(candidate._id);
+        const candidateObj = application
+            ? {
+                  ...applicationToStageListRow(
+                      application as unknown as Record<string, unknown>,
+                      candidate as unknown as Record<string, unknown>
+                  ),
+                  _id: personId,
+                  id: personId,
+              }
+            : {
+                  ...candidate,
+                  _id: personId,
+              };
 
         const ok = await sendToN8N(candidateObj as any, campaignId || undefined);
         if (!ok) {

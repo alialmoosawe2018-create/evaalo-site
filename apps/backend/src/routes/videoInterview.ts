@@ -46,6 +46,8 @@ import {
     buildBlueprintMetadata,
 } from '../services/expertise/blueprintMetadata.js';
 import { resolveApplicationJobContext } from '../services/applicationJobContext.js';
+import { findApplicationForCallback } from '../services/candidateApplicationService.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 
 const router = express.Router();
 
@@ -66,6 +68,10 @@ async function applyApplicationJobContext(
     if (!job) return; // flag off — leave the existing behaviour untouched
     candidate.position_applied_for = job.position_applied_for;
     candidate.company_applied_to = job.company_applied_to;
+    // The question bank picks its slot from campaignId/jobPostingId further
+    // down, still reading them off `candidate`. Same overlay, same reason.
+    if (job.campaignId) candidate.campaignId = job.campaignId;
+    if (job.jobPostingId) candidate.jobPostingId = job.jobPostingId;
 }
 
 function rejectIfStageCallbackSecurityMisconfigured(res: express.Response): boolean {
@@ -311,6 +317,15 @@ async function resolveCampaignIdForEnd(
         typeof session?.campaignId === 'string' ? session.campaignId.trim() : '';
     if (fromSession) return fromSession;
     if (!candidateId || !/^[0-9a-fA-F]{24}$/.test(candidateId)) return undefined;
+
+    // The person's campaignId is only ever their most recent one, so for a
+    // returning applicant it names a campaign this session has nothing to do
+    // with. The application is asked first.
+    if (isApplicationOwnsCampaignStateEnabled()) {
+        const app = await findApplicationForCallback({ candidateId }).catch(() => null);
+        const fromApplication = typeof app?.campaignId === 'string' ? app.campaignId.trim() : '';
+        return fromApplication || undefined;
+    }
 
     const candidate = (await Candidate.findById(candidateId)
         .select('campaignId')

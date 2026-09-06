@@ -194,8 +194,16 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     try {
       let campId = campaignIdParam;
       if (!campId && candidateId && /^[a-fA-F0-9]{24}$/.test(candidateId)) {
-        const c = await Candidate.findById(candidateId).select("campaignId").lean();
-        campId = (c as any)?.campaignId || undefined;
+        // The person's campaignId is their most recent one, so a link that
+        // omits the campaign used to load a DIFFERENT campaign's criteria and
+        // job advert into the interview. The application answers for itself.
+        const job = await resolveApplicationJobContext({ applicationId: applicationIdParam, candidateId });
+        if (job) {
+          campId = job.campaignId;
+        } else {
+          const c = await Candidate.findById(candidateId).select("campaignId").lean();
+          campId = (c as any)?.campaignId || undefined;
+        }
       }
       if (!campId) return {};
       const camp = await RecruitmentCampaign.findOne({ campaignId: campId })

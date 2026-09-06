@@ -28,6 +28,8 @@ export type ApplicationJobContext = {
     company_applied_to?: string;
     campaignId?: string;
     applicationId?: string;
+    /** The campaign's job posting, used to pick the interview question bank. */
+    jobPostingId?: string;
 };
 
 function clean(value: unknown): string | undefined {
@@ -59,6 +61,7 @@ export async function resolveApplicationJobContext(opts: {
             company_applied_to: clean(app.company_applied_to),
             campaignId: clean(app.campaignId),
             applicationId: clean(app.applicationId),
+            jobPostingId: clean(app.jobPostingId),
         };
     } catch (err: any) {
         // An empty context degrades to the link's own position, which is still
