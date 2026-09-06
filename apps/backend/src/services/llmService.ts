@@ -628,7 +628,8 @@ function looksLikeAskingWhoIsTheUserArabic(s: string): boolean {
     if (!t) return true;
     if (/(منو|مين|مَن|من|شو)\s+(إنت|انته|انت|أنت|انته|انتا)\s*[؟?؟\s]*$/i.test(t)) return true;
     if (/(^|[.!؟?\n])\s*(منو|مين|مَن|شو)\s+(إنت|انته|انت|أنت)\s*[؟?؟]/i.test(t)) return true;
-    if (/(^|[.!؟?\n])\s*(مين|منو)\s+(إنت|انته|انت|أنت)\b/i.test(t)) return true;
+    // `(?!\p{L})` لا `\b`: العربية ليست من `\w` في جافاسكربت، فكان هذا السطر ميتاً.
+    if (/(^|[.!؟?\n])\s*(مين|منو)\s+(إنت|انته|انت|أنت)(?!\p{L})/iu.test(t)) return true;
     return false;
 }
 
@@ -2141,8 +2142,10 @@ ${text}
 function normalizePositionTitle(position: string | undefined): string {
     if (!position || !position.trim()) return 'the position';
     const p = position.trim();
-    if (/مدير\s+منتج\b(?!ات)/.test(p)) return p.replace(/مدير\s+منتج\b(?!ات)/, 'مدير منتجات');
-    if (/مدير\s+مشروع\b(?!ات)/.test(p)) return p.replace(/مدير\s+مشروع\b(?!ات)/, 'مدير مشاريع');
+    // `\b` بعد «منتج» كانت تُبطل القاعدة كلّها (العربية ليست من `\w`)، فلم يُصحَّح
+    // أي عنوان قطّ. النفي `(?!ات)` وحده يكفي لاستثناء «منتجات»/«مشروعات».
+    if (/مدير\s+منتج(?!ات)(?!\p{L})/u.test(p)) return p.replace(/مدير\s+منتج(?!ات)(?!\p{L})/u, 'مدير منتجات');
+    if (/مدير\s+مشروع(?!ات)(?!\p{L})/u.test(p)) return p.replace(/مدير\s+مشروع(?!ات)(?!\p{L})/u, 'مدير مشاريع');
     return p;
 }
 

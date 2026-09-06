@@ -118,7 +118,10 @@ export function isSupportScopeRole(jobTitle: string, roleKey?: string | null): b
         /\b(assistant|aide|clerk|trainee|apprentice|receptionist|secretary|cashier|teller|operator|data[ _-]?entry)\b/.test(
             t,
         ) ||
-        /مساعد|كاتب\b|متدرّ?ب|مبتدئ|استقبال|سكرتير|أمين\s*صندوق|صرّ?اف|مدخل\s*بيانات|مشغّ?ل/.test(
+        // `كاتب` محدودة بالجانبين عمداً: بلا حدّ تُطابق داخل «مكاتب». وكانت `\b`
+        // هنا بلا أثر — العربية ليست من `\w` في جافاسكربت — فلم يُصنَّف «كاتب
+        // حسابات» دور إسناد قطّ، ونالت المقابلةُ نطاقاً أوسع من الدور.
+        /مساعد|(?<!\p{L})كاتب(?!\p{L})|متدرّ?ب|مبتدئ|استقبال|سكرتير|أمين\s*صندوق|صرّ?اف|مدخل\s*بيانات|مشغّ?ل/u.test(
             String(jobTitle || ''),
         )
     );
