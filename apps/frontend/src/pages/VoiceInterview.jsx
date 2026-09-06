@@ -17,6 +17,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
 import { canonicalStageRecommendation, hasMeaningfulStageEvaluation } from '../utils/stageRecommendation.js';
 import { scriptTextProps } from '../utils/textScript.js';
+import { localizeRatingWord } from '../utils/ratingWords.js';
 import ScreeningCampaignList from '../components/screening/ScreeningCampaignList.jsx';
 import StageRefreshButton from '../components/screening/StageRefreshButton.jsx';
 import ScreeningAiComparePanel from '../components/screening/ScreeningAiComparePanel.jsx';
@@ -113,34 +114,12 @@ const VoiceInterview = () => {
     const na = t('stageEval_notApplicable');
     const skillOutTen = t('stageEval_skillOutOfTen');
     /**
-     * ترجمة كلمات التقييم الإنجليزية القادمة من n8n للعرض بلغة الواجهة.
-     * يعالج الكلمة المفردة ("Intermediate") وأيضًا صيغة "الكلمة (٣/١٠)" التي
-     * يُخرجها التقييم أحيانًا للمقاييس المحسوبة مسبقًا — فيترجم الكلمة ويُبقي الدرجة.
+     * ترجمة كلمات التقدير الإنجليزية القادمة من n8n للعرض بلغة الواجهة.
+     * المفردات كاملة في utils/ratingWords.js — كانت هنا أربع كلمات فقط
+     * (excellent/good/intermediate/bad)، بينما يُخرج مقيّم المرحلة ٢ أيضاً
+     * High / Medium / Fluent / Basic فتبقى إنجليزية وسط صفٍّ عربي.
      */
-    const localizeRating = (val) => {
-        if (val == null) return val;
-        const RATE = {
-            excellent: 'stageEval_rateExcellent',
-            good: 'stageEval_rateGood',
-            intermediate: 'stageEval_rateIntermediate',
-            bad: 'stageEval_rateBad',
-        };
-        const s = String(val).trim();
-        // The Stage 2 scorer emits an English literal when a skill had no evidence,
-        // so "Not Assessed" sat untranslated in an otherwise Arabic row. It is a
-        // rating like any other — map it here rather than at each cell, since every
-        // column in this table already goes through localizeRating.
-        if (/^(not[\s_-]?assessed|not[\s_-]?evaluated|unassessed|n\/?a)$/i.test(s)) {
-            return t('videoInterview_notAssessed');
-        }
-        const exact = RATE[s.toLowerCase()];
-        if (exact) return t(exact);
-        // "Word (3/10)" / "Word - ..." → اعرض الكلمة المعرّبة فقط (بلا الدرجة)،
-        // كباقي الحقول. (الأرقام الصِرفة مثل "8/10" لا تُطابَق وتبقى كما هي.)
-        const m = s.match(/^(excellent|good|intermediate|bad)\b/i);
-        if (m) return t(RATE[m[1].toLowerCase()]);
-        return val;
-    };
+    const localizeRating = (val) => localizeRatingWord(val, t);
 
     const translateRecLabel = (canonical) => {
         switch (canonical) {

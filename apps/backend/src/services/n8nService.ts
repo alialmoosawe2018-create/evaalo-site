@@ -19,7 +19,12 @@ import {
     tryBuildStageOutboundBundle,
 } from './stageCallbackAuth.js';
 import { buildStage1ThreeBucketPayload } from './stage1N8nPayloadBuilder.js';
-import { inferStage1EvaluationLanguage } from './stage1EvaluationLanguage.js';
+import { detectStage1TextLanguage } from './stage1EvaluationLanguage.js';
+import {
+    campaignCriteriaLanguage,
+    resolveEvaluationLanguage,
+    type EvaluationLanguage,
+} from './evaluationLanguage.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
 import { extractTextFromCv, CvExtractionError } from './cvTextExtractor.js';
@@ -339,8 +344,11 @@ export const sendToN8N = async (candidateData: CandidateData, campaignId?: strin
 
         const c = candidateData as CandidateData & Record<string, unknown>;
         const evalCtx = candidateData.evaluationContext as { evaluationLanguage?: string } | undefined;
-        const evaluationLanguage =
-            evalCtx?.evaluationLanguage ?? inferStage1EvaluationLanguage(c, criteriaRaw);
+        const evaluationLanguage = resolveEvaluationLanguage({
+            campaignCriteria: criteriaRaw,
+            evaluationContext: evalCtx,
+            detected: detectStage1TextLanguage(c),
+        });
 
         /** حقول المرشح في جذر الـ body (بدون كائن candidate)؛ skills/languages/criteria كمصفوفات في نفس الجذر */
         const payload: Record<string, unknown> = {
@@ -542,17 +550,46 @@ function formatConversationToFullTranscript(conversationHistory: Array<{ role: '
 }
 
 /**
- * يطبّع لغة رابط المشاركة/الجلسة (التي اختارها الموظف) إلى لغة إخراج التقييم.
- * يطابق منطق Stage 1: ku/kurdish → ar، ar/arabic → ar، en/english → en.
- * @returns 'ar' | 'en' | null (null عند 'auto' أو قيمة غير معروفة → نعتمد كشف النص)
+ * لغة تقييم المرحلة (٢/٣): الحملة أولاً، ثم رابط المشاركة، ثم كشف الترانسكريبت.
+ *
+ * لقطة المعايير المرافقة للجلسة قد لا تحمل اللغة (تُلتقط عند بدء المقابلة، لا عند
+ * نشر الحملة)، لذا نقرأ الحملة من قاعدة البيانات عند غيابها — وإلا عاد التقييم
+ * بالعربية افتراضياً على حملة إنجليزية.
  */
-function normalizeShareEvaluationLanguage(raw: unknown): 'ar' | 'en' | null {
-    const s = String(raw ?? '').trim().toLowerCase();
-    if (!s) return null;
-    if (s === 'en' || s === 'english' || s.startsWith('en-')) return 'en';
-    if (s === 'ar' || s === 'arabic' || s.startsWith('ar-')) return 'ar';
-    if (s === 'ku' || s === 'kurdish' || s === 'ckb') return 'ar';
-    return null;
+async function resolveStageEvaluationLanguage(opts: {
+    campaignId?: string;
+    criteriaSnapshot?: Record<string, unknown> | null;
+    shareLanguage?: unknown;
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
+}): Promise<EvaluationLanguage> {
+    let criteria: Record<string, unknown> | null = opts.criteriaSnapshot ?? null;
+    if (!campaignCriteriaLanguage(criteria) && opts.campaignId?.trim()) {
+        criteria = (await loadCampaignCriteriaForLanguage(opts.campaignId)) ?? criteria;
+    }
+    return resolveEvaluationLanguage({
+        campaignCriteria: criteria,
+        shareLanguage: opts.shareLanguage,
+        detected: detectTranscriptLanguage(opts.conversationHistory),
+    });
+}
+
+async function loadCampaignCriteriaForLanguage(
+    campaignId: string
+): Promise<Record<string, unknown> | null> {
+    try {
+        const RecruitmentCampaign = (await import('../models/RecruitmentCampaign.js')).default;
+        const doc = await RecruitmentCampaign.findOne({ campaignId: campaignId.trim() })
+            .select('criteria.evaluationLanguage criteria.language')
+            .lean();
+        const criteria = (doc as { criteria?: unknown } | null)?.criteria;
+        return criteria && typeof criteria === 'object' && !Array.isArray(criteria)
+            ? (criteria as Record<string, unknown>)
+            : null;
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[n8n] campaign language lookup failed for ${campaignId}: ${message}`);
+        return null;
+    }
 }
 
 /**
@@ -617,9 +654,12 @@ export const sendVoiceTranscriptToN8N = async (payload: {
         const candidateId = payload.candidateId?.trim() || '';
         const campaignId =
             payload.campaignId?.trim() || (await resolveCandidateCampaignId(candidateId));
-        // Stage 2: لغة رابط المشاركة/الجلسة فقط — لا كشف من الترانسكريpt (مختلط عربي/إنجليزي).
-        const shareLanguage = normalizeShareEvaluationLanguage(payload.language);
-        const effectiveLanguage = shareLanguage ?? 'ar';
+        const effectiveLanguage = await resolveStageEvaluationLanguage({
+            campaignId,
+            criteriaSnapshot: payload.jobCriteria,
+            shareLanguage: payload.language,
+            conversationHistory: payload.conversationHistory,
+        });
         const body: Record<string, unknown> = {
             event: 'voice_interview_transcript',
             evaluationSource: 'voice' as const,
@@ -663,7 +703,7 @@ export const sendVoiceTranscriptToN8N = async (payload: {
         });
         appendStageOutboundFields(body, stageBundle);
         console.log(
-            `[n8n voice] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} criteria=${payload.jobCriteria ? Object.keys(payload.jobCriteria).length : 0} metrics=${JSON.stringify(evaluation)} transcriptChars=${String(body.fullTranscript || '').length}`
+            `[n8n voice] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} lang=${effectiveLanguage} criteria=${payload.jobCriteria ? Object.keys(payload.jobCriteria).length : 0} metrics=${JSON.stringify(evaluation)} transcriptChars=${String(body.fullTranscript || '').length}`
         );
         const jsonBody = JSON.stringify(body);
         const post = (url: string) =>
@@ -767,9 +807,12 @@ export const sendVideoTranscriptToN8N = async (payload: {
         const candidateId = payload.candidateId?.trim() || '';
         const campaignId =
             payload.campaignId?.trim() || (await resolveCandidateCampaignId(candidateId));
-        // Stage 3: share-link language only (same as Stage 1/2 — no transcript auto-detect / auto).
-        const shareLanguage = normalizeShareEvaluationLanguage(payload.language);
-        const effectiveLanguage = shareLanguage ?? 'ar';
+        const effectiveLanguage = await resolveStageEvaluationLanguage({
+            campaignId,
+            criteriaSnapshot: payload.jobCriteria,
+            shareLanguage: payload.language,
+            conversationHistory: payload.conversationHistory,
+        });
 
         // /prepare + /start reuse never persist a session, so /end often has no
         // snapshot even when the campaign's blueprint has been locked for minutes.
@@ -840,7 +883,7 @@ export const sendVideoTranscriptToN8N = async (payload: {
             ? ((body.blueprintSnapshot as { competencies: unknown[] }).competencies.length)
             : 0;
         console.log(
-            `[n8n video] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} transcriptChars=${String(body.fullTranscript || '').length} blueprintCompetencies=${competencyCount}`
+            `[n8n video] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} lang=${effectiveLanguage} transcriptChars=${String(body.fullTranscript || '').length} blueprintCompetencies=${competencyCount}`
         );
         const response = await fetch(videoWebhookUrl, {
             method: 'POST',

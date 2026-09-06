@@ -13,6 +13,7 @@
     "test:int": "tsx src/scripts/integration/atomicity.int.ts",
     "test:job-context": "tsx src/scripts/application-job-context-test.ts",
     "test:rubric-results": "tsx src/scripts/stage1-rubric-results-test.ts",
+    "test:evaluation-language": "tsx src/scripts/evaluation-language-test.ts",
     "test:returning-applicant": "tsx src/scripts/returning-applicant-eval-test.ts",
     "verify:application-ownership": "tsx src/scripts/verifyApplicationOwnership.ts",
     "check-db": "tsx src/scripts/check-db-connection.ts",

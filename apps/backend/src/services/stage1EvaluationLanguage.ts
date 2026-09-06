@@ -1,22 +1,25 @@
-export type Stage1EvaluationLanguage = 'ar' | 'en';
+import {
+    normalizeEvaluationLanguage,
+    resolveEvaluationLanguage,
+    type EvaluationLanguage,
+} from './evaluationLanguage.js';
 
-/** UI / campaign language → evaluation output language (ku → ar). */
+export type Stage1EvaluationLanguage = EvaluationLanguage;
+
+/** UI / campaign language → evaluation output language (ku → ar), defaulting to 'ar'. */
 export function normalizeStage1EvaluationLanguage(raw: unknown): Stage1EvaluationLanguage {
-    const s = String(raw ?? '')
-        .trim()
-        .toLowerCase();
-    if (s === 'en' || s.startsWith('en-')) return 'en';
-    return 'ar';
+    return normalizeEvaluationLanguage(raw) ?? 'ar';
 }
 
-export function inferStage1EvaluationLanguage(
-    candidateData: Record<string, unknown>,
-    criteria?: Record<string, unknown> | null
-): Stage1EvaluationLanguage {
-    const fromCampaign = criteria?.evaluationLanguage ?? criteria?.language;
-    if (fromCampaign != null && String(fromCampaign).trim()) {
-        return normalizeStage1EvaluationLanguage(fromCampaign);
-    }
+/**
+ * The written stage's own language detector: the candidate's identifying text.
+ * Any Arabic letter is enough — an Arabic CV routinely names English tools and
+ * employers, so a ratio test would read those as an English application.
+ * @returns null when there is no text to judge, so the caller falls through.
+ */
+export function detectStage1TextLanguage(
+    candidateData: Record<string, unknown>
+): EvaluationLanguage | null {
     const blob = [
         candidateData.full_name,
         candidateData.location,
@@ -25,6 +28,16 @@ export function inferStage1EvaluationLanguage(
     ]
         .filter((v) => v != null && String(v).trim())
         .join(' ');
-    if (/[\u0600-\u06FF\u0750-\u077F]/.test(blob)) return 'ar';
-    return 'en';
+    if (!blob.trim()) return null;
+    return /[؀-ۿݐ-ݿ]/.test(blob) ? 'ar' : 'en';
+}
+
+export function inferStage1EvaluationLanguage(
+    candidateData: Record<string, unknown>,
+    criteria?: Record<string, unknown> | null
+): Stage1EvaluationLanguage {
+    return resolveEvaluationLanguage({
+        campaignCriteria: criteria,
+        detected: detectStage1TextLanguage(candidateData),
+    });
 }
