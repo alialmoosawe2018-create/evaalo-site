@@ -944,7 +944,7 @@ export default function DynamicApplicationForm({ pubToken }) {
         return (
             <div className="form-page" dir={formPageDir} lang={currentLang}>
                 <div className="container">
-                    <div className="form-wrapper">
+                    <div className="form-wrapper form-wrapper--message">
                         <header className="form-header">
                             <h1>
                                 {config?.positionTitle

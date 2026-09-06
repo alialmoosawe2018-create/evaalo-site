@@ -2455,3 +2455,29 @@ textarea.error {
     }
 }
 
+
+
+/* A short confirmation screen is not a form.
+   On mobile the card goes full-bleed — `min-height: 100dvh`, no radius, no
+   shadow — which is right for a long form that wants every pixel, and wrong
+   for a thank-you message: the white card then covers the whole viewport and
+   the page reads as blank white, with the purple gradient behind it never
+   visible. Desktop was never affected, which is why this only showed on a
+   phone. The message variant stays a contained card so the gradient frames it. */
+@media (max-width: 768px) {
+    .form-page .form-wrapper.form-wrapper--message {
+        min-height: 0;
+        width: auto;
+        margin: 24px 16px;
+        padding: 28px 20px;
+        border-radius: 16px;
+        box-shadow: 0 12px 32px rgba(76, 29, 149, 0.22);
+    }
+}
+
+@media (max-width: 480px) {
+    .form-page .form-wrapper.form-wrapper--message {
+        margin: 18px 12px;
+        padding: 24px 16px;
+    }
+}

@@ -1346,7 +1346,7 @@ const LegacyApplicationForm = () => {
         return (
             <div className="form-page" dir={formPageDir} lang={currentLang}>
                 <div className="container">
-                    <div className="form-wrapper">
+                    <div className="form-wrapper form-wrapper--message">
                         <header className="form-header">
                             <h1>{t('title') || 'Job Application Form'}</h1>
                             <p className="subtitle" style={{ color: '#10B981', fontSize: '18px', lineHeight: 1.5 }}>
