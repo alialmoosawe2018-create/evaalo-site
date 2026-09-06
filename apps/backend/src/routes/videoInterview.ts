@@ -45,8 +45,28 @@ import {
     applyBlueprintMetadataToLiveKit,
     buildBlueprintMetadata,
 } from '../services/expertise/blueprintMetadata.js';
+import { resolveApplicationJobContext } from '../services/applicationJobContext.js';
 
 const router = express.Router();
+
+/**
+ * Put the application's job onto the loaded person before anything reads it.
+ *
+ * `Candidate.position_applied_for` is written when a person first applies and
+ * never updated, so a returning applicant would be interviewed about their
+ * previous role — the avatar's questions, the LiveKit metadata and the
+ * question-bank slug all read these two fields off `candidate`, so overlaying
+ * once here corrects all of them. These routes never save the document.
+ */
+async function applyApplicationJobContext(
+    candidate: any,
+    opts: { applicationId?: string; candidateId?: string; campaignId?: string }
+): Promise<void> {
+    const job = await resolveApplicationJobContext(opts);
+    if (!job) return; // flag off — leave the existing behaviour untouched
+    candidate.position_applied_for = job.position_applied_for;
+    candidate.company_applied_to = job.company_applied_to;
+}
 
 function rejectIfStageCallbackSecurityMisconfigured(res: express.Response): boolean {
     try {
@@ -602,6 +622,11 @@ router.post('/prepare', async (req, res) => {
                 typeof campaignId === 'string' && campaignId.trim()
                     ? campaignId.trim()
                     : undefined;
+            await applyApplicationJobContext(candidate, {
+                applicationId: prepareApplicationId,
+                candidateId,
+                campaignId: prepareCamp,
+            });
             if (
                 await isVideoLinkConsumedById(candidateId, {
                     applicationId: prepareApplicationId,
@@ -910,6 +935,14 @@ router.post('/start', async (req, res) => {
                     message: 'Candidate not found'
                 });
             }
+            await applyApplicationJobContext(candidate, {
+                applicationId: startApplicationId,
+                candidateId,
+                campaignId:
+                    typeof campaignId === 'string' && campaignId.trim()
+                        ? campaignId.trim()
+                        : undefined,
+            });
             if (
                 await isVideoLinkConsumedById(candidateId, {
                     applicationId: startApplicationId,

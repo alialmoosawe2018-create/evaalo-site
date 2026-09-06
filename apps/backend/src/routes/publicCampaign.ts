@@ -30,6 +30,7 @@ import { assertStageOutboundSecurityForTrigger, StageCallbackConfigurationError 
 import { extractHoneypotFields, isHoneypotTriggered } from '../constants/n8nStage1.js';
 import { CERTIFICATES_MAX_FILES } from '../shared/formTemplates/index.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
+import { resolveApplicationJobContext } from '../services/applicationJobContext.js';
 
 const router = Router();
 
@@ -74,13 +75,18 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
                 videoInterviewLinkConsumedAt?: Date | null;
             },
             applicationId?: string,
+            // The person's copy of the job is the one they FIRST applied for and
+            // is never updated, so this page would name the wrong role to a
+            // returning applicant. `undefined` means the flag is off.
+            positionFromApplication?: string,
         ) => ({
             success: true,
             data: {
                 candidateId: String(person._id),
                 applicationId: applicationId || undefined,
                 full_name: person.full_name || '',
-                position_applied_for: person.position_applied_for || '',
+                position_applied_for:
+                    positionFromApplication ?? (person.position_applied_for || ''),
                 entryStage: person.entryStage,
                 // Consumed timestamps keep the single-use link block working on the
                 // candidate page. Not PII — safe to expose to the link holder.
@@ -89,10 +95,17 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
             },
         });
 
+        /** The campaign's own job title, or undefined while the flag is off. */
+        const positionFor = async (opts: { applicationId?: string; candidateId?: string }) => {
+            const job = await resolveApplicationJobContext({ ...opts, campaignId });
+            return job ? job.position_applied_for || '' : undefined;
+        };
+
         // 1) candidateId is a Candidate _id belonging to this campaign.
         const person = await Candidate.findOne({ _id: candidateId, campaignId }).lean();
         if (person) {
-            return res.json(safe(person as Record<string, unknown> as never));
+            const position = await positionFor({ candidateId });
+            return res.json(safe(person as Record<string, unknown> as never, undefined, position));
         }
 
         // 2) candidateId is a CandidateApplication _id for this campaign → resolve person.
@@ -103,7 +116,12 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
         }).lean();
         if (app) {
             const p = await Candidate.findById((app as { candidateId?: unknown }).candidateId).lean();
-            if (p) return res.json(safe(p as Record<string, unknown> as never, candidateId));
+            if (p) {
+                const position = await positionFor({ applicationId: candidateId });
+                return res.json(
+                    safe(p as Record<string, unknown> as never, candidateId, position),
+                );
+            }
         }
 
         return res.status(404).json({ success: false, error: 'Candidate not found' });

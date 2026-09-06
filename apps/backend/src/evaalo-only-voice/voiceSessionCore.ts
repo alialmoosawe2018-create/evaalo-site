@@ -15,6 +15,7 @@ import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, 
 import { textToSpeech, textToSpeechWithTimestamps } from "../services/ttsService.js";
 import Candidate from "../models/Candidate.js";
 import RecruitmentCampaign from "../models/RecruitmentCampaign.js";
+import { resolveApplicationJobContext } from "../services/applicationJobContext.js";
 import { finalizeAndSendVoiceTranscriptToN8N } from "../services/n8nService.js";
 import {
   assertStageSecureMintConfiguration,
@@ -765,13 +766,21 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         try {
           const c = await Candidate.findById(candidateId).lean();
           if (c) {
+            // Identity and background come from the person. The job does not:
+            // the person's copy is the one they first applied for, so a
+            // returning applicant would be interviewed about the wrong role.
+            const job = await resolveApplicationJobContext({
+              applicationId: applicationIdParam,
+              candidateId,
+              campaignId: resolvedCampaignId,
+            });
             candidateProfile = {
               full_name: c.full_name,
               email: c.email,
               phone: c.phone,
               gender: c.gender,
-              position_applied_for: c.position_applied_for,
-              company_applied_to: c.company_applied_to,
+              position_applied_for: job ? job.position_applied_for : c.position_applied_for,
+              company_applied_to: job ? job.company_applied_to : c.company_applied_to,
               skills: c.skills,
               experience: c.years_of_experience,
               certifications: c.certifications,
@@ -1156,10 +1165,17 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
                 try {
                   const c = await Candidate.findById(candidateId).lean();
                   if (c) {
+                    // The greeting names the role out loud — the first thing
+                    // the candidate hears, and the first thing to be wrong.
+                    const job = await resolveApplicationJobContext({
+                      applicationId: applicationIdParam,
+                      candidateId,
+                      campaignId: resolvedCampaignId,
+                    });
                     candidateProfile = {
                       full_name: c.full_name,
-                      position_applied_for: c.position_applied_for,
-                      company_applied_to: c.company_applied_to,
+                      position_applied_for: job ? job.position_applied_for : c.position_applied_for,
+                      company_applied_to: job ? job.company_applied_to : c.company_applied_to,
                     };
                   }
                 } catch { /* ignore */ }

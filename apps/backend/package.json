@@ -11,6 +11,8 @@
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
     "test:int": "tsx src/scripts/integration/atomicity.int.ts",
+    "test:job-context": "tsx src/scripts/application-job-context-test.ts",
+    "test:returning-applicant": "tsx src/scripts/returning-applicant-eval-test.ts",
     "check-db": "tsx src/scripts/check-db-connection.ts",
     "mongo-ping": "tsx src/scripts/mongo-ping.ts",
     "migrate:org-id": "tsx src/scripts/migrateAddOrgId.ts",

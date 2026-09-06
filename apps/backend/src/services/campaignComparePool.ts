@@ -319,9 +319,12 @@ async function loadEligibleFromApplications(
         return loadEligibleLegacyCandidates(compareStage, campaignId, organizationId);
     }
 
+    // The person is queried for the name and nothing else. It used to carry the
+    // position too, which then beat the application's own — correct — value on
+    // the very row that owns it. The narrowed select keeps that from returning.
     const personIds = [...new Set(apps.map((a) => String(a.candidateId)))];
     const people = await Candidate.find({ _id: { $in: personIds } })
-        .select('full_name position_applied_for')
+        .select('full_name')
         .lean();
     const byId = new Map(people.map((p) => [String(p._id), p]));
 
@@ -334,7 +337,7 @@ async function loadEligibleFromApplications(
             applicationMongoId: String(a._id),
             full_name: String((p as any)?.full_name || snap.full_name || ''),
             position_applied_for: String(
-                (p as any)?.position_applied_for || snap.position_applied_for || ''
+                a.position_applied_for || snap.position_applied_for || ''
             ),
             writtenInterviewEvaluation: a.writtenInterviewEvaluation as CompareRow['writtenInterviewEvaluation'],
             voiceInterviewEvaluation: a.voiceInterviewEvaluation as CompareRow['voiceInterviewEvaluation'],
