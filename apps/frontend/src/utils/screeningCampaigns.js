@@ -152,7 +152,11 @@ export function resolveCompanyFromMeta(meta) {
     return co != null ? String(co).trim() : '';
 }
 
-function resolveTitleFromMeta(meta) {
+/**
+ * The role a campaign is hiring for — what its candidates are actually measured
+ * against. Distinct from the title an applicant types about themselves.
+ */
+export function resolveTitleFromMeta(meta) {
     if (!meta) return '';
     const criteria = meta.criteria;
     if (criteria && typeof criteria === 'object') {
