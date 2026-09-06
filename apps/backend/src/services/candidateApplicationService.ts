@@ -154,6 +154,14 @@ export type UpsertApplicationInput = {
     /** إن true: أعد استخدام Application الموجود لنفس الحملة دون إنشاء جديد. */
     reuseExisting?: boolean;
     eventType?: ApplicationEventType;
+    /**
+     * Let the denormalised person counters settle after the caller has replied.
+     * They are display-only and nothing reads them on the way out, but they cost
+     * two round trips — and the database is far enough away that the candidate
+     * feels them. Only the HTTP submit path sets this; scripts and tests keep
+     * the awaited behaviour so their assertions stay deterministic.
+     */
+    deferCounters?: boolean;
 };
 
 /**
@@ -278,7 +286,11 @@ export async function upsertCandidateApplication(
         }).catch(() => undefined);
     }
 
-    await refreshPersonApplicationCounters(String(candidateId));
+    if (input.deferCounters) {
+        void refreshPersonApplicationCounters(String(candidateId)).catch(() => undefined);
+    } else {
+        await refreshPersonApplicationCounters(String(candidateId));
+    }
     return app;
 }
 

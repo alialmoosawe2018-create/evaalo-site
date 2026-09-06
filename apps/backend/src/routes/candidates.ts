@@ -1093,14 +1093,23 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                     personPatch[key] = v;
                 }
             }
-            if (Object.keys(personPatch).length) {
-                await Candidate.findByIdAndUpdate(existingPerson._id, { $set: personPatch });
-            }
+            // One trip, not three. This used to patch the person, then patch it
+            // again for campaignId, then read it back — three round trips to the
+            // same document. The database is ~300ms away (see the note on
+            // upsertCandidateApplication), so each one was a fifth of a second
+            // the candidate spent watching a spinner.
             // Dual-write campaignId على الشخص لأحدث تقديم
-            if (campaignId) {
-                await Candidate.findByIdAndUpdate(existingPerson._id, { $set: { campaignId } });
-            }
-            const refreshed = await Candidate.findById(existingPerson._id);
+            const personUpdate = {
+                ...personPatch,
+                ...(campaignId ? { campaignId } : {}),
+            };
+            const refreshed = Object.keys(personUpdate).length
+                ? await Candidate.findByIdAndUpdate(
+                      existingPerson._id,
+                      { $set: personUpdate },
+                      { new: true }
+                  )
+                : existingPerson;
             if (!refreshed) {
                 return res.status(500).json({ success: false, error: 'Failed to load existing candidate' });
             }
@@ -1158,6 +1167,9 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             evaluationContext: candidate.evaluationContext,
             reuseExisting: true,
             eventType: 'applied',
+            // The candidate is waiting on this response; the counters are not
+            // read on the way out and can settle afterwards.
+            deferCounters: true,
         });
 
         // Domain event (Phase 2) — new-applicant fan-out. Reused applications keep the
