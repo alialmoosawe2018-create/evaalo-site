@@ -24,16 +24,12 @@ on:
 jobs:
   typecheck:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 22
           cache: npm
-          cache-dependency-path: apps/backend/package-lock.json
       - run: npm ci
       - run: npm run type-check
 
@@ -45,12 +41,14 @@ jobs:
     # workflow at startup: every push since showed a red "billing-verify" that
     # had run zero jobs, and the billing checks below never once executed.
     # The secret is read through env in a step instead, which is allowed.
+    #
+    # Second fault, hidden behind the first: it installed with
+    # cache-dependency-path: apps/backend/package-lock.json, and that file is
+    # gitignored. Only the root lockfile is committed, so `npm ci` there could
+    # never have worked. Installs from the root now, like checks.yml.
     env:
       MONGODB_URI: ${{ secrets.MONGODB_URI }}
       NODE_ENV: test
-    defaults:
-      run:
-        working-directory: apps/backend
     steps:
       - uses: actions/checkout@v4
       - name: Is a database configured?
@@ -65,14 +63,15 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.guard.outputs.configured == 'true'
         with:
-          node-version: '20'
+          node-version: 22
           cache: npm
-          cache-dependency-path: apps/backend/package-lock.json
       - run: npm ci
         if: steps.guard.outputs.configured == 'true'
       - name: Phase 2a runtime verify
         if: steps.guard.outputs.configured == 'true'
+        working-directory: apps/backend
         run: npx tsx src/scripts/verify-billing-phase2a.ts
       - name: Phase 2b Stripe translator verify
         if: steps.guard.outputs.configured == 'true'
+        working-directory: apps/backend
         run: npx tsx src/scripts/verify-billing-phase2b.ts

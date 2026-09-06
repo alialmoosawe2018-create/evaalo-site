@@ -55,16 +55,12 @@ on:
 jobs:
   typecheck:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 22
           cache: npm
-          cache-dependency-path: apps/backend/package-lock.json
       - run: npm ci
       - run: npm run type-check
 
@@ -74,16 +70,12 @@ jobs:
   ownership-tests:
     runs-on: ubuntu-latest
     needs: typecheck
-    defaults:
-      run:
-        working-directory: apps/backend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 22
           cache: npm
-          cache-dependency-path: apps/backend/package-lock.json
       - run: npm ci
       # Both ways round: with the flag off nothing may change, with it on the
       # application must own its state. A rollback has to stay whole.
@@ -91,12 +83,12 @@ jobs:
         env:
           APPLICATION_OWNS_CAMPAIGN_STATE: 'false'
           NODE_ENV: test
-        run: npm run test:job-context
+        run: npm run test:job-context --workspace=apps/backend
       - name: Application ownership — flag on
         env:
           APPLICATION_OWNS_CAMPAIGN_STATE: 'true'
           NODE_ENV: test
-        run: npm run test:job-context
+        run: npm run test:job-context --workspace=apps/backend
 
   database-verify:
     runs-on: ubuntu-latest
@@ -104,9 +96,6 @@ jobs:
     env:
       MONGODB_URI: ${{ secrets.MONGODB_URI }}
       NODE_ENV: test
-    defaults:
-      run:
-        working-directory: apps/backend
     steps:
       - uses: actions/checkout@v4
       - name: Is a database configured?
@@ -121,20 +110,19 @@ jobs:
       - uses: actions/setup-node@v4
         if: steps.guard.outputs.configured == 'true'
         with:
-          node-version: '20'
+          node-version: 22
           cache: npm
-          cache-dependency-path: apps/backend/package-lock.json
       - run: npm ci
         if: steps.guard.outputs.configured == 'true'
       - name: Independent evaluations for a returning applicant
         if: steps.guard.outputs.configured == 'true'
-        run: npm run test:returning-applicant
+        run: npm run test:returning-applicant --workspace=apps/backend
       - name: Multi-tenant smoke (scenario 5 = independent evaluations)
         if: steps.guard.outputs.configured == 'true'
-        run: npm run test:m2m-smoke
+        run: npm run test:m2m-smoke --workspace=apps/backend
       # Asserts the inverse of what the old migration verifier asserted: the
       # person must NOT be the source of campaign state. Add --strict once
       # phase 3 has wiped the pre-existing inherited evaluations.
       - name: No application inherits another's state
         if: steps.guard.outputs.configured == 'true'
-        run: npm run verify:application-ownership
+        run: npm run verify:application-ownership --workspace=apps/backend
