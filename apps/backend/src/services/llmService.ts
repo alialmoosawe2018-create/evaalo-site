@@ -1394,6 +1394,37 @@ const LLM_FALLBACK_EN = 'Could you repeat your answer, please?';
  * الحصول على رد من LLM بناءً على transcript و context
  * عند فشل OpenAI أو رد فارغ: يُرجع رسالة fallback بدل throw
  */
+/**
+ * الأدوار التي يردّ فيها الوكيل بنصّ ثابت مقصود بدل سؤال يولّده النموذج.
+ *
+ * مُصدَّرة لأن المتصل (voiceSessionCore) يحتاج معرفتها: `validateLLMQuestion`
+ * وُضع ليفحص أسئلةَ النموذج، وهو يرفض كل ما ليس سؤالاً. وردّ الهوية حين لا يجد
+ * سؤالاً سابقاً يُلحقه ينتهي بـ«خلينا نكمل المقابلة.» — خبرٌ لا سؤال — فكان
+ * يُرمى ويُستبدل بسؤال احتياطي، ولا يسمع المرشح الجواب أبداً. حدث ذلك في جلسة
+ * a8a8d6fd (2026-09-06): سأل المرشح عن الهوية مرتين، وسجّل الخادم في المرتين
+ * `[LLM TIME] 10ms` ثم `[ENGINE VALIDATE] LLM reply invalid, using fallback`.
+ *
+ * مُحدِّد واحد للطرفين عمداً: لو كرّر المتصل الشروط لانحرف عنها مع الوقت.
+ */
+export type FixedAnswerPath = 'identity' | 'policy' | 'early-english' | null;
+
+export function resolveFixedAnswerPath(transcript: string, context: LLMContext): FixedAnswerPath {
+    // طلب التوضيح يسبق كل شيء: المرشح يسأل عن السؤال نفسه لا عن الوكيل.
+    if (context.clarificationRequested) return null;
+    if (isAskingAgentIdentity(transcript)) return 'identity';
+    if (classifyInterviewPolicyIntent(transcript)) return 'policy';
+    const phase = context.currentPhase ?? 1;
+    // صدّ طلب الإنجليزية بلا معنى حين تكون المقابلة إنجليزية أصلاً.
+    if (
+        context.sessionLanguage !== 'en' &&
+        (phase === 1 || phase === 2) &&
+        isWantsEnglishBeforePhase3(transcript)
+    ) {
+        return 'early-english';
+    }
+    return null;
+}
+
 export async function getLLMResponse(
     transcript: string,
     context: LLMContext
@@ -1414,23 +1445,19 @@ export async function getLLMResponse(
     context.acknowledgmentTurn =
         context.acknowledgmentTurn ??
         (context.conversationHistory?.filter((m) => m.role === 'assistant').length ?? 0);
-    const askIdentity = !context.clarificationRequested && isAskingAgentIdentity(transcript);
-    const policyIntent = !context.clarificationRequested ? classifyInterviewPolicyIntent(transcript) : null;
-    // صدّ طلب الإنجليزية بلا معنى حين تكون المقابلة إنجليزية أصلاً.
-    const englishEarlyPath =
-        !englishLock &&
-        (phase === 1 || phase === 2) &&
-        !context.clarificationRequested &&
-        isWantsEnglishBeforePhase3(transcript);
+    const fixedPath = resolveFixedAnswerPath(transcript, context);
 
     try {
-        if (askIdentity) {
+        if (fixedPath === 'identity') {
             return await getAgentIdentityMergedReply(transcript, context, openai);
         }
-        if (policyIntent) {
-            return await getInterviewPolicyMergedReply(policyIntent, transcript, context, openai);
+        if (fixedPath === 'policy') {
+            const policyIntent = classifyInterviewPolicyIntent(transcript);
+            if (policyIntent) {
+                return await getInterviewPolicyMergedReply(policyIntent, transcript, context, openai);
+            }
         }
-        if (englishEarlyPath) {
+        if (fixedPath === 'early-english') {
             return await getEarlyEnglishMergedReply(transcript, context, openai);
         }
 

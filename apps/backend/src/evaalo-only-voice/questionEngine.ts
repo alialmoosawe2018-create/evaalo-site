@@ -805,7 +805,9 @@ const TOPIC_FALLBACK_QUESTIONS: Record<string, string> = {
   communication_and_clarity: 'شنو يعني التواصل الفعال بالنسبة لك؟',
   teamwork_and_collaboration: 'شلون تفضل تشتغل لوحدك او  مع فريق؟',
   digital_skills_and_tools: 'شنو البرامج اللي تستخدمها بلعمل؟',
-  time_management_and_problem_solving: 'شلون تتعامل وي ضغط العمل',
+  // «وي» ليست كلمة — الصواب «وية». وهذا نصّ احتياطي يُنطق كما هو، فكان المرشح
+  // يسمعه ناقصاً وبلا علامة استفهام (جلسة a8a8d6fd، آخر سؤال في المقابلة).
+  time_management_and_problem_solving: 'شلون تتعامل وية ضغط العمل بشغلك؟',
 };
 
 export function getFallbackForTopic(topic: string, genderRaw?: string | null): string {

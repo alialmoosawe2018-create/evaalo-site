@@ -11,7 +11,7 @@ import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMe
 import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection } from "../services/sttRouterService.js";
-import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, polishVoiceArabicReply, type InterviewPhase } from "../services/llmService.js";
+import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, polishVoiceArabicReply, resolveFixedAnswerPath, type InterviewPhase } from "../services/llmService.js";
 import { textToSpeech, textToSpeechWithTimestamps } from "../services/ttsService.js";
 import Candidate from "../models/Candidate.js";
 import RecruitmentCampaign from "../models/RecruitmentCampaign.js";
@@ -1025,7 +1025,18 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         // المتابعة وطلب الإعادة يعودان لنفس الموضوع بقصد، فلا يخضعان لحارس التكرار.
         const duplicateGuard =
           clarificationRequested || followUpNext ? undefined : recentAssistantQuestions;
-        if (!validateLLMQuestion(llmReply, duplicateGuard)) {
+        // الردود الثابتة (الهوية، سياسة التقييم، صدّ الإنجليزية المبكرة) ليست
+        // أسئلة يولّدها النموذج، والمدقّق يرفض كل ما ليس سؤالاً — فكان يرمي جواب
+        // الهوية ويستبدله بسؤال احتياطي، ولا يسمع المرشح الجواب أبداً (جلسة
+        // a8a8d6fd: سأل مرتين، ورُفض الردّ مرتين). تُستثنى كما استُثني التوضيح
+        // والمتابعة أصلاً.
+        const fixedAnswerTurn =
+          resolveFixedAnswerPath(cleaned, {
+            clarificationRequested,
+            currentPhase,
+            sessionLanguage: interviewLanguage,
+          }) !== null;
+        if (!fixedAnswerTurn && !validateLLMQuestion(llmReply, duplicateGuard)) {
           // احتياطيات المواضيع مكتوبة بالعراقية فقط — الجلسة الإنجليزية تأخذ
           // بديلاً إنجليزياً محايداً بدلاً من كسر قفل اللغة عند أول فشل تحقق.
           // Phase 3 إنجليزية دائماً حتى في جلسة عربية ثنائية: أي fallback هنا يجب أن
