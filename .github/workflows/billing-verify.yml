@@ -1,6 +1,10 @@
 name: Billing verification
 
 on:
+  # Manual trigger: lets these be run on demand — e.g. to confirm the
+  # database-backed jobs really execute once a MONGODB_URI secret exists,
+  # without pushing a commit just to fire them.
+  workflow_dispatch:
   push:
     branches: [main, master, develop]
     paths:
