@@ -30,7 +30,15 @@ import { assertStageOutboundSecurityForTrigger, StageCallbackConfigurationError 
 import { extractHoneypotFields, isHoneypotTriggered } from '../constants/n8nStage1.js';
 import { CERTIFICATES_MAX_FILES } from '../shared/formTemplates/index.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
-import { resolveApplicationJobContext } from '../services/applicationJobContext.js';
+import { findApplicationForCallback } from '../services/candidateApplicationService.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
+
+/** What this campaign — not the person — says about the candidate. */
+type ApplicationScopedView = {
+    position: string;
+    voiceConsumedAt: Date | null;
+    videoConsumedAt: Date | null;
+};
 
 const router = Router();
 
@@ -75,10 +83,11 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
                 videoInterviewLinkConsumedAt?: Date | null;
             },
             applicationId?: string,
-            // The person's copy of the job is the one they FIRST applied for and
-            // is never updated, so this page would name the wrong role to a
-            // returning applicant. `undefined` means the flag is off.
-            positionFromApplication?: string,
+            // Everything campaign-shaped comes from the application when it owns
+            // the state. The person's copies are the FIRST campaign's: its job
+            // title, and — the one that locked candidates out — its spent link.
+            // `undefined` means the flag is off.
+            fromApplication?: ApplicationScopedView,
         ) => ({
             success: true,
             data: {
@@ -86,26 +95,38 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
                 applicationId: applicationId || undefined,
                 full_name: person.full_name || '',
                 position_applied_for:
-                    positionFromApplication ?? (person.position_applied_for || ''),
+                    fromApplication?.position ?? (person.position_applied_for || ''),
                 entryStage: person.entryStage,
                 // Consumed timestamps keep the single-use link block working on the
                 // candidate page. Not PII — safe to expose to the link holder.
-                voiceInterviewLinkConsumedAt: person.voiceInterviewLinkConsumedAt ?? null,
-                videoInterviewLinkConsumedAt: person.videoInterviewLinkConsumedAt ?? null,
+                voiceInterviewLinkConsumedAt: fromApplication
+                    ? fromApplication.voiceConsumedAt
+                    : person.voiceInterviewLinkConsumedAt ?? null,
+                videoInterviewLinkConsumedAt: fromApplication
+                    ? fromApplication.videoConsumedAt
+                    : person.videoInterviewLinkConsumedAt ?? null,
             },
         });
 
-        /** The campaign's own job title, or undefined while the flag is off. */
-        const positionFor = async (opts: { applicationId?: string; candidateId?: string }) => {
-            const job = await resolveApplicationJobContext({ ...opts, campaignId });
-            return job ? job.position_applied_for || '' : undefined;
+        /** This campaign's own view of the candidate, or undefined while the flag is off. */
+        const scopedView = async (opts: {
+            applicationId?: string;
+            candidateId?: string;
+        }): Promise<ApplicationScopedView | undefined> => {
+            if (!isApplicationOwnsCampaignStateEnabled()) return undefined;
+            const app = await findApplicationForCallback({ ...opts, campaignId });
+            return {
+                position: app?.position_applied_for || app?.applicationSnapshot?.position_applied_for || '',
+                voiceConsumedAt: app?.voiceInterviewLinkConsumedAt ?? null,
+                videoConsumedAt: app?.videoInterviewLinkConsumedAt ?? null,
+            };
         };
 
         // 1) candidateId is a Candidate _id belonging to this campaign.
         const person = await Candidate.findOne({ _id: candidateId, campaignId }).lean();
         if (person) {
-            const position = await positionFor({ candidateId });
-            return res.json(safe(person as Record<string, unknown> as never, undefined, position));
+            const view = await scopedView({ candidateId });
+            return res.json(safe(person as Record<string, unknown> as never, undefined, view));
         }
 
         // 2) candidateId is a CandidateApplication _id for this campaign → resolve person.
@@ -117,9 +138,9 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
         if (app) {
             const p = await Candidate.findById((app as { candidateId?: unknown }).candidateId).lean();
             if (p) {
-                const position = await positionFor({ applicationId: candidateId });
+                const view = await scopedView({ applicationId: candidateId });
                 return res.json(
-                    safe(p as Record<string, unknown> as never, candidateId, position),
+                    safe(p as Record<string, unknown> as never, candidateId, view),
                 );
             }
         }
