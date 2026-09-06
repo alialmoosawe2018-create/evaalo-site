@@ -20994,22 +20994,50 @@ html[data-app-theme='light'] .candidates-page-full-width .filter-menu-container 
 }
 
 .candidates-modal-certificate-list {
+    /* Six rows repeating the candidate's own name told the reviewer nothing.
+       A grid of cards with a type chip and a size reads at a glance and stops
+       the filename from being the whole design. */
     list-style: none;
     margin: 0;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.candidates-modal-certificate-type {
+    flex: none;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 3px 7px;
+    border-radius: 5px;
+    color: #0f172a;
+    background: #38bdf8;
+}
+
+.candidates-modal-certificate-meta {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #94a3b8;
 }
 
 .candidates-modal-certificate-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
-    padding: 8px 12px;
+    padding: 10px 12px;
     border: 1px solid rgba(56, 189, 248, 0.25);
     border-radius: 10px;
     background: rgba(56, 189, 248, 0.08);
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.candidates-modal-certificate-item:hover {
+    border-color: rgba(56, 189, 248, 0.55);
+    background: rgba(56, 189, 248, 0.14);
 }
 
 .candidates-modal-certificate-link {
@@ -21117,11 +21145,23 @@ html[data-app-theme='light'] .candidates-modal-certificate-link {
 }
 
 .candidates-modal-section-title {
+    /* The stage badge lives inside this heading. As a plain block with an
+       inline span it had nothing keeping the two apart, and in RTL the badge
+       came to rest on top of the title. Laying them out as flex siblings makes
+       a collision impossible and lets the badge wrap on a narrow modal. */
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
     color: #22d3ee;
     font-size: 14px;
     font-weight: 600;
     margin-bottom: 12px;
     text-transform: uppercase;
+}
+
+.candidates-modal-section-title > span {
+    flex: none;
 }
 
 .candidates-modal-body-text {

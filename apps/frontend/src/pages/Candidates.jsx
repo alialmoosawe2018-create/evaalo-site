@@ -197,6 +197,29 @@ function isValidCandidateMongoId(id) {
     return /^[a-f\d]{24}$/i.test(s);
 }
 
+/**
+ * Certificate uploads arrive named after the applicant, not the certificate —
+ * six rows of "Ali Mahmood Najm Abudalha 6.pdf" say nothing about what was
+ * uploaded. Show a numbered label and keep the real filename in the tooltip.
+ * (The extracted certificate id would be better still; it lives server-side in
+ * certificatesText and is not exposed to this view yet.)
+ */
+function certificateLabel(file, index) {
+    const raw = String(file?.originalName || file?.filename || '').trim();
+    const stem = raw.replace(/\.[a-z0-9]+$/i, '').trim();
+    const meaningless = !stem || /^[\s\d()._-]*$/.test(stem) || stem.length > 34;
+    return meaningless ? `شهادة ${index + 1}` : stem;
+}
+
+/** Human-readable upload size; blank when the record predates size tracking. */
+function formatFileSize(bytes) {
+    const n = Number(bytes);
+    if (!Number.isFinite(n) || n <= 0) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 const Candidates = () => {
     const navigate = useNavigate();
     const { t, currentLang } = useLanguage();
@@ -2426,7 +2449,6 @@ const Candidates = () => {
                                     <h3 className="candidates-modal-section-title">
                                         {t('candidates_sectionAiEval')}
                                         <span style={{
-                                            marginInlineStart: '8px',
                                             fontSize: '11px',
                                             fontWeight: 600,
                                             color: '#38BDF8',
@@ -2525,10 +2547,10 @@ const Candidates = () => {
                                         {t('candidates_certificatesHeading')}
                                     </h3>
                                     <ul className="candidates-modal-certificate-list">
-                                        {modalCertificates.map((file) => (
+                                        {modalCertificates.map((file, index) => (
                                             <li key={file.filename} className="candidates-modal-certificate-item">
-                                                <span aria-hidden style={{ fontSize: '18px', lineHeight: 1 }}>
-                                                    {file.mimeType === 'application/pdf' ? '📄' : '🖼️'}
+                                                <span className="candidates-modal-certificate-type" aria-hidden>
+                                                    {file.mimeType === 'application/pdf' ? 'PDF' : 'IMG'}
                                                 </span>
                                                 <a
                                                     href={file.url}
@@ -2537,7 +2559,10 @@ const Candidates = () => {
                                                     className="candidates-modal-certificate-link"
                                                     title={file.originalName || file.filename}
                                                 >
-                                                    {file.originalName || file.filename}
+                                                    {certificateLabel(file, index)}
+                                                    <span className="candidates-modal-certificate-meta">
+                                                        {formatFileSize(file.size)}
+                                                    </span>
                                                 </a>
                                             </li>
                                         ))}
