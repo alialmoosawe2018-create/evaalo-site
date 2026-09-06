@@ -13,6 +13,7 @@ import {
     pushApplicationEvent,
     toApplicationAttachments,
 } from '../services/candidateApplicationService.js';
+import { withCampaignRoles } from '../services/campaignRole.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
@@ -168,7 +169,9 @@ router.get('/', conditionalRequireAuth(), requirePermission('candidate.read'), a
         res.json({
             success: true,
             count: candidates.length,
-            data: candidates,
+            // The legacy rows carry the applicant's own job title too, so they get
+            // the same campaign-role resolution the application rows get above.
+            data: await withCampaignRoles(candidates as unknown as Record<string, unknown>[]),
             rowKind: 'candidate_legacy',
         });
     } catch (error: any) {

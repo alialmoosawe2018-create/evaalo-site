@@ -14,6 +14,7 @@ import {
 } from '../repositories/candidateApplicationRepository.js';
 import type { CursorPage } from '../repositories/pagination.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
+import { withCampaignRoles } from './campaignRole.js';
 
 /** Candidate files carry `kind`; application attachments carry `type`. Both the
  *  create path and the returning-applicant update path go through here, because
@@ -418,14 +419,22 @@ export async function findApplicationForCallback(opts: {
     return null;
 }
 
-/** Map lean application rows to stage rows, batch-loading their person docs. */
+/**
+ * Map lean application rows to stage rows, batch-loading their person docs.
+ *
+ * The displayed job title is the CAMPAIGN's role, resolved here in one lookup for
+ * the whole page. Every list used to ship the applicant's own wording and let the
+ * client repair it in a second request, which is why the wrong title was visible
+ * for about a second on each refresh — see services/campaignRole.ts.
+ */
 async function mapAppsToStageRows(
     apps: Record<string, unknown>[]
 ): Promise<Record<string, unknown>[]> {
     if (!apps.length) return [];
     const personIds = [...new Set(apps.map((a) => String(a.candidateId)))];
     const byId = await loadPeopleByIds(personIds);
-    return apps.map((a) => applicationToStageListRow(a, byId.get(String(a.candidateId))));
+    const rows = apps.map((a) => applicationToStageListRow(a, byId.get(String(a.candidateId))));
+    return withCampaignRoles(rows as Record<string, unknown>[]);
 }
 
 /**

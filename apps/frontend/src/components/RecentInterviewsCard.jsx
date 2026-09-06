@@ -21,7 +21,6 @@ import {
 import {
     collectCampaignIdsFromCandidates,
     resolveCompanyFromMeta,
-    resolveTitleFromMeta,
     withoutPendingAnalysis,
 } from '../utils/screeningCampaigns.js';
 import { buildStageEvalCandidateUrl } from '../utils/stageEvalNavigation.js';
@@ -270,6 +269,12 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
      * only the share text reads them. Fetching it before the first paint held every
      * row behind a third round trip, so it now lands afterwards and patches the
      * rows that are already on screen.
+     *
+     * The job title used to be repaired here too, and that is exactly what made it
+     * flicker: the cached rows painted the campaign's role, `/api/candidates`
+     * replaced it with the applicant's own words, and this request put the right
+     * one back a second later. The server now sends the campaign's role in the row
+     * itself (services/campaignRole.ts), so there is nothing left to repair.
      */
     const hydrateCompanyNames = useCallback(async (campaignIds) => {
         try {
@@ -286,16 +291,8 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
                     const meta = row.campaignId ? metaByCampaignId[row.campaignId] : null;
                     if (!meta) return row;
                     const company = resolveCompanyFromMeta(meta) || row.company;
-                    /* Show the role the CAMPAIGN is hiring for, not the title the
-                       applicant typed about themselves. A campaign for "Senior HR
-                       Specialist" listed a row as "HR Supervisor" because the
-                       candidate picked that level on the form — which reads as if
-                       they applied to a different job. Their own wording stays on
-                       the profile as `declaredPosition`. */
-                    const campaignRole = resolveTitleFromMeta(meta);
-                    const position = campaignRole || row.position;
-                    if (company === row.company && position === row.position) return row;
-                    return { ...row, company, position, declaredPosition: row.declaredPosition ?? row.position };
+                    if (company === row.company) return row;
+                    return { ...row, company };
                 })
             );
         } catch (metaErr) {

@@ -26,6 +26,7 @@ import {
     normalizeStage1RubricSnapshotHash,
 } from '../services/stage1EvaluationOutboxService.js';
 import { normalizeStage1EvaluationLanguage } from '../services/stage1EvaluationLanguage.js';
+import { loadCampaignRoles } from '../services/campaignRole.js';
 import { assertStageOutboundSecurityForTrigger, StageCallbackConfigurationError } from '../services/stageCallbackAuth.js';
 import { extractHoneypotFields, isHoneypotTriggered } from '../constants/n8nStage1.js';
 import { CERTIFICATES_MAX_FILES } from '../shared/formTemplates/index.js';
@@ -73,6 +74,17 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
             return res.status(400).json({ success: false, error: 'Invalid candidateId' });
         }
 
+        /**
+         * The role this campaign is hiring for. It outranks the title stored on the
+         * application or the person, which is what the applicant said about
+         * THEMSELVES: a candidate who picked "HR Supervisor" on the form opened the
+         * shared link for a "Senior HR Specialist" campaign and was shown their own
+         * words as the job being filled. This page is the one place the CANDIDATE
+         * reads, so it must name the campaign's job. Empty for a campaign with no
+         * role on record, which leaves the previous behaviour untouched.
+         */
+        const campaignRole = (await loadCampaignRoles([campaignId])).get(campaignId) || '';
+
         const safe = (
             person: {
                 _id: unknown;
@@ -95,7 +107,7 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
                 applicationId: applicationId || undefined,
                 full_name: person.full_name || '',
                 position_applied_for:
-                    fromApplication?.position ?? (person.position_applied_for || ''),
+                    campaignRole || fromApplication?.position || person.position_applied_for || '',
                 entryStage: person.entryStage,
                 // Consumed timestamps keep the single-use link block working on the
                 // candidate page. Not PII — safe to expose to the link holder.
