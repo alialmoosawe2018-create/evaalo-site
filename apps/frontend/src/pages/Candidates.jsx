@@ -200,11 +200,17 @@ function isValidCandidateMongoId(id) {
 /**
  * Certificate uploads arrive named after the applicant, not the certificate —
  * six rows of "Ali Mahmood Najm Abudalha 6.pdf" say nothing about what was
- * uploaded. Show a numbered label and keep the real filename in the tooltip.
- * (The extracted certificate id would be better still; it lives server-side in
- * certificatesText and is not exposed to this view yet.)
+ * uploaded.
+ *
+ * `title` is what the certificate says it is, read from the file's own text when
+ * the evaluator extracted it (services/certificateTitle.ts). It is deliberately
+ * absent unless the backend was confident, and it never exists for an image or
+ * a scan — so the filename heuristic below stays as the fallback, and always
+ * will.
  */
 function certificateLabel(file, index) {
+    const title = String(file?.title || '').trim();
+    if (title) return title;
     const raw = String(file?.originalName || file?.filename || '').trim();
     const stem = raw.replace(/\.[a-z0-9]+$/i, '').trim();
     const meaningless = !stem || /^[\s\d()._-]*$/.test(stem) || stem.length > 34;

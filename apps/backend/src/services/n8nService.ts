@@ -28,6 +28,7 @@ import {
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
 import { extractTextFromCv, CvExtractionError } from './cvTextExtractor.js';
+import { deriveCertificateTitle } from './certificateTitle.js';
 import {
     buildBlueprintSnapshot,
     getLockedBlueprintForCampaign,
@@ -213,10 +214,21 @@ const CERT_PER_FILE_CHARS = 6000;
 const CERT_TOTAL_CHARS = 20000;
 async function buildCertificatesTextForN8n(
     files: CandidateData['files']
-): Promise<{ certificatesText: string; certificatesCount: number } | null> {
+): Promise<{
+    certificatesText: string;
+    certificatesCount: number;
+    /**
+     * filename → what the certificate says it is. Derived here because the text
+     * is already in hand: doing it at upload time would put PDF parsing on the
+     * submit request, and doing it when the profile opens would read every file
+     * again. Only confident matches appear — see certificateTitle.ts.
+     */
+    titles: Record<string, string>;
+} | null> {
     const certs = (files || []).filter((f) => attachmentKind(f) === 'certificate');
     if (!certs.length) return null;
     const parts: string[] = [];
+    const titles: Record<string, string> = {};
     let idx = 0;
     for (const f of certs) {
         idx += 1;
@@ -232,6 +244,8 @@ async function buildCertificatesTextForN8n(
             const capped =
                 text.length > CERT_PER_FILE_CHARS ? text.slice(0, CERT_PER_FILE_CHARS) : text;
             parts.push(`${label}\n${capped}`);
+            const title = deriveCertificateTitle(text);
+            if (title && f.filename) titles[String(f.filename)] = title;
         } catch (err) {
             const code = err instanceof CvExtractionError ? err.code : 'PARSE_FAILED';
             const note =
@@ -245,7 +259,48 @@ async function buildCertificatesTextForN8n(
     }
     let joined = parts.join('\n\n');
     if (joined.length > CERT_TOTAL_CHARS) joined = joined.slice(0, CERT_TOTAL_CHARS);
-    return { certificatesText: joined, certificatesCount: certs.length };
+    return { certificatesText: joined, certificatesCount: certs.length, titles };
+}
+
+/**
+ * Store the derived titles so the profile can show what each certificate is
+ * instead of the applicant's own filename repeated six times.
+ *
+ * Best-effort and fire-and-forget: this runs in the Stage 1 outbox worker, and a
+ * failed cosmetic write must never affect whether the evaluation is dispatched.
+ * Written to the person's `files` and the application's `attachments` alike —
+ * they are separate copies of the same upload, and the profile may read either.
+ */
+async function persistCertificateTitles(
+    candidateId: unknown,
+    applicationId: unknown,
+    titles: Record<string, string>
+): Promise<void> {
+    const entries = Object.entries(titles);
+    if (entries.length === 0) return;
+    try {
+        for (const [filename, title] of entries) {
+            const id = String(candidateId || '').trim();
+            if (id) {
+                await Candidate.updateOne(
+                    { _id: id, 'files.filename': filename },
+                    { $set: { 'files.$.title': title } }
+                );
+            }
+            const appId = String(applicationId || '').trim();
+            if (appId) {
+                const CandidateApplication = (await import('../models/CandidateApplication.js'))
+                    .default;
+                await CandidateApplication.updateOne(
+                    { applicationId: appId, 'attachments.filename': filename },
+                    { $set: { 'attachments.$.title': title } }
+                );
+            }
+        }
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[certificates] could not store derived titles: ${message}`);
+    }
 }
 
 async function resolveCandidateCampaignId(candidateId?: string): Promise<string> {
@@ -406,6 +461,13 @@ export const sendToN8N = async (candidateData: CandidateData, campaignId?: strin
             if (certExtract) {
                 payload.certificatesText = certExtract.certificatesText;
                 payload.certificatesCount = certExtract.certificatesCount;
+                // Cosmetic and awaited only so failures are logged here; the
+                // helper swallows its own errors.
+                await persistCertificateTitles(
+                    candidateData._id ?? candidateData.id,
+                    payload.applicationId,
+                    certExtract.titles
+                );
             }
         } catch (err) {
             console.error(

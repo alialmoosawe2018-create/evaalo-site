@@ -57,6 +57,8 @@ export interface IApplicationEvent {
 
 export interface IApplicationAttachment {
     type: ApplicationAttachmentType;
+    /** What the certificate says it is, derived from its own text. */
+    title?: string;
     filename: string;
     originalName: string;
     path: string;
@@ -187,6 +189,9 @@ const AttachmentSchema = new Schema(
             enum: ['cv', 'cover_letter', 'portfolio', 'certificate', 'assessment', 'offer', 'other', 'photo'],
             default: 'other',
         },
+        // Uploads are named after the applicant, so the profile had nothing but a
+        // filename to show. Derived from the certificate's own text at Stage 1.
+        title: String,
         filename: String,
         originalName: String,
         path: String,

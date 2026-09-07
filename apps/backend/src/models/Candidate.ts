@@ -140,6 +140,8 @@ export interface ICandidate extends Document {
     videoInterviewLinkConsumedSessionId?: string;
     files?: Array<{
         kind?: 'cv' | 'photo' | 'certificate';
+        /** What the certificate says it is, derived from its own text. */
+        title?: string;
         filename: string;
         originalName: string;
         path: string;
@@ -538,6 +540,9 @@ const CandidateSchema = new Schema<ICandidate>({
             type: String,
             enum: ['cv', 'photo', 'certificate']
         },
+        // Uploads are named after the applicant, so the profile had nothing but a
+        // filename to show. Derived from the certificate's own text at Stage 1.
+        title: String,
         filename: String,
         originalName: String,
         path: String,
