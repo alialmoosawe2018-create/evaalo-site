@@ -19,6 +19,20 @@ const DropdownArrow = () => (
     </svg>
 );
 
+/** كرة أرضية — وجه مبدّل اللغة داخل مساحة العمل. */
+const GlobeIcon = () => (
+    <svg className="nav-language-globe" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M3 12h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path
+            d="M12 3c2.5 2.6 3.8 5.7 3.8 9S14.5 18.4 12 21c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+        />
+    </svg>
+);
+
 const NavLangCheckIcon = () => (
     <svg className="nav-mobile-lang-list__check" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path d="M5 12.5l4.2 4.2L19 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -157,6 +171,25 @@ const Navigation = () => {
         { code: 'ar', name: 'العربية' },
         { code: 'ku', name: 'کوردی' },
     ];
+
+    /** اسم اللغة الحالية — لازم للـ aria-label: الأيقونة وحدها لا تصل قارئ الشاشة. */
+    const activeLanguageName =
+        languages.find((l) => l.code === currentLang)?.name ?? currentLang.toUpperCase();
+
+    const openDesktopLang = () => {
+        if (desktopLangTimeoutRef.current) {
+            clearTimeout(desktopLangTimeoutRef.current);
+            desktopLangTimeoutRef.current = null;
+        }
+        setDesktopLangDropdownOpen(true);
+    };
+    /**
+     * 150ms لا 500: المهلة موجودة ليعبر المؤشر البكسلات القليلة بين الزرّ والقائمة،
+     * ونصف ثانية بعد المغادرة تجعل القائمة تبدو عالقة لا متسامحة.
+     */
+    const scheduleCloseDesktopLang = () => {
+        desktopLangTimeoutRef.current = setTimeout(() => setDesktopLangDropdownOpen(false), 150);
+    };
 
     useEffect(() => {
         setMobileMenuOpen(false);
@@ -447,7 +480,10 @@ const Navigation = () => {
                         <span className="logo-text">vaalo.Ai</span>
                     </Link>
                     
-                    <div className="nav-links nav-links-desktop" id="navMenuDesktop">
+                    <div
+                        className={`nav-links nav-links-desktop${isWorkspace ? ' nav-links-desktop--workspace' : ''}`}
+                        id="navMenuDesktop"
+                    >
                         {!isWorkspace && (
                             <>
                                 <Link to="/" className="nav-link" onClick={() => window.scrollTo(0, 0)}>
@@ -512,31 +548,41 @@ const Navigation = () => {
                             className="nav-link nav-link-dropdown" 
                             id="navLanguageItemDesktop"
                             ref={desktopLangRef}
-                            onMouseEnter={() => {
-                                if (desktopLangTimeoutRef.current) {
-                                    clearTimeout(desktopLangTimeoutRef.current);
-                                    desktopLangTimeoutRef.current = null;
-                                }
-                                setDesktopLangDropdownOpen(true);
-                            }}
-                            onMouseLeave={() => {
-                                desktopLangTimeoutRef.current = setTimeout(() => {
+                            role="button"
+                            tabIndex={0}
+                            aria-haspopup="menu"
+                            aria-expanded={desktopLangDropdownOpen}
+                            aria-label={`${t('language')} — ${activeLanguageName}`}
+                            onMouseEnter={openDesktopLang}
+                            onMouseLeave={scheduleCloseDesktopLang}
+                            onFocus={openDesktopLang}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setDesktopLangDropdownOpen((open) => !open);
+                                } else if (e.key === 'Escape') {
                                     setDesktopLangDropdownOpen(false);
-                                }, 500);
+                                }
                             }}
                         >
-                            <span>{t('language')}</span>
+                            {/* داخل مساحة العمل: كرة + رمز اللغة. الكرة وحدها تقول
+                                «مبدّل لغة» ولا تقول أيّها أنت فيه، والرمز يكمل المعنى في
+                                نصف العرض. وفي الموقع التسويقي تبقى الكلمة — الزائر لأول
+                                مرة أولى بالوضوح من الاختصار. */}
+                            {isWorkspace ? (
+                                <span className="nav-language-trigger--icon">
+                                    <GlobeIcon />
+                                    <span className="nav-language-code">{currentLang.toUpperCase()}</span>
+                                </span>
+                            ) : (
+                                <span>{t('language')}</span>
+                            )}
                             <DropdownArrow />
                             <div 
                                 className={`nav-language-dropdown ${desktopLangDropdownOpen ? 'active' : ''}`}
                                 id="navLanguageDropdownDesktop"
-                                onMouseEnter={() => {
-                                    if (desktopLangTimeoutRef.current) {
-                                        clearTimeout(desktopLangTimeoutRef.current);
-                                        desktopLangTimeoutRef.current = null;
-                                    }
-                                    setDesktopLangDropdownOpen(true);
-                                }}
+                                role="menu"
+                                onMouseEnter={openDesktopLang}
                                 onMouseLeave={() => setDesktopLangDropdownOpen(false)}
                             >
                                 {languages.map((lang) => (
@@ -544,10 +590,16 @@ const Navigation = () => {
                                         key={lang.code}
                                         type="button"
                                         className={`nav-language-option ${currentLang === lang.code ? 'active' : ''}`}
-                                        role="menuitem"
+                                        role="menuitemradio"
+                                        aria-checked={currentLang === lang.code}
                                         data-lang={lang.code}
                                         onClick={() => handleLanguageChange(lang.code)}
                                     >
+                                        {/* علامة صريحة للنشطة: اللون الخافت وحده لا يكفي
+                                            بصريّاً ولا يصل قارئ الشاشة. */}
+                                        <span className="nav-language-option__check" aria-hidden>
+                                            {currentLang === lang.code ? '✓' : ''}
+                                        </span>
                                         <span className="language-name">{lang.name}</span>
                                         <span className="language-code">{lang.code.toUpperCase()}</span>
                                     </button>

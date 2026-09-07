@@ -18239,3 +18239,48 @@ html[lang="ku"] .avatar-showcase__partner {
     }
 }
 
+
+/* ────────────────────────────────────────────────────────────────────────────
+   مبدّل اللغة داخل مساحة العمل — أيقونة بدل كلمة
+   ────────────────────────────────────────────────────────────────────────────
+   بعد إخفاء روابط الموقع في لوحة التحكّم بقيت اللغة وحدها في وسط الشريط، بفراغ
+   ~170px يفصلها عن الشعار. الحاوية تُحاذى إلى النهاية فتلتصق بمجموعة الأدوات،
+   بدل نقل العنصر إلى `.nav-actions` — فأنماط القائمة كلّها (54 قاعدة) مقيّدة
+   بـ `.nav-links-desktop`، ونقلها كان سيكسرها ويمسّ شريط الموقع معها.
+   ──────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 769px) {
+    .nav-links-desktop--workspace {
+        justify-content: flex-end !important;
+    }
+
+    /* الكرة + الرمز: ~52px بدل 104 لكلمة «Language». */
+    .nav-language-trigger--icon {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .nav-language-globe {
+        opacity: 0.85;
+        flex-shrink: 0;
+    }
+
+    /* الرمز يقول أي لغة أنت فيها — الكرة وحدها تقول «مبدّل لغة» ولا تقول أيّها. */
+    .nav-language-code {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        line-height: 1;
+    }
+}
+
+/* عمود ثابت لعلامة اللغة النشطة، فلا تقفز الأسماء بين مُعلَّمة وغير مُعلَّمة. */
+.nav-language-option__check {
+    display: inline-block;
+    width: 14px;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #34d399;
+    text-align: center;
+}
