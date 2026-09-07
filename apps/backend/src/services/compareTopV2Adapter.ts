@@ -89,6 +89,9 @@ export function mapV2RecordToUiResult(record: ICampaignCompareRequest): IAiCompa
     const ranking =
         record.result?.candidateRanking?.map((row) => ({
             rank: row.rank,
+            // Carried through so a row can be joined back to the person — the
+            // emailed report uses it to show their photo.
+            candidateId: row.candidateId,
             candidateName: row.candidateName,
             score: coerceScore(row.stageScore),
             reason: row.competitiveAdvantage,

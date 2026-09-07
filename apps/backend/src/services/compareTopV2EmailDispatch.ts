@@ -12,6 +12,7 @@ import {
     type CampaignCompareStage,
 } from './campaignCompareCallbackAuth.js';
 import { renderCompareReportPdf } from './compareReportPdf.js';
+import { loadCandidatePhotoDataUris } from './compareReportPhotos.js';
 
 const EMAIL_DISPATCH_TIMEOUT_MS = 15_000;
 
@@ -107,7 +108,16 @@ export async function dispatchCompareTopV2Emails(record: ICampaignCompareRequest
     // any failure falls back to the plain-text email so dispatch is never blocked.
     let pdf: { pdfBase64: string; pdfFilename: string } | undefined;
     try {
-        const buffer = await renderCompareReportPdf(uiResult, { stage: record.uiStage });
+        // Photos are read from disk and inlined: the PDF is rendered by headless
+        // Chromium with no session, so an /uploads URL would come back blank.
+        // Best-effort — a candidate with no readable photo gets their initials.
+        const photos = await loadCandidatePhotoDataUris(
+            (uiResult.ranking ?? []).map((row) => row.candidateId)
+        );
+        const buffer = await renderCompareReportPdf(uiResult, {
+            stage: record.uiStage,
+            photos,
+        });
         const base64 = buffer.toString('base64');
         if (base64.length <= 6 * 1024 * 1024) {
             pdf = { pdfBase64: base64, pdfFilename: `تقرير-مقارنة-المرشحين-${record.uiStage}.pdf` };

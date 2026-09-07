@@ -15,6 +15,7 @@
     "test:rubric-results": "tsx src/scripts/stage1-rubric-results-test.ts",
     "test:evaluation-language": "tsx src/scripts/evaluation-language-test.ts",
     "test:campaign-role": "tsx src/scripts/campaign-role-test.ts",
+    "test:compare-report-photo": "tsx src/scripts/compare-report-photo-test.ts",
     "test:returning-applicant": "tsx src/scripts/returning-applicant-eval-test.ts",
     "verify:application-ownership": "tsx src/scripts/verifyApplicationOwnership.ts",
     "check-db": "tsx src/scripts/check-db-connection.ts",

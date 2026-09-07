@@ -38,6 +38,13 @@ export interface IAiCompareTopResult {
     finalRecommendation?: string;
     ranking?: Array<{
         rank?: number;
+        /**
+         * The person this row is about. The v2 record has always carried it, but
+         * the UI adapter dropped it — so nothing downstream could join a row back
+         * to the candidate. The emailed report needs exactly that, to put a face
+         * on the card.
+         */
+        candidateId?: string;
         candidateName?: string;
         candidateEmail?: string;
         score?: number;
@@ -141,6 +148,7 @@ const AiCompareResultSchema = new Schema(
                 new Schema(
                     {
                         rank: { type: Number },
+                        candidateId: { type: String },
                         candidateName: { type: String },
                         candidateEmail: { type: String },
                         score: { type: Number },
