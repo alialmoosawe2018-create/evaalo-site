@@ -468,14 +468,11 @@ const Navigation = () => {
             {mobileMenuPortal}
             <nav className="main-nav">
                 <div className="nav-container">
-                    {/* داخل مساحة العمل يقود الشعار إلى لوحة التحكّم لا إلى الموقع
-                        التسويقي: إخفاء روابط الموقع بلا هذا يترك أوسع هدف نقرٍ في
-                        الشريط يقذف المستخدم خارج مساحته بنقرة واحدة. */}
-                    <Link
-                        to={isWorkspace ? '/dashboard' : '/'}
-                        className="nav-logo-img"
-                        onClick={() => setMobileMenuOpen(false)}
-                    >
+                    {/* الشعار يقود إلى الصفحة التعريفية دائماً — بطلب صريح. جرّبتُ
+                        توجيهه إلى /dashboard داخل مساحة العمل بحجّة العزل، لكن الشعار
+                        عرفاً هو «العودة إلى البيت»، والخروج من المساحة عبره مقصود لا
+                        عرَضي. الروابط التسويقية تبقى مخفيّة كما هي. */}
+                    <Link to="/" className="nav-logo-img" onClick={() => setMobileMenuOpen(false)}>
                         <img src="/images/last logo.png" alt="evaalo Logo" className="logo-image" />
                         <span className="logo-text">vaalo.Ai</span>
                     </Link>
