@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { shouldShowAppBottomNav } from '../utils/appRoutes';
 import './app-version-watcher.css';
 
 /**
@@ -31,6 +33,7 @@ const MIN_CHECK_GAP_MS = 5 * 60 * 1000;
 
 export default function AppVersionWatcher() {
     const { t } = useLanguage();
+    const location = useLocation();
     const loadedBundleRef = useRef(readLoadedBundle());
     const lastCheckRef = useRef(0);
     const inFlightRef = useRef(false);
@@ -76,8 +79,16 @@ export default function AppVersionWatcher() {
 
     if (!freshBundle || dismissed === freshBundle) return null;
 
+    // نفس المُحدِّد الذي يقرّر إظهار شريط التنقّل السفلي يقرّر رفع هذا فوقه، فلا
+    // تنشأ قائمة مسارات ثانية تنحرف عن الأولى.
+    const aboveBottomNav = shouldShowAppBottomNav(location.pathname);
+
     return (
-        <div className="app-version-banner" role="status" aria-live="polite">
+        <div
+            className={`app-version-banner${aboveBottomNav ? ' app-version-banner--above-bottom-nav' : ''}`}
+            role="status"
+            aria-live="polite"
+        >
             <span className="app-version-banner__text">{t('appUpdateAvailable')}</span>
             <button
                 type="button"
