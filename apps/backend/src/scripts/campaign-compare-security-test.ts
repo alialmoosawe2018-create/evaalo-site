@@ -201,11 +201,43 @@ function testDuplicateRankValuesRejected(): void {
     if (!result.ok) assert.match(result.message, /duplicate rank/i);
 }
 
+/** Does a stored record match a Mongo-style filter of `_id` + a status allowlist? */
+function matchesStatusFilter(
+    stored: { _id?: unknown; requestId?: string; status: string },
+    filter: { _id?: unknown; requestId?: string; status: { $in?: readonly string[]; $nin?: readonly string[] } }
+): boolean {
+    if (filter._id !== undefined && String(stored._id) !== String(filter._id)) return false;
+    if (filter.requestId !== undefined && stored.requestId !== filter.requestId) return false;
+    if (filter.status.$in) return filter.status.$in.includes(stored.status);
+    if (filter.status.$nin) return !filter.status.$nin.includes(stored.status);
+    return false;
+}
+
 function testCompletionFilterUsesIdentityAndNotCompletedGuard(): void {
     const recordId = new mongoose.Types.ObjectId();
     const filter = buildCampaignCompareCompletionFilter(recordId);
     assert.equal(String(filter._id), String(recordId));
-    assert.deepEqual(filter.status, { $ne: 'completed' });
+
+    // The guard is an ALLOWLIST, not merely "not completed". It was tightened
+    // because a late callback arriving after a refund flipped the record to
+    // completed — handing the customer the report AND the refund. `$ne` let
+    // 'refunded' and 'failed' through; only these three are still in flight.
+    assert.deepEqual(filter.status, { $in: ['pending', 'dispatched', 'processing'] });
+
+    for (const status of ['pending', 'dispatched', 'processing']) {
+        assert.equal(
+            matchesStatusFilter({ _id: recordId, status }, filter),
+            true,
+            `${status} is still in flight and must be completable`
+        );
+    }
+    for (const status of ['completed', 'failed', 'refunded']) {
+        assert.equal(
+            matchesStatusFilter({ _id: recordId, status }, filter),
+            false,
+            `${status} is final and must never be flipped to completed`
+        );
+    }
 }
 
 function testCompletedRequestCannotBeOverwrittenByDifferentIdempotencyKey(): void {
@@ -228,8 +260,7 @@ function testCompletedRequestCannotBeOverwrittenByDifferentIdempotencyKey(): voi
         candidateSnapshotHash: 'hash-original',
     };
 
-    const matchesCompletionFilter =
-        String(stored._id) === String(filter._id) && stored.status !== 'completed';
+    const matchesCompletionFilter = matchesStatusFilter(stored, filter);
     assert.equal(matchesCompletionFilter, false);
 
     const alternateKey = buildCampaignCompareIdempotencyKey(
@@ -262,13 +293,26 @@ function testRaceLostCompletesWebhookWithoutFailure(): void {
 
 function testPostClaimFailureCannotMarkCompletedRequestFailed(): void {
     const filter = buildCampaignCompareFailureFilter(REQUEST_ID);
-    assert.deepEqual(filter.status, { $ne: 'completed' });
     assert.equal(filter.requestId, REQUEST_ID);
 
-    const completed = { requestId: REQUEST_ID, status: 'completed' };
-    const matchesFailureFilter =
-        completed.requestId === filter.requestId && completed.status !== 'completed';
-    assert.equal(matchesFailureFilter, false);
+    // 'refunded' joined 'completed' as untouchable: marking an already-refunded
+    // request failed would re-open a settled billing outcome.
+    assert.deepEqual(filter.status, { $nin: ['completed', 'refunded'] });
+
+    for (const status of ['completed', 'refunded']) {
+        assert.equal(
+            matchesStatusFilter({ requestId: REQUEST_ID, status }, filter),
+            false,
+            `${status} is settled and must not be marked failed`
+        );
+    }
+    for (const status of ['pending', 'dispatched', 'processing', 'failed']) {
+        assert.equal(
+            matchesStatusFilter({ requestId: REQUEST_ID, status }, filter),
+            true,
+            `${status} may still be marked failed`
+        );
+    }
 }
 
 function testIdempotencyKeyUsesHeader(): void {
