@@ -623,31 +623,6 @@ body.rtl-text .step-number {
 }
 
 :root {
-    /* ألوان العلامة، مأخوذة من صورة الشعار نفسها لا من تدرّج الكتابة بجانبها —
-       الاثنان ليسا واحداً: الصورة أزرق ملكيّ #0437d5 يغلب على 19٪ من بكسلاتها
-       الملوّنة، ثمّ أزرق سماويّ #0689fb، ولمسة بنفسجية #6816f7؛ بينما الكتابة
-       نيليّة إلى سماويّة. سُحبت بقراءة البكسلات، لا بالنظر. */
-    --evaalo-logo-violet: #6816f7;
-    --evaalo-logo-blue: #0437d5;
-    --evaalo-logo-azure: #0689fb;
-    --evaalo-logo-sky: #28a7fc;
-
-    /* الوميض: نفس تدرّج الصورة بزاوية 135، مقنَّعاً بدائرة تخفت عند الحافة ليخرج
-       إشعاعاً لا مستطيلاً. مُعرَّف مرّةً هنا ليستعمله زرّ السمة وزرّ اللغة معاً. */
-    --evaalo-burst: linear-gradient(
-        135deg,
-        rgba(104, 22, 247, 0.58) 0%,
-        rgba(4, 55, 213, 0.62) 32%,
-        rgba(6, 137, 251, 0.6) 62%,
-        rgba(40, 167, 252, 0.5) 100%
-    );
-    --evaalo-burst-mask: radial-gradient(
-        circle at center,
-        #000 0%,
-        rgba(0, 0, 0, 0.55) 45%,
-        transparent 72%
-    );
-
     /* Primary Colors */
     --primary-color: #4f46e5;
     --primary-hover: #4338ca;
@@ -1305,9 +1280,6 @@ h3.section-title .evaalo-text-en,
 }
 
 /* One-shot glow ripple that fires on each switch */
-/* الوميض يحمل تدرّج الشعار في السمتين معاً، لا الذهبي في الفاتحة والسماوي في
-   الداكنة. هوية السمة تبقى في الأيقونة نفسها وفي لون الإطار؛ أمّا اللحظة التي
-   تلفت العين — الوميض — فتقول «evaalo». */
 .nav-theme-toggle__burst {
     position: absolute;
     inset: 0;
@@ -1315,9 +1287,21 @@ h3.section-title .evaalo-text-en,
     border-radius: inherit;
     pointer-events: none;
     opacity: 0;
-    background: var(--evaalo-burst);
-    -webkit-mask-image: var(--evaalo-burst-mask);
-    mask-image: var(--evaalo-burst-mask);
+    background: radial-gradient(
+        circle at center,
+        rgba(56, 189, 248, 0.55) 0%,
+        rgba(129, 140, 248, 0.28) 45%,
+        rgba(56, 189, 248, 0) 72%
+    );
+}
+
+.nav-theme-toggle[data-current-theme='light'] .nav-theme-toggle__burst {
+    background: radial-gradient(
+        circle at center,
+        rgba(251, 191, 36, 0.6) 0%,
+        rgba(245, 158, 11, 0.3) 45%,
+        rgba(251, 191, 36, 0) 72%
+    );
 }
 
 .nav-theme-toggle--switching .nav-theme-toggle__burst {
@@ -1358,26 +1342,16 @@ h3.section-title .evaalo-text-en,
     }
 }
 
-/* الذهبي رحل عن الزرّ في الوضع الفاتح لصالح أزرق صورة الشعار.
- *
- * ولأنّ الصورة نفسها قطبان — بنفسجيّ فأزرق ملكيّ ثمّ سماويّ — أخذ كلّ وضع قطباً
- * بدل أن يأخذا لوناً واحداً: الأزرق الملكيّ للفاتح، والسماويّ الفاتح للداكن كما
- * كان. هكذا يبقى الزرّان على العلامة، ويبقى اللون يخبرك بالوضع الذي أنت فيه —
- * وهي الإشارة التي كان الذهبيّ يؤدّيها ولولا ذلك لضاعت.
- *
- * لون الأيقونة تفتيحٌ لأزرق الصورة لا هو نفسه: #0437d5 خطًّا بعرض بكسلين فوق
- * زجاج داكن يغرق ولا يُقرأ. */
 .nav-theme-toggle[data-current-theme='light'] {
-    border-color: rgba(6, 137, 251, 0.45);
-    color: #6fbaff;
+    border-color: rgba(251, 191, 36, 0.34);
+    color: #fde68a;
 }
 
 .nav-theme-toggle[data-current-theme='light']::before {
     background: linear-gradient(
         135deg,
-        rgba(104, 22, 247, 0.2) 0%,
-        rgba(4, 55, 213, 0.2) 50%,
-        rgba(6, 137, 251, 0.16) 100%
+        rgba(251, 191, 36, 0.2) 0%,
+        rgba(245, 158, 11, 0.12) 100%
     );
 }
 
@@ -1397,10 +1371,10 @@ h3.section-title .evaalo-text-en,
 }
 
 .nav-theme-toggle[data-current-theme='light']:hover {
-    border-color: rgba(40, 167, 252, 0.62);
+    border-color: rgba(251, 191, 36, 0.58);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.18),
-        0 6px 18px rgba(4, 55, 213, 0.3),
+        0 6px 18px rgba(251, 191, 36, 0.18),
         0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
@@ -1425,11 +1399,11 @@ h3.section-title .evaalo-text-en,
 
 .nav-theme-toggle[data-current-theme='light'].nav-theme-toggle--open,
 .nav-theme-toggle[data-current-theme='light'][aria-expanded='true'] {
-    border-color: rgba(40, 167, 252, 0.66);
+    border-color: rgba(251, 191, 36, 0.62);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.2),
-        0 0 0 2px rgba(6, 137, 251, 0.2),
-        0 8px 22px rgba(4, 55, 213, 0.26);
+        0 0 0 2px rgba(251, 191, 36, 0.16),
+        0 8px 22px rgba(251, 191, 36, 0.16);
 }
 
 .nav-theme-toggle:focus-visible {
