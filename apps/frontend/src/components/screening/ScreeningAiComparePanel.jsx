@@ -49,8 +49,14 @@ function recommendationTone(recommendation) {
  * The enum is the one part that belongs in a pill, and the app already localizes
  * it under these keys elsewhere.
  */
-function recommendationBadgeLabel(recommendation, t) {
-    if (recommendation === 'Hire') return t('stageEval_recAccepted');
+function recommendationBadgeLabel(recommendation, t, uiStage) {
+    // Same stage rule the candidate pages use (see utils/stageRecommendation.js):
+    // the stored enum stays Hire everywhere, but screening and voice only decide
+    // that a candidate ADVANCES — the word "Hire" belongs to the final video
+    // stage alone, where there is no interview left to advance to.
+    if (recommendation === 'Hire') {
+        return uiStage === 'video' ? t('stageEval_recHire') : t('stageEval_recAccepted');
+    }
     if (recommendation === 'Consider') return t('stageEval_recConsider');
     if (recommendation === 'Reject') return t('stageEval_recReject');
     return (recommendation || '').trim();
@@ -408,7 +414,7 @@ export default function ScreeningAiComparePanel({
                                 const risks = toList(row.risks ?? row.weaknesses);
                                 const rank = row.rank ?? i + 1;
                                 const isLast = i === ranking.length - 1;
-                                const badgeLabel = recommendationBadgeLabel(row.recommendation, t);
+                                const badgeLabel = recommendationBadgeLabel(row.recommendation, t, uiStage);
                                 const recLine = recommendationSentence(
                                     row.overallRecommendation,
                                     row.recommendation
