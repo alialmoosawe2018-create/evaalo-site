@@ -574,7 +574,10 @@ const Navigation = () => {
                             ) : (
                                 <span>{t('language')}</span>
                             )}
-                            <DropdownArrow />
+                            {/* لا سهم داخل مساحة العمل: عنصر ثالث في زرّ عرضه 60px،
+                                والكرة تقول «قائمة» بما يكفي. يبقى في الموقع التسويقي
+                                حيث الزرّ كلمة، والسهم هناك يميّزه عن رابط عادي. */}
+                            {isWorkspace ? null : <DropdownArrow />}
                             <div 
                                 className={`nav-language-dropdown ${desktopLangDropdownOpen ? 'active' : ''}`}
                                 id="navLanguageDropdownDesktop"
