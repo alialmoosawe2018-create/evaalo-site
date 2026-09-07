@@ -22,7 +22,7 @@ import {
   hasSpeechmaticsConnection,
 } from "./speechmaticsStreamingService.js";
 import { getVoiceVadSettings } from "../evaalo-only-voice/voiceTimingEnv.js";
-import { getSttPurgeToken } from "../evaalo-only-voice/sttPurgeToken.js";
+import { getSttPurgeToken, shouldKeepLateBatch } from "../evaalo-only-voice/sttPurgeToken.js";
 
 /** لقطة إعدادات VAD عند التشغيل — يعاد تشغيل الخادم بعد تغيير .env */
 const STT_VAD = getVoiceVadSettings();
@@ -50,6 +50,8 @@ const audioBuffers = new Map<
   {
     buffers: Buffer[];
     onTranscript: (text: string, isFinal: boolean, confidence?: number) => void;
+    /** دفعة عادت بعد إرسال الدور: تُقيَّد في السجلّ ولا تُشغّل دوراً جديداً. */
+    onLateTranscript?: (text: string) => void;
     onError: (error: Error) => void;
     lastProcessTime: number;
     lastLoudTime: number;
@@ -234,6 +236,22 @@ async function processAudioBuffer(sessionId: string): Promise<void> {
       transcript = await transcribeWithRouting(audioData);
     }
     if (getSttPurgeToken(sessionId) !== tokenAtBatchStart) {
+      /**
+       * الدفعة عادت بعد أن تقدّم الدور. الرمي هو التصرّف الصحيح إن كان الإيجنت قد
+       * بدأ الكلام — فما وصل قد يكون صدى صوته. أمّا إن كان الرفع الوحيد هو إرسال
+       * الدور، فهذا كلام المرشّح: قِيل، وسُجّل، ونُسخ بنجاح. رميُه يعني أن يحكم
+       * المُقيّم على شظيّة من جواب كامل، وهو ما حدث في الجلسة 6afff73c.
+       *
+       * فيُسلَّم للسجلّ لا للحوار: `isFinal: false` هنا علامةٌ متّفق عليها مع
+       * `handleTranscript` تعني «قيّده ولا تُشغّل به دوراً».
+       */
+      if (transcript.trim().length > 0 && shouldKeepLateBatch(sessionId, tokenAtBatchStart)) {
+        console.log(
+          `[STT LATE] ${sessionId.substring(0, 8)}... late batch kept for the record: "${transcript.trim().substring(0, 60)}"`
+        );
+        conn.onLateTranscript?.(transcript.trim());
+        return;
+      }
       console.log(`[STT DROP] ${sessionId.substring(0, 8)}... stale batch transcript (purged while transcribing)`);
       return;
     }
@@ -266,7 +284,9 @@ export function createSTTRouterConnection(
   onTranscript: (text: string, isFinal: boolean, confidence?: number) => void,
   onError: (error: Error) => void,
   onReady?: () => void,
-  language?: string
+  language?: string,
+  // آخر الوسائط عمداً: وضعُه في الوسط يُزيح onReady وlanguage عند كل مُستدعٍ قائم.
+  onLateTranscript?: (text: string) => void
 ): void {
   const preferEn = language === "en" || language === "english";
 
@@ -314,6 +334,7 @@ export function createSTTRouterConnection(
   audioBuffers.set(sessionId, {
     buffers: [],
     onTranscript,
+    onLateTranscript,
     onError,
     lastProcessTime: Date.now(),
     lastLoudTime: Date.now(),

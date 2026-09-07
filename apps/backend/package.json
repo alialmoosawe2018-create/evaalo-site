@@ -94,7 +94,8 @@
     "test:site-metric": "tsx src/scripts/site-metric-test.ts",
     "test:voice-phase2-role": "tsx src/scripts/voice-phase2-role-topic-test.ts",
     "test:voice-negative-answer": "tsx src/scripts/voice-negative-answer-test.ts",
-    "test:vacancy-gender-strip": "tsx src/scripts/vacancy-gender-strip-test.ts"
+    "test:vacancy-gender-strip": "tsx src/scripts/vacancy-gender-strip-test.ts",
+    "test:voice-late-batch": "tsx src/scripts/voice-late-batch-test.ts"
   },
   "keywords": [
     "career",

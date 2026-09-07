@@ -376,7 +376,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       }
       speechBuffers.delete(sessionId);
       // بداية استماع جديدة = جيل STT جديد؛ أي transcript متأخر من الجولة السابقة يجب أن يسقط
-      sttTokenAtCurrentListen = bumpSttPurgeToken(sessionId);
+      sttTokenAtCurrentListen = bumpSttPurgeToken(sessionId, "listen_started");
       firstTranscriptLogged = false;
     }
     createSTTRouterConnection(
@@ -403,12 +403,40 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       },
       (err) => send(ws, { type: "error", message: err.message }),
       undefined,
-      language
+      language,
+      /**
+       * ذيلٌ وصل بعد أن أُرسل الدور: يُلحق بآخر كلام المرشّح في السجلّ ولا يُشغّل
+       * دوراً جديداً ولا يُرسَل للنموذج.
+       *
+       * الغرض المُقيّم لا الحوار — الردّ صدر وفات أوانه، لكنّ النصّ الذي سيُقيَّم
+       * يجب أن يحوي ما قاله المرشّح فعلاً. في الجلسة 6afff73c ضاعت بهذا تتمّةُ
+       * «انا افضل انه» فحُكم على شظيّة من جواب كامل.
+       */
+      (lateText) => {
+        const tail = stripEmojisAndSymbols(lateText.trim());
+        if (!tail) return;
+        const history = conversationHistory.get(sessionId);
+        const lastUser = [...(history ?? [])].reverse().find((m) => m.role === "user");
+        if (!lastUser) return;
+        // نفس حارس التكرار المستعمل عند الدمج: الدفعات تتداخل أحياناً في كلمة أو اثنتين.
+        const merged = dedupeRepeats(`${lastUser.content} ${tail}`.trim());
+        if (normalizeForMerge(merged) === normalizeForMerge(lastUser.content)) return;
+        lastUser.content = merged;
+        console.log(
+          `[TRANSCRIPT REPAIR] ${sessionId.substring(0, 8)}... appended late tail: "${tail.substring(0, 50)}"`
+        );
+        recordMetricAsync({
+          scope: "interview",
+          name: "voice:late_tail_recovered",
+          durationMs: tail.length,
+          outcome: "appended",
+        });
+      }
     );
   };
 
   const startSpeaking = () => {
-    bumpSttPurgeToken(sessionId);
+    bumpSttPurgeToken(sessionId, "agent_speaking");
     voiceState = "SPEAKING";
     // إلغاء speech buffer timer عند بدء التحدث
     const buffer = speechBuffers.get(sessionId);
@@ -465,7 +493,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       return;
     }
 
-    bumpSttPurgeToken(sessionId);
+    bumpSttPurgeToken(sessionId, "turn_dispatched");
     lastSentBySession.set(sessionId, { text: completeSentence, time: Date.now() });
     runPipeline(completeSentence);
   };
