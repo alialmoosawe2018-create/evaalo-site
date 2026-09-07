@@ -33,6 +33,7 @@ import {
 import { consumeCredits, adjustCredits } from '../services/billingRuntimeService.js';
 import { creditCostMicro } from '../services/billingEngine.js';
 import { suggestSearchCriteriaHandler } from './suggestSearchCriteriaHandler.js';
+import { normalizeEvaluationLanguage } from '../services/evaluationLanguage.js';
 
 const router = Router();
 
@@ -436,13 +437,29 @@ router.post(
                 parseBool(criteria.availableEmployeesOnly) ||
                 parseBool(criteria.employeesWithoutPositionsOnly);
             const arabicTranslation = parseBool(criteria.arabicTranslation);
-            // UI locale (ar | en | ku). Forwarded to n8n, where it takes absolute priority over
-            // content-based detection: an Arabic UI must produce an Arabic analysis even when the
-            // position, location and the CVs are all English. Sanitized — it reaches an LLM prompt.
-            const language =
-                typeof criteria.language === 'string'
-                    ? criteria.language.trim().toLowerCase().replace(/[^a-z-]/g, '').slice(0, 8)
-                    : '';
+            /**
+             * The language the analysis must be written in. It takes absolute
+             * priority over content-based detection in n8n: an Arabic UI must
+             * produce an Arabic analysis even when the position, location and the
+             * CVs are all English.
+             *
+             * Resolved through the shared rule rather than passed through raw, so
+             * this answers the question the same way the three interview stages
+             * and the candidate comparison do. The difference that mattered: the
+             * shared rule maps **ku → ar**, because the evaluators only ever write
+             * Arabic or English. A raw `ku` used to reach the prompt and left the
+             * model to invent a behaviour.
+             *
+             * The NORMALIZER is used here, not the full resolver: it returns null
+             * when the caller sent no locale, so the field is omitted and n8n
+             * keeps detecting from content — the behaviour this endpoint has
+             * always had. The resolver would default to 'ar' and quietly impose
+             * Arabic on a request that never asked for a language.
+             *
+             * It returns only 'ar' or 'en', so the value is safe by construction
+             * for a string that reaches an LLM prompt.
+             */
+            const language = normalizeEvaluationLanguage(criteria.language) ?? '';
 
             const rawYears =
                 typeof criteria.yearsOfExperience === 'string'

@@ -151,5 +151,43 @@ test('the stage 1 normalizer never returns null — it has always defaulted to a
     assert.strictEqual(normalizeStage1EvaluationLanguage(undefined), 'ar');
 });
 
+/* ── the two comparisons, which used to answer this question their own way ─── */
+
+test('candidate comparison takes the campaign language, where it used to take none', () => {
+    // The compare dispatch sent no language at all; the prompt guessed "Arabic
+    // unless the evaluations are clearly English-only".
+    assert.strictEqual(
+        resolveEvaluationLanguage({ campaignCriteria: { evaluationLanguage: 'en' } }),
+        'en'
+    );
+    assert.strictEqual(
+        resolveEvaluationLanguage({ campaignCriteria: { evaluationLanguage: 'ku' } }),
+        'ar'
+    );
+    // A campaign that names none still yields a language, so the field is never blank.
+    assert.strictEqual(resolveEvaluationLanguage({ campaignCriteria: {} }), 'ar');
+});
+
+test('CV comparison maps ku to ar — a raw ku used to reach the prompt', () => {
+    assert.strictEqual(normalizeEvaluationLanguage('ku'), 'ar');
+    assert.strictEqual(normalizeEvaluationLanguage('ckb'), 'ar');
+});
+
+test('CV comparison still omits the field when the caller sent no locale', () => {
+    // null here means "field omitted", which leaves n8n's content detection in
+    // place — the behaviour that endpoint has always had. Using the full
+    // resolver would have imposed Arabic on a request that never asked.
+    assert.strictEqual(normalizeEvaluationLanguage(''), null);
+    assert.strictEqual(normalizeEvaluationLanguage(undefined), null);
+    assert.strictEqual(normalizeEvaluationLanguage('   '), null);
+});
+
+test('whatever the CV comparison forwards is one of two safe values', () => {
+    for (const raw of ['ar', 'AR', 'en-GB', 'kurdish', 'Arabic', 'ku']) {
+        const out = normalizeEvaluationLanguage(raw);
+        assert.ok(out === 'ar' || out === 'en', `${raw} → ${out}`);
+    }
+});
+
 console.log(`\n[evaluation-language] ${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);

@@ -5,6 +5,7 @@ import {
     type CampaignCompareStage,
 } from './campaignCompareCallbackAuth.js';
 import type { BuiltCampaignComparePool } from './campaignComparePool.js';
+import { resolveEvaluationLanguage } from './evaluationLanguage.js';
 
 export class CampaignCompareDispatchError extends Error {
     readonly statusCode = 502;
@@ -41,6 +42,19 @@ export async function dispatchCampaignCompareToN8n(input: {
         organizationId: input.organizationId,
         compareStage: input.compareStage,
         topN: input.pool.topN,
+        /**
+         * Which language the report must be written in. The comparison used to
+         * receive no language at all and the prompt guessed — "produce an Arabic
+         * report unless the evaluations are clearly English-only" — so a report
+         * could come back in a language the campaign never chose, while the three
+         * interview stages already obeyed the campaign. Same resolver they use,
+         * so all four now answer the question identically.
+         *
+         * The value is already inside `criteria`; sending it as its own field is
+         * what lets the prompt treat it as an instruction instead of one key in a
+         * blob it was told to weigh as hiring criteria.
+         */
+        evaluationLanguage: resolveEvaluationLanguage({ campaignCriteria: input.pool.criteria }),
         criteria: input.pool.criteria,
         candidatePool: input.pool.candidatePool,
         candidateSnapshotHash: input.pool.candidateSnapshotHash,
