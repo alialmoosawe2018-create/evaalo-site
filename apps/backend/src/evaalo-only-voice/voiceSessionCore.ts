@@ -29,7 +29,7 @@ import {
   markVoiceLinkConsumed,
   INTERVIEW_LINK_ALREADY_USED,
 } from "../services/interviewLinkAccess.js";
-import { bumpSttPurgeToken, getSttPurgeToken, clearSttPurgeToken } from "./sttPurgeToken.js";
+import { bumpSttPurgeToken, getSttPurgeToken, clearSttPurgeToken, shouldKeepLateBatch } from "./sttPurgeToken.js";
 import {
   finalizeUsageReservation,
   reserveUsage,
@@ -379,10 +379,56 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       sttTokenAtCurrentListen = bumpSttPurgeToken(sessionId, "listen_started");
       firstTranscriptLogged = false;
     }
+  /**
+   * ذيلٌ وصل بعد أن أُرسل الدور: يُلحق بآخر كلام المرشّح في السجلّ ولا يُشغّل
+   * دوراً جديداً ولا يُرسَل للنموذج.
+   *
+   * الغرض المُقيّم لا الحوار — الردّ صدر وفات أوانه، لكنّ النصّ الذي سيُقيَّم يجب
+   * أن يحوي ما قاله المرشّح فعلاً. في الجلسة 6afff73c ضاعت بهذا تتمّةُ «انا افضل
+   * انه» فحُكم على شظيّة من جواب كامل.
+   *
+   * مشتركة بين مساري النسخ: التدفّقي (وهو ما يعمل في الإنتاج) والدفعات. نسختان
+   * من نفس المنطق كانتا ستنحرفان، والأولى هي التي يمرّ بها المرشّحون فعلاً.
+   */
+  const appendLateTailToRecord = (lateText: string): void => {
+    const tail = stripEmojisAndSymbols(lateText.trim());
+    if (!tail) return;
+    const history = conversationHistory.get(sessionId);
+    const lastUser = [...(history ?? [])].reverse().find((m) => m.role === "user");
+    if (!lastUser) return;
+    // نفس حارس التكرار المستعمل عند الدمج: المقاطع تتداخل أحياناً في كلمة أو اثنتين.
+    const merged = dedupeRepeats(`${lastUser.content} ${tail}`.trim());
+    if (normalizeForMerge(merged) === normalizeForMerge(lastUser.content)) return;
+    lastUser.content = merged;
+    console.log(
+      `[TRANSCRIPT REPAIR] ${sessionId.substring(0, 8)}... appended late tail: "${tail.substring(0, 50)}"`
+    );
+    recordMetricAsync({
+      scope: "interview",
+      name: "voice:late_tail_recovered",
+      durationMs: tail.length,
+      outcome: "appended",
+    });
+  };
     createSTTRouterConnection(
       sessionId,
       (text, isFinal, confidence) => {
-        if (getSttPurgeToken(sessionId) !== sttTokenAtCurrentListen) return;
+        if (getSttPurgeToken(sessionId) !== sttTokenAtCurrentListen) {
+          /**
+           * هذا هو المسار الذي يعمل في الإنتاج فعلاً: مفتاح Speechmatics متوفّر،
+           * فالنسخ **تدفّقي** لا دفعات، والحارس المكافئ في `sttRouterService` لا
+           * يمرّ به شيء. أي أنّ إصلاح الدفعات وحده ما كان لينقذ الدور 24.
+           *
+           * الحالة نفسها هنا: نهائيٌّ يصل بعد أن أُرسل الدور، يخصّ كلاماً قاله
+           * المرشّح قبل الإرسال، فيُرمى لأنّ الرمز تقدّم. يُحفظ إن كان المتقدّم هو
+           * إرسال الدور وحده — وتُرمى الجزئيات لأنّها تقديرٌ يُصحَّح لاحقاً، ولا
+           * يصحّ تثبيت تقدير في سجلٍّ سيُقيَّم.
+           */
+          if (isFinal && text.trim() && shouldKeepLateBatch(sessionId, sttTokenAtCurrentListen)) {
+            appendLateTailToRecord(text.trim());
+          }
+          return;
+        }
         if (voiceState === "SPEAKING") return;
         if (lastListeningStartedAt > 0 && Date.now() - lastListeningStartedAt < LATE_TRANSCRIPT_IGNORE_MS) return;
         const t = text.trim();
@@ -404,34 +450,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       (err) => send(ws, { type: "error", message: err.message }),
       undefined,
       language,
-      /**
-       * ذيلٌ وصل بعد أن أُرسل الدور: يُلحق بآخر كلام المرشّح في السجلّ ولا يُشغّل
-       * دوراً جديداً ولا يُرسَل للنموذج.
-       *
-       * الغرض المُقيّم لا الحوار — الردّ صدر وفات أوانه، لكنّ النصّ الذي سيُقيَّم
-       * يجب أن يحوي ما قاله المرشّح فعلاً. في الجلسة 6afff73c ضاعت بهذا تتمّةُ
-       * «انا افضل انه» فحُكم على شظيّة من جواب كامل.
-       */
-      (lateText) => {
-        const tail = stripEmojisAndSymbols(lateText.trim());
-        if (!tail) return;
-        const history = conversationHistory.get(sessionId);
-        const lastUser = [...(history ?? [])].reverse().find((m) => m.role === "user");
-        if (!lastUser) return;
-        // نفس حارس التكرار المستعمل عند الدمج: الدفعات تتداخل أحياناً في كلمة أو اثنتين.
-        const merged = dedupeRepeats(`${lastUser.content} ${tail}`.trim());
-        if (normalizeForMerge(merged) === normalizeForMerge(lastUser.content)) return;
-        lastUser.content = merged;
-        console.log(
-          `[TRANSCRIPT REPAIR] ${sessionId.substring(0, 8)}... appended late tail: "${tail.substring(0, 50)}"`
-        );
-        recordMetricAsync({
-          scope: "interview",
-          name: "voice:late_tail_recovered",
-          durationMs: tail.length,
-          outcome: "appended",
-        });
-      }
+      appendLateTailToRecord
     );
   };
 
