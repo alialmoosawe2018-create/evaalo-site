@@ -1074,8 +1074,12 @@ h3.section-title .evaalo-text-en,
     .nav-dashboard-link {
         font-size: 1rem !important;
         padding: 14px 28px !important;
+        /* الزرّ كان يتقلّص مع أقصر ترجمة: «داشبۆرد» الكردية تعطي 112 بكسل مقابل
+           139 للعربية والإنجليزية، فيبدو الشريط مختلفاً بين اللغات. الحدّ الأدنى
+           يثبّت العرض على أوسع تسمية دون أن يقصّ أطول منها لو أُضيفت لاحقاً. */
+        min-width: 140px !important;
     }
-    
+
     .nav-dashboard-link:hover {
         transform: translateY(-4px) scale(1.02) !important;
     }

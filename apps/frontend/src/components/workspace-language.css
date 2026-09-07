@@ -1,0 +1,473 @@
+/*
+ * زرّ اللغة داخل مساحة العمل.
+ *
+ * الشريط العلوي يبقى زجاجاً داكناً في السمتين معاً، لذا تُكتب الألوان هنا صريحةً
+ * كما في زرّ السمة المجاور بدل متغيّرات السمة — الهدف أن يُقرأ الزرّان كزوج واحد،
+ * لا كعنصرين من نظامين. القياسات (40 بكسل، نصف قطر 12) مطابقة لزرّ السمة عمداً.
+ */
+
+.wls {
+    position: relative;
+    display: inline-flex;
+}
+
+.wls__trigger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    background: linear-gradient(
+        145deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(15, 23, 42, 0.62) 52%,
+        rgba(30, 41, 59, 0.78) 100%
+    );
+    color: #e2e8f0;
+    cursor: pointer;
+    overflow: hidden;
+    isolation: isolate;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 2px 10px rgba(0, 0, 0, 0.28);
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.wls__trigger::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+        135deg,
+        rgba(56, 189, 248, 0.18) 0%,
+        rgba(129, 140, 248, 0.14) 55%,
+        rgba(167, 139, 250, 0.12) 100%
+    );
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 0;
+}
+
+.wls__trigger:hover {
+    transform: translateY(-1px);
+    border-color: rgba(34, 211, 238, 0.48);
+    color: #ffffff;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 6px 18px rgba(56, 189, 248, 0.22),
+        0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.wls__trigger:hover::before,
+.wls__trigger[aria-expanded='true']::before {
+    opacity: 1;
+}
+
+.wls__trigger[aria-expanded='true'] {
+    border-color: rgba(34, 211, 238, 0.58);
+    color: #ffffff;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 0 0 2px rgba(56, 189, 248, 0.18),
+        0 8px 22px rgba(56, 189, 248, 0.24);
+}
+
+.wls__trigger:active {
+    transform: translateY(0) scale(0.97);
+}
+
+.wls__trigger:focus-visible {
+    outline: 2px solid rgba(56, 189, 248, 0.65);
+    outline-offset: 2px;
+}
+
+/* ── التفاعل مع تبديل السمة ────────────────────────────────
+ * الزرّ يتبع سمة الشريط كما يفعل زرّ السمة: كهرماني في الفاتحة، سماوي في الداكنة،
+ * ووميض واحد يمرّ عليه في كلّ تبديل. القيم منسوخة من `.nav-theme-toggle` كي يخرج
+ * الوميضان بنفس اللون والمدّة — لا وميضين متقاربَين مختلفَين.
+ */
+.wls__trigger[data-current-theme='light'] {
+    border-color: rgba(251, 191, 36, 0.34);
+    color: #fde68a;
+}
+
+.wls__trigger[data-current-theme='light']::before {
+    background: linear-gradient(
+        135deg,
+        rgba(251, 191, 36, 0.2) 0%,
+        rgba(245, 158, 11, 0.12) 100%
+    );
+}
+
+.wls__trigger[data-current-theme='light']:hover {
+    border-color: rgba(251, 191, 36, 0.58);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 6px 18px rgba(251, 191, 36, 0.18),
+        0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.wls__trigger[data-current-theme='light'][aria-expanded='true'] {
+    border-color: rgba(251, 191, 36, 0.62);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 0 0 2px rgba(251, 191, 36, 0.16),
+        0 8px 22px rgba(251, 191, 36, 0.16);
+}
+
+.wls__trigger[data-current-theme='light'][data-script='arabic'] .wls-mark__latin,
+.wls__trigger[data-current-theme='light'][data-script='latin'] .wls-mark__arabic {
+    stroke: rgba(253, 230, 138, 0.42);
+}
+
+.wls__trigger[data-current-theme='dark'] {
+    border-color: rgba(56, 189, 248, 0.28);
+    color: #bae6fd;
+}
+
+.wls__burst {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(
+        circle at center,
+        rgba(56, 189, 248, 0.55) 0%,
+        rgba(129, 140, 248, 0.28) 45%,
+        rgba(56, 189, 248, 0) 72%
+    );
+}
+
+.wls__trigger[data-current-theme='light'] .wls__burst {
+    background: radial-gradient(
+        circle at center,
+        rgba(251, 191, 36, 0.6) 0%,
+        rgba(245, 158, 11, 0.3) 45%,
+        rgba(251, 191, 36, 0) 72%
+    );
+}
+
+.wls__trigger--switching .wls__burst {
+    animation: wlsBurst 0.62s ease-out;
+}
+
+.wls__trigger--switching .wls-mark {
+    animation: wlsMarkPulse 0.62s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes wlsBurst {
+    0% {
+        opacity: 0;
+        transform: scale(0.55);
+    }
+    35% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.5);
+    }
+}
+
+@keyframes wlsMarkPulse {
+    0% {
+        transform: scale(1);
+    }
+    40% {
+        transform: scale(0.82);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ── العلامة: A / ع ───────────────────────────────────────── */
+.wls-mark {
+    position: relative;
+    z-index: 1;
+    display: block;
+    overflow: visible;
+}
+
+/* الجانب غير الفعّال يخفت بلونه لا بالشفافية: الشفافية فوق زجاج مموّه تُظهر
+   ما تحتها فيبدو الحرف متسخاً لا خافتاً. */
+.wls-mark__latin,
+.wls-mark__arabic {
+    transition: stroke 0.25s ease;
+}
+
+.wls__trigger[data-script='arabic'] .wls-mark__latin,
+.wls__trigger[data-script='latin'] .wls-mark__arabic {
+    stroke: rgba(203, 213, 225, 0.4);
+}
+
+.wls__trigger[data-script='arabic'] .wls-mark__arabic,
+.wls__trigger[data-script='latin'] .wls-mark__latin {
+    stroke: currentColor;
+}
+
+/* ── القائمة: نسخة طبق الأصل من قائمة اللغة القديمة ────────────
+ * لوح أبيض بحدّ سماوي 1.5 بكسل وسهم صغير في أعلاه، عرض 140 بكسل، صفوف بارتفاع
+ * 40 بكسل يفصلها خطّ شعرة، وشريط سماوي ينزلق على الحافة عند المرور والاختيار.
+ * منسوخةٌ إلى هنا بأصنافها الخاصّة لا موسَّعةً في `.nav-links-desktop` — تلك
+ * القواعد مقيّدة بحاوية روابط الموقع، ولمسها ينزف إلى الصفحة التعريفية.
+ */
+.wls__menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    inset-inline-end: 0;
+    width: 140px;
+    box-sizing: border-box;
+    padding: 10px 0 0;
+    border: 1.5px solid rgba(34, 211, 238, 0.3);
+    border-radius: 10px;
+    background: #ffffff;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.12),
+        0 4px 12px rgba(34, 211, 238, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-15px) scale(0.95);
+    transform-origin: top right;
+    transition:
+        opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+        transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+        visibility 0s linear 0.3s;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 10002;
+}
+
+.wls__menu::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.04) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.03) 0%, transparent 50%);
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* لا سهم صغير فوق اللوح: القاعدة الأصلية ترسمه على `::after` عند `top: -6px`
+   بينما اللوح `overflow: hidden` — أي أنّه مقصوص ولم يظهر يوماً. أُسقط هنا عمداً
+   كي يطابق ما كان يُرى فعلاً، لا ما كان مكتوباً في الملفّ. */
+.wls__menu--open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+    transition-delay: 0s;
+}
+
+.wls__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
+    padding: 10px 14px;
+    box-sizing: border-box;
+    border: none;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+    background: transparent;
+    color: #1a1a1a;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+}
+
+.wls__item:last-child {
+    border-bottom: none;
+}
+
+.wls__item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 3px;
+    background: linear-gradient(
+        180deg,
+        rgba(34, 211, 238, 0.9) 0%,
+        rgba(34, 211, 238, 1) 50%,
+        rgba(34, 211, 238, 0.9) 100%
+    );
+    transform: scaleY(0);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 6px rgba(34, 211, 238, 0.4);
+    z-index: 2;
+}
+
+.wls__item::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(34, 211, 238, 0.08);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+}
+
+.wls__item:hover {
+    background: rgba(34, 211, 238, 0.15);
+    color: #0a0a0a;
+    padding-left: 18px;
+    box-shadow: inset 0 0 12px rgba(34, 211, 238, 0.1);
+}
+
+.wls__item:hover::before {
+    transform: scaleY(1);
+}
+
+.wls__item:hover::after {
+    opacity: 1;
+}
+
+.wls__item:hover .wls__item-name {
+    transform: translateX(3px);
+    color: #000000;
+}
+
+.wls__item:focus-visible {
+    outline: 2px solid rgba(34, 211, 238, 0.8);
+    outline-offset: -2px;
+}
+
+.wls__item--active {
+    background: rgba(34, 211, 238, 0.2);
+    color: #0a0a0a;
+    padding-left: 18px;
+    box-shadow: inset 0 0 15px rgba(34, 211, 238, 0.15);
+}
+
+.wls__item--active::before {
+    transform: scaleY(1);
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.6);
+}
+
+.wls__item--active::after {
+    opacity: 1;
+}
+
+.wls__item--active .wls__item-name {
+    font-weight: 700;
+    text-shadow: 0 0 6px rgba(34, 211, 238, 0.3);
+    color: #000000;
+}
+
+.wls__item-name {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    z-index: 3;
+    color: #000000;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.wls__item[data-lang='en'] .wls__item-name {
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+    direction: ltr;
+}
+
+.wls__item[data-lang='ar'] .wls__item-name {
+    font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+    direction: rtl;
+}
+
+.wls__item[data-lang='ku'] .wls__item-name {
+    font-family: 'Noto Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+    direction: rtl;
+}
+
+.wls__item-code {
+    position: relative;
+    z-index: 3;
+    margin-left: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: rgba(100, 116, 139, 0.75);
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+    direction: ltr;
+    transition: color 0.3s ease;
+}
+
+.wls__item:hover .wls__item-code,
+.wls__item--active .wls__item-code {
+    color: rgba(51, 65, 85, 0.9);
+}
+
+/* دون 768 بكسل يختفي الشريط العلوي لصالح الدرج الجانبي — الذي فيه قسم لغة خاصّ به —
+   ويُخفى معه زرّ السمة وزرّ لوحة التحكّم. يتبع زرّ اللغة القاعدة نفسها كي لا يبقى
+   ضِلعاً وحيداً في شريط فارغ. */
+@media (max-width: 768px) {
+    .main-nav .wls {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wls__trigger,
+    .wls__menu,
+    .wls__item,
+    .wls__item::before,
+    .wls__item::after,
+    .wls__item-name,
+    .wls-mark__latin,
+    .wls-mark__arabic {
+        transition: none;
+    }
+
+    .wls__menu {
+        transform: none;
+    }
+
+    .wls__trigger:hover {
+        transform: none;
+    }
+
+    /* الوميض يبقى تلميحاً لونيّاً قصيراً بلا تكبير، والعلامة لا تنبض. */
+    .wls__trigger--switching .wls__burst {
+        animation: none;
+        opacity: 0.5;
+        transition: opacity 0.2s ease;
+    }
+
+    .wls__trigger--switching .wls-mark {
+        animation: none;
+    }
+}

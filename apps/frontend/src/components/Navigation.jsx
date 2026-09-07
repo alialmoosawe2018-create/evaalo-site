@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useBilling } from '../contexts/BillingContext';
 import ThemeToggle from './ThemeToggle';
+import WorkspaceLanguageMenu from './WorkspaceLanguageMenu';
 import { isAppThemeRoute } from '../utils/appRoutes';
 import { isCandidateInterviewRoute } from '../utils/interviewShareLink.js';
 
@@ -505,8 +506,13 @@ const Navigation = () => {
                             </Link>
                         )}
                         
-                        <div 
-                            className="nav-link nav-link-dropdown" 
+                        {/* داخل مساحة العمل تتولّى `WorkspaceLanguageMenu` في `nav-actions`
+                            هذا الدور، فيُرفع هذا العنصر كي لا يظهر زرّا لغة في شريط واحد.
+                            الرفع لا الإخفاء بـ `hidden`: القاعدة `.nav-link-dropdown`
+                            تفرض `display:flex` فتتغلّب على قيمة المتصفّح الافتراضية. */}
+                        {!isWorkspace && (
+                        <div
+                            className="nav-link nav-link-dropdown"
                             id="navLanguageItemDesktop"
                             ref={desktopLangRef}
                             onMouseEnter={() => {
@@ -551,8 +557,9 @@ const Navigation = () => {
                                 ))}
                             </div>
                         </div>
+                        )}
                     </div>
-                    
+
                     <div className="nav-actions">
                         {showCreditsChip ? (
                             <Link
@@ -569,6 +576,7 @@ const Navigation = () => {
                                 </span>
                             </Link>
                         ) : null}
+                        {isWorkspace ? <WorkspaceLanguageMenu /> : null}
                         {showThemeToggle ? <ThemeToggle /> : null}
                     <Link
                         to="/dashboard"
