@@ -10,6 +10,7 @@ import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
 import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
+import { recordMetricAsync } from "../services/siteMetricService.js";
 import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection } from "../services/sttRouterService.js";
 import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, polishVoiceArabicReply, resolveFixedAnswerPath, type InterviewPhase } from "../services/llmService.js";
 import { textToSpeech, textToSpeechWithTimestamps } from "../services/ttsService.js";
@@ -1398,6 +1399,27 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     removeInterviewState(sessionId);
     removeSession(sessionId);
 
+    /**
+     * The voice interview's rollup.
+     *
+     * Recorded here, before the evidence block below, precisely because that block
+     * returns early on an empty history — and a session where the candidate joined
+     * and said nothing is the case most worth counting. It throws nothing, bills
+     * nothing, and until now left no trace at all.
+     *
+     * The outcome is the phase the interview actually reached, so a run that ended
+     * "cleanly" in phase 1 is still visible as a short one.
+     */
+    if (!isVoiceTest) {
+      const turns = historyCopy?.length ?? 0;
+      recordMetricAsync({
+        scope: "interview",
+        name: `voice:session:${sessionMode}`,
+        durationMs: Math.max(0, Date.now() - sessionStartedAt),
+        outcome: turns === 0 ? "no_turns" : `phase_${interviewState?.phase ?? "unknown"}`,
+      });
+    }
+
     void (async () => {
       if (!historyCopy?.length) return;
 
@@ -1406,6 +1428,24 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         "../services/voiceInterviewEvidenceGate.js"
       );
       const evidence = assessVoiceInterviewEvidence(historyCopy, durationSec);
+
+      /**
+       * Whether the call was thick enough to score at all.
+       *
+       * This is the quietest failure in the product: the candidate finished, the
+       * link stayed unlocked, and the only sign is an evaluation that never
+       * arrives. `evidence.ok` already decides it per session — counting it turns
+       * a hidden per-candidate outcome into a rate we can watch.
+       */
+      if (!isVoiceTest) {
+        recordMetricAsync({
+          scope: "interview",
+          name: "voice:evidence",
+          durationMs: durationSec * 1000,
+          failed: !evidence.ok,
+          outcome: evidence.ok ? "scorable" : "too_thin",
+        });
+      }
 
       // Only lock the share link after a session that is thick enough to score.
       // Thin/cut-off calls stay reusable so the candidate can retry.
