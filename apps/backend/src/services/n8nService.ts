@@ -108,6 +108,26 @@ const CRITERION_LABELS: Record<string, string> = {
 export type N8nCriterionItem = { key: string; label: string; value: string };
 
 /**
+ * يُسقط جنس الوظيفة من الحمولة المرسَلة إلى المُقيّم.
+ *
+ * `jobCriteria.gender` هو **شرط الشاغر** لا صفة المتقدّم. لكنّه كان يصل المُقيّم
+ * داخل قائمة المعايير موسوماً «Gender: male»، بلا ما يميّزه عن بقيّة الحقول التي
+ * تصف المرشّح — فقرأه النموذج صفةً للشخص. النتيجة في جلسة 6afff73c: مرشّحة اسمها
+ * فاطمة يصفها التقييم بالمذكّر تارةً وبالمؤنّث تارةً في الفقرة نفسها.
+ *
+ * والحذف هو التصرّف الصحيح لا مجرّد الأسلم: المطابقة على الجنس **وزنها صفر** في
+ * تسجيل المرحلة الأولى — أي أنّنا قرّرنا عمداً ألّا نُقيّم به — فإرساله إلى مُقيّم
+ * لغويّ لا يضيف إشارة ويضيف احتمال ضرر. الحقل يبقى في الحملة لأغراضها الأخرى.
+ */
+export function stripVacancyGender(
+    criteria: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+    if (!criteria || typeof criteria !== 'object') return {};
+    const { gender: _vacancyGender, ...rest } = criteria as Record<string, unknown>;
+    return rest;
+}
+
+/**
  * تحويل كائن معايير الحملة إلى قائمة فقط (لـ n8n: حلقات، عرض، إلخ)
  */
 function criteriaObjectToList(raw: Record<string, unknown> | null | undefined): N8nCriterionItem[] {
@@ -370,8 +390,10 @@ const sendToN8NImpl = async (candidateData: CandidateData, campaignId?: string):
                 console.error('❌ Error loading campaign criteria:', error.message);
             }
         }
-        const criteria = criteriaObjectToList(criteriaRaw);
-        
+        // نفس سبب المرحلة الثانية: جنس الشاغر ليس صفةً للمتقدّم، ووزنه صفر في
+        // التسجيل — فلا إشارة تُفقد بإسقاطه، ويُدفع احتمال أن يُقرأ وصفاً للشخص.
+        const criteria = criteriaObjectToList(stripVacancyGender(criteriaRaw));
+
         // تحضير البيانات للإرسال
         const candidateId = candidateData._id?.toString?.() || candidateData._id || candidateData.id?.toString?.() || candidateData.id;
         const createdAt = candidateData.createdAt instanceof Date 
@@ -774,8 +796,8 @@ export const sendVoiceTranscriptToN8N = async (payload: {
             body.source = 'public_screening';
         }
         if (payload.jobCriteria && Object.keys(payload.jobCriteria).length > 0) {
-            body.jobCriteria = payload.jobCriteria;
-            const criteriaList = criteriaObjectToList(payload.jobCriteria);
+            body.jobCriteria = stripVacancyGender(payload.jobCriteria);
+            const criteriaList = criteriaObjectToList(body.jobCriteria as Record<string, unknown>);
             if (criteriaList.length > 0) {
                 body.criteria = criteriaList;
             }
