@@ -94,6 +94,34 @@ function decisionActionTone(action) {
     return 'neutral';
 }
 
+/**
+ * The closed per-stage decision vocabulary the backend whitelists
+ * (services/compareDecisionActions.ts). The STORED value stays the English
+ * phrase — the whitelist and `decisionActionTone` both match on it — so only
+ * the word on screen is localized. Without this an Arabic report would show an
+ * English decision.
+ */
+const DECISION_ACTION_KEYS = {
+    'Proceed to Voice Interview': 'compareDecision_proceedVoice',
+    'Proceed to Video Interview': 'compareDecision_proceedVideo',
+    'Prioritize for Hiring Decision': 'compareDecision_prioritizeHiring',
+    'Keep as Backup': 'compareDecision_keepBackup',
+    'Keep as Alternative': 'compareDecision_keepAlternative',
+    'Proceed with condition': 'compareDecision_proceedWithCondition',
+    'Human Review': 'compareDecision_humanReview',
+    'Human Review Required': 'compareDecision_humanReviewRequired',
+    'Do Not Progress': 'compareDecision_doNotProgress',
+    'Do Not Prioritize': 'compareDecision_doNotPrioritize',
+};
+
+/** Localized decision action. Anything off the vocabulary shows verbatim. */
+function decisionActionLabel(action, t) {
+    const raw = String(action || '').trim();
+    if (!raw) return '';
+    const key = DECISION_ACTION_KEYS[raw];
+    return key ? t(key) : raw;
+}
+
 function panelTitleKey(uiStage) {
     if (uiStage === 'voice') return 'aiCompareTop_panelTitleStage2';
     if (uiStage === 'video') return 'aiCompareTop_panelTitleStage3';
@@ -178,7 +206,10 @@ export default function ScreeningAiComparePanel({
     const isTimeout = status === 'timeout';
     const leadRow = ranking.find((r) => (r.rank ?? 0) === 1) ?? ranking[0];
     const snapshotNext = clipText(
-        leadRow?.decisionAction || finalRecommendation || whyTopCandidateWins || decisionSummary
+        decisionActionLabel(leadRow?.decisionAction, t) ||
+            finalRecommendation ||
+            whyTopCandidateWins ||
+            decisionSummary
     );
     const reportDecisionOptions = result?.decisionOptions;
     const showSnapshot = ranking.length > 0 && !isLoading && !isFailed && !isTimeout;
@@ -284,7 +315,10 @@ export default function ScreeningAiComparePanel({
                                         {ranking.map((row, i) => {
                                             const rank = row.rank ?? i + 1;
                                             const conf = confidencePct(row);
-                                            const actionLabel = (row.decisionAction || '').trim();
+                                            // Raw drives the tone (it matches the English vocabulary);
+                                            // the label is what the reader sees.
+                                            const actionRaw = (row.decisionAction || '').trim();
+                                            const actionLabel = decisionActionLabel(actionRaw, t);
                                             const matchedCandidate =
                                                 candidateByKey.get(`app:${String(row.applicationId || '').trim()}`) ||
                                                 candidateByKey.get(`id:${String(row.candidateId || '').trim()}`) ||
@@ -334,7 +368,7 @@ export default function ScreeningAiComparePanel({
                                                         {actionLabel ? (
                                                             <span
                                                                 className={`screening-ai-compare-badge screening-ai-compare-badge--rec screening-ai-compare-badge--rec-${decisionActionTone(
-                                                                    actionLabel
+                                                                    actionRaw
                                                                 )}`}
                                                             >
                                                                 {actionLabel}
@@ -514,7 +548,7 @@ export default function ScreeningAiComparePanel({
                                                             row.decisionAction
                                                         )}`}
                                                     >
-                                                        {row.decisionAction}
+                                                        {decisionActionLabel(row.decisionAction, t)}
                                                     </span>
                                                 ) : null}
                                                 {badgeLabel ? (
