@@ -2047,31 +2047,10 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         border: none !important;
         border-radius: 0 !important;
         box-shadow: none !important;
+        padding: 0 !important;
         margin: 0 !important;
         overflow: visible !important;
         flex-wrap: nowrap !important;
-        /*
-         * صندوق مركزيّ ثابت العرض، والروابط تبدأ من حافّته.
-         *
-         * الحاوية نفسها ثابتة العرض في اللغات الثلاث (910 بكسل، مقيسة)، لكنّ
-         * المحتوى كان مركزّاً بداخلها — ومجموع عرض التسميات يختلف بين اللغات:
-         * 503 بالإنجليزية · 464 بالعربية · 475 بالكردية. فمع المركزة يتوزّع
-         * الفرق على الطرفين ويتحرّك **كلّ** رابط ~20 بكسل عند تبديل اللغة.
-         *
-         * المحاولة الأولى بدأت الروابط من حافة الحاوية العريضة، فثبتت لكنّها
-         * التصقت باليسار وفقدت المركزة. الصواب: صندوق بعرض قارّ لا يتبع النصّ،
-         * يُمركَز في الشريط، والروابط تبدأ من حافّته. فالبداية ثابتة والمظهر
-         * مركزيّ في آن.
-         *
-         * العرض مقيس لا مخمَّن: أعرض مجموعة في هذا النطاق هي الإنجليزية 503
-         * بكسل، فـ 512 يسعها بهامش. لإعادة القياس بعد تغيير التسميات: قِس
-         * last.right - first.left لكلّ لغة وخذ الأكبر.
-         *
-         * والحشو أيسر ثابت لا منطقيّ: هذا الشريط يبقى direction: ltr في اللغات
-         * الثلاث (مقيس) — لا يُقلب مع العربية والكردية — فبدايته اليسار دائماً.
-         */
-        justify-content: flex-start !important;
-        padding: 0 !important;
     }
     
     .nav-menu-wrapper {
@@ -2501,25 +2480,14 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         display: flex !important;
         flex-direction: row !important;
         align-items: center !important;
-        /*
-         * فوق 1400 بكسل الحاوية مطلقة الموضع وتتقلّص على محتواها
-         * (width: auto) ثمّ تُمركَز بـ left: 50% و translateX(-50%) — أي أنّ
-         * عرض النصّ نفسه هو ما يحدّد موضع الشريط، فتبديل اللغة يزيحه.
-         *
-         * العلاج: عرض قارّ لا يتبع المحتوى، والبدء من الحافة. الصندوق يبقى
-         * مركَّزاً في الشريط كما كان، لكنّ حافّته لم تعد تتحرّك مع طول الكلمات.
-         *
-         * 896 مقيسة: أعرض مجموعة فوق 1400 هي الإنجليزية 878 بكسل (الفجوة هنا
-         * 16 لا 6، فالمجموعة أعرض ممّا في النطاق الأضيق).
-         */
-        justify-content: flex-start !important;
+        justify-content: center !important;
         gap: 16px !important;
         opacity: 1 !important;
         visibility: visible !important;
         position: absolute !important;
         left: 50% !important;
         transform: translateX(-50%) !important;
-        width: 896px !important;
+        width: auto !important;
         height: auto !important;
         min-width: auto !important;
         max-width: calc(100% - 400px) !important;
@@ -2617,16 +2585,11 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         transform: none !important;
         flex: 1 1 auto !important;
         min-width: 0 !important;
-        /* القاعدة الحاكمة في هذا النطاق — الشرح في قاعدة 769px أعلاه.
-           صندوق بعرض قارّ (أعرض مجموعة هنا 503 بكسل) تُمركِزه الهوامش التلقائية
-           بين الشعار والأزرار، والروابط تبدأ من حافّته فلا تتحرّك مع اللغة. */
-        flex: 0 0 auto !important;
-        width: 512px !important;
-        max-width: 100% !important;
-        margin: 0 auto !important;
-        justify-content: flex-start !important;
+        max-width: none !important;
+        justify-content: center !important;
         gap: 6px !important;
-        padding: 0 !important;
+        margin: 0 !important;
+        padding: 0 4px !important;
         overflow: visible !important;
         flex-wrap: nowrap !important;
     }
