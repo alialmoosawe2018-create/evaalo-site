@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 /** Preserve query/hash when redirecting legacy /demo URLs to /overview. */
@@ -70,14 +70,14 @@ import Interview from './pages/Interview';
 import PublicScreeningCall from './pages/PublicScreeningCall';
 import PublicVideoScreeningCall from './pages/PublicVideoScreeningCall';
 import Dashboard from './pages/Dashboard';
-import Onboarding from './pages/Onboarding';
-import Workflow from './pages/Workflow';
-import Candidates from './pages/Candidates';
-import AIHeadHunter from './pages/AIHeadHunter';
-import AICvComparison from './pages/AICvComparison';
-import HeadHunterSearchHistory from './pages/HeadHunterSearchHistory.jsx';
-import HeadHunterCampaignPage from './pages/HeadHunterCampaignPage.jsx';
-import InterviewTemplates from './pages/InterviewTemplates';
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Workflow = lazy(() => import('./pages/Workflow'));
+const Candidates = lazy(() => import('./pages/Candidates'));
+const AIHeadHunter = lazy(() => import('./pages/AIHeadHunter'));
+const AICvComparison = lazy(() => import('./pages/AICvComparison'));
+const HeadHunterSearchHistory = lazy(() => import('./pages/HeadHunterSearchHistory.jsx'));
+const HeadHunterCampaignPage = lazy(() => import('./pages/HeadHunterCampaignPage.jsx'));
+const InterviewTemplates = lazy(() => import('./pages/InterviewTemplates'));
 import WrittenInterview from './pages/WrittenInterview';
 import VoiceInterview from './pages/VoiceInterview';
 import Reception from './pages/Reception';
@@ -85,23 +85,23 @@ import VideoInterview from './pages/VideoInterview';
 import VideoInterviewCall from './pages/VideoInterviewCall';
 import ReceptionDemoCall from './pages/ReceptionDemoCall';
 import DemoPage from './pages/DemoPage';
-import Account from './pages/Account';
-import AccountSettings from './pages/AccountSettings';
-import AccountUsage from './pages/AccountUsage';
-import AccountSpending from './pages/AccountSpending';
-import AccountBilling from './pages/AccountBilling';
-import AccountStripePortal from './pages/AccountStripePortal';
-import AccountBillingSuccess from './pages/AccountBillingSuccess';
-import AccountBillingCancel from './pages/AccountBillingCancel';
-import AccountMembers from './pages/AccountMembers';
-import Employees from './pages/Employees';
+const Account = lazy(() => import('./pages/Account'));
+const AccountSettings = lazy(() => import('./pages/AccountSettings'));
+const AccountUsage = lazy(() => import('./pages/AccountUsage'));
+const AccountSpending = lazy(() => import('./pages/AccountSpending'));
+const AccountBilling = lazy(() => import('./pages/AccountBilling'));
+const AccountStripePortal = lazy(() => import('./pages/AccountStripePortal'));
+const AccountBillingSuccess = lazy(() => import('./pages/AccountBillingSuccess'));
+const AccountBillingCancel = lazy(() => import('./pages/AccountBillingCancel'));
+const AccountMembers = lazy(() => import('./pages/AccountMembers'));
+const Employees = lazy(() => import('./pages/Employees'));
 import AboutPage from './pages/AboutPage';
 import ContactPage from './pages/ContactPage';
 import PricingPage from './pages/PricingPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import DataSecurityPage from './pages/DataSecurityPage';
-import Notifications from './pages/Notifications';
+const Notifications = lazy(() => import('./pages/Notifications'));
 import AppBottomNav from './components/AppBottomNav';
 import CandidateInterviewBodyClass from './components/CandidateInterviewBodyClass';
 
@@ -159,6 +159,27 @@ function App() {
                             <CandidateInterviewBodyClass />
                             <AppBottomNav />
                             <ErrorBoundary>
+                            {/*
+                              الصفحات المحميّة تُحمَّل عند الطلب لا في حزمة الإقلاع.
+                              السبب مقيس على الإنتاج: سكربت Clerk لا يُطلَب إلّا بعد
+                              أن تُحلَّل حزمتنا — عند 1843 مللي — ولا شيء مُصادَق يحدث
+                              قبل أن تجهز عند ~3700. كلّ ما يخرج من الحزمة يقرّب ذلك.
+
+                              ثلاثة استثناءات متعمَّدة تبقى ساكنة:
+                              • `Dashboard` — هي الوجهة التي يُشتكى من بطئها، وتقسيمها
+                                يضيف تنزيل قطعة على النقرة نفسها.
+                              • صفحات المرشّح (`/form` و `/interview` و مكالمات الفيديو)
+                                — روابط تُفتح مرّة واحدة على هاتف؛ فشلُ تنزيل قطعة هناك
+                                يحرق الرابط، بينما هنا يعني إعادة تحميل لمستخدم مسجَّل.
+                              • الصفحات التعريفية — أوّل ما يراه زائر.
+                            */}
+                            {/* البديل فارغ عمداً: القطعة تصل في أجزاء من الثانية، ووميض
+                                دوّارة أسوأ من مساحة ساكنة. الارتفاع يحجز مكان الصفحة فلا
+                                يقفز الشريط السفلي. النمط سطريّ لا في `index.css` كي لا
+                                يختلط هذا التغيير بعملٍ آخر معلَّق في ذلك الملفّ. */}
+                            <Suspense
+                                fallback={<div style={{ minHeight: '60vh' }} aria-busy="true" />}
+                            >
                             <Routes>
                                 {/* Public pages */}
                                 <Route path="/" element={<Home />} />
@@ -220,6 +241,7 @@ function App() {
                                 {/* Catch-all: an unknown URL used to render the shell and nothing else. */}
                                 <Route path="*" element={<NotFound />} />
                             </Routes>
+                            </Suspense>
                             </ErrorBoundary>
                             </BillingProvider>
                             </OrganizationProvider>
