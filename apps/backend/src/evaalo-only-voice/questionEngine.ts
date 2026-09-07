@@ -638,6 +638,7 @@ const DEFAULT_POOL_EVALUATES: Record<number, InterviewEvaluationIntent[]> = {
 };
 
 const PHASE2_TOPIC_EVALUATES: Record<Phase2TopicKey, InterviewEvaluationIntent[]> = {
+  role: ['role_fit', 'problem_solving', 'clarity'],
   skill: ['digital_skills', 'tooling', 'clarity'],
   certification: ['learning_agility', 'digital_skills', 'clarity'],
   education: ['learning_agility', 'role_fit', 'clarity'],
@@ -723,6 +724,30 @@ export function languageNamesOnly(languages?: (string | null | undefined)[] | nu
 }
 
 const PHASE2_TOPIC_PROMPTS: Record<Phase2TopicKey, Phase2TopicHandler> = {
+  /**
+   * الموضوع الوحيد المشتقّ من **الوظيفة** لا من السيرة.
+   *
+   * التوجيه يطلب مهمّة يوميّة في الدور المتقدَّم إليه، لا خبرةً سابقة فيه: مَن
+   * غيّر مجاله يجيب عمّا سيفعله ويكشف القابل للنقل، بدل أن يُغلق الباب بـ«ما
+   * عندي خبرة» في السطر الأوّل. وذلك ما حدث فعلاً حين سُئلت الخبرة مباشرةً:
+   * «لم اعمل في مجال الـ HR سابقا وما عندي اي سنوات خبرة» — جواب صادق لا يقيس
+   * شيئاً.
+   *
+   * وبلا وظيفة معروفة يسقط إلى سؤال محايد عن الدور المطلوب، لا إلى السيرة.
+   */
+  role: (profile) => {
+    const position = profile?.position_applied_for?.trim();
+    if (position) {
+      return {
+        ar: `اسأل المرشح عن مهمّة يوميّة يتوقّع أن يقوم بها في وظيفة ${position}، وكيف سيتعامل معها.`,
+        en: `Ask the candidate about a day-to-day task they expect in the ${position} role, and how they would handle it.`,
+      };
+    }
+    return {
+      ar: 'اسأل المرشح عن مهمّة يوميّة يتوقّع أن يقوم بها في الوظيفة التي تقدّم لها، وكيف سيتعامل معها.',
+      en: 'Ask the candidate about a day-to-day task they expect in the role they applied for, and how they would handle it.',
+    };
+  },
   skill: (profile) => {
     const skill = profile?.skills?.[0]?.trim();
     if (skill) {
