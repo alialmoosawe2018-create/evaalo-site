@@ -105,10 +105,19 @@ const DANGLING_TAIL_TOKENS = new Set([
   "إنه", "اني", "إني", "ان", "أن", "ما", "مو", "بس", "كان", "چان", "هم", "هي", "هو",
   "and", "or", "but", "so", "because", "with", "for", "to", "of", "in", "on", "at",
   "the", "a", "an", "that", "which", "if", "when", "then", "my", "our", "their", "as",
+  // ضمائر وأفعال مساعدة وحشو إنجليزي: مواضع التردّد الأشيع عند من ينطق بلغة ثانية.
+  // «my» كانت موجودة و«i» لم تكن، فجلسة fc989f10 نجت عند «…you know, my.» ونافذتها
+  // 2000ms، وقُطعت عند «…academic journey, I.» ونافذتها 1050ms — نفس المتحدّث ونفس
+  // التردّد، وحمايةٌ إلى النصف. خرج من القطع التصاقٌ مشوّه («Get to interact and
+  // Barcelona») ثم «And. Yeah,»، فرفضته بوّابة الأدلّة لقِصَر كلامه — بعد أن قُطع.
+  "i", "we", "you", "he", "she", "it", "they", "is", "are", "was", "were", "am",
+  "have", "has", "had", "will", "would", "can", "could", "should", "do", "does",
+  "did", "about", "from", "by", "like", "just", "very", "really", "also", "into",
+  "uh", "um", "er", "hmm", "well", "actually", "basically", "maybe",
 ]);
 
 /** كلمات قصيرة قائمة بذاتها — لا تُعدّ مبتورة */
-const STANDALONE_SHORT_TOKENS = new Set(["لا", "اي", "no", "ok"]);
+const STANDALONE_SHORT_TOKENS = new Set(["لا", "اي", "no", "ok", "hi", "yes", "up"]);
 
 const tailToken = (text: string): string => {
   const stripped = text.trim().replace(/[.,!?؟،؛:]+$/u, "").trim();
@@ -127,7 +136,9 @@ export function tailLooksIncomplete(text: string): boolean {
   if (!last) return false;
   if (STANDALONE_SHORT_TOKENS.has(last)) return false;
   if (DANGLING_TAIL_TOKENS.has(last)) return true;
-  return /^[\u0621-\u064A]{1,2}$/.test(last);
+  // \u0643\u0644\u0645\u0629 \u0645\u0628\u062A\u0648\u0631\u0629 \u0645\u0646 \u062D\u0631\u0641 \u0623\u0648 \u062D\u0631\u0641\u064A\u0646 \u2014 \u0639\u0631\u0628\u064A\u0629 \u0623\u0648 \u0644\u0627\u062A\u064A\u0646\u064A\u0629. \u0643\u0627\u0646 \u0627\u0644\u0646\u0637\u0627\u0642 \u0639\u0631\u0628\u064A\u0627\u064B \u0628\u062D\u062A\u0627\u064B\u060C \u0641\u062D\u0631\u0641\u064C
+  // \u0639\u0631\u0628\u064A \u0645\u0628\u062A\u0648\u0631 \u0645\u062D\u0645\u064A\u0651 \u0648\u0646\u0638\u064A\u0631\u0647 \u0627\u0644\u0644\u0627\u062A\u064A\u0646\u064A \u0644\u0627. \u0627\u0644\u062D\u0627\u0644\u0627\u062A \u0627\u0644\u0642\u0627\u0626\u0645\u0629 \u0628\u0630\u0627\u062A\u0647\u0627 \u0627\u0633\u062A\u064F\u062B\u0646\u064A\u062A \u0623\u0639\u0644\u0627\u0647.
+  return /^[\u0621-\u064A]{1,2}$/.test(last) || /^[a-z]{1,2}$/.test(last);
 }
 
 export function countTurnWords(text: string): number {
@@ -157,6 +168,12 @@ export function resolveTurnSilenceMs(opts: {
       return opts.defaultMs + (opts.incompleteTailExtraMs ?? 0);
     }
     if (countTurnWords(opts.text) < MIN_WORDS_FOR_FAST_END) return opts.defaultMs;
+    // النقطة وحدها لا تُقصّر النافذة. Speechmatics يُدخل «.» عند كل تردّد، فكانت
+    // النافذة تنزل من defaultMs إلى punctuationMs في اللحظة التي يحتاج فيها
+    // المتحدّث المتردّد وقتاً أطول لا أقصر — أي أن النظام يعاقب التردّد تحديداً.
+    // علامة الاستفهام والتعجّب نبرتان مقصودتان لا يخترعهما الـ STT، فتبقيان
+    // مؤهّلتين للنافذة السريعة.
+    if (!/[!?؟]\s*$/u.test(opts.text.trim())) return opts.defaultMs;
   }
   return opts.tailIsFinal && opts.endsWithPunctuation ? opts.punctuationMs : opts.defaultMs;
 }
