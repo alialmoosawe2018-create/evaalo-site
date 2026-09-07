@@ -93,11 +93,11 @@ export const DesignProvider = ({ children }) => {
         showToast('Question updated successfully!');
     }, [showToast]);
 
+    // لا تأكيد هنا. السياق يُنفّذ، والواجهة تسأل — و`window.confirm` كانت تحجب
+    // الخيط الرئيسي (ثقيلة على iOS خصوصاً). التأكيد صار خطوتين داخل Design.jsx.
     const deleteQuestion = useCallback((index) => {
-        if (window.confirm('Are you sure you want to delete this question?')) {
-            setQuestions(prev => prev.filter((_, i) => i !== index));
-            showToast('Question deleted successfully!');
-        }
+        setQuestions(prev => prev.filter((_, i) => i !== index));
+        showToast('Question deleted successfully!');
     }, [showToast]);
 
     const copyQuestion = useCallback((index) => {
@@ -119,10 +119,8 @@ export const DesignProvider = ({ children }) => {
 
     const clearAllQuestions = useCallback(() => {
         if (questions.length === 0) return;
-        if (window.confirm('Are you sure you want to delete all questions? This action cannot be undone.')) {
-            setQuestions([]);
-            showToast('All questions cleared successfully!');
-        }
+        setQuestions([]);
+        showToast('All questions cleared successfully!');
     }, [questions, showToast]);
 
     const updateStats = useCallback(() => {

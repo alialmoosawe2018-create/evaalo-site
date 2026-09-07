@@ -38,6 +38,24 @@ const Design = () => {
     } = useDesign();
 
     const [questionsTitle, setQuestionsTitle] = useState('Form');
+    /**
+     * تأكيد الحذف داخل الصفحة بدل `window.confirm`: النافذة الأصلية متزامنة تحجب
+     * الخيط الرئيسي وتوقف الرسم، وiOS ثقيل معها. `armedDeleteIndex` هو الصفّ
+     * المُسلَّح، و`confirmClearAll` تأكيد المسح الشامل — كلاهما يُنزع وحده بعد
+     * أربع ثوانٍ حتى لا يبقى زرٌّ خطِرٌ مسلَّحاً بلا انتباه.
+     */
+    const [armedDeleteIndex, setArmedDeleteIndex] = useState(null);
+    const [confirmClearAll, setConfirmClearAll] = useState(false);
+    useEffect(() => {
+        if (armedDeleteIndex === null) return undefined;
+        const id = setTimeout(() => setArmedDeleteIndex(null), 4000);
+        return () => clearTimeout(id);
+    }, [armedDeleteIndex]);
+    useEffect(() => {
+        if (!confirmClearAll) return undefined;
+        const id = setTimeout(() => setConfirmClearAll(false), 4000);
+        return () => clearTimeout(id);
+    }, [confirmClearAll]);
     const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
     const [backgroundColorDropdownOpen, setBackgroundColorDropdownOpen] = useState(false);
     const [fontDropdownOpen, setFontDropdownOpen] = useState(false);
@@ -489,7 +507,23 @@ const Design = () => {
                                 <path d="M10.667 10.667h2.666a1.333 1.333 0 0 0 1.334-1.334V2.667a1.333 1.333 0 0 0-1.334-1.334H6.667A1.333 1.333 0 0 0 5.333 2.667v2.666M10.667 5.333H3.333a1.333 1.333 0 0 0-1.333 1.334v6.666a1.333 1.333 0 0 0 1.333 1.334h7.334a1.333 1.333 0 0 0 1.333-1.334V6.667a1.333 1.333 0 0 0-1.333-1.334Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </button>
-                        <button className="question-item-btn delete-question" onClick={() => deleteQuestion(index)} aria-label="Delete question">
+                        {/* زرّ الحذف بخطوتين: الضغطة الأولى تُسلّحه والثانية تحذف.
+                            كان `window.confirm` — نافذة متزامنة تحجب الخيط الرئيسي،
+                            وiOS ثقيل معها. يُنزع التسليح وحده بعد أربع ثوانٍ. */}
+                        <button
+                            className="question-item-btn delete-question"
+                            onClick={() => {
+                                if (armedDeleteIndex === index) {
+                                    deleteQuestion(index);
+                                    setArmedDeleteIndex(null);
+                                    return;
+                                }
+                                setArmedDeleteIndex(index);
+                            }}
+                            aria-label={armedDeleteIndex === index ? 'Confirm delete' : 'Delete question'}
+                            title={armedDeleteIndex === index ? 'Press again to delete' : 'Delete question'}
+                            style={armedDeleteIndex === index ? { color: '#f87171', fontWeight: 700 } : undefined}
+                        >
                             <svg width="18" height="18" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M2 4h12M6 4V2.667a1.333 1.333 0 0 1 1.333-1.334h1.334A1.333 1.333 0 0 1 10.667 2.667V4m2 0v9.333a1.333 1.333 0 0 1-1.333 1.334H5.333A1.333 1.333 0 0 1 4 13.333V4h8Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
@@ -503,7 +537,7 @@ const Design = () => {
                 </div>
             </div>
         );
-    }, [editQuestion, copyQuestion, deleteQuestion]);
+    }, [editQuestion, copyQuestion, deleteQuestion, armedDeleteIndex]);
 
     // Question types data
     const questionTypes = {
@@ -616,12 +650,25 @@ const Design = () => {
                             <span className="btn-text">Saved</span>
                         </button>
                         {questions.length > 0 && (
-                            <button className="btn btn-clear-all" onClick={clearAllQuestions}>
+                            <button
+                                className="btn btn-clear-all"
+                                onClick={() => {
+                                    if (confirmClearAll) {
+                                        clearAllQuestions();
+                                        setConfirmClearAll(false);
+                                        return;
+                                    }
+                                    setConfirmClearAll(true);
+                                }}
+                                title={confirmClearAll ? 'Press again to delete all questions' : 'Clear All'}
+                            >
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                     <path d="M10 1.66667C5.39783 1.66667 1.66667 5.39783 1.66667 10C1.66667 14.6022 5.39783 18.3333 10 18.3333C14.6022 18.3333 18.3333 14.6022 18.3333 10C18.3333 5.39783 14.6022 1.66667 10 1.66667Z" stroke="currentColor" strokeWidth="1.5"/>
                                 </svg>
-                                <span className="btn-text">Clear All</span>
+                                <span className="btn-text">
+                                    {confirmClearAll ? 'Press again to clear all' : 'Clear All'}
+                                </span>
                             </button>
                         )}
                     </div>

@@ -17,6 +17,8 @@ const Workflow = () => {
     const [zoom, setZoom] = useState(1);
     const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
     const [selectedNodes, setSelectedNodes] = useState(new Set());
+    /** أول ضغطة على «Reset Layout» تطلب التأكيد داخل الزرّ — لا نافذة حاجبة. */
+    const [confirmingReset, setConfirmingReset] = useState(false);
     const [isSelectMode, setIsSelectMode] = useState(true);
     const [history, setHistory] = useState([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
@@ -319,11 +321,13 @@ const Workflow = () => {
         console.log(`Aligned ${nodesToAlign.length} nodes vertically at X: ${centerX}`);
     };
 
+    // Two-step inline confirm instead of window.confirm: the native dialog is
+    // synchronous — it blocks the main thread and stops painting — and iOS Safari
+    // is heavy with it, which froze the page for a beat on every press.
     const handleResetLayout = () => {
-        if (window.confirm('Are you sure you want to reset the layout? This will clear all workflow connections.')) {
-            setNodes([]);
-            console.log('Layout reset');
-        }
+        setNodes([]);
+        setConfirmingReset(false);
+        console.log('Layout reset');
     };
 
     const handleSave = () => {
@@ -614,7 +618,12 @@ const Workflow = () => {
                         <p className="design-subtitle">Design question flow based on answers (Typeform-style)</p>
                     </div>
                     <div className="header-actions">
-                        <button type="button" className="btn btn-secondary" onClick={handleResetLayout}>
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => setConfirmingReset(true)}
+                            disabled={confirmingReset}
+                        >
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                                 <path
                                     d="M4.16667 9.16667C4.16667 6.40525 6.40525 4.16667 9.16667 4.16667C11.9281 4.16667 14.1667 6.40525 14.1667 9.16667C14.1667 11.9281 11.9281 14.1667 9.16667 14.1667C7.23858 14.1667 5.59538 12.9281 4.92805 11.25"
@@ -624,8 +633,24 @@ const Workflow = () => {
                                 />
                                 <path d="M4.16667 4.16667V9.16667H9.16667" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
-                            <span className="btn-text">Reset Layout</span>
+                            <span className="btn-text">
+                                {confirmingReset ? 'Clear all connections?' : 'Reset Layout'}
+                            </span>
                         </button>
+                        {confirmingReset ? (
+                            <>
+                                <button type="button" className="btn btn-secondary" onClick={handleResetLayout}>
+                                    <span className="btn-text">Yes, reset</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => setConfirmingReset(false)}
+                                >
+                                    <span className="btn-text">Cancel</span>
+                                </button>
+                            </>
+                        ) : null}
                         <button type="button" className="btn btn-primary" onClick={handleSave}>
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                                 <path d="M15.8333 17.5H4.16667C3.25 17.5 2.5 16.75 2.5 15.8333V4.16667C2.5 3.25 3.25 2.5 4.16667 2.5H13.3333L17.5 6.66667V15.8333C17.5 16.75 16.75 17.5 15.8333 17.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

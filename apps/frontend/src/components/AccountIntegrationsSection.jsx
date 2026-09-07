@@ -292,9 +292,21 @@ export default function AccountIntegrationsSection() {
         [handleLinkedInConnect]
     );
 
+    /**
+     * تأكيد بخطوتين عبر شريط `notice` الموجود، بدل `window.confirm`: النافذة
+     * الأصلية متزامنة تحجب الخيط الرئيسي وتوقف الرسم، وiOS ثقيل معها. الضغطة
+     * الأولى تُسلّح المزوّد وتعرض السؤال، والثانية على المزوّد نفسه تفصله.
+     */
+    const [pendingDisconnect, setPendingDisconnect] = useState(null);
     const handleDisconnect = useCallback(
         async (providerId) => {
-            if (!window.confirm(t('account_integrations_disconnectConfirm'))) return;
+            if (pendingDisconnect !== providerId) {
+                setPendingDisconnect(providerId);
+                setNotice({ ok: false, text: t('account_integrations_disconnectConfirm') });
+                return;
+            }
+            setPendingDisconnect(null);
+            setNotice(null);
             try {
                 await apiClient.delete(`/api/integrations/${providerId}`);
                 await refresh();
@@ -302,8 +314,17 @@ export default function AccountIntegrationsSection() {
                 /* ignore */
             }
         },
-        [refresh, t]
+        [refresh, t, pendingDisconnect]
     );
+    // لا يبقى مزوّدٌ مسلَّحاً بلا انتباه.
+    useEffect(() => {
+        if (!pendingDisconnect) return undefined;
+        const id = setTimeout(() => {
+            setPendingDisconnect(null);
+            setNotice(null);
+        }, 6000);
+        return () => clearTimeout(id);
+    }, [pendingDisconnect]);
 
     const linkedinAutomationOff = useMemo(() => !flags.linkedinAutomationEnabled, [flags]);
 
