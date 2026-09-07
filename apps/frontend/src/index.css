@@ -2047,10 +2047,26 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         border: none !important;
         border-radius: 0 !important;
         box-shadow: none !important;
-        padding: 0 !important;
         margin: 0 !important;
         overflow: visible !important;
         flex-wrap: nowrap !important;
+        /*
+         * الروابط تبدأ من أوّل الحاوية لا من منتصفها.
+         *
+         * الحاوية نفسها ثابتة العرض في اللغات الثلاث (910 بكسل، مقيسة)، لكنّ
+         * المحتوى كان مركزّاً بداخلها — ومجموع عرض التسميات يختلف بين اللغات:
+         * 503 بالإنجليزية · 464 بالعربية · 475 بالكردية. فمع المركزة يتوزّع
+         * الفرق على الطرفين ويتحرّك **كلّ** رابط ~20 بكسل عند تبديل اللغة.
+         *
+         * بالبدء من الحافة يثبت الرابط الأوّل مهما تغيّرت اللغة، ولا ينزاح إلّا
+         * ما بعده وبمقدار فرق التسمية وحده. لا يمكن تثبيت الجميع ما دام النصّ
+         * نفسه يختلف طولاً — لكن يمكن تثبيت نقطة يرتكز عليها البصر.
+         *
+         * والحشو أيسر ثابت لا منطقيّ: هذا الشريط يبقى direction: ltr في اللغات
+         * الثلاث (مقيس) — لا يُقلب مع العربية والكردية — فبدايته اليسار دائماً.
+         */
+        justify-content: flex-start !important;
+        padding: 0 0 0 24px !important;
     }
     
     .nav-menu-wrapper {
@@ -2480,14 +2496,23 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         display: flex !important;
         flex-direction: row !important;
         align-items: center !important;
-        justify-content: center !important;
+        /*
+         * فوق 1400 بكسل الحاوية مطلقة الموضع وتتقلّص على محتواها
+         * (width: auto) ثمّ تُمركَز بـ left: 50% و translateX(-50%) — أي أنّ
+         * عرض النصّ نفسه هو ما يحدّد موضع الشريط، فتبديل اللغة يزيحه.
+         *
+         * العلاج: عرض ثابت لا يتبع المحتوى (نفس قيمة max-width السابقة)،
+         * والبدء من الحافة. الصندوق يبقى مركَّزاً كما كان، لكنّ حافّته لم تعد
+         * تتحرّك مع طول الكلمات.
+         */
+        justify-content: flex-start !important;
         gap: 16px !important;
         opacity: 1 !important;
         visibility: visible !important;
         position: absolute !important;
         left: 50% !important;
         transform: translateX(-50%) !important;
-        width: auto !important;
+        width: calc(100% - 400px) !important;
         height: auto !important;
         min-width: auto !important;
         max-width: calc(100% - 400px) !important;
@@ -2586,10 +2611,12 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         flex: 1 1 auto !important;
         min-width: 0 !important;
         max-width: none !important;
-        justify-content: center !important;
+        /* البدء من الحافة لا المنتصف — الشرح في قاعدة 769px أعلاه. هذه هي
+           القاعدة الحاكمة في هذا النطاق، فتعديل تلك وحدها لا يكفي. */
+        justify-content: flex-start !important;
         gap: 6px !important;
         margin: 0 !important;
-        padding: 0 4px !important;
+        padding: 0 0 0 24px !important;
         overflow: visible !important;
         flex-wrap: nowrap !important;
     }
