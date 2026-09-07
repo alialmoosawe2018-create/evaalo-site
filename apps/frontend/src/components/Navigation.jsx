@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { translations } from '../translations';
 import { useBilling } from '../contexts/BillingContext';
 import ThemeToggle from './ThemeToggle';
 import WorkspaceLanguageMenu from './WorkspaceLanguageMenu';
@@ -49,6 +50,50 @@ const ProductDropdownPanel = ({ sections, dropdownClassName, onNavigate, isPathA
             ))}
         </div>
     </div>
+);
+
+/**
+ * A nav label that occupies the width of its widest translation.
+ *
+ * The links are centred as a group, so the group's width decides where every
+ * link sits — and that width follows the labels: 503px in English, 464 in
+ * Arabic, 475 in Kurdish. Switching language therefore moved every link about
+ * 20px. Anchoring the group's start instead fixed the movement but pulled the
+ * shorter languages off centre, so the only way to hold both is to stop the
+ * width from depending on the language at all.
+ *
+ * Each label renders all three translations stacked in one grid cell: the
+ * active one visible, the others hidden but still measured. The cell takes the
+ * widest, so the total is the same in every language and centring is stable.
+ *
+ * Each ghost carries its own `lang`, and the stylesheet gives it that
+ * language's font — Cairo for Arabic, Noto Sans Arabic for Kurdish. Without
+ * that the Arabic text would be measured in Inter and the reservation would be
+ * wrong by exactly the amount this exists to prevent.
+ *
+ * It reads the translation table directly rather than through `t`, which only
+ * ever answers for the current language. Nothing needs re-measuring when a
+ * label changes: the reservation is the label.
+ */
+const NAV_LABEL_LANGS = ['en', 'ar', 'ku'];
+
+const StableNavLabel = ({ labelKey, currentLang, transform }) => (
+    <span className="nav-label-stack">
+        {NAV_LABEL_LANGS.map((code) => {
+            const text = translations[code]?.[labelKey] ?? translations.en?.[labelKey] ?? labelKey;
+            const isActive = code === currentLang;
+            return (
+                <span
+                    key={code}
+                    className={`nav-label-stack__item${isActive ? '' : ' nav-label-stack__item--ghost'}`}
+                    lang={code}
+                    aria-hidden={!isActive}
+                >
+                    {transform ? transform(text) : text}
+                </span>
+            );
+        })}
+    </span>
 );
 
 const wrapEvaaloInLabel = (text) => {
@@ -458,7 +503,7 @@ const Navigation = () => {
                         {!isWorkspace && (
                             <>
                                 <Link to="/" className="nav-link" onClick={() => window.scrollTo(0, 0)}>
-                                    {t('home')}
+                                    <StableNavLabel labelKey="home" currentLang={currentLang} />
                                 </Link>
 
                                 <div
@@ -468,7 +513,7 @@ const Navigation = () => {
                                     onMouseEnter={openDesktopProduct}
                                     onMouseLeave={scheduleCloseDesktopProduct}
                                 >
-                                    <span>{t('navProduct')}</span>
+                                    <StableNavLabel labelKey="navProduct" currentLang={currentLang} />
                                     <DropdownArrow />
                                     <ProductDropdownPanel
                                         sections={productSections}
@@ -487,25 +532,33 @@ const Navigation = () => {
                                     className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}
                                     onClick={() => window.scrollTo(0, 0)}
                                 >
-                                    {t('navPricing')}
+                                    <StableNavLabel labelKey="navPricing" currentLang={currentLang} />
                                 </Link>
                             </>
                         )}
 
                         {(location.pathname === '/' || location.pathname === '/overview' || location.pathname === '/demo') && (
                             <a href="#features" className="nav-link nav-link--features">
-                                {t('features')}
+                                <StableNavLabel labelKey="features" currentLang={currentLang} />
                             </a>
                         )}
                         {location.pathname === '/' && (
                             <>
                                 <a href="#features-2" className="nav-link">
-                                    <span className="nav-link-label nav-link-label--long">{wrapEvaaloInLabel(t('evaaloVisualLanguage'))}</span>
-                                    <span className="nav-link-label nav-link-label--short">{t('navWhyUsTablet')}</span>
+                                    <span className="nav-link-label nav-link-label--long">
+                                        <StableNavLabel labelKey="evaaloVisualLanguage" currentLang={currentLang} transform={wrapEvaaloInLabel} />
+                                    </span>
+                                    <span className="nav-link-label nav-link-label--short">
+                                        <StableNavLabel labelKey="navWhyUsTablet" currentLang={currentLang} />
+                                    </span>
                                 </a>
                                 <a href="#process" className="nav-link">
-                                    <span className="nav-link-label nav-link-label--long">{wrapEvaaloInLabel(t('applicationProcess'))}</span>
-                                    <span className="nav-link-label nav-link-label--short">{t('navHowWorkTablet')}</span>
+                                    <span className="nav-link-label nav-link-label--long">
+                                        <StableNavLabel labelKey="applicationProcess" currentLang={currentLang} transform={wrapEvaaloInLabel} />
+                                    </span>
+                                    <span className="nav-link-label nav-link-label--short">
+                                        <StableNavLabel labelKey="navHowWorkTablet" currentLang={currentLang} />
+                                    </span>
                                 </a>
                             </>
                         )}
@@ -537,7 +590,7 @@ const Navigation = () => {
                                 }, 500);
                             }}
                         >
-                            <span>{t('language')}</span>
+                            <StableNavLabel labelKey="language" currentLang={currentLang} />
                             <DropdownArrow />
                             <div 
                                 className={`nav-language-dropdown ${desktopLangDropdownOpen ? 'active' : ''}`}

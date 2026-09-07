@@ -1144,6 +1144,49 @@ h3.section-title .evaalo-text-en,
 }
 
 /* Nav actions — theme toggle + Dashboard */
+/*
+ * تكديس الترجمات لحجز عرض ثابت لكلّ رابط.
+ *
+ * الترجمات الثلاث في خليّة شبكة واحدة: الفعّالة مرئية والباقيتان مخفيّتان لكن
+ * مقيستان. فتأخذ الخليّة عرض أوسعها، ويصير مجموع عرض الروابط واحداً في كلّ
+ * لغة — وهو الشرط الوحيد لبقاء المجموعة مركزّة وثابتة معاً.
+ *
+ * `visibility: hidden` لا `display: none`: الثاني يُخرج العنصر من التخطيط فلا
+ * يُقاس، وهو نقيض الغرض.
+ */
+.nav-label-stack {
+    display: inline-grid;
+    align-items: center;
+}
+
+.nav-label-stack__item {
+    grid-area: 1 / 1;
+    white-space: nowrap;
+    justify-self: center;
+}
+
+.nav-label-stack__item--ghost {
+    visibility: hidden;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* كلّ شبح بخطّ لغته. بدون هذا يُقاس النصّ العربي بخطّ Inter فيخرج الحجز خاطئاً
+   بنفس المقدار الذي وُجد ليمنعه. */
+.nav-label-stack__item[lang='en'] {
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+}
+
+.nav-label-stack__item[lang='ar'] {
+    font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, sans-serif;
+}
+
+.nav-label-stack__item[lang='ku'] {
+    font-family: 'Noto Sans Arabic', 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+        Roboto, sans-serif;
+}
 .nav-actions {
     display: flex;
     align-items: center;
