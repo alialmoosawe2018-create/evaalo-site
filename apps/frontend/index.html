@@ -34,6 +34,18 @@
 
     <link rel="canonical" href="https://www.evaalo.com/">
     <link rel="image_src" href="https://www.evaalo.com/og-image.png">
+    <!-- Clerk's own script is not requested until our bundle has parsed — measured
+         on production at 1843ms, and nothing authenticated can happen before it
+         resolves (~3.7s). Opening the connection at parse time takes DNS and TLS
+         off that critical path. `crossorigin` is required: the script and the
+         /v1 calls are CORS requests, and a preconnect without it warms a
+         connection the browser will not reuse for them.
+         No preload here — the @5 URL is a 307 marked `no-store`, so preloading
+         it buys nothing and pinning the resolved version would go stale. -->
+    <link rel="preconnect" href="https://clerk.evaalo.com" crossorigin>
+    <link rel="dns-prefetch" href="https://clerk.evaalo.com">
+    <link rel="preconnect" href="https://api.evaalo.com" crossorigin>
+    <link rel="dns-prefetch" href="https://api.evaalo.com">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Noto+Sans+Arabic:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
