@@ -21005,64 +21005,203 @@ html[data-app-theme='light'] .candidates-page-full-width .filter-menu-container 
     gap: 10px;
 }
 
-.candidates-modal-certificate-type {
-    flex: none;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    padding: 3px 7px;
-    border-radius: 5px;
-    color: #0f172a;
-    background: #38bdf8;
-}
-
-.candidates-modal-certificate-meta {
-    display: block;
-    margin-top: 2px;
-    font-size: 11px;
-    font-weight: 500;
-    color: #94a3b8;
-}
-
+/* البطاقة كلّها هدف واحد للنقر: صورة تُفتح مكبَّرة، وPDF في تبويب. الرابط لم يعد
+   يحمل النصّ وحده كي لا تُنقَر الحافة فلا يحدث شيء. */
 .candidates-modal-certificate-item {
     display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid rgba(56, 189, 248, 0.25);
-    border-radius: 10px;
-    background: rgba(56, 189, 248, 0.08);
-    transition: border-color 0.15s ease, background 0.15s ease;
+    min-width: 0;
 }
 
-.candidates-modal-certificate-item:hover {
-    border-color: rgba(56, 189, 248, 0.55);
-    background: rgba(56, 189, 248, 0.14);
-}
-
-.candidates-modal-certificate-link {
+.candidates-modal-certificate-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     flex: 1;
     min-width: 0;
+    padding: 10px;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 12px;
+    background: rgba(56, 189, 248, 0.08);
+    color: inherit;
+    font-family: inherit;
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.candidates-modal-certificate-card:hover {
+    border-color: rgba(56, 189, 248, 0.55);
+    background: rgba(56, 189, 248, 0.14);
+    transform: translateY(-1px);
+}
+
+.candidates-modal-certificate-card:focus-visible {
+    outline: 2px solid rgba(56, 189, 248, 0.7);
+    outline-offset: 2px;
+}
+
+/* الشهادات تُعرَف بالنظر لا بقراءة اسم الملفّ، فالمعاينة تسبق النصّ. */
+.candidates-modal-certificate-thumb {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 9px;
+    overflow: hidden;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    color: #7dd3fc;
+}
+
+.candidates-modal-certificate-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.candidates-modal-certificate-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.candidates-modal-certificate-title {
     font-size: 13px;
     font-weight: 600;
-    color: #38bdf8;
-    text-decoration: none;
+    color: #e2e8f0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.candidates-modal-certificate-link:hover {
-    text-decoration: underline;
+/* اسم الملفّ مرجعٌ لا عنوان: يبقى ظاهراً ولا ينافس ما تقوله الشهادة عن نفسها. */
+.candidates-modal-certificate-file {
+    font-size: 11px;
+    color: #94a3b8;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-html[data-app-theme='light'] .candidates-modal-certificate-item {
+.candidates-modal-certificate-meta {
+    font-size: 11px;
+    font-weight: 500;
+    color: #64748b;
+    letter-spacing: 0.02em;
+}
+
+html[data-app-theme='light'] .candidates-modal-certificate-card {
     border-color: rgba(37, 99, 235, 0.22);
     background: rgba(37, 99, 235, 0.06);
 }
 
-html[data-app-theme='light'] .candidates-modal-certificate-link {
+html[data-app-theme='light'] .candidates-modal-certificate-title {
+    color: #0f172a;
+}
+
+html[data-app-theme='light'] .candidates-modal-certificate-thumb {
+    background: rgba(226, 232, 240, 0.7);
     color: #2563eb;
+}
+
+/* ── المعاينة المكبَّرة ─────────────────────────────────────── */
+.candidates-certificate-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(2, 6, 23, 0.82);
+}
+
+.candidates-certificate-lightbox__panel {
+    display: flex;
+    flex-direction: column;
+    max-width: min(920px, 100%);
+    max-height: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #0f172a;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.candidates-certificate-lightbox__bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.candidates-certificate-lightbox__title {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.candidates-certificate-lightbox__open {
+    flex: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: #7dd3fc;
+    text-decoration: none;
+}
+
+.candidates-certificate-lightbox__open:hover {
+    text-decoration: underline;
+}
+
+.candidates-certificate-lightbox__close {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(226, 232, 240, 0.75);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.candidates-certificate-lightbox__close:hover {
+    background: rgba(148, 163, 184, 0.18);
+    color: #ffffff;
+}
+
+.candidates-certificate-lightbox__image {
+    display: block;
+    max-width: 100%;
+    /* الشريط 51 بكسل والحشو 40: هذا ما يبقى للصورة دون أن يتجاوز اللوح الشاشة. */
+    max-height: calc(100vh - 131px);
+    object-fit: contain;
+    background: #020617;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .candidates-modal-certificate-card {
+        transition: none;
+    }
+
+    .candidates-modal-certificate-card:hover {
+        transform: none;
+    }
 }
 
 .candidates-candidate-modal-panel .candidates-modal-close-btn {

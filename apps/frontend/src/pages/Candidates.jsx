@@ -217,6 +217,24 @@ function certificateLabel(file, index) {
     return meaningless ? `شهادة ${index + 1}` : stem;
 }
 
+/** صورة يمكن عرضها مكبَّرة داخل الصفحة، مقابل PDF الذي يُفتح في تبويب. */
+function isPreviewableImage(file) {
+    return String(file?.mimeType || '').startsWith('image/');
+}
+
+/**
+ * اسم الملفّ يُعرض سطراً ثانياً تحت العنوان — لكن فقط حين يضيف شيئاً.
+ *
+ * `certificateLabel` يُرجع عنوان الشهادة إن استُخرج، وإلّا فجذع اسم الملفّ. في
+ * الحالة الثانية يكون السطران متطابقين، وتكرار النصّ نفسه مرّتين ضجيج لا معلومة.
+ */
+function certificateSecondaryName(file, shownLabel) {
+    const raw = String(file?.originalName || file?.filename || '').trim();
+    if (!raw) return '';
+    const stem = raw.replace(/\.[a-z0-9]+$/i, '').trim();
+    return stem && stem !== String(shownLabel).trim() ? raw : '';
+}
+
 /** Human-readable upload size; blank when the record predates size tracking. */
 function formatFileSize(bytes) {
     const n = Number(bytes);
@@ -255,8 +273,26 @@ const Candidates = () => {
     });
     const [selectedCandidateDetails, setSelectedCandidateDetails] = useState(null);
     const [showCandidateModal, setShowCandidateModal] = useState(false);
+    /**
+     * الشهادة المعروضة مكبَّرة فوق ملفّ المرشّح. الصور فقط: عرض PDF داخل إطار
+     * غير موثوق على iOS ويخرج صندوقاً أبيض، فتبقى ملفّات PDF تُفتح في تبويب.
+     */
+    const [certificatePreview, setCertificatePreview] = useState(null);
     /** قائمة المرشحين مقابل لوحة ثانوية داخل نفس الصفحة */
     const [candidatesPanel, setCandidatesPanel] = useState(readStoredCandidatesPanelTab);
+
+    // Escape يغلق المعاينة وحدها؛ الملفّ خلفها يبقى مفتوحاً.
+    useEffect(() => {
+        if (!certificatePreview) return undefined;
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                event.stopPropagation();
+                setCertificatePreview(null);
+            }
+        };
+        document.addEventListener('keydown', onKeyDown, true);
+        return () => document.removeEventListener('keydown', onKeyDown, true);
+    }, [certificatePreview]);
 
     /** Reflect a recorded decision immediately, without refetching the whole board. */
     const applyHiringOutcome = useCallback((applicationId, hiringOutcome) => {
@@ -2570,26 +2606,67 @@ const Candidates = () => {
                                         {t('candidates_certificatesHeading')}
                                     </h3>
                                     <ul className="candidates-modal-certificate-list">
-                                        {modalCertificates.map((file, index) => (
-                                            <li key={file.filename} className="candidates-modal-certificate-item">
-                                                <span className="candidates-modal-certificate-type" aria-hidden>
-                                                    {file.mimeType === 'application/pdf' ? 'PDF' : 'IMG'}
-                                                </span>
-                                                <a
-                                                    href={file.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="candidates-modal-certificate-link"
-                                                    title={file.originalName || file.filename}
-                                                >
-                                                    {/* اسم الملفّ لاتينيّ غالباً داخل سطر عربيّ — يُعزل كبقيّة القيم. */}
-                                                    <bdi>{certificateLabel(file, index)}</bdi>
-                                                    <span className="candidates-modal-certificate-meta">
-                                                        <bdi>{formatFileSize(file.size)}</bdi>
+                                        {modalCertificates.map((file, index) => {
+                                            const label = certificateLabel(file, index);
+                                            const secondary = certificateSecondaryName(file, label);
+                                            const image = isPreviewableImage(file);
+                                            const size = formatFileSize(file.size);
+                                            /* الصورة تُفتح مكبَّرة في مكانها، وPDF في تبويب — فالأولى
+                                               زرّ والثاني رابط، لا عنصر واحد يتظاهر بالدورين. */
+                                            const inner = (
+                                                <>
+                                                    <span className="candidates-modal-certificate-thumb" aria-hidden>
+                                                        {image ? (
+                                                            <img src={file.url} alt="" loading="lazy" />
+                                                        ) : (
+                                                            <svg viewBox="0 0 24 24" fill="none" width="22" height="22">
+                                                                <path
+                                                                    d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="1.7"
+                                                                    strokeLinejoin="round"
+                                                                />
+                                                                <path d="M14 3v5h5" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+                                                            </svg>
+                                                        )}
                                                     </span>
-                                                </a>
-                                            </li>
-                                        ))}
+                                                    <span className="candidates-modal-certificate-text">
+                                                        {/* النصّ لاتينيّ غالباً داخل سطر عربيّ — يُعزل كبقيّة القيم. */}
+                                                        <bdi className="candidates-modal-certificate-title">{label}</bdi>
+                                                        {secondary ? (
+                                                            <bdi className="candidates-modal-certificate-file">{secondary}</bdi>
+                                                        ) : null}
+                                                        <span className="candidates-modal-certificate-meta">
+                                                            <bdi>{[image ? 'IMG' : 'PDF', size].filter(Boolean).join(' · ')}</bdi>
+                                                        </span>
+                                                    </span>
+                                                </>
+                                            );
+                                            return (
+                                                <li key={file.filename} className="candidates-modal-certificate-item">
+                                                    {image ? (
+                                                        <button
+                                                            type="button"
+                                                            className="candidates-modal-certificate-card"
+                                                            title={file.originalName || file.filename}
+                                                            onClick={() => setCertificatePreview({ ...file, label })}
+                                                        >
+                                                            {inner}
+                                                        </button>
+                                                    ) : (
+                                                        <a
+                                                            href={file.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="candidates-modal-certificate-card"
+                                                            title={file.originalName || file.filename}
+                                                        >
+                                                            {inner}
+                                                        </a>
+                                                    )}
+                                                </li>
+                                            );
+                                        })}
                                     </ul>
                                 </div>
                             )}
@@ -2603,6 +2680,53 @@ const Candidates = () => {
                 </div>
                 );
             })()}
+
+            {/* معاينة الشهادة فوق ملفّ المرشّح — لا تبويب جديد يقطع التسلسل.
+                خارج شرط `showCandidateModal` عمداً: إغلاق المعاينة يجب أن يعيدك
+                إلى الملفّ، لا أن يغلقهما معاً. */}
+            {certificatePreview ? (
+                <div
+                    className="candidates-certificate-lightbox"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={certificatePreview.label}
+                    onClick={() => setCertificatePreview(null)}
+                >
+                    <div
+                        className="candidates-certificate-lightbox__panel"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="candidates-certificate-lightbox__bar">
+                            <bdi className="candidates-certificate-lightbox__title">
+                                {certificatePreview.label}
+                            </bdi>
+                            <a
+                                href={certificatePreview.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="candidates-certificate-lightbox__open"
+                            >
+                                {t('candidates_certificateOpenTab')}
+                            </a>
+                            <button
+                                type="button"
+                                className="candidates-certificate-lightbox__close"
+                                aria-label={t('candidates_certificateClosePreview')}
+                                onClick={() => setCertificatePreview(null)}
+                            >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+                        <img
+                            className="candidates-certificate-lightbox__image"
+                            src={certificatePreview.url}
+                            alt={certificatePreview.label}
+                        />
+                    </div>
+                </div>
+            ) : null}
 
             {clearModalOpen ? (
                 <div
