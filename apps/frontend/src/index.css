@@ -623,6 +623,31 @@ body.rtl-text .step-number {
 }
 
 :root {
+    /* ألوان العلامة، مأخوذة من صورة الشعار نفسها لا من تدرّج الكتابة بجانبها —
+       الاثنان ليسا واحداً: الصورة أزرق ملكيّ #0437d5 يغلب على 19٪ من بكسلاتها
+       الملوّنة، ثمّ أزرق سماويّ #0689fb، ولمسة بنفسجية #6816f7؛ بينما الكتابة
+       نيليّة إلى سماويّة. سُحبت بقراءة البكسلات، لا بالنظر. */
+    --evaalo-logo-violet: #6816f7;
+    --evaalo-logo-blue: #0437d5;
+    --evaalo-logo-azure: #0689fb;
+    --evaalo-logo-sky: #28a7fc;
+
+    /* الوميض: نفس تدرّج الصورة بزاوية 135، مقنَّعاً بدائرة تخفت عند الحافة ليخرج
+       إشعاعاً لا مستطيلاً. مُعرَّف مرّةً هنا ليستعمله زرّ السمة وزرّ اللغة معاً. */
+    --evaalo-burst: linear-gradient(
+        135deg,
+        rgba(104, 22, 247, 0.58) 0%,
+        rgba(4, 55, 213, 0.62) 32%,
+        rgba(6, 137, 251, 0.6) 62%,
+        rgba(40, 167, 252, 0.5) 100%
+    );
+    --evaalo-burst-mask: radial-gradient(
+        circle at center,
+        #000 0%,
+        rgba(0, 0, 0, 0.55) 45%,
+        transparent 72%
+    );
+
     /* Primary Colors */
     --primary-color: #4f46e5;
     --primary-hover: #4338ca;
@@ -1280,6 +1305,9 @@ h3.section-title .evaalo-text-en,
 }
 
 /* One-shot glow ripple that fires on each switch */
+/* الوميض يحمل تدرّج الشعار في السمتين معاً، لا الذهبي في الفاتحة والسماوي في
+   الداكنة. هوية السمة تبقى في الأيقونة نفسها وفي لون الإطار؛ أمّا اللحظة التي
+   تلفت العين — الوميض — فتقول «evaalo». */
 .nav-theme-toggle__burst {
     position: absolute;
     inset: 0;
@@ -1287,21 +1315,9 @@ h3.section-title .evaalo-text-en,
     border-radius: inherit;
     pointer-events: none;
     opacity: 0;
-    background: radial-gradient(
-        circle at center,
-        rgba(56, 189, 248, 0.55) 0%,
-        rgba(129, 140, 248, 0.28) 45%,
-        rgba(56, 189, 248, 0) 72%
-    );
-}
-
-.nav-theme-toggle[data-current-theme='light'] .nav-theme-toggle__burst {
-    background: radial-gradient(
-        circle at center,
-        rgba(251, 191, 36, 0.6) 0%,
-        rgba(245, 158, 11, 0.3) 45%,
-        rgba(251, 191, 36, 0) 72%
-    );
+    background: var(--evaalo-burst);
+    -webkit-mask-image: var(--evaalo-burst-mask);
+    mask-image: var(--evaalo-burst-mask);
 }
 
 .nav-theme-toggle--switching .nav-theme-toggle__burst {
@@ -1342,16 +1358,26 @@ h3.section-title .evaalo-text-en,
     }
 }
 
+/* الذهبي رحل عن الزرّ في الوضع الفاتح لصالح أزرق صورة الشعار.
+ *
+ * ولأنّ الصورة نفسها قطبان — بنفسجيّ فأزرق ملكيّ ثمّ سماويّ — أخذ كلّ وضع قطباً
+ * بدل أن يأخذا لوناً واحداً: الأزرق الملكيّ للفاتح، والسماويّ الفاتح للداكن كما
+ * كان. هكذا يبقى الزرّان على العلامة، ويبقى اللون يخبرك بالوضع الذي أنت فيه —
+ * وهي الإشارة التي كان الذهبيّ يؤدّيها ولولا ذلك لضاعت.
+ *
+ * لون الأيقونة تفتيحٌ لأزرق الصورة لا هو نفسه: #0437d5 خطًّا بعرض بكسلين فوق
+ * زجاج داكن يغرق ولا يُقرأ. */
 .nav-theme-toggle[data-current-theme='light'] {
-    border-color: rgba(251, 191, 36, 0.34);
-    color: #fde68a;
+    border-color: rgba(6, 137, 251, 0.45);
+    color: #6fbaff;
 }
 
 .nav-theme-toggle[data-current-theme='light']::before {
     background: linear-gradient(
         135deg,
-        rgba(251, 191, 36, 0.2) 0%,
-        rgba(245, 158, 11, 0.12) 100%
+        rgba(104, 22, 247, 0.2) 0%,
+        rgba(4, 55, 213, 0.2) 50%,
+        rgba(6, 137, 251, 0.16) 100%
     );
 }
 
@@ -1371,10 +1397,10 @@ h3.section-title .evaalo-text-en,
 }
 
 .nav-theme-toggle[data-current-theme='light']:hover {
-    border-color: rgba(251, 191, 36, 0.58);
+    border-color: rgba(40, 167, 252, 0.62);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.18),
-        0 6px 18px rgba(251, 191, 36, 0.18),
+        0 6px 18px rgba(4, 55, 213, 0.3),
         0 2px 8px rgba(0, 0, 0, 0.28);
 }
 
@@ -1399,11 +1425,11 @@ h3.section-title .evaalo-text-en,
 
 .nav-theme-toggle[data-current-theme='light'].nav-theme-toggle--open,
 .nav-theme-toggle[data-current-theme='light'][aria-expanded='true'] {
-    border-color: rgba(251, 191, 36, 0.62);
+    border-color: rgba(40, 167, 252, 0.66);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.2),
-        0 0 0 2px rgba(251, 191, 36, 0.16),
-        0 8px 22px rgba(251, 191, 36, 0.16);
+        0 0 0 2px rgba(6, 137, 251, 0.2),
+        0 8px 22px rgba(4, 55, 213, 0.26);
 }
 
 .nav-theme-toggle:focus-visible {
@@ -2051,22 +2077,27 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         overflow: visible !important;
         flex-wrap: nowrap !important;
         /*
-         * الروابط تبدأ من أوّل الحاوية لا من منتصفها.
+         * صندوق مركزيّ ثابت العرض، والروابط تبدأ من حافّته.
          *
          * الحاوية نفسها ثابتة العرض في اللغات الثلاث (910 بكسل، مقيسة)، لكنّ
          * المحتوى كان مركزّاً بداخلها — ومجموع عرض التسميات يختلف بين اللغات:
          * 503 بالإنجليزية · 464 بالعربية · 475 بالكردية. فمع المركزة يتوزّع
          * الفرق على الطرفين ويتحرّك **كلّ** رابط ~20 بكسل عند تبديل اللغة.
          *
-         * بالبدء من الحافة يثبت الرابط الأوّل مهما تغيّرت اللغة، ولا ينزاح إلّا
-         * ما بعده وبمقدار فرق التسمية وحده. لا يمكن تثبيت الجميع ما دام النصّ
-         * نفسه يختلف طولاً — لكن يمكن تثبيت نقطة يرتكز عليها البصر.
+         * المحاولة الأولى بدأت الروابط من حافة الحاوية العريضة، فثبتت لكنّها
+         * التصقت باليسار وفقدت المركزة. الصواب: صندوق بعرض قارّ لا يتبع النصّ،
+         * يُمركَز في الشريط، والروابط تبدأ من حافّته. فالبداية ثابتة والمظهر
+         * مركزيّ في آن.
+         *
+         * العرض مقيس لا مخمَّن: أعرض مجموعة في هذا النطاق هي الإنجليزية 503
+         * بكسل، فـ 512 يسعها بهامش. لإعادة القياس بعد تغيير التسميات: قِس
+         * last.right - first.left لكلّ لغة وخذ الأكبر.
          *
          * والحشو أيسر ثابت لا منطقيّ: هذا الشريط يبقى direction: ltr في اللغات
          * الثلاث (مقيس) — لا يُقلب مع العربية والكردية — فبدايته اليسار دائماً.
          */
         justify-content: flex-start !important;
-        padding: 0 0 0 24px !important;
+        padding: 0 !important;
     }
     
     .nav-menu-wrapper {
@@ -2501,9 +2532,11 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
          * (width: auto) ثمّ تُمركَز بـ left: 50% و translateX(-50%) — أي أنّ
          * عرض النصّ نفسه هو ما يحدّد موضع الشريط، فتبديل اللغة يزيحه.
          *
-         * العلاج: عرض ثابت لا يتبع المحتوى (نفس قيمة max-width السابقة)،
-         * والبدء من الحافة. الصندوق يبقى مركَّزاً كما كان، لكنّ حافّته لم تعد
-         * تتحرّك مع طول الكلمات.
+         * العلاج: عرض قارّ لا يتبع المحتوى، والبدء من الحافة. الصندوق يبقى
+         * مركَّزاً في الشريط كما كان، لكنّ حافّته لم تعد تتحرّك مع طول الكلمات.
+         *
+         * 896 مقيسة: أعرض مجموعة فوق 1400 هي الإنجليزية 878 بكسل (الفجوة هنا
+         * 16 لا 6، فالمجموعة أعرض ممّا في النطاق الأضيق).
          */
         justify-content: flex-start !important;
         gap: 16px !important;
@@ -2512,7 +2545,7 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         position: absolute !important;
         left: 50% !important;
         transform: translateX(-50%) !important;
-        width: calc(100% - 400px) !important;
+        width: 896px !important;
         height: auto !important;
         min-width: auto !important;
         max-width: calc(100% - 400px) !important;
@@ -2610,13 +2643,16 @@ body.rtl-text .account-settings-theme-toggle-wrap .nav-theme-dropdown--settings 
         transform: none !important;
         flex: 1 1 auto !important;
         min-width: 0 !important;
-        max-width: none !important;
-        /* البدء من الحافة لا المنتصف — الشرح في قاعدة 769px أعلاه. هذه هي
-           القاعدة الحاكمة في هذا النطاق، فتعديل تلك وحدها لا يكفي. */
+        /* القاعدة الحاكمة في هذا النطاق — الشرح في قاعدة 769px أعلاه.
+           صندوق بعرض قارّ (أعرض مجموعة هنا 503 بكسل) تُمركِزه الهوامش التلقائية
+           بين الشعار والأزرار، والروابط تبدأ من حافّته فلا تتحرّك مع اللغة. */
+        flex: 0 0 auto !important;
+        width: 512px !important;
+        max-width: 100% !important;
+        margin: 0 auto !important;
         justify-content: flex-start !important;
         gap: 6px !important;
-        margin: 0 !important;
-        padding: 0 0 0 24px !important;
+        padding: 0 !important;
         overflow: visible !important;
         flex-wrap: nowrap !important;
     }
