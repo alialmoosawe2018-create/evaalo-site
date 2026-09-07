@@ -70,6 +70,14 @@ const Navigation = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const showThemeToggle = isAppThemeRoute(location.pathname);
+    /**
+     * داخل مساحة العمل (لوحة التحكّم وصفحاتها) تُخفى روابط الموقع التسويقي —
+     * الرئيسية والمنتج والأسعار — فتبقى اللغة وحدها إلى جانب السمة ولوحة التحكّم.
+     * الغرض عزل بيئة العمل: من يستعمل النظام لا يحتاج صفحة تسويق في شريطه، ووجودها
+     * يغريه بالخروج من المساحة التي يعمل فيها. نفس المُحدِّد الذي يقرّر السمة
+     * يقرّر هذا، فلا تنشأ قائمة مسارات ثانية تنحرف عن الأولى.
+     */
+    const isWorkspace = showThemeToggle;
     // ويدجت الرصيد: يظهر على صفحات التطبيق فقط وعندما تكون الفوترة مهيأة ومحمّلة.
     const { creditsRemaining, configured: billingConfigured, isLoaded: billingLoaded } = useBilling();
     const showCreditsChip = SHOW_CREDITS_IN_NAV && showThemeToggle && billingConfigured && billingLoaded;
@@ -285,6 +293,8 @@ const Navigation = () => {
             id="navMenu"
             aria-hidden={!mobileMenuOpen}
         >
+            {!isWorkspace && (
+              <>
             <Link to="/" className="nav-link" onClick={closeMobileMenu}>
                 {t('home')}
             </Link>
@@ -319,6 +329,8 @@ const Navigation = () => {
             >
                 {t('navPricing')}
             </Link>
+              </>
+            )}
 
             <a
                 href="#features"
@@ -423,44 +435,55 @@ const Navigation = () => {
             {mobileMenuPortal}
             <nav className="main-nav">
                 <div className="nav-container">
-                    <Link to="/" className="nav-logo-img" onClick={() => setMobileMenuOpen(false)}>
+                    {/* داخل مساحة العمل يقود الشعار إلى لوحة التحكّم لا إلى الموقع
+                        التسويقي: إخفاء روابط الموقع بلا هذا يترك أوسع هدف نقرٍ في
+                        الشريط يقذف المستخدم خارج مساحته بنقرة واحدة. */}
+                    <Link
+                        to={isWorkspace ? '/dashboard' : '/'}
+                        className="nav-logo-img"
+                        onClick={() => setMobileMenuOpen(false)}
+                    >
                         <img src="/images/last logo.png" alt="evaalo Logo" className="logo-image" />
                         <span className="logo-text">vaalo.Ai</span>
                     </Link>
                     
                     <div className="nav-links nav-links-desktop" id="navMenuDesktop">
-                        <Link to="/" className="nav-link" onClick={() => window.scrollTo(0, 0)}>
-                            {t('home')}
-                        </Link>
+                        {!isWorkspace && (
+                            <>
+                                <Link to="/" className="nav-link" onClick={() => window.scrollTo(0, 0)}>
+                                    {t('home')}
+                                </Link>
 
-                        <div
-                            className={`nav-link nav-link-dropdown nav-product-trigger ${isProductNavActive ? 'active' : ''}`}
-                            id="navProductItemDesktop"
-                            ref={desktopProductRef}
-                            onMouseEnter={openDesktopProduct}
-                            onMouseLeave={scheduleCloseDesktopProduct}
-                        >
-                            <span>{t('navProduct')}</span>
-                            <DropdownArrow />
-                            <ProductDropdownPanel
-                                sections={productSections}
-                                dropdownClassName={`nav-language-dropdown nav-product-dropdown-menu ${desktopProductDropdownOpen ? 'active' : ''}`}
-                                onNavigate={closeProductMenus}
-                                isPathActive={isProductPathActive}
-                                panelProps={{
-                                    onMouseEnter: openDesktopProduct,
-                                    onMouseLeave: () => setDesktopProductDropdownOpen(false),
-                                }}
-                            />
-                        </div>
+                                <div
+                                    className={`nav-link nav-link-dropdown nav-product-trigger ${isProductNavActive ? 'active' : ''}`}
+                                    id="navProductItemDesktop"
+                                    ref={desktopProductRef}
+                                    onMouseEnter={openDesktopProduct}
+                                    onMouseLeave={scheduleCloseDesktopProduct}
+                                >
+                                    <span>{t('navProduct')}</span>
+                                    <DropdownArrow />
+                                    <ProductDropdownPanel
+                                        sections={productSections}
+                                        dropdownClassName={`nav-language-dropdown nav-product-dropdown-menu ${desktopProductDropdownOpen ? 'active' : ''}`}
+                                        onNavigate={closeProductMenus}
+                                        isPathActive={isProductPathActive}
+                                        panelProps={{
+                                            onMouseEnter: openDesktopProduct,
+                                            onMouseLeave: () => setDesktopProductDropdownOpen(false),
+                                        }}
+                                    />
+                                </div>
 
-                        <Link
-                            to="/pricing"
-                            className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}
-                            onClick={() => window.scrollTo(0, 0)}
-                        >
-                            {t('navPricing')}
-                        </Link>
+                                <Link
+                                    to="/pricing"
+                                    className={`nav-link ${isActive('/pricing') ? 'active' : ''}`}
+                                    onClick={() => window.scrollTo(0, 0)}
+                                >
+                                    {t('navPricing')}
+                                </Link>
+                            </>
+                        )}
 
                         {(location.pathname === '/' || location.pathname === '/overview' || location.pathname === '/demo') && (
                             <a href="#features" className="nav-link nav-link--features">
