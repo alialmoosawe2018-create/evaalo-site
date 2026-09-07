@@ -125,7 +125,6 @@ const PublicVideoScreeningCall = () => {
             <div className="psc-hero__text">
               <h1 className="psc-hero__title">{t('publicVideoScreening_title')}</h1>
               <p className="psc-hero__subtitle">{t('publicVideoScreening_subtitle')}</p>
-              <p className="psc-hero__subtitle psc-hero__subtitle--muted">{t('publicVideoScreening_subtitle2')}</p>
             </div>
           </div>
 

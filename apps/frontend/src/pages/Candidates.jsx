@@ -2230,11 +2230,23 @@ const Candidates = () => {
                 const modalYearsRaw =
                     selectedCandidateDetails.years_of_experience ||
                     selectedCandidateDetails.yearsOfExperience;
-                const modalYearsDisplay = modalYearsRaw
-                    ? fillI18nTemplate(t('candidates_modalYearsWithSuffix'), {
-                          value: String(modalYearsRaw),
-                      })
-                    : t('stageEval_notApplicable');
+                /**
+                 * لاحقة «سنة» تُضاف فقط إذا كانت القيمة عدداً.
+                 *
+                 * الحقل يأتي من قراءة السيرة الذاتية، وقد يعود عبارةً لا رقماً —
+                 * «شهرين» مثلاً — فكانت اللاحقة تُلصق عليها بلا شرط فيخرج «شهرين سنة»
+                 * و «شهرين years». العبارة تصف المدّة بنفسها، فتُعرض كما هي.
+                 * يقبل «3» و «3.5» و «2-3» و «5+».
+                 */
+                const modalYearsText = modalYearsRaw == null ? '' : String(modalYearsRaw).trim();
+                const modalYearsIsNumeric = /^\d+(?:[.,]\d+)?\s*[-–+]?\s*\d*$/.test(modalYearsText);
+                const modalYearsDisplay = !modalYearsText
+                    ? t('stageEval_notApplicable')
+                    : modalYearsIsNumeric
+                      ? fillI18nTemplate(t('candidates_modalYearsWithSuffix'), {
+                            value: modalYearsText,
+                        })
+                      : modalYearsText;
                 const modalCanUploadPhoto = !modalPhotoUrl && canWriteCandidates;
                 return (
                 <div 
@@ -2419,9 +2431,14 @@ const Candidates = () => {
                                 <h3 className="candidates-modal-section-title">
                                     {t('candidates_sectionContact')}
                                 </h3>
+                                {/* كلّ قيمة داخل <bdi>. البيانات هنا لاتينية غالباً — بريد وهاتف
+                                    ومهارات — والسطر عربيّ أو كرديّ، فتُعيد خوارزمية الاتّجاهين
+                                    ترتيبها عند الحدود: «+967 778971562» كان يُعرض فعليّاً
+                                    «778971562 967+» (مقيس، لا مُستنتَج). <bdi> يعزل القيمة
+                                    ويستنتج اتّجاهها من أوّل حرف قويّ فيها. */}
                                 <div className="candidates-modal-body-text">
-                                    <div><strong>{t('candidates_modalEmail')}</strong> {selectedCandidateDetails.email || t('stageEval_notApplicable')}</div>
-                                    <div><strong>{t('candidates_modalPhone')}</strong> {selectedCandidateDetails.phone || t('stageEval_notApplicable')}</div>
+                                    <div><strong>{t('candidates_modalEmail')}</strong> <bdi>{selectedCandidateDetails.email || t('stageEval_notApplicable')}</bdi></div>
+                                    <div><strong>{t('candidates_modalPhone')}</strong> <bdi>{selectedCandidateDetails.phone || t('stageEval_notApplicable')}</bdi></div>
                                     {modalCvUrl ? (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '4px' }}>
                                             <strong>{t('candidates_modalCv')}</strong>
@@ -2437,13 +2454,13 @@ const Candidates = () => {
                                     {t('candidates_sectionProfessional')}
                                 </h3>
                                 <div className="candidates-modal-body-text">
-                                    <div><strong>{t('candidates_labelExperience')}:</strong> {modalYearsDisplay}</div>
-                                    <div><strong>{t('candidates_labelEducation')}:</strong> {selectedCandidateDetails.highest_education_level || selectedCandidateDetails.highestEducationLevel || t('stageEval_notApplicable')}</div>
-                                    <div><strong>{t('candidates_field_company')}:</strong> {selectedCandidateDetails.current_company || selectedCandidateDetails.currentCompany || t('stageEval_notApplicable')}</div>
+                                    <div><strong>{t('candidates_labelExperience')}:</strong> <bdi>{modalYearsDisplay}</bdi></div>
+                                    <div><strong>{t('candidates_labelEducation')}:</strong> <bdi>{selectedCandidateDetails.highest_education_level || selectedCandidateDetails.highestEducationLevel || t('stageEval_notApplicable')}</bdi></div>
+                                    <div><strong>{t('candidates_field_company')}:</strong> <bdi>{selectedCandidateDetails.current_company || selectedCandidateDetails.currentCompany || t('stageEval_notApplicable')}</bdi></div>
                                     {selectedCandidateDetails.skills && selectedCandidateDetails.skills.length > 0 ? (
                                         <div style={{ marginTop: '4px' }}>
                                             <strong>{t('candidates_field_skills')}:</strong>{' '}
-                                            {formatUniqueListField(selectedCandidateDetails.skills) || t('stageEval_notApplicable')}
+                                            <bdi>{formatUniqueListField(selectedCandidateDetails.skills) || t('stageEval_notApplicable')}</bdi>
                                         </div>
                                     ) : null}
                             </div>
@@ -2565,9 +2582,10 @@ const Candidates = () => {
                                                     className="candidates-modal-certificate-link"
                                                     title={file.originalName || file.filename}
                                                 >
-                                                    {certificateLabel(file, index)}
+                                                    {/* اسم الملفّ لاتينيّ غالباً داخل سطر عربيّ — يُعزل كبقيّة القيم. */}
+                                                    <bdi>{certificateLabel(file, index)}</bdi>
                                                     <span className="candidates-modal-certificate-meta">
-                                                        {formatFileSize(file.size)}
+                                                        <bdi>{formatFileSize(file.size)}</bdi>
                                                     </span>
                                                 </a>
                                             </li>
