@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { existsSync } from 'fs';
+import { recordMetricAsync } from './siteMetricService.js';
 import { readFile } from 'fs/promises';
 import {
     evaluateVoiceInterview,
@@ -336,7 +337,7 @@ async function resolveOutboundApplicationId(
  * @param campaignId - معرف الحملة (اختياري) - إذا تم توفيره، سيتم جلب المعايير وإرسالها مع بيانات المرشح
  * @returns Promise<boolean> - true إذا نجح الإرسال، false إذا فشل
  */
-export const sendToN8N = async (candidateData: CandidateData, campaignId?: string): Promise<boolean> => {
+const sendToN8NImpl = async (candidateData: CandidateData, campaignId?: string): Promise<boolean> => {
     // إذا لم يكن هناك n8n webhook URL، تخطي الإرسال
     const webhookUrl = getN8NWebhookUrl();
     if (!webhookUrl || webhookUrl.trim() === '') {
@@ -550,6 +551,33 @@ export const sendToN8N = async (candidateData: CandidateData, campaignId?: strin
         // لا نريد أن يفشل حفظ البيانات إذا فشل إرسال n8n
         console.error('❌ Error sending data to n8n:', error.message);
         return false;
+    }
+};
+
+/**
+ * زمن إرسال التقييم إلى n8n ونتيجته.
+ *
+ * هذه أطول خطوة في السلسلة وأقلّها ظهوراً: الإرسال غير حاجب، وفشلُه يُبتلع عمداً
+ * كي لا يُسقط حفظَ المرشّح — أي أنّ تعطّل التقييم كان يمرّ صامتاً تماماً. الغلاف
+ * يقيس المدّة ويسجّل ما إذا خرجت الحمولة فعلاً، دون أن يغيّر شيئاً في السلوك.
+ */
+export const sendToN8N = async (
+    candidateData: CandidateData,
+    campaignId?: string,
+): Promise<boolean> => {
+    const startedAt = Date.now();
+    let sent = false;
+    try {
+        sent = await sendToN8NImpl(candidateData, campaignId);
+        return sent;
+    } finally {
+        recordMetricAsync({
+            scope: 'evaluation',
+            name: 'stage1:dispatch',
+            durationMs: Date.now() - startedAt,
+            failed: !sent,
+            outcome: sent ? 'sent' : 'not_sent',
+        });
     }
 };
 

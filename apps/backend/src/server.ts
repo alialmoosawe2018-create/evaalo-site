@@ -30,6 +30,8 @@ import recruitmentCampaignRoutes, {
 } from './routes/recruitmentCampaigns.js';
 import healthRoutes from './routes/health.js';
 import siteErrorRoutes from './routes/siteErrors.js';
+import requestTiming from './middleware/requestTiming.js';
+import siteMetricRoutes from './routes/siteMetrics.js';
 import { recordSiteErrorAsync } from './services/siteErrorService.js';
 import orgChartPdfRoutes from './routes/orgChartPdf.js';
 import orgChartRoutes from './routes/orgChart.js';
@@ -196,6 +198,10 @@ app.post(
 app.use(express.json({ limit: '10mb' })); // زيادة الحد من 100kb إلى 10MB
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// يُركَّب قبل المصادقة والمسارات كي يشمل زمنَها هي أيضاً — بطءُ التحقّق من
+// الجلسة بطءٌ يشعر به المستخدم، ولو قِسنا بعده لما ظهر في الأرقام.
+app.use(requestTiming);
+
 // ============================================
 // Clerk Authentication Middleware
 // ============================================
@@ -329,6 +335,7 @@ app.post('/webhook/n8n/campaign-compare/stage3', (req, res) =>
 );
 app.use('/api/health', healthRoutes);
 app.use('/api/site-errors', siteErrorRoutes);
+app.use('/api/site-metrics', siteMetricRoutes);
 app.use('/api/org-chart', orgChartRoutes);
 app.use('/api/org-chart', orgChartPdfRoutes);
 

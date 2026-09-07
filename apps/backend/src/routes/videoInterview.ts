@@ -48,6 +48,7 @@ import {
 import { resolveApplicationJobContext } from '../services/applicationJobContext.js';
 import { findApplicationForCallback } from '../services/candidateApplicationService.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
+import { recordMetricAsync } from '../services/siteMetricService.js';
 
 const router = express.Router();
 
@@ -1881,6 +1882,34 @@ router.post('/end', async (req, res) => {
                 (session as any).endedBy = endedByReason;
                 await session.save();
                 console.log(`ℹ️ /end: ${sessionId} endedBy=${endedByReason}`);
+
+                /**
+                 * The interview's own rollup: how long candidates actually stay, and
+                 * how each session ended.
+                 *
+                 * `endedBy` already told us *this* session's ending; the rollup turns
+                 * it into a rate. A week where `room_disconnect` climbs against
+                 * `user_action` is candidates dropping out, and no error is thrown
+                 * when that happens — which is precisely why nothing noticed before.
+                 * The turn count rides along as the outcome so a session that ended
+                 * "properly" after two questions is still visible as a short one.
+                 */
+                const startedAtMs = new Date(
+                    (session as any).startedAt || (session as any).createdAt || Date.now(),
+                ).getTime();
+                const turns = Array.isArray(incomingHistory) ? incomingHistory.length : 0;
+                recordMetricAsync({
+                    scope: 'interview',
+                    name: `video:session:${(session as any).mode || 'video'}`,
+                    durationMs: Math.max(0, Date.now() - startedAtMs),
+                    outcome: endedByReason,
+                });
+                recordMetricAsync({
+                    scope: 'interview',
+                    name: 'video:turns',
+                    durationMs: turns,
+                    outcome: turns === 0 ? 'no_turns' : turns < 5 ? 'short' : 'full',
+                });
             } catch (saveError: any) {
                 console.warn(`⚠️ Error saving session end (non-blocking): ${(saveError as Error).message}`);
             }

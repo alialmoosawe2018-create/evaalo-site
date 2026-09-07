@@ -9,6 +9,7 @@
 
 import { authStorage } from './authStorage';
 import { reportError } from '../observability/errorReporter';
+import { reportMetric } from './metricsReporter.js';
 
 /** Dev: use Vite /api proxy on localhost and same-LAN IPs (mobile testing). */
 function isDevProxyHost(hostname) {
@@ -271,13 +272,42 @@ async function send(path, options) {
     return data;
 }
 
+/**
+ * Every call the app makes passes through here, which makes it the one place a
+ * latency baseline can be built without touching a single caller.
+ *
+ * The clock starts before `send`, so it includes resolving the Clerk token and any
+ * one-shot retry with a fresh one — a request that waits on the session is slow to
+ * the person waiting, whatever the server's own timing says.
+ */
+async function timed(path, options, run) {
+    const startedAt = Date.now();
+    let failed = false;
+    try {
+        return await run();
+    } catch (err) {
+        // 401/402 are control flow, not slowness or breakage; excluding them keeps
+        // failCount meaning "this endpoint is unhealthy".
+        const status = err?.status;
+        failed = status !== 401 && status !== 402;
+        throw err;
+    } finally {
+        reportMetric({
+            scope: 'api',
+            name: `${options.method || 'GET'} ${path.split('?')[0]}`,
+            durationMs: Date.now() - startedAt,
+            failed,
+        });
+    }
+}
+
 async function request(path, { method = 'GET', body, headers = {}, signal } = {}) {
-    return send(path, { method, body, headers, signal });
+    return timed(path, { method }, () => send(path, { method, body, headers, signal }));
 }
 
 /** multipart/form-data (e.g. file uploads) — لا نضبط Content-Type يدوياً */
 async function requestForm(path, { method = 'POST', formData, headers = {}, signal } = {}) {
-    return send(path, { method, formData, headers, signal });
+    return timed(path, { method }, () => send(path, { method, formData, headers, signal }));
 }
 
 /**

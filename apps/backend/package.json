@@ -90,7 +90,8 @@
     "polish:job-catalog-ku": "node scripts/apply-ku-polish.cjs",
     "verify:billing": "tsx src/scripts/verify-billing-phase2a.ts && tsx src/scripts/verify-billing-phase2b.ts",
     "verify:billing-smoke": "tsx src/scripts/run-local-billing-smoke.ts",
-    "verify:stripe-e2e": "tsx src/scripts/stripe-e2e-local.ts"
+    "verify:stripe-e2e": "tsx src/scripts/stripe-e2e-local.ts",
+    "test:site-metric": "tsx src/scripts/site-metric-test.ts"
   },
   "keywords": [
     "career",
