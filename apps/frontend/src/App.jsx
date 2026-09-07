@@ -56,6 +56,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import NotFound from './pages/NotFound';
 import Navigation from './components/Navigation';
 import InsufficientCreditsToast from './components/InsufficientCreditsToast';
+import AppVersionWatcher from './components/AppVersionWatcher';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -153,6 +154,7 @@ function App() {
                             <OrganizationProvider>
                             <BillingProvider>
                             <Navigation />
+                            <AppVersionWatcher />
                             <InsufficientCreditsToast />
                             <CandidateInterviewBodyClass />
                             <AppBottomNav />

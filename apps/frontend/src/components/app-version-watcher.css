@@ -1,0 +1,120 @@
+/*
+ * شريط «نسخة جديدة».
+ *
+ * أسفل الشاشة لا أعلاها: أعلى الشاشة يزاحم الشريط العلوي، وفي منتصفها يحجب.
+ * ولا نافذة تأكيد — إعادة التحميل تُفقد ما في النماذج، فالقرار للمستخدم متى
+ * يشاء، والشريط ينتظر ولا يعترض. `pointer-events` على الحاوية وحدها كي لا
+ * يبتلع الشريط نقرات ما تحته.
+ */
+
+.app-version-banner {
+    position: fixed;
+    inset-inline: 0;
+    bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    z-index: 9999;
+    width: fit-content;
+    max-width: min(92vw, 460px);
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px 10px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    background: linear-gradient(
+        180deg,
+        rgba(30, 41, 59, 0.98) 0%,
+        rgba(15, 23, 42, 0.98) 100%
+    );
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow:
+        0 16px 40px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    color: #e2e8f0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    animation: appVersionBannerIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* على مسارات التطبيق في الجوّال يوجد شريط تنقّل سفلي مثبَّت بارتفاع ~58 بكسل؛
+   بدون هذا يجلس الشريط فوقه ويحجب أزرار التنقّل. نفس التركيب المستعمل في بقيّة
+   الملفّات: `var(--app-bottom-nav-height, 58px)` مع هامش الأمان. */
+body:has(.app-bottom-nav) .app-version-banner {
+    bottom: calc(26px + var(--app-bottom-nav-height, 58px) + env(safe-area-inset-bottom, 0px));
+}
+
+@keyframes appVersionBannerIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.app-version-banner__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.app-version-banner__reload {
+    flex-shrink: 0;
+    padding: 7px 14px;
+    border: none;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #38bdf8 0%, #22d3ee 50%, #818cf8 100%);
+    color: #0b1220;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.2s ease, transform 0.15s ease;
+}
+
+.app-version-banner__reload:hover {
+    filter: brightness(1.08);
+}
+
+.app-version-banner__reload:active {
+    transform: scale(0.97);
+}
+
+.app-version-banner__close {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(226, 232, 240, 0.7);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.app-version-banner__close:hover {
+    background: rgba(148, 163, 184, 0.16);
+    color: #ffffff;
+}
+
+.app-version-banner__reload:focus-visible,
+.app-version-banner__close:focus-visible {
+    outline: 2px solid rgba(56, 189, 248, 0.75);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-version-banner {
+        animation: none;
+    }
+
+    .app-version-banner__reload {
+        transition: none;
+    }
+}

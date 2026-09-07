@@ -333,6 +333,13 @@ const Navigation = () => {
               </>
             )}
 
+            {/* أقسام الصفحة التعريفية. تُرفع داخل مساحة العمل مثل بقيّة روابط
+                الموقع: `handleMobileHomeSectionClick` ينتقل إلى `/` قبل التمرير،
+                فالضغط عليها من لوحة التحكّم كان يقذف المستخدم خارج المساحة التي
+                يعمل فيها — لا مجرّد رابط لا يفعل شيئاً. الحاسوب كان يخفيها أصلاً
+                (شرط المسار `/`)، فهذا يوحّد السلوك بين الجهازين. */}
+            {!isWorkspace && (
+              <>
             <a
                 href="#features"
                 className="nav-link"
@@ -354,6 +361,8 @@ const Navigation = () => {
             >
                 <span className="nav-link-label">{t('navHowWorkMobile')}</span>
             </a>
+              </>
+            )}
 
             {SHOW_DESIGN_IN_NAV && (
                 <Link
