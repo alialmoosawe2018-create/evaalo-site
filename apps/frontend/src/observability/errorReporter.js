@@ -10,6 +10,8 @@
  * wrapped, every limit is hard, and a failed send is swallowed silently.
  */
 
+import { isAutomatedClient } from './isAutomatedClient.js';
+
 const ENDPOINT = '/api/site-errors';
 const FLUSH_MS = 10_000;
 const MAX_EVENTS_PER_SESSION = 50;
@@ -67,9 +69,33 @@ export function addBreadcrumb(type, detail) {
     }
 }
 
+/**
+ * True for an ApiError the client already decided not to report.
+ *
+ * Callers routinely `console.error` the same rejection apiClient just handled, so
+ * one refused campaign arrived twice: once as `API 400: …` and once as
+ * `console.error: ❌ Error creating campaign: ApiError …`. Filtering it here keeps
+ * the wrapper's value — genuine console.errors are still captured — without
+ * double-filing a message the user was correctly shown.
+ *
+ * Matched by name rather than `instanceof` on purpose: importing ApiError here
+ * would make the reporter depend on the service that reports through it.
+ */
+const HANDLED_API_STATUSES = new Set([400, 401, 402, 422]);
+
+function isHandledApiRefusal(arg) {
+    try {
+        return arg?.name === 'ApiError' && HANDLED_API_STATUSES.has(arg?.status);
+    } catch {
+        return false;
+    }
+}
+
 /** Public entry — safe to call from anywhere. */
 export function reportError(input) {
     try {
+        // A tool exercising the site is not a user experiencing it.
+        if (isAutomatedClient()) return;
         if (sentCount >= MAX_EVENTS_PER_SESSION) return;
         const message = scrub(input?.message);
         if (!message.trim()) return;
@@ -151,6 +177,7 @@ export function initErrorReporter() {
         const originalError = console.error;
         console.error = (...args) => {
             originalError.apply(console, args);
+            if (args.some(isHandledApiRefusal)) return;
             const first = args[0];
             reportError({
                 message: `console.error: ${first?.message || args.map(String).join(' ')}`,

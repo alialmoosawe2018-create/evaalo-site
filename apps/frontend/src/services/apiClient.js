@@ -116,6 +116,27 @@ async function resolveAuthToken({ forceFresh = false } = {}) {
     return authStorage.getToken();
 }
 
+/**
+ * True when a fetch failed because the page is going away rather than because the
+ * request was rejected.
+ *
+ * There is no status code for this — the browser only gives a name and a message,
+ * and each engine words it differently: Safari says "Load failed", Chrome says
+ * "Failed to fetch", an explicit abort raises AbortError. The page-state check is
+ * what separates the two cases that share those words, so a genuine outage while
+ * the tab is visible still reports as an error.
+ */
+function isTeardownFailure(err) {
+    try {
+        if (err?.name === 'AbortError') return true;
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return true;
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+        return false;
+    } catch {
+        return false;
+    }
+}
+
 export class ApiError extends Error {
     constructor(message, { status, data } = {}) {
         super(message);
@@ -206,11 +227,24 @@ async function sendOnce(url, { method, body, formData, headers, signal }, forceF
             signal,
         });
     } catch (networkErr) {
-        // Network-level failure (offline, DNS, CORS, aborted). This is the only place
-        // it can be observed, so record it before it becomes an ApiError.
+        /**
+         * Network-level failure (offline, DNS, CORS, aborted). Only observable here,
+         * so it is recorded before it becomes an ApiError — but not all of these are
+         * defects.
+         *
+         * Leaving the page kills every request in flight at once. Production showed
+         * exactly that: three endpoints failing within one millisecond of each other
+         * on an iPhone, filed as three separate errors. That is one person walking
+         * away, not three bugs, and at `error` severity it buries the real ones.
+         *
+         * So a request torn down by navigation is recorded at `info`. It is still
+         * worth having — a burst of them is the fingerprint of a page too slow to
+         * wait for — but it is not a fault to triage.
+         */
+        const walkedAway = isTeardownFailure(networkErr);
         reportError({
             message: `API network error: ${method} ${url} — ${networkErr?.message || 'network_error'}`,
-            severity: 'error',
+            severity: walkedAway ? 'info' : 'error',
             httpStatus: 0,
         });
         throw new ApiError(networkErr?.message || 'network_error', { status: 0 });
@@ -257,9 +291,24 @@ async function send(path, options) {
     if (!response.ok) {
         emitInsufficientCredits(response.status, data);
         const message = data?.message || data?.error || `request_failed_${response.status}`;
-        // Every 4xx/5xx the app sees funnels through here — the single best place to
-        // notice a broken endpoint. 401/402 are expected control flow, not defects.
-        if (response.status !== 401 && response.status !== 402) {
+        /**
+         * Every 4xx/5xx funnels through here — the single best place to notice a
+         * broken endpoint. What does NOT belong is the server correctly refusing
+         * something a person typed.
+         *
+         * Production filed "a screening campaign needs at least one criterion" as a
+         * defect. The server behaved exactly right and told the user so; recording
+         * it as a fault means the error channel fills with the product working. 400
+         * and 422 are that class, and they arrive with a human-readable message —
+         * which is how a validation refusal is told apart from a malformed call.
+         *
+         * 401 and 402 stay out for the older reason: they are control flow.
+         */
+        const isValidationRefusal =
+            (response.status === 400 || response.status === 422) && Boolean(data?.message);
+        const skipReport =
+            response.status === 401 || response.status === 402 || isValidationRefusal;
+        if (!skipReport) {
             reportError({
                 message: `API ${response.status}: ${message}`,
                 severity: response.status >= 500 ? 'error' : 'warn',

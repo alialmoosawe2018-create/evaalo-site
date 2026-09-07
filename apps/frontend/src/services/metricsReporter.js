@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../config/apiBase.js';
+import { isAutomatedClient } from '../observability/isAutomatedClient.js';
 
 /**
  * Batched timing reporter.
@@ -66,6 +67,9 @@ function schedule() {
  */
 export function reportMetric(sample) {
     try {
+        // Same exclusion as the error reporter: a tool driving the site would skew
+        // the very baseline the timings exist to establish.
+        if (isAutomatedClient()) return;
         if (!sample || !sample.name) return;
         const ms = Number(sample.durationMs);
         if (!Number.isFinite(ms) || ms < 0) return;
