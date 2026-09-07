@@ -13,6 +13,7 @@ import {
 } from './campaignCompareCallbackAuth.js';
 import { renderCompareReportPdf } from './compareReportPdf.js';
 import { loadCandidatePhotoDataUris } from './compareReportPhotos.js';
+import { loadCampaignRoles } from './campaignRole.js';
 
 const EMAIL_DISPATCH_TIMEOUT_MS = 15_000;
 
@@ -71,10 +72,13 @@ export function buildExecutiveStats(uiResult: IAiCompareTopResult): {
 function composeEmailPayload(
     record: ICampaignCompareRequest,
     uiResult: IAiCompareTopResult,
-    pdf?: { pdfBase64: string; pdfFilename: string }
+    pdf?: { pdfBase64: string; pdfFilename: string },
+    /** The role the campaign is hiring for — the email opens by naming it. */
+    position?: string
 ): Record<string, unknown> {
     return {
         mode: 'email_dispatch_only',
+        ...(position ? { position } : {}),
         // Card-based PDF report attached by n8n's Gmail node (falls back to text-only when absent).
         ...(pdf ? { pdfBase64: pdf.pdfBase64, pdfFilename: pdf.pdfFilename } : {}),
         source: 'campaign-compare-v2-email',
@@ -133,8 +137,16 @@ export async function dispatchCompareTopV2Emails(record: ICampaignCompareRequest
         );
     }
 
+    // The report is about a job, so the email says which one. Same resolver the
+    // rest of the read path uses, so the campaign is named identically here and
+    // on screen. Absent for a campaign with no role on record — the email then
+    // simply omits the phrase rather than printing a blank.
+    const position = record.campaignId
+        ? (await loadCampaignRoles([record.campaignId])).get(record.campaignId)
+        : undefined;
+
     const payload = {
-        ...composeEmailPayload(record, uiResult, pdf),
+        ...composeEmailPayload(record, uiResult, pdf, position),
         submittedAt: new Date().toISOString(),
     };
 
