@@ -280,8 +280,38 @@ async function requestForm(path, { method = 'POST', formData, headers = {}, sign
     return send(path, { method, formData, headers, signal });
 }
 
+/**
+ * دمج طلبات GET المتطابقة المتزامنة في طلب واحد.
+ *
+ * فتحُ لوحة التحكّم كان يُطلق `/api/candidates` **ثلاث مرّات** في نفس اللحظة —
+ * من `RecentInterviewsCard` و `stageBoard` و `dashboardPrefetch`، ثلاثة مكوّنات
+ * لا يعرف أحدها بالآخر — و `/api/users/me` مرّتين. مقيسٌ من شبكة الصفحة، لا
+ * مُستنتَجاً: 3609 و 2381 و 2072 مللي لنفس المسار، تبدأ كلّها خلال 500 مللي.
+ *
+ * هذا **ليس تخزيناً مؤقّتاً**: المدخل يُحذف فور استقرار الوعد، فلا يُخدَم أحدٌ
+ * ردّاً قديماً، ولا يتأثّر طلب يلي عمليةَ كتابة. يُدمج فقط ما هو طائر الآن.
+ *
+ * ويُستثنى طلبان لا يجوز دمجهما: ذو `signal` — لأنّ إلغاء أحد النداءات سيقتل
+ * طلب الآخر — وذو ترويسات خاصّة، لأنّ المسار وحده لا يصف الردّ حينها.
+ */
+const inFlightGets = new Map();
+
+function coalescedGet(path, opts) {
+    const hasCustomHeaders = opts?.headers && Object.keys(opts.headers).length > 0;
+    if (opts?.signal || hasCustomHeaders) {
+        return request(path, { ...opts, method: 'GET' });
+    }
+    const pending = inFlightGets.get(path);
+    if (pending) return pending;
+    const promise = request(path, { ...opts, method: 'GET' }).finally(() => {
+        inFlightGets.delete(path);
+    });
+    inFlightGets.set(path, promise);
+    return promise;
+}
+
 export const apiClient = {
-    get: (path, opts) => request(path, { ...opts, method: 'GET' }),
+    get: (path, opts) => coalescedGet(path, opts),
     post: (path, body, opts) => request(path, { ...opts, method: 'POST', body }),
     postForm: (path, formData, opts) => requestForm(path, { ...opts, method: 'POST', formData }),
     put: (path, body, opts) => request(path, { ...opts, method: 'PUT', body }),
