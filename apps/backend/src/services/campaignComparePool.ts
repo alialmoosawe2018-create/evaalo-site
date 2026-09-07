@@ -8,6 +8,10 @@ import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import { stableJson } from '../services/webhookIdempotency.js';
 import type { CampaignCompareStage } from '../services/campaignCompareCallbackAuth.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
+import {
+    videoInterviewEvidence,
+    type InterviewEvidence,
+} from '../services/videoEvaluationEvidence.js';
 
 const MAX_TOP_N = 10;
 const DEFAULT_TOP_N = 5;
@@ -98,6 +102,15 @@ export interface Stage3PoolItem {
     candidateName: string;
     overallScore: number;
     recommendation: string;
+    /**
+     * Whether the interview measured anything. A session that ended early still
+     * produces a score and a recommendation, and without this the comparison
+     * ranked that number against candidates who completed their interview.
+     * The comparator is told to place an `insufficient` row last and say why,
+     * rather than dropping the person silently — a candidate who vanishes from
+     * the report is the harder failure to notice.
+     */
+    interviewEvidence: InterviewEvidence;
     summary: string;
     roleUnderstanding: number | null;
     professionalDepth: number | null;
@@ -264,6 +277,7 @@ function buildStage3Item(c: CompareRow): Stage3PoolItem {
         candidateName: truncateText(c.full_name, 200),
         overallScore: Number(v.overall_score),
         recommendation: String(v.recommendation),
+        interviewEvidence: videoInterviewEvidence(v as never),
         summary: truncateText(v.summary, MAX_TEXT),
         roleUnderstanding: numOrNull(v.role_understanding),
         professionalDepth: numOrNull(v.professional_depth),
