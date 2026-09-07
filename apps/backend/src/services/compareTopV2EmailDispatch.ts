@@ -8,6 +8,7 @@ import type { CompareUiStage } from '../models/CampaignCompareRequest.js';
 import type { IAiCompareTopResult } from '../models/RecruitmentCampaign.js';
 import { mapV2RecordToUiResult } from './compareTopV2Adapter.js';
 import {
+    getCampaignCompareInboundSecret,
     getCampaignCompareStageWebhookUrl,
     type CampaignCompareStage,
 } from './campaignCompareCallbackAuth.js';
@@ -78,6 +79,15 @@ function composeEmailPayload(
 ): Record<string, unknown> {
     return {
         mode: 'email_dispatch_only',
+        /**
+         * The email branch in n8n used to accept anything: `Route Mode` sees
+         * `mode` and goes straight to sending, while the secret check sits only on
+         * the comparison branch. A plain curl with no credentials reached the
+         * formatter (n8n execution 1750), which means anyone holding the webhook
+         * URL could send arbitrary text and an arbitrary PDF from the connected
+         * mailbox. Sending it here is what lets that branch demand it.
+         */
+        inboundSecret: getCampaignCompareInboundSecret(),
         ...(position ? { position } : {}),
         // Card-based PDF report attached by n8n's Gmail node (falls back to text-only when absent).
         ...(pdf ? { pdfBase64: pdf.pdfBase64, pdfFilename: pdf.pdfFilename } : {}),
