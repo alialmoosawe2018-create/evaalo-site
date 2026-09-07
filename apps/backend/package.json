@@ -92,7 +92,8 @@
     "verify:billing-smoke": "tsx src/scripts/run-local-billing-smoke.ts",
     "verify:stripe-e2e": "tsx src/scripts/stripe-e2e-local.ts",
     "test:site-metric": "tsx src/scripts/site-metric-test.ts",
-    "test:voice-phase2-role": "tsx src/scripts/voice-phase2-role-topic-test.ts"
+    "test:voice-phase2-role": "tsx src/scripts/voice-phase2-role-topic-test.ts",
+    "test:voice-negative-answer": "tsx src/scripts/voice-negative-answer-test.ts"
   },
   "keywords": [
     "career",

@@ -776,13 +776,50 @@ function resolveAcknowledgmentTurn(ack: number | LLMContext = 0): number {
 }
 
 /**
- * هل يجب كتم المديح في هذا الدور؟ نعم حين يكون الدور استجابةً لطلب توضيح أو لطلب
- * تغيير السؤال — أي حين لم يُجب المرشح بعد. الرايتان تُضبطان في voiceSessionCore من
- * نيّة الرسالة، فنُعيد استعمال إشارة موجودة بدل استنتاج جديد قد يخطئ.
+ * إجابة نافية: المرشح قال إنّ الشيء غير موجود عنده، لا إنّه أدّاه بشكل ضعيف.
+ *
+ * من الجلسة 6afff73c: «ما يطلب أي عمل جماعي» ثمّ **ممتاز**، و«عملي لا يتطلب اي
+ * تواصل» ثمّ **ممتاز**، و«لم اعمل في مجال الـ HR سابقا وما عندي اي سنوات خبرة»
+ * ثمّ **ممتاز**. مديحٌ على لا شيء يقرأه المرشح سخريةً أو غفلة، وكلاهما يهدم الثقة
+ * في المقابلة.
+ *
+ * ⚠️ لا `\b` هنا: JavaScript يعرّفها بـ `\w` = `[A-Za-z0-9_]`، والحرف العربي ليس
+ * منها، فأيّ `\b` بجوار العربية شرطٌ ميّت لا يتحقّق أبداً. البديل `\p{L}` مع `u`.
+ */
+const NEGATIVE_ANSWER_PATTERNS: RegExp[] = [
+    /(?<!\p{L})(?:ما|لا)\s*(?:عندي|أملك|امتلك|املك)(?!\p{L})/iu,
+    /(?<!\p{L})(?:لم|ما)\s*(?:أعمل|اعمل|اشتغل|أشتغل|سبق)(?!\p{L})/iu,
+    /(?<!\p{L})لا\s*(?:أستخدم|استخدم|يوجد|يتضمن|يتطلب|يشمل)(?!\p{L})/iu,
+    /(?<!\p{L})(?:ماكو|ما\s*اكو|ما\s*يوجد|ما\s*يطلب|ما\s*يتطلب|ما\s*يتضمن)(?!\p{L})/iu,
+    /(?<!\p{L})(?:ولا\s*شي|لا\s*شيء|ولا\s*شيء|مو\s*موجود|غير\s*موجود)(?!\p{L})/iu,
+    /(?<!\p{L})(?:no|none|never|nothing)\s+(?:experience|idea)?(?!\p{L})/iu,
+    /(?<!\p{L})(?:i\s+(?:don't|do\s+not|haven't|have\s+not|never))(?!\p{L})/iu,
+];
+
+export function isNegativeAnswer(text?: string | null): boolean {
+    const t = String(text ?? '').trim();
+    if (!t) return false;
+    return NEGATIVE_ANSWER_PATTERNS.some((re) => re.test(t));
+}
+
+/**
+ * هل يجب كتم المديح في هذا الدور؟
+ *
+ * نعم حين يكون الدور استجابةً لطلب توضيح أو لطلب تغيير السؤال — أي حين لم يُجب
+ * المرشح بعد؛ والرايتان تُضبطان في voiceSessionCore من نيّة الرسالة فنُعيد استعمال
+ * إشارة موجودة بدل استنتاج جديد قد يخطئ.
+ *
+ * ونعم أيضاً حين تكون الإجابة **نفياً**. لاحظ أنّ هذا لا يكتم المديح على إجابة
+ * ضعيفة أو قصيرة — تلك إجابة، وتقييمها شأن المُقيّم لا شأن المجاملة. الكتم هنا
+ * لأنّ المرشح صرّح بأنّ الشيء غير موجود عنده، فلا يوجد ما يُمدح أصلاً.
  */
 function resolvePraiseSuppressed(ack: number | LLMContext): boolean {
     if (typeof ack === 'number') return false;
-    return ack.clarificationRequested === true || ack.changeRequested === true;
+    return (
+        ack.clarificationRequested === true ||
+        ack.changeRequested === true ||
+        isNegativeAnswer(ack.candidateLastAnswer)
+    );
 }
 
 function resolveGenderFromSanitizeArg(ack: number | LLMContext): CandidateGender {

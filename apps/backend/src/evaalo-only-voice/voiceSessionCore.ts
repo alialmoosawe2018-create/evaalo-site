@@ -12,7 +12,7 @@ import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shou
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 import { recordMetricAsync } from "../services/siteMetricService.js";
 import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection } from "../services/sttRouterService.js";
-import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, polishVoiceArabicReply, resolveFixedAnswerPath, type InterviewPhase } from "../services/llmService.js";
+import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, isNegativeAnswer, polishVoiceArabicReply, resolveFixedAnswerPath, type InterviewPhase } from "../services/llmService.js";
 import { textToSpeech, textToSpeechWithTimestamps } from "../services/ttsService.js";
 import Candidate from "../models/Candidate.js";
 import RecruitmentCampaign from "../models/RecruitmentCampaign.js";
@@ -855,11 +855,27 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       const lastFollowUpTurn = interviewState?.lastFollowUpTurn ?? -FOLLOW_UP_MIN_GAP_TURNS;
       const followUpBudgetLeft = followUpsUsed < FOLLOW_UP_MAX_PER_INTERVIEW;
       const followUpGapOk = turnIndex - lastFollowUpTurn >= FOLLOW_UP_MIN_GAP_TURNS;
+      /**
+       * ولا متابعة على موضوع نفاه المرشّح للتوّ.
+       *
+       * من الجلسة 6afff73c: «ما يطلب أي عمل جماعي» تلتها متابعة «شنو أهم المهارات
+       * اللي لازم تكون عندك حتى تنجحين في العمل الجماعي؟»، و«عملي لا يتضمن مهارات
+       * تواصل» تلتها «شنو الخطوات اللي اتخذتيها لتحسين مهاراتك الرقمية بالتواصل؟».
+       * فسُئل العمل الجماعي ثلاث مرّات والتواصل مرّتين، وكلّها بعد نفي صريح.
+       *
+       * مذكّرة المواضيع تمنع إعادة اختيار نفس الـ pool، لكنّها لا تحكم المتابعة —
+       * والمتابعة تعمّق الموضوع الحالي بحكم تعريفها. فحين يقول المرشح إنّ الشيء
+       * غير موجود عنده، التعميق يستخرج «لا» ثانية ويستهلك دوراً من مقابلة محدودة.
+       * أمّا الإجابة الضعيفة أو المراوغة فتبقى مستحقّة للمتابعة — لها مسارها في
+       * `deflectionProbe`.
+       */
+      const answerIsNegative = isNegativeAnswer(cleaned);
       const allowFollowUp =
         userMessageCount >= 2 &&
         !changeRequested &&
         !clarificationRequested &&
         !deflectionProbe &&
+        !answerIsNegative &&
         followUpBudgetLeft &&
         followUpGapOk;
       const followUpNext: 1 | undefined = allowFollowUp && intent === 'challenge' ? 1 : undefined;
