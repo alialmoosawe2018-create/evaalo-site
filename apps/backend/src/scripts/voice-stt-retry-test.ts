@@ -81,6 +81,23 @@ check(
     false
 );
 
+// ── the failover decision ────────────────────────────────────────────────────
+//
+// Retrying absorbs a short blip; عقيل's outage lasted ninety seconds, longer
+// than any sane backoff. The real answer is the second provider — Deepgram is
+// already in this file and is NEVER reached, because the Speechmatics branch
+// returns unconditionally while its key is present.
+//
+// Failover fires on transient faults only. A bad Speechmatics key is a
+// configuration fault that must stay visible; papering over it with another
+// provider would hide it indefinitely.
+console.log('\n— which failures should fail over to the second provider —');
+const shouldFailOver = (err: unknown) => isTransientSttError(err);
+check('DNS outage → fail over', shouldFailOver(realOutageError), true);
+check('connection reset → fail over', shouldFailOver(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' })), true);
+check('bad key → do NOT fail over (stays visible)', shouldFailOver(new Error('Unauthorized: invalid API key')), false);
+check('missing key → do NOT fail over', shouldFailOver(new Error('Speechmatics API key is not configured')), false);
+
 if (failures > 0) {
     console.error(`\n${failures} case(s) failed`);
     process.exit(1);

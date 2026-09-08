@@ -23,6 +23,7 @@ import {
 } from "./speechmaticsStreamingService.js";
 import { getVoiceVadSettings } from "../evaalo-only-voice/voiceTimingEnv.js";
 import { getSttPurgeToken, shouldKeepLateBatch } from "../evaalo-only-voice/sttPurgeToken.js";
+import { recordMetricAsync } from "./siteMetricService.js";
 
 /** لقطة إعدادات VAD عند التشغيل — يعاد تشغيل الخادم بعد تغيير .env */
 const STT_VAD = getVoiceVadSettings();
@@ -347,6 +348,38 @@ function connectSpeechmaticsWithRetry(
             `[STT GIVE UP] ${sessionId.substring(0, 8)}... ${index + 1} attempts failed — ${err?.message ?? err}`
           );
         }
+
+        /**
+         * آخر ما يُجرَّب قبل الاستسلام: المزوّد الثاني.
+         *
+         * إعادةُ المحاولة تبتلع الانقطاع القصير، وانقطاعُ عقيل راضي دام تسعين ثانية
+         * — أطول من أيّ تراجعٍ معقول. والمخرج الحقيقي أنّ Deepgram **مدمجٌ في هذا
+         * الملفّ أصلاً** ولا يُبلَغ أبداً: الفرع أعلاه يخرج عند `hasSpeechmatics()`
+         * دائماً، فلا يصل التنفيذ إلى فرع Deepgram ما دام مفتاح Speechmatics موجوداً.
+         *
+         * اسمُ نطاقين لا يسقط معاً في العادة، فهذا يحوّل عطلاً يُفقد المقابلة إلى
+         * تبديل مزوّد لا يشعر به المرشّح.
+         *
+         * وعلى الأعطال **العابرة** فقط: مفتاحٌ خاطئ في Speechmatics عطلُ إعداد يجب
+         * أن يُرى ويُصلَح، لا أن يُغطّى بمزوّدٍ بديل إلى ما لا نهاية.
+         *
+         * ولا نستدعي `onReady` هنا: `createDeepgramConnection` يستدعيها بنفسه عند
+         * فتح الاتصال (deepgramStreamingService ~146).
+         */
+        if (isTransientSttError(err) && hasDeepgram()) {
+          console.warn(
+            `[STT FAILOVER] ${sessionId.substring(0, 8)}... Speechmatics unreachable — falling back to Deepgram (multi)`
+          );
+          recordMetricAsync({
+            scope: "interview",
+            name: "voice:stt_failover",
+            durationMs: STT_RETRY_DELAYS_MS.reduce((a, b) => a + b, 0),
+            outcome: "deepgram",
+          });
+          createDeepgramConnection(sessionId, onTranscript, onError, onReady, "multi");
+          return;
+        }
+
         onError(err);
       },
       onReady
