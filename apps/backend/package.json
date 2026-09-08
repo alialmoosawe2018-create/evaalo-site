@@ -101,7 +101,8 @@
     "test:voice-gender-nonanswer": "tsx src/scripts/voice-gender-and-nonanswer-test.ts",
     "test:voice-prompt-leak-end": "tsx src/scripts/voice-prompt-leak-and-end-test.ts",
     "test:voice-phase2-topic-memory": "tsx src/scripts/voice-phase2-topic-memory-test.ts",
-    "test:voice-stt-retry": "tsx src/scripts/voice-stt-retry-test.ts"
+    "test:voice-stt-retry": "tsx src/scripts/voice-stt-retry-test.ts",
+    "test:phone-identity": "tsx src/scripts/phone-identity-test.ts"
   },
   "keywords": [
     "career",

@@ -16,6 +16,8 @@ import {
 import { withCampaignRoles } from '../services/campaignRole.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
+import { normalizePhoneKey } from '../services/phoneIdentity.js';
+import { recordMetricAsync } from '../services/siteMetricService.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import {
@@ -1015,6 +1017,32 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             });
         }
 
+        /**
+         * وبالهاتف أيضاً، لا بالبريد وحده.
+         *
+         * حارس التكرار كان يطابق البريد فقط، فإعادة التقديم لنفس الحملة ببريدٍ آخر
+         * تُنشئ شخصاً جديداً وتقديماً جديداً — وبالتالي **رابط مقابلة نظيفاً**، فتُعاد
+         * المقابلة ويُستهلك رصيد. اكتشفه صاحب المنتج بتجربته على حملته.
+         *
+         * والهاتف مُعرِّفٌ أقوى من البريد هنا، والنموذج يجمعه أصلاً. المطابقة على
+         * المفتاح المطبَّع لا على النصّ الخام: الصيغ في البيانات متضاربة فعلاً
+         * (‎`+964…`، `0…`، صفر زائد بعد رمز الدولة، مسافات، `(783) 309-9675`).
+         *
+         * ولا يُطابَق إلا داخل **نفس الحملة** — التقديم لحملة أخرى حقٌّ مشروع.
+         */
+        const phoneKey = normalizePhoneKey(candidateDataForDB.phone as string | undefined);
+        if (!existingPerson && phoneKey && campaignOrganizationId) {
+            existingPerson = await Candidate.findOne({
+                phoneKey,
+                organizationId: campaignOrganizationId,
+            });
+            if (existingPerson) {
+                console.log(
+                    `[DUPLICATE PHONE] matched an existing person by phone key while the email differed (campaign ${campaignId || 'none'})`
+                );
+            }
+        }
+
         if (existingPerson && campaignId) {
             const existingApp = await CandidateApplication.findOne({
                 candidateId: existingPerson._id,
@@ -1022,11 +1050,26 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                 deletedAt: null,
             }).lean();
             if (existingApp) {
+                const matchedByPhone =
+                    String(existingPerson.email || '').trim().toLowerCase() !== emailNorm;
+                if (matchedByPhone) {
+                    recordMetricAsync({
+                        scope: 'backend',
+                        name: 'application:duplicate_by_phone',
+                        durationMs: 0,
+                        outcome: 'blocked',
+                    });
+                }
                 return res.status(400).json({
                     success: false,
                     error: 'Already applied to this campaign',
                     code: 'APPLICATION_EXISTS',
-                    message: 'This email is already registered for this campaign',
+                    // الرسالة تُسمّي ما طابَق فعلاً: قولُ «هذا البريد مسجَّل» لمن
+                    // قدّم ببريدٍ جديد يبدو خطأً في النظام لا قاعدةً مقصودة.
+                    message: matchedByPhone
+                        ? 'This phone number has already been used to apply to this campaign'
+                        : 'This email is already registered for this campaign',
+                    matchedBy: matchedByPhone ? 'phone' : 'email',
                     applicationId: existingApp.applicationId,
                     candidateId: String(existingPerson._id),
                 });
@@ -1103,9 +1146,15 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             // upsertCandidateApplication), so each one was a fifth of a second
             // the candidate spent watching a spinner.
             // Dual-write campaignId على الشخص لأحدث تقديم
-            const personUpdate = {
+            // شخصٌ قائم قد يسبق حقل `phoneKey` — يُملأ عند أوّل لمسة كي لا يبقى بلا
+            // مفتاح، فيُطابَق عليه التقديم التالي بدل أن يمرّ.
+            const shouldSetPhoneKey =
+                Boolean(phoneKey) &&
+                (existingPerson as { phoneKey?: string }).phoneKey !== phoneKey;
+            const personUpdate: Record<string, unknown> = {
                 ...personPatch,
                 ...(campaignId ? { campaignId } : {}),
+                ...(shouldSetPhoneKey ? { phoneKey } : {}),
             };
             const refreshed = Object.keys(personUpdate).length
                 ? await Candidate.findByIdAndUpdate(
@@ -1122,6 +1171,8 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             createdNewPerson = true;
             candidate = new Candidate({
                 ...candidateDataForDB,
+                // يُخزَّن كي يُطابَق عليه التقديم التالي — بدونه لا يرى الحارس شيئاً.
+                ...(phoneKey ? { phoneKey } : {}),
                 ...(campaignOrganizationId
                     ? {
                           organizationId: campaignOrganizationId,

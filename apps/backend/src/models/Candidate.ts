@@ -12,6 +12,11 @@ export interface ICandidate extends Document {
     full_name: string;
     email: string;
     phone: string;
+    /**
+     * الهاتف مطبَّعاً للمطابقة (`IQ:7…` / `INTL:…`) — يُشتقّ من `phone`، ولا يُعرض.
+     * موجود لأنّ صيغ الأرقام في البيانات متضاربة، فمقارنة النصّ الخام تفشل صامتةً.
+     */
+    phoneKey?: string;
     location?: string;
     gender?: string;
     position_applied_for: string;
@@ -225,6 +230,15 @@ const CandidateSchema = new Schema<ICandidate>({
         type: String,
         required: true,
         trim: true
+    },
+    /**
+     * مفتاح المطابقة المشتقّ من `phone` (انظر services/phoneIdentity.ts).
+     * `sparse` كي لا تُدرَج السجلّات القديمة قبل إعادة ملئها.
+     */
+    phoneKey: {
+        type: String,
+        trim: true,
+        index: { sparse: true }
     },
     location: {
         type: String,
