@@ -279,6 +279,83 @@ async function processAudioBuffer(sessionId: string): Promise<void> {
   }
 }
 
+/**
+ * أخطاء اتصال عابرة تستحقّ إعادة المحاولة — شبكة أو DNS، لا إعدادات.
+ *
+ * مفتاحٌ خاطئ أو غير مضبوط لن يُصلحه التكرار، فإعادةُ المحاولة عليه تُطيل صمت
+ * المرشّح بلا فائدة.
+ */
+const TRANSIENT_STT_ERROR =
+  /ENOTFOUND|EAI_AGAIN|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|ENETUNREACH|socket hang up|fetch failed|network|timed? ?out|502|503|504/i;
+
+export function isTransientSttError(err: unknown): boolean {
+  const e = err as { message?: string; code?: string; cause?: { code?: string; message?: string } };
+  const text = `${e?.message ?? ""} ${e?.code ?? ""} ${e?.cause?.code ?? ""} ${e?.cause?.message ?? ""}`;
+  if (/api key|not configured|unauthorized|401|403|invalid.*key/i.test(text)) return false;
+  return TRANSIENT_STT_ERROR.test(text);
+}
+
+/**
+ * جيلُ الاتصال لكل جلسة — تُبطِل إعادةَ محاولةٍ معلّقة بعد إغلاق الجلسة أو بدء
+ * اتصال جديد. بدونه قد تُنشئ محاولةٌ متأخّرة اتصالاً لجلسةٍ انتهت.
+ */
+const sttConnectGeneration = new Map<string, number>();
+
+/** مهل التراجع بين المحاولات. المجموع ~6.4s: يبتلع الانقطاع القصير، ولا يُطيل الصمت. */
+const STT_RETRY_DELAYS_MS = [600, 1800, 4000];
+
+/**
+ * يصل بـSpeechmatics ويعيد المحاولة عند عطلٍ عابر.
+ *
+ * من 2026-09-08: انقطع DNS عن `mp.speechmatics.com` و`eu2.rt.speechmatics.com`
+ * تسعين ثانية، فسقط إصدارُ رمز المصادقة (`createSpeechmaticsJWT`) — وبلا رمز لا
+ * يوجد تعرّفٌ على الكلام إطلاقاً. المرشّح عقيل راضي حاول **سبع مرّات** في أربع
+ * دقائق ولم يُسمع منه حرف، لأنّ محاولةً واحدة فاشلة كانت تُنهي المسار بلا إعادة.
+ *
+ * والصمت وحده لا يُصلح: تُرافقها رسالةٌ صريحة للمرشّح عند الفشل النهائي في
+ * `voiceSessionCore` — «انتظر لحظة وحاول» بدل «fetch failed».
+ */
+function connectSpeechmaticsWithRetry(
+  sessionId: string,
+  onTranscript: (text: string, isFinal: boolean, confidence?: number) => void,
+  onError: (error: Error) => void,
+  onReady?: () => void
+): void {
+  const generation = (sttConnectGeneration.get(sessionId) ?? 0) + 1;
+  sttConnectGeneration.set(sessionId, generation);
+
+  const attempt = (index: number): void => {
+    void createSpeechmaticsConnection(
+      sessionId,
+      onTranscript,
+      (err) => {
+        // جلسةٌ أُغلقت أو اتصالٌ أحدث بدأ: لا تُعِد المحاولة ولا تُبلّغ.
+        if (sttConnectGeneration.get(sessionId) !== generation) return;
+        const delay = STT_RETRY_DELAYS_MS[index];
+        if (delay !== undefined && isTransientSttError(err)) {
+          console.warn(
+            `[STT RETRY] ${sessionId.substring(0, 8)}... attempt ${index + 2}/${STT_RETRY_DELAYS_MS.length + 1} in ${delay}ms — ${err?.message ?? err}`
+          );
+          setTimeout(() => {
+            if (sttConnectGeneration.get(sessionId) !== generation) return;
+            attempt(index + 1);
+          }, delay);
+          return;
+        }
+        if (index > 0) {
+          console.error(
+            `[STT GIVE UP] ${sessionId.substring(0, 8)}... ${index + 1} attempts failed — ${err?.message ?? err}`
+          );
+        }
+        onError(err);
+      },
+      onReady
+    ).catch(() => {});
+  };
+
+  attempt(0);
+}
+
 export function createSTTRouterConnection(
   sessionId: string,
   onTranscript: (text: string, isFinal: boolean, confidence?: number) => void,
@@ -299,7 +376,7 @@ export function createSTTRouterConnection(
     }
     closeSTTRouterConnection(sessionId);
     console.log(`[STT START] ${sessionId.substring(0, 8)}... mode: Speechmatics streaming (ar_en bilingual)`);
-    createSpeechmaticsConnection(sessionId, onTranscript, onError, onReady).catch(() => {});
+    connectSpeechmaticsWithRetry(sessionId, onTranscript, onError, onReady);
     return;
   }
 
@@ -383,6 +460,8 @@ export async function sendAudioToSTTRouter(sessionId: string, audioChunk: Buffer
 }
 
 export function closeSTTRouterConnection(sessionId: string): void {
+  // يُبطل أي إعادة محاولة معلّقة: الجلسة انتهت أو يبدأ اتصال جديد.
+  sttConnectGeneration.set(sessionId, (sttConnectGeneration.get(sessionId) ?? 0) + 1);
   closeDeepgramConnection(sessionId);
   closeSpeechmaticsConnection(sessionId);
 

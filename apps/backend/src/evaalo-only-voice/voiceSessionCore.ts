@@ -11,7 +11,7 @@ import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMe
 import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend, shouldHoldForLiveSpeech, LIVE_SPEECH_POLL_MS } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 import { recordMetricAsync } from "../services/siteMetricService.js";
-import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection } from "../services/sttRouterService.js";
+import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection, isTransientSttError } from "../services/sttRouterService.js";
 import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, isNegativeAnswer, looksLikePromptInstruction, polishVoiceArabicReply, resolveFixedAnswerPath, type InterviewPhase } from "../services/llmService.js";
 import { textToSpeech, textToSpeechWithTimestamps } from "../services/ttsService.js";
 import Candidate from "../models/Candidate.js";
@@ -457,7 +457,41 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           send(ws, { type: "transcript", text: displayText, isFinal });
         }
       },
-      (err) => send(ws, { type: "error", message: err.message }),
+      /**
+       * ما يراه المرشّح حين يعجز التعرّف على الكلام.
+       *
+       * كان يُرسَل `err.message` خاماً، فرأى مرشّحونا يوم 2026-09-08 عبارة
+       * «fetch failed» — لا تقول له شيئاً ولا تدلّه على تصرّف. فأعاد المحاولة
+       * سبع مرّات في أربع دقائق وهو لا يدري أنّ العطل ليس منه ولا من ميكروفونه.
+       *
+       * الرسالة الآن بلغة الجلسة وتقول ما يفعل. ولا تصل إلّا بعد استنفاد إعادة
+       * المحاولة في `sttRouterService`، فالانقطاع القصير يُبتلع بصمت ولا يُفزعه.
+       */
+      (err) => {
+        const transient = isTransientSttError(err);
+        console.error(
+          `[STT UNAVAILABLE] ${sessionId.substring(0, 8)}... transient=${transient} — ${err?.message ?? err}`
+        );
+        recordMetricAsync({
+          scope: "interview",
+          name: "voice:stt_connect_failed",
+          durationMs: Math.max(0, Date.now() - sessionStartedAt),
+          failed: true,
+          outcome: transient ? "transient" : "configuration",
+        });
+        send(ws, {
+          type: "error",
+          code: transient ? "stt_unavailable" : "stt_failed",
+          message:
+            interviewLanguage === "en"
+              ? transient
+                ? "We're having trouble hearing you right now. Please wait a moment, then reload the page and start again — this is on our side, not yours."
+                : "Speech recognition is unavailable for this interview. Please contact the employer."
+              : transient
+                ? "نواجه مشكلة مؤقتة بالتقاط صوتك. انتظر لحظة ثم أعد تحميل الصفحة وابدأ من جديد — العطل من طرفنا لا منك."
+                : "خدمة التعرّف على الكلام غير متاحة لهذه المقابلة. الرجاء التواصل مع جهة التوظيف.",
+        });
+      },
       undefined,
       language,
       appendLateTailToRecord
