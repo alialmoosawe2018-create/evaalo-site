@@ -420,6 +420,18 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       outcome: "appended",
     });
   };
+    /**
+     * لا تفتح اتصال نسخٍ لمقبسٍ أُغلق.
+     *
+     * `startListening` تُستدعى من مسارات غير متزامنة (نهاية الترحيب، حدّ الدور)،
+     * فإن غادر المرشّح في الأثناء وصل النداء بعد الإغلاق. في الجلسة `b307fb8f`:
+     * `SESSION END 17:51:54` ثمّ `[STT START]` ثمّ اتصالان ناجحان بـSpeechmatics —
+     * اتصالا مزوّدٍ يُفتحان لأحدٍ غادر، ومنهما جاء الخطأ المجهول الذي صُنّف إعداداً.
+     */
+    if (ws.readyState !== ws.OPEN) {
+      console.log(`[STT SKIP] ${sessionId.substring(0, 8)}... socket already closed — not connecting`);
+      return;
+    }
     createSTTRouterConnection(
       sessionId,
       (text, isFinal, confidence) => {

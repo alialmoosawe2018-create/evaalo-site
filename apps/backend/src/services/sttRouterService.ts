@@ -289,11 +289,31 @@ async function processAudioBuffer(sessionId: string): Promise<void> {
 const TRANSIENT_STT_ERROR =
   /ENOTFOUND|EAI_AGAIN|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|ENETUNREACH|socket hang up|fetch failed|network|timed? ?out|502|503|504/i;
 
-export function isTransientSttError(err: unknown): boolean {
+/** أعطال إعداد معروفة: لن يُصلحها تكرارٌ ولا مزوّدٌ بديل، ويجب أن تُرى وتُصلَح. */
+export function isConfigurationSttError(err: unknown): boolean {
   const e = err as { message?: string; code?: string; cause?: { code?: string; message?: string } };
   const text = `${e?.message ?? ""} ${e?.code ?? ""} ${e?.cause?.code ?? ""} ${e?.cause?.message ?? ""}`;
-  if (/api key|not configured|unauthorized|401|403|invalid.*key/i.test(text)) return false;
-  return TRANSIENT_STT_ERROR.test(text);
+  return /api key|not configured|unauthorized|forbidden|401|403|invalid.*key/i.test(text);
+}
+
+/**
+ * المجهول يُعامَل **عابراً** — وهذا انقلابٌ مقصود عن أوّل نسخة.
+ *
+ * كانت الدالّة تُرجع `true` فقط لما تعرفه من أنماط الشبكة، فيسقط كلّ خطأ غير
+ * مصنَّف في خانة «الإعداد»: أقسى فرع — يُقال للمرشّح «راجع جهة التوظيف»، ويُتخطّى
+ * التبديل إلى Deepgram. ووقع فعلاً في الجلسة `b307fb8f` على خطأٍ نصّه «Error» بلا
+ * تفصيل: صنّفناه إعداداً وهو ليس كذلك.
+ *
+ * والصواب أنّ الافتراضين غير متكافئين في الكلفة: التعاملُ مع عطلٍ دائم كأنّه عابر
+ * يكلّف ستّ ثوانٍ من إعادة المحاولة ومحاولةَ مزوّدٍ ثانٍ — كلاهما آمن. أمّا التعامل
+ * مع عطلٍ عابر كأنّه دائم فيُنهي مقابلة إنسان. فالمجهول يذهب إلى المسار القابل
+ * للتعافي، ولا يُفشَل نهائيّاً إلّا على عطل إعدادٍ **معروف**.
+ *
+ * `TRANSIENT_STT_ERROR` تبقى للتوثيق ولاختبارات التصنيف — لم تعد بوّابةً.
+ */
+export function isTransientSttError(err: unknown): boolean {
+  if (err === null || err === undefined) return false;
+  return !isConfigurationSttError(err);
 }
 
 /**

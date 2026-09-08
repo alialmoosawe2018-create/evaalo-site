@@ -246,15 +246,55 @@ const MALE_GIVEN_NAMES = toNameSet([
 ]);
 
 /**
- * `unknown` كلّما التبس أو لم يُعرف — لا تخمين خارج القائمتين.
- * يُقرأ **الاسم الأول وحده**: «زهراء عقيل سالم» تُقرأ من «زهراء» لا من اسم أبيها.
+ * أسماء مركّبة من رمزين — تُفحص **قبل** الرمز الأول وحده.
+ *
+ * السبب من الإنتاج: «نور الهدى» (المخزَّنة "Noor Alhuda") عادت `unknown`، فخوطبت
+ * صاحبتها بالمذكّر طوال ٤٣ رسالة في الجلسة `96608883`. وكان قراري أنا: قرأتُ
+ * الرمز الأول وحده، واستبعدتُ «نور» لالتباسها — فأسقطتُ النصف الذي يحسمها.
+ *
+ * والالتباس نفسه هو الحجّة للمركّب لا عليه: «نور الهدى» مؤنّثة قطعاً و«نور الدين»
+ * مذكّر قطعاً، ولا يُفرَّق بينهما إلّا بالنظر إلى الرمزين معاً.
+ */
+const FEMALE_NAME_COMPOUNDS = toNameSet([
+  "نورالهدى", "نورالزهراء", "نورالهدي", "امالبنين", "امكلثوم", "فاطمةالزهراء",
+  "nooralhuda", "nouralhuda", "noorelhuda", "nooralhoda", "nouralhoda", "noorulhuda",
+  "ommalbanin", "ummalbanin", "fatimaalzahra",
+]);
+
+const MALE_NAME_COMPOUNDS = toNameSet([
+  "نورالدين", "سيفالدين", "صلاحالدين", "علاءالدين", "بهاءالدين", "شمسالدين", "نجمالدين",
+  "عبدالله", "عبدالرحمن", "عبدالكريم", "عبدالرزاق", "عبدالحسين", "عبدالمهدي",
+  "عبدالعزيز", "عبدالستار", "عبدالجبار", "عبدالهادي", "عبدالسلام", "عبدالوهاب",
+  "nooraldeen", "nouraldin", "noureddine", "saifaldeen", "salahaldeen", "alaaaldeen",
+  "abdullah", "abdulla", "abdallah", "abdulrahman", "abdelrahman", "abdulkarim",
+  "abdulaziz", "abdulsattar", "abdulhadi", "abdulsalam",
+]);
+
+/**
+ * `unknown` كلّما التبس أو لم يُعرف — لا تخمين خارج القوائم.
+ *
+ * يُقرأ **المركّب من رمزين أوّلاً**، ثمّ الرمز الأول وحده. ولا يُتجاوز ذلك إلى اسم
+ * الأب: «زهراء عقيل سالم» تُقرأ من «زهراء» لا من «عقيل» — وهو اسم رجل.
  */
 export function inferGenderFromGivenName(fullName?: string | null): CandidateGender {
-  const first = String(fullName ?? "").trim().split(/\s+/)[0] ?? "";
-  const key = normalizeGivenName(first);
+  const tokens = String(fullName ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!tokens.length) return "unknown";
+
+  if (tokens.length >= 2) {
+    const compound = normalizeGivenName(tokens[0]) + normalizeGivenName(tokens[1]);
+    if (compound) {
+      if (FEMALE_NAME_COMPOUNDS.has(compound)) return "female";
+      if (MALE_NAME_COMPOUNDS.has(compound)) return "male";
+    }
+  }
+
+  const key = normalizeGivenName(tokens[0]);
   if (!key) return "unknown";
   if (FEMALE_GIVEN_NAMES.has(key)) return "female";
   if (MALE_GIVEN_NAMES.has(key)) return "male";
+  // مكتوباً بلا فاصل («عبدالله»، «نورالهدى») — يُطابق قوائم المركّبات كذلك.
+  if (FEMALE_NAME_COMPOUNDS.has(key)) return "female";
+  if (MALE_NAME_COMPOUNDS.has(key)) return "male";
   return "unknown";
 }
 
@@ -397,6 +437,7 @@ IRAQI RULES (MANDATORY):
 ACKNOWLEDGMENT before the next question (NOT a greeting):
 - After the candidate answers, use ONE short phrase from: ${IRAQI_ACKNOWLEDGMENT_PHRASES.join("، ")} — then comma — then the question.
 - Vary the phrase each turn; do NOT open every reply with "زين" or the same word twice in a row.
+- Do NOT address the candidate by name. The greeting already used it; repeating it every turn ("عاشت ايدك، أنور. …" seven turns running) reads as a machine, not as warmth.
 - FORBIDDEN as acknowledgment: شلونك، شلونج، شلون، هلا، مرحبا — "شلونك/شلونج" means "how are you?" (greeting only at interview start), NOT "good answer".
 - WRONG: "زين، شلونك؟ شنو الأساليب…" | RIGHT: "ممتاز، شنو الأساليب…" or "طيب، شلون تنظم…" (شلون = how, without ك/ج suffix)
 

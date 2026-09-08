@@ -998,6 +998,35 @@ function resolvePraiseSuppressed(ack: number | LLMContext): boolean {
  * الطريق الثاني يتجاوز الاحتياط بالاسم، فيصحّح الموجّهُ المخاطبةَ ولا يصحّحها
  * المصحّح النهائي — وهو آخر من يلمس النصّ قبل النطق. نقطة قرارٍ واحدة للمخاطبة.
  */
+/**
+ * ينزع مناداة المرشّح باسمه بعد الافتتاحية مباشرةً.
+ *
+ * من الجلسة `4aa600d4`: «عاشت ايدك، **أنور**.» ثمّ «زين، **أنور**.» ثمّ «تمام،
+ * **أنور**.» — **سبعة أدوار من سبعة**. لا أحد يخاطب محدّثه باسمه في كلّ جملة؛
+ * يُقرأ آليّاً لا ودوداً. والترحيب ناداه باسمه أصلاً، فالتكرار بعده زائد.
+ *
+ * ولا يُمسّ الاسم في غير هذا الموضع: ذكره داخل السؤال قد يكون مقصوداً.
+ *
+ * حدٌّ معروف: المطابقة على الاسم المخزَّن، فإن كان مخزّناً باللاتينية ونُطق
+ * بالعربية («Noor Alhuda» ↔ «نور الهدى») لا يُنزَع. لذلك تُدعَم القاعدة بسطرٍ في
+ * الموجّه أيضاً.
+ */
+export function stripRepeatedNameAddress(text: string, fullName?: string | null): string {
+    const first = String(fullName ?? '').trim().split(/\s+/)[0] ?? '';
+    if (first.length < 2) return text;
+    const escaped = first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // «<افتتاحية>، <الاسم>. باقي الجملة» → «<افتتاحية>، باقي الجملة»
+    return text.replace(
+        new RegExp(`^([^،,]{1,24}[،,]\\s*)${escaped}\\s*[.،,]\\s*`, 'u'),
+        '$1'
+    );
+}
+
+function resolveFullNameFromSanitizeArg(ack: number | LLMContext): string | undefined {
+    if (typeof ack === 'number') return undefined;
+    return ack.candidateProfile?.full_name;
+}
+
 function resolveGenderFromSanitizeArg(ack: number | LLMContext): CandidateGender {
     if (typeof ack === 'number') return 'unknown';
     return resolveCandidateGender(ack);
@@ -1077,6 +1106,7 @@ function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string 
     // قد يعيدها الوكيل عمداً عند التأكيد من فهمه.
     s = s.replace(/["“”«»]\s*([^"“”«»\n]{1,40}?)\s*["“”«»]/gu, '$1');
     s = fixAcknowledgmentOpener(s, acknowledgmentTurn, praiseSuppressed);
+    s = stripRepeatedNameAddress(s, resolveFullNameFromSanitizeArg(ack));
     s = trimBoltedOnQuestion(s);
     s = applyIraqiGenderPhrasing(s, gender);
     return s.replace(/\s{2,}/g, ' ').trim();

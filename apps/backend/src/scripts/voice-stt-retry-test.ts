@@ -68,10 +68,24 @@ for (const [label, err] of [
     check(`not transient: ${label}`, isTransientSttError(err), false);
 }
 
-console.log('\n— and it must not guess —');
-check('an unrelated error is not retried', isTransientSttError(new Error('something odd happened')), false);
-check('undefined is not retried', isTransientSttError(undefined), false);
-check('null is not retried', isTransientSttError(null), false);
+// ── ⚠️ DELIBERATE INVERSION 2026-09-09 — do NOT "restore" this ───────────────
+//
+// This assertion used to read `false`: anything unrecognised was treated as a
+// configuration fault. That put every unknown error on the harshest branch —
+// the candidate told to "contact the employer", and the Deepgram failover
+// skipped. It fired on a real session (b307fb8f) for an error whose whole text
+// was "Error".
+//
+// The costs are not symmetric. Treating a permanent fault as transient costs
+// ~6s of retry plus one failover attempt, both safe and bounded. Treating a
+// transient fault as permanent ends a person's interview. So the unknown case
+// belongs on the recoverable path, and only a RECOGNISED configuration fault
+// hard-fails (asserted above).
+console.log('\n— unknown errors take the recoverable path —');
+check('an unrelated error IS retried now', isTransientSttError(new Error('something odd happened')), true);
+check('a bare "Error" with no detail is retried', isTransientSttError(new Error('Error')), true);
+check('undefined is not an error at all', isTransientSttError(undefined), false);
+check('null is not an error at all', isTransientSttError(null), false);
 
 // A misconfiguration whose text happens to mention the network must still be
 // treated as configuration: the key check is evaluated first, deliberately.
