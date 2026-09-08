@@ -168,6 +168,96 @@ export function normalizeCandidateGender(raw?: string | null): CandidateGender {
   return "unknown";
 }
 
+/**
+ * استدلال المخاطبة من الاسم الأول حين يكون حقل `gender` فارغاً.
+ *
+ * ولماذا لزم أصلاً: في الإنتاج، الحقل **فارغ عند خمسة من اثني عشر مرشّحاً، وبينهم
+ * كلّ النساء** — لأنّه اختياريّ في نموذج التقديم. وحين يغيب تصمت المنظومة كلّها بلا
+ * إنذار: `buildGenderAgreementSection` تُعيد نصّاً فارغاً، و`applyIraqiGenderPhrasing`
+ * تمرّ بلا تغيير. فلا شيء يفرض المخاطبة، ويبقى الموديل يخمّن من الاسم — أصاب في
+ * أكثر الأدوار وأخطأ في الافتتاحي عند زهراء وفاطمة كلتيهما.
+ *
+ * أي أنّ إصلاح `\b` الذي أحيا الفرع المؤنّث ظلّ معطّلاً عند المرشّحات اللواتي كُتب
+ * لهنّ — طبقةٌ ميّتة خلف طبقة. والدرس: حين «توجد المعالجة وتعمل»، تحقّق أنّ
+ * **مُدخَلها** مملوء في الإنتاج قبل اعتبار الميزة عاملة.
+ *
+ * والاستدلال محافظ عمداً: الاسم الأول وحده، وقوائم صريحة، وكلّ ملتبسٍ يبقى
+ * `unknown` — وهو حال اليوم بالضبط، فلا يُخسر شيء بالامتناع.
+ */
+const stripArabicDiacritics = (s: string): string => s.replace(/[ً-ْـ]/g, "");
+
+/** يوحّد صور الألف والياء والتاء المربوطة كي تتطابق «آية/اية» و«فاطمة/فاطمه». */
+function normalizeGivenName(raw: string): string {
+  return stripArabicDiacritics(raw)
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[^\p{L}]/gu, "");
+}
+
+const toNameSet = (names: string[]): ReadonlySet<string> =>
+  new Set(names.map(normalizeGivenName).filter(Boolean));
+
+const FEMALE_GIVEN_NAMES = toNameSet([
+  "زهراء", "فاطمة", "مريم", "زينب", "رقية", "سكينة", "سارة", "هدى", "أمل", "دعاء",
+  "إسراء", "رنا", "لمى", "شهد", "تبارك", "آية", "بتول", "حوراء", "مروة", "ريم",
+  "دينا", "سجى", "غفران", "نبأ", "رسل", "ضحى", "شيماء", "عبير", "هبة", "هند",
+  "ليلى", "سمية", "رغد", "زهرة", "نرجس", "بشرى", "إيمان", "أسماء", "خديجة",
+  "عائشة", "صفاء", "وفاء", "ولاء", "رواء", "شذى", "منار", "آمنة", "حنين", "تقى",
+  "زهور", "ابتسام", "انتصار", "سناء", "سهى", "مها", "نادية", "سعاد", "لبنى",
+  "رؤى", "دنيا", "جنان", "بنين", "زينة", "شروق", "إشراق", "أفنان", "براء",
+  "رحمة", "سلوى", "نجلاء", "هيام", "وسن", "أزهار", "بيداء", "خولة", "سهام",
+  "zahraa", "zahra", "fatima", "fatimah", "fatema", "maryam", "mariam", "zainab",
+  "zaynab", "ruqaya", "ruqayah", "sara", "sarah", "huda", "hoda", "amal", "doaa",
+  "israa", "rana", "lama", "shahad", "tabarak", "aya", "ayah", "batool", "hawraa",
+  "marwa", "reem", "rim", "dina", "saja", "ghufran", "shaimaa", "abeer", "heba",
+  "hiba", "hind", "layla", "laila", "sumaya", "raghad", "narjis", "bushra",
+  "iman", "eman", "asmaa", "khadija", "aisha", "safaa", "wafaa", "walaa", "rawaa",
+  "shatha", "manar", "amna", "hanin", "tuqa", "sanaa", "suha", "maha", "nadia",
+  "suaad", "lubna", "ruaa", "dunya", "jinan", "baneen", "zena", "shurooq",
+  "rahma", "salwa", "najlaa", "wasan", "khawla", "siham",
+]);
+
+const MALE_GIVEN_NAMES = toNameSet([
+  "علي", "محمد", "أحمد", "حسن", "حسين", "مصطفى", "عمر", "سجاد", "حيدر", "كرار",
+  "مرتضى", "عباس", "ياسر", "عمار", "مهدي", "جعفر", "كاظم", "صادق", "باقر", "هادي",
+  "سلام", "رعد", "عدنان", "فاضل", "قاسم", "طارق", "وليد", "خالد", "سعد", "أسعد",
+  "محمود", "إبراهيم", "إسماعيل", "يوسف", "يعقوب", "موسى", "عيسى", "زيد", "أنس",
+  "بلال", "عثمان", "حمزة", "ضرغام", "مثنى", "أيمن", "رسول", "منتظر", "أمير",
+  "مؤمل", "نبيل", "جاسم", "عقيل", "صلاح", "نوري", "ستار", "جبار", "كريم", "رحيم",
+  "حكيم", "سليم", "نجم", "فراس", "رائد", "هيثم", "سيف", "ليث", "بشار", "غيث",
+  "مازن", "ماجد", "عادل", "جمال", "كمال", "هشام", "سامر", "سامي", "رامي", "زياد",
+  "فهد", "بدر", "صابر", "شاكر", "مصعب", "طه", "علاء", "ضياء",
+  "ali", "mohammed", "mohamed", "muhammad", "mohammad", "ahmed", "ahmad", "hassan",
+  "hasan", "hussein", "husain", "hussain", "mustafa", "moustafa", "omar", "umar",
+  "sajjad", "sajad", "haider", "haidar", "karrar", "murtadha", "abbas", "yasser",
+  "ammar", "mahdi", "jaafar", "kadhim", "sadiq", "baqir", "hadi", "salam", "raad",
+  "adnan", "fadhil", "qasim", "tariq", "waleed", "walid", "khalid", "saad",
+  "asaad", "mahmood", "mahmoud", "ibrahim", "ismail", "yousif", "yousef",
+  "yaqoob", "mousa", "musa", "zaid", "anas", "bilal", "othman", "hamza",
+  "dhirgham", "muthanna", "ayman", "rasool", "muntadhar", "ameer", "amir",
+  "muamal", "nabeel", "jasim", "aqeel", "salah", "noori", "sattar", "jabbar",
+  "kareem", "karim", "raheem", "hakeem", "saleem", "najim", "firas", "raed",
+  "haitham", "saif", "laith", "bashar", "ghaith", "mazin", "majid", "adil",
+  "jamal", "kamal", "hisham", "samer", "sami", "rami", "ziad", "fahad", "badr",
+  "sabir", "shakir", "alaa", "dhiaa", "taha",
+]);
+
+/**
+ * `unknown` كلّما التبس أو لم يُعرف — لا تخمين خارج القائمتين.
+ * يُقرأ **الاسم الأول وحده**: «زهراء عقيل سالم» تُقرأ من «زهراء» لا من اسم أبيها.
+ */
+export function inferGenderFromGivenName(fullName?: string | null): CandidateGender {
+  const first = String(fullName ?? "").trim().split(/\s+/)[0] ?? "";
+  const key = normalizeGivenName(first);
+  if (!key) return "unknown";
+  if (FEMALE_GIVEN_NAMES.has(key)) return "female";
+  if (MALE_GIVEN_NAMES.has(key)) return "male";
+  return "unknown";
+}
+
 /** قواعد مطابقة الجنس عند مخاطبة المرشح بالعربي العراقي */
 export function buildGenderAgreementSection(gender: CandidateGender): string {
   if (gender === "unknown") return "";
@@ -243,6 +333,21 @@ export function applyIraqiGenderPhrasing(text: string, gender: CandidateGender =
     ["تشرح", "تشرحين"],
     ["تعمل", "تعملين"],
     ["تنطي", "تنطين"],
+    // من جلسة زهراء: «شنو المهمة اللي **تتوقع تسويها**» بقيت مذكّرة. الفعل المتّصل
+    // بضمير مفعول لا يُطابق المدخل المجرّد، فلكلّ صورة سطرها.
+    ["تتوقع", "تتوقعين"],
+    ["تسويها", "تسوينها"],
+    ["تتعاملها", "تتعاملينها"],
+    ["تختار", "تختارين"],
+    ["تفكر", "تفكرين"],
+    ["تحاول", "تحاولين"],
+    ["تتعلم", "تتعلمين"],
+    ["تطور", "تطورين"],
+    ["تنظم", "تنظمين"],
+    ["تدير", "تديرين"],
+    ["تحل", "تحلين"],
+    ["تبدأ", "تبدأين"],
+    ["تكمل", "تكملين"],
   ] as const;
 
   // ق→گ في «تكدر/تقدر» + مطابقة الجنس

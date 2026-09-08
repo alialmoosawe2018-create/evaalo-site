@@ -10,6 +10,7 @@ import {
     buildGenderAgreementSection,
     IRAQI_ACKNOWLEDGMENT_PHRASES,
     applyIraqiGenderPhrasing,
+    inferGenderFromGivenName,
     type CandidateGender,
 } from './iraqiDialectReference.js';
 import {
@@ -60,8 +61,15 @@ interface CandidateProfile {
     languages?: string[];
 }
 
+/**
+ * المُخزَّن يفوز دائماً؛ والاسم احتياطٌ حين لا يكون هناك مُخزَّن — وهو الحال الغالب:
+ * الحقل اختياريّ في نموذج التقديم وفارغٌ عند خمسة من اثني عشر مرشّحاً في الإنتاج،
+ * بينهم كلّ النساء. بدونه لا تعمل تعليمة الموجّه ولا مصحّح الصيغ، فيخمّن الموديل.
+ */
 function resolveCandidateGender(context?: Pick<LLMContext, 'candidateProfile'>): CandidateGender {
-    return normalizeCandidateGender(context?.candidateProfile?.gender);
+    const stored = normalizeCandidateGender(context?.candidateProfile?.gender);
+    if (stored !== 'unknown') return stored;
+    return inferGenderFromGivenName(context?.candidateProfile?.full_name);
 }
 
 interface Message {
@@ -771,6 +779,17 @@ function getProfessionalRegisterBlock(): string {
 const PRAISE_OPENER_RE = /^(?:ممتاز|عاشت\s*[اأإ]يدك|أحسنت|احسنت|زين|حلو|جيد|رائع)\s*[،,]\s*/u;
 const NEUTRAL_OPENER = 'طيب، ';
 
+/**
+ * والمرحلة الثالثة إنجليزية، والكتم كان عربيّاً بحتاً — فلم يكن يمسّها شيء.
+ *
+ * زهراء قالت «Don't know» ثلاث مرّات، فجاء الردّ في كلّ مرّة: «Good, thank you for
+ * sharing that.» شكرٌ على مشاركةٍ لم تحدث، وهو أسوأ من المديح العربي لأنّه يدّعي
+ * أنّها شاركت شيئاً. تُحذف عبارة الشكر مع المديح — لا تُستبدل — لأنّ لا شيء شاركته.
+ */
+const PRAISE_OPENER_EN_RE =
+    /^(?:good|great|excellent|perfect|nice|awesome|wonderful|well\s+done)\s*[,.!]\s*(?:thank\s+you\s+for\s+sharing(?:\s+that)?\s*[,.!]?\s*)?/i;
+const NEUTRAL_OPENER_EN = 'Okay. ';
+
 /** يصحّح استخدام شلونك/شلونج خطأً كتأكيد، ويُنوّع العبارة الافتتاحية */
 function fixAcknowledgmentOpener(
     text: string,
@@ -787,6 +806,19 @@ function fixAcknowledgmentOpener(
     // حذفها، حتى تبقى الجملة تبدأ بوصلة طبيعية لا بالسؤال جافاً.
     if (praiseSuppressed) {
         s = s.replace(PRAISE_OPENER_RE, NEUTRAL_OPENER);
+        if (PRAISE_OPENER_EN_RE.test(s)) {
+            const rest = s.replace(PRAISE_OPENER_EN_RE, '');
+            s = rest ? NEUTRAL_OPENER_EN + rest.charAt(0).toUpperCase() + rest.slice(1) : s;
+        }
+    }
+
+    /**
+     * تنويع الافتتاحية: كان يعمل على «زين» وحدها، فبقي اختيار الموديل قائماً في
+     * البقيّة — وافتتحت «ممتاز» ستّة أدوار من سبعة عشر عند زهراء. الاستبدال الآن
+     * على العائلة كلّها بالتناوب. عبارات الإقرار مترادفة، فلا يُخسر معنى.
+     */
+    if (!praiseSuppressed && turnIndex > 0 && PRAISE_OPENER_RE.test(s)) {
+        s = s.replace(PRAISE_OPENER_RE, `${pick} `);
     }
 
     // "زين، شلونك؟ شنو…" — شلونك ليست تأكيداً
@@ -835,10 +867,35 @@ const NEGATIVE_ANSWER_PATTERNS: RegExp[] = [
     /(?<!\p{L})(?:i\s+(?:don't|do\s+not|haven't|have\s+not|never))(?!\p{L})/iu,
 ];
 
+/**
+ * «لا أعرف» — عائلة منفصلة، ومشروطة بقِصَر الدور.
+ *
+ * من جلسة زهراء `da098dee`: «ما اعرف» لم تكن تُطابق شيئاً أصلاً، ولا «Don't know.»
+ * — كانت `i don't know` وحدها تُطابق. فقالتها ثلاث مرّات في المرحلة الإنجليزية
+ * وردّ الوكيل في كلّ مرّة بشكرٍ على المشاركة.
+ *
+ * والشرط على الطول ضروريّ هنا وحده: «ما عندي» و«ماكو» نفيٌ أينما وقعت، أمّا «ما
+ * اعرف» فتقع كثيراً داخل جوابٍ حقيقيّ («كنت ما اعرف البرنامج فتعلّمته…») فتصير
+ * مطابقتُها العمياء كتماً للمديح ومنعاً للمتابعة على إجابة كاملة. فإن كان الدور
+ * كلّه لا يتجاوز بضع كلمات، فهو الاعتذار نفسه لا جزءٌ من حكاية.
+ */
+const DONT_KNOW_PATTERNS: RegExp[] = [
+    /(?<!\p{L})(?:ما|لا|مو)\s*(?:اعرف|أعرف|ادري|أدري|اعلم|أعلم|افتهمت|فهمت)(?!\p{L})/iu,
+    /(?<!\p{L})(?:مااعرف|ماادري|ماادري)(?!\p{L})/iu,
+    /(?<!\p{L})(?:don'?t|do\s+not|dunno)\s*(?:know)?(?!\p{L})/iu,
+    /(?<!\p{L})no\s+idea(?!\p{L})/iu,
+];
+
+/** أقصى عدد كلمات يبقى معه «لا أعرف» هو الدور كلّه لا جزءٌ منه. */
+const DONT_KNOW_MAX_WORDS = 8;
+
 export function isNegativeAnswer(text?: string | null): boolean {
     const t = String(text ?? '').trim();
     if (!t) return false;
-    return NEGATIVE_ANSWER_PATTERNS.some((re) => re.test(t));
+    if (NEGATIVE_ANSWER_PATTERNS.some((re) => re.test(t))) return true;
+    const words = t.split(/\s+/).length;
+    if (words > DONT_KNOW_MAX_WORDS) return false;
+    return DONT_KNOW_PATTERNS.some((re) => re.test(t));
 }
 
 /**
@@ -867,9 +924,14 @@ function resolvePraiseSuppressed(ack: number | LLMContext): boolean {
     );
 }
 
+/**
+ * عبر `resolveCandidateGender` لا عبر `normalizeCandidateGender` مباشرةً: كان هذا
+ * الطريق الثاني يتجاوز الاحتياط بالاسم، فيصحّح الموجّهُ المخاطبةَ ولا يصحّحها
+ * المصحّح النهائي — وهو آخر من يلمس النصّ قبل النطق. نقطة قرارٍ واحدة للمخاطبة.
+ */
 function resolveGenderFromSanitizeArg(ack: number | LLMContext): CandidateGender {
     if (typeof ack === 'number') return 'unknown';
-    return normalizeCandidateGender(ack.candidateProfile?.gender);
+    return resolveCandidateGender(ack);
 }
 
 /** تقليل لقطع شرطات/فواصل طويلة، وإزالة مفردات مخالفة للسجل الرسمي إن وُجدت */
@@ -955,6 +1017,8 @@ export function polishVoiceArabicReply(
     text: string,
     opts?: {
         gender?: string | null;
+        /** يُستدلّ منه على المخاطبة حين لا يكون `gender` مخزّناً. */
+        fullName?: string | null;
         acknowledgmentTurn?: number;
         /** الدور جواب على طلب توضيح/تغيير — لا مديح فيه. */
         clarificationRequested?: boolean;
@@ -964,7 +1028,11 @@ export function polishVoiceArabicReply(
     }
 ): string {
     const ctx: LLMContext = {
-        candidateProfile: opts?.gender ? { gender: opts.gender } : undefined,
+        // الاسم يُمرَّر أيضاً: هو مصدر المخاطبة حين لا يكون هناك حقل gender مخزّن.
+        candidateProfile:
+            opts?.gender || opts?.fullName
+                ? { gender: opts?.gender ?? undefined, full_name: opts?.fullName ?? undefined }
+                : undefined,
         acknowledgmentTurn: opts?.acknowledgmentTurn,
         clarificationRequested: opts?.clarificationRequested,
         changeRequested: opts?.changeRequested,
