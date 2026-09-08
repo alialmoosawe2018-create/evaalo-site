@@ -324,8 +324,17 @@ export interface SelectedQuestion {
     isEnglishIntro?: boolean;
     /** الرسالة الختامية — المقابلة انتهت؛ الخادم يغلق الاتصال بعد انتهاء التشغيل */
     isInterviewEnd?: boolean;
-    /** topic فقط — Engine يوجّه، LLM يبني السؤال من topic + إجابة المرشح */
+    /** topic — Engine يوجّه، LLM يبني السؤال من topic + إجابة المرشح */
     topic?: string;
+    /**
+     * نصّ السؤال مُلزِم: يُطرح كما هو (بإعادة صياغة لهجيّة فقط) ولا يُبنى من `topic`.
+     *
+     * موجودٌ لأنّ `topic` صار يحمل معنيين. أسئلة الـ pool تضعه **دفترياً** لتسجيل
+     * الموضوع في ذاكرة المواضيع (questionEngine ~957)، بينما `createSystemPrompt`
+     * يقرأ وجودَه على أنّه **اختيار وضع**. فحقلٌ أُضيف للمحاسبة غيّر صامتاً الطريقةَ
+     * التي تُصاغ بها الأسئلة. هذا العلَم يفصل النيّتين بدل التخمين من `pool === 0`.
+     */
+    textIsAuthoritative?: boolean;
     /** قائمة مواضيع — LLM يختار الأنسب حسب إجابة المرشح (بدل round-robin) */
     availableTopics?: string[];
 }
@@ -495,7 +504,27 @@ ${langRule}`;
     }
 
     // وضع Topic-only: موضوع واحد، LLM يبني السؤال
-    if (selectedQuestion?.topic) {
+    /**
+     * وضع الموضوع — ما لم يكن نصّ السؤال مُلزِماً.
+     *
+     * كان الشرط `if (selectedQuestion?.topic)` وحده وهو يسبق فحص `text`، فالسؤال
+     * الإلزامي — وهو يحمل الحقلين — كان نصّه يُرمى ويُعاد بناؤه من **اسم الموضوع**.
+     * أي أنّ السؤال الموضوع ليُطرح بنصّه على كلّ مرشّح هو وحده الذي لم يرَ الموديل
+     * نصَّه قطّ.
+     *
+     * وثمرة ذلك في الجلسة 6afff73c: وصل الموديلَ `warmup_and_self_introduction`
+     * مع «شكرا جزيلا» وحدهما، فقرأ اسم الموضوع حرفيّاً وسأل «شنو أكثر شي تحب تسوي
+     * لما تعرف نفسك للآخرين؟» — سؤالٌ عن فعل التعريف بالنفس لا عن صاحبته، مصدَّراً
+     * بمقدّمة مختلَقة «بما أنك بدأت بالتقديم عن نفسك» ولم تكن قد بدأت شيئاً. والسؤال
+     * المقصود «ممكن تحچيلي شوية عن نفسك؟».
+     *
+     * ولاحظ أنّ قاعدة «لا تُضيّق سؤالاً واسعاً إلى موضوع فرعي» كانت مكتوبة أصلاً —
+     * في فرع إعادة الصياغة أدناه، أي في الفرع الذي لم يكن يُبلَغ.
+     *
+     * والشرط على العلَم لا على وجود `text`: أسئلة الـ pool تحمل الحقلين أيضاً، وهي
+     * قائمةُ اختيار لا نصٌّ مُلزِم، فتبقى في وضع الموضوع كما كانت.
+     */
+    if (selectedQuestion?.topic && !selectedQuestion.textIsAuthoritative) {
         const langRule = englishLock
             ? ENGLISH_LOCK_RULE
             : preferArabic
@@ -532,8 +561,18 @@ ${langRule}`;
         const changeNote = context.changeRequested
             ? `The candidate asked to change the question. Acknowledge briefly (${englishLock ? '"Sure"' : '"تمام" or "Sure"'}) then ask the new question. Keep under 65 words.`
             : '';
+        /**
+         * السؤال الإلزامي (pool 0) يُطرح على كلّ مرشّح ليُقارَن الناس على سؤال واحد.
+         * فإعادة صياغته صياغةً حرّة تُفقده سببَ وجوده: لا تبقى المقارنة على أرضٍ واحدة.
+         * فليس للموديل هنا إلا اللهجة والمخاطبة.
+         */
+        const mandatoryNote =
+            selectedQuestion.pool === 0
+                ? '\nThis is a MANDATORY question asked to every candidate. Keep its subject and its scope exactly as written — you may only adjust dialect and gender agreement. Do not turn it into a different question.'
+                : '';
         return `You are EVAALO, a professional interviewer. Rephrase this question naturally and ask it. You may add a brief transition if it feels natural. One main question.
 Do NOT narrow a broad question into a single sub-topic unless the original question is already specific.
+A transition may not assert anything about the candidate. Never claim they have said, started, or done something — if there is nothing to build on, just ask the question.${mandatoryNote}
 After the optional short acknowledgment, the question itself must OPEN with an explicit interrogative (شنو / شلون / وين / ليش / منو / شكد / هل — What / How / Why / Where / Which / Can you in English). A statement carrying only a question mark at the end is not acceptable — it is spoken aloud, so it must sound like a question.
 Requesting an example is the one exception: open with the imperative ("انطيني مثال على…" / "تگدر تنطيني مثال…" / "Give me an example of…"). Never "شنو مثال…".
 Output clean punctuation: never leave a lone "؟" or "?" in the middle of the sentence; the only question mark belongs at the very end.
@@ -812,12 +851,18 @@ export function isNegativeAnswer(text?: string | null): boolean {
  * ونعم أيضاً حين تكون الإجابة **نفياً**. لاحظ أنّ هذا لا يكتم المديح على إجابة
  * ضعيفة أو قصيرة — تلك إجابة، وتقييمها شأن المُقيّم لا شأن المجاملة. الكتم هنا
  * لأنّ المرشح صرّح بأنّ الشيء غير موجود عنده، فلا يوجد ما يُمدح أصلاً.
+ *
+ * ونعم كذلك في السؤال الافتتاحي (الإلزامي الأول). الترحيب ليس سؤالاً، فأوّل ما
+ * يقوله المرشّح ردٌّ على تحيّة لا جواب: في الجلسة 6afff73c قال «شكرا جزيلا» فردّ
+ * الوكيل «ممتاز،». المديح هنا يمدح مجاملةً، ويُسمع كأنّ الوكيل لا يميّز الجواب من
+ * التحيّة — وهو أوّل انطباع يأخذه المرشّح عن المقابلة كلّها.
  */
 function resolvePraiseSuppressed(ack: number | LLMContext): boolean {
     if (typeof ack === 'number') return false;
     return (
         ack.clarificationRequested === true ||
         ack.changeRequested === true ||
+        ack.mandatoryQuestionDue === 1 ||
         isNegativeAnswer(ack.candidateLastAnswer)
     );
 }
@@ -914,6 +959,8 @@ export function polishVoiceArabicReply(
         /** الدور جواب على طلب توضيح/تغيير — لا مديح فيه. */
         clarificationRequested?: boolean;
         changeRequested?: boolean;
+        /** السؤال الافتتاحي: المرشّح لم يُجب بعد، إنّما ردّ على تحيّة — لا مديح فيه. */
+        mandatoryQuestionDue?: 1 | 2;
     }
 ): string {
     const ctx: LLMContext = {
@@ -921,6 +968,7 @@ export function polishVoiceArabicReply(
         acknowledgmentTurn: opts?.acknowledgmentTurn,
         clarificationRequested: opts?.clarificationRequested,
         changeRequested: opts?.changeRequested,
+        mandatoryQuestionDue: opts?.mandatoryQuestionDue,
     };
     return sanitizeVoiceReply(text, ctx);
 }
@@ -1015,8 +1063,12 @@ You must output ONLY the next interview question in Iraqi Arabic (natural dialec
 ${getProfessionalRegisterBlock()}`;
 }
 
-/** يلفّ createSystemPrompt مع بلوك إنساني أو قيود سؤال-فقط — نقطة دخول واحدة */
-function buildSystemPrompt(context: LLMContext): string {
+/**
+ * يلفّ createSystemPrompt مع بلوك إنساني أو قيود سؤال-فقط — نقطة دخول واحدة.
+ * مُصدَّرة كي تُفحص الموجّهات نفسها في الاختبارات: ما يصل الموديل هو ما يحدّد
+ * السؤال، وقراءةُ الشيفرة وحدها لم تكشف أنّ نصّ السؤال الإلزامي لم يكن يصله قطّ.
+ */
+export function buildSystemPrompt(context: LLMContext): string {
     const gender = resolveCandidateGender(context);
     let core = createSystemPrompt(context);
     const genderBlock = buildGenderAgreementSection(gender);
