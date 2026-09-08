@@ -8,7 +8,7 @@ import { getControllerOutput } from "./interviewController.js";
 import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer } from "./questionEngine.js";
 import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
-import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend } from "./voiceTimingEnv.js";
+import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend, shouldHoldForLiveSpeech, LIVE_SPEECH_POLL_MS } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 import { recordMetricAsync } from "../services/siteMetricService.js";
 import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection } from "../services/sttRouterService.js";
@@ -102,6 +102,8 @@ type SpeechBuffer = {
   timeout?: NodeJS.Timeout;
   /** هل مُنحت مهلة السماح للذيل غير المثبّت في هذه السكتة؟ (مرّة واحدة لكل سكتة) */
   graced?: boolean;
+  /** كم حُبس الإرسال لأنّ الصوت أثبت أن المرشّح ما زال يتكلّم — يُصفَّر مع كل نصّ جديد */
+  heldMs?: number;
 };
 const speechBuffers = new Map<string, SpeechBuffer>();
 
@@ -356,6 +358,12 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   let firstTranscriptLogged = false;
   /** يطابق getSttPurgeToken عند آخر startListening حقيقي — أي بثّ بعد مزامنة الجيل يُهمل (كلام من جولة سابقة) */
   let sttTokenAtCurrentListen = 0;
+  /**
+   * آخر لحظة وصلت فيها قطعة صوت تجاوزت عتبة الكلام. صفرٌ = لم يتكلّم بعد في هذه
+   * النافذة. هذا هو الدليل الحيّ الوحيد على أنّ المرشّح يتكلّم **الآن**؛ النصّ يتأخّر
+   * عنه حتى ‎1.35 ثانية.
+   */
+  let lastLoudAudioAt = 0;
   /** تم إرسال تنبيه انتهاء الوقت */
   let timeEndedSent = false;
   /** تم إرسال الترحيب الأولي */
@@ -378,6 +386,8 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       // بداية استماع جديدة = جيل STT جديد؛ أي transcript متأخر من الجولة السابقة يجب أن يسقط
       sttTokenAtCurrentListen = bumpSttPurgeToken(sessionId, "listen_started");
       firstTranscriptLogged = false;
+      // نافذة استماع جديدة: صوت الدور السابق لا يُثبت شيئاً عن هذا الدور.
+      lastLoudAudioAt = 0;
     }
   /**
    * ذيلٌ وصل بعد أن أُرسل الدور: يُلحق بآخر كلام المرشّح في السجلّ ولا يُشغّل
@@ -491,6 +501,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   // مهلة سماح تُمنَح مرّة واحدة لينزل النهائي المتأخّر قبل إرسال الدور (يمنع بتر الذيل).
   const FINAL_GRACE_MS = Number(process.env.VOICE_FINAL_GRACE_MS) || 400;
   const INCOMPLETE_TAIL_EXTRA_MS = voiceTiming.incompleteTailExtraMs;
+  const LIVE_SPEECH_HOLD_WINDOW_MS = voiceTiming.liveSpeechHoldWindowMs;
+  const LIVE_SPEECH_MAX_HOLD_MS = voiceTiming.liveSpeechMaxHoldMs;
+  const HOLD_MIN_RMS = vad.holdMinRms;
   const MIN_CHARS = 10;
   const MIN_CONFIDENCE = 0.6; // 3) فلترة: if (confidence < 0.6) ignore (عند توفره من STT)
 
@@ -527,6 +540,37 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       buffer.timeout = setTimeout(onSilenceElapsed, FINAL_GRACE_MS);
       return;
     }
+    /**
+     * آخر سؤال قبل الإرسال، وهو صوتيّ لا نصّيّ: هل ما زال يتكلّم في هذه اللحظة؟
+     *
+     * كلّ ما قبله ينظر في النصّ — والنصّ متأخّر. من استأنف كلامه قبل ‎200 مللي لم
+     * يصل منه حرفٌ بعد، فيبدو للمؤقّت صامتاً ويُقطَع. هذا هو ما قُطعت به ثمانيةٌ من
+     * عشرة ذيول في مقابلة فاطمة: كلمات معنى لم تُنقذها قائمة الأدوات المعلّقة.
+     */
+    const heldMs = buffer.heldMs ?? 0;
+    const holding = shouldHoldForLiveSpeech({
+      msSinceLoudAudio: lastLoudAudioAt > 0 ? Date.now() - lastLoudAudioAt : Infinity,
+      heldMs,
+      liveSpeechHoldWindowMs: LIVE_SPEECH_HOLD_WINDOW_MS,
+      liveSpeechMaxHoldMs: LIVE_SPEECH_MAX_HOLD_MS,
+    });
+    if (holding) {
+      // الخطوة الأخيرة تُقلَّم على السقف تماماً: «ثانيتان» يجب أن تعني ثانيتين، لا
+      // ثانيتين وخطوة استطلاع.
+      const step = Math.min(LIVE_SPEECH_POLL_MS, LIVE_SPEECH_MAX_HOLD_MS - heldMs);
+      buffer.heldMs = heldMs + step;
+      buffer.timeout = setTimeout(onSilenceElapsed, step);
+      return;
+    }
+    if (heldMs > 0) {
+      console.log(`[TURN HOLD] ${sessionId.substring(0, 8)}... held ${heldMs}ms — candidate was still speaking`);
+      recordMetricAsync({
+        scope: "interview",
+        name: "voice:turn_held_for_speech",
+        durationMs: heldMs,
+        outcome: heldMs >= LIVE_SPEECH_MAX_HOLD_MS ? "capped" : "resumed",
+      });
+    }
     sendCompleteSentence();
   };
 
@@ -540,6 +584,8 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     if (buffer.timeout) clearTimeout(buffer.timeout);
     // حدث جديد وصل: نُتيح مهلة سماح جديدة عند التوقف القادم
     buffer.graced = false;
+    // ووصل النصّ الذي كان الحبس ينتظره، فيعود رصيد الحبس كاملاً للسكتة القادمة.
+    buffer.heldMs = 0;
     const completeSentence = bufferedSentence(buffer);
     const silenceMs = resolveTurnSilenceMs({
       tailIsFinal: buffer.partial === undefined,
@@ -1386,10 +1432,19 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           const rms = Math.sqrt(pcm16.reduce((sum, sample) => sum + sample * sample, 0) / pcm16.length);
           const threshold = vad.pcmStreamingMinRms;
 
+          /**
+           * الشدّة كانت تُحسب هنا ثمّ تُرمى بعد سؤال واحد: أنرسلها للنسخ أم لا؟ وهي
+           * تحمل جواب سؤال آخر يحتاجه مؤقّت الدور — هل المرشّح يتكلّم الآن؟ — ويصل
+           * قبل النصّ بأكثر من ثانية. عتبةٌ أعلى هنا لأنّ الحكم أثقل: حبسُ الدور.
+           */
+          if (rms >= HOLD_MIN_RMS) {
+            lastLoudAudioAt = Date.now();
+          }
+
           if (rms < threshold) {
             return; // صمت - لا نرسل للـ STT
           }
-          
+
           sendAudioToSTTRouter(sessionId, buf);
         } catch {
           send(ws, { type: "error", message: "invalid audio chunk" });

@@ -16,6 +16,13 @@ export function getVoiceVadSettings(): {
   vadCheckIntervalMs: number;
   /** Speechmatics: تأخير أقصى للجزئيات (ثوانٍ) — أقل = نتائج نهائية أسرع */
   speechmaticsMaxDelaySec: number;
+  /**
+   * أدنى RMS يُعتدّ به دليلاً على أنّ المرشّح **يتكلّم الآن** فيُؤجَّل إرسال الدور.
+   * أعلى من `pcmStreamingMinRms` عمداً: ذاك سؤاله «هل يُحتمل أن يكون كلاماً فلا
+   * نرميه؟»، وهذا سؤاله «هل أنا واثق أنّه كلام فأحبس الدور؟». الخطأ في الأول يكلّف
+   * نسخاً زائداً، وفي الثاني يكلّف صمتاً محرجاً بعد أن أنهى المرشّح جوابه.
+   */
+  holdMinRms: number;
 } {
   const n = (v: string | undefined, def: number, min: number, max?: number) => {
     const x = Number(v);
@@ -31,6 +38,7 @@ export function getVoiceVadSettings(): {
     batchEnergyRms: n(process.env.VOICE_BATCH_ENERGY_RMS, 175, 50, 4000),
     vadCheckIntervalMs: n(process.env.VOICE_VAD_CHECK_INTERVAL_MS, 350, 100, 2000),
     speechmaticsMaxDelaySec: n(process.env.VOICE_SPEECHMATICS_MAX_DELAY_SEC, 1.35, 0.2, 2.5),
+    holdMinRms: n(process.env.VOICE_HOLD_MIN_RMS, 175, 0, 4000),
   };
 }
 
@@ -65,6 +73,10 @@ export function getVoiceResponseTiming(): {
   lateTranscriptIgnoreMs: number;
   /** يُضاف على نافذة الصمت حين ينتهي الدور بذيل غير مكتمل (حرف ربط أو كلمة مبتورة) */
   incompleteTailExtraMs: number;
+  /** صوتٌ عالٍ وصل خلال هذه المدّة = المرشّح يتكلّم الآن، فلا يُرسَل الدور */
+  liveSpeechHoldWindowMs: number;
+  /** سقف الحبس الصوتي الكلّي — لئلا تحبس غرفةٌ ضاجّة الدورَ بلا نهاية */
+  liveSpeechMaxHoldMs: number;
 } {
   const n = (v: string | undefined, def: number, min: number) => {
     const x = Number(v);
@@ -89,8 +101,23 @@ export function getVoiceResponseTiming(): {
     postPlaybackResumeMs: n(process.env.VOICE_POST_PLAYBACK_RESUME_MS, 600, 0),
     lateTranscriptIgnoreMs: n(process.env.VOICE_LATE_TRANSCRIPT_IGNORE_MS, 300, 0),
     incompleteTailExtraMs: n(process.env.VOICE_INCOMPLETE_TAIL_EXTRA_MS, 700, 0),
+    /**
+     * المتصفّح يرسل الصوت قطعاً من 4096 عيّنة = ‎256ms لكلٍّ منها، فنافذةٌ من ‎400
+     * لا تحتمل قطعةً واحدة هادئة (حرفاً ساكناً أو وقفةً بين كلمتين) وتُفلت الحبس وسط
+     * الجملة. و‎600 تحتمل واحدة. ولا تكلّف من أنهى جوابه شيئاً: آخر صوتٍ منه مضى عليه
+     * أكثر من ثلاث ثوانٍ حين يُسأل هذا السؤال، لأنّ النصّ نفسه متأخّر عن الصوت.
+     */
+    liveSpeechHoldWindowMs: n(process.env.VOICE_LIVE_SPEECH_HOLD_WINDOW_MS, 600, 0),
+    /**
+     * أكبر من أقصى تأخير لـ Speechmatics (‎1.35s) بهامش: الحبس جسرٌ يعبر الفجوة بين
+     * استئناف الكلام ووصول أوّل نصّ يدلّ عليه، ثمّ يُسلَّم الأمر للنافذة العادية.
+     */
+    liveSpeechMaxHoldMs: n(process.env.VOICE_LIVE_SPEECH_MAX_HOLD_MS, 2000, 0),
   };
 }
+
+/** تكرار سؤال «هل ما زال يتكلّم؟» أثناء الحبس — قصير كي لا يتأخّر الردّ بعد صمته. */
+export const LIVE_SPEECH_POLL_MS = 150;
 
 /** أقل عدد كلمات يُسمح معه بالنافذة القصيرة — الردود الأقصر غالباً لم تكتمل بعد */
 export const MIN_WORDS_FOR_FAST_END = 4;
@@ -186,4 +213,35 @@ export function resolveTurnSilenceMs(opts: {
  */
 export function shouldGraceBeforeSend(alreadyGraced: boolean): boolean {
   return !alreadyGraced;
+}
+
+/**
+ * هل نحبس إرسال الدور لأنّ المرشّح **ما زال يُصدر صوتاً في هذه اللحظة**؟
+ *
+ * كلّ ما سبق من حمايات نصّيّ: ينظر في آخر كلمة وصلت ويسأل هل تبدو نهاية جملة. وهذا
+ * عاجز بطبيعته — لا قائمةَ كلماتٍ تعرف أنّ «مستوى» نهايةُ فكرة أم وسطها. ومن مقابلة
+ * فاطمة: ثمانية من عشرة ذيول مقطوعة كانت كلمات معنى لا أدوات، فلم تلتقطها القائمة.
+ *
+ * والإشارة الصحيحة صوتيّة: بين استئناف المرشّح كلامَه ووصولِ أوّل نصّ يدلّ عليه فجوةٌ
+ * تصل إلى ‎1.35 ثانية (أقصى تأخير Speechmatics)، بينما الصوت نفسه يصل خلال عشرات
+ * المللي. فالخادم يعرف أنّه يتكلّم قبل أن يعرف ماذا يقول بأكثر من ثانية — وكان يرمي
+ * تلك المعرفة.
+ *
+ * والحبس مشروط بحدّين كي لا ينقلب صمتاً محرجاً:
+ *   - نافذة: لا يُحبَس إلّا إن وصل صوتٌ عالٍ للتوّ، فمن أنهى جوابه يُرسَل فوراً بلا
+ *     أيّ كلفة زمنيّة إضافيّة — وهي الحالة الغالبة.
+ *   - سقف: مهما استمرّ الضجيج، ينتهي الحبس. غرفةٌ ضاجّة تؤخّر الردّ ثانيتين لا أكثر.
+ */
+export function shouldHoldForLiveSpeech(opts: {
+  /** منذ متى وصلت آخر قطعة صوت تجاوزت عتبة الكلام */
+  msSinceLoudAudio: number;
+  /** كم حُبس هذا الدور حتى الآن */
+  heldMs: number;
+  liveSpeechHoldWindowMs: number;
+  liveSpeechMaxHoldMs: number;
+}): boolean {
+  if (opts.heldMs >= opts.liveSpeechMaxHoldMs) return false;
+  // لم يصل صوتٌ عالٍ قطّ في نافذة الاستماع هذه.
+  if (!Number.isFinite(opts.msSinceLoudAudio)) return false;
+  return opts.msSinceLoudAudio <= opts.liveSpeechHoldWindowMs;
 }

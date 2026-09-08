@@ -13,8 +13,10 @@
  * Run: npx tsx src/scripts/voice-turn-endpoint-test.ts
  */
 import {
+    LIVE_SPEECH_POLL_MS,
     resolveTurnSilenceMs,
     shouldGraceBeforeSend,
+    shouldHoldForLiveSpeech,
     tailLooksIncomplete,
 } from '../evaalo-only-voice/voiceTimingEnv.js';
 
@@ -102,6 +104,108 @@ check('حشو إنجليزي يُرصد', tailLooksIncomplete('I think, uh'), tr
 check('«ok» ليست مبتورة', tailLooksIncomplete('ok'), false);
 check('«yes» ليست مبتورة', tailLooksIncomplete('yes'), false);
 check('«no» ليست مبتورة', tailLooksIncomplete('no'), false);
+
+// ── الحبس الصوتي: من مقابلة فاطمة (الجلسة 6afff73c) ──────────────────────────
+//
+// عشر إجابات من إحدى وعشرين انقطعت، وثمانٍ منها على **كلمة معنى** لا أداة:
+// «بعملية» «ومذكورة» «الرأي» «مستوى» «ذات» «patients» — فلم تُنقذها قائمة الأدوات
+// المعلّقة ولن تُنقذها أيّ توسعة لها، إذ لا تعرف لغةٌ مكتوبة أنّ «مستوى» نهاية فكرة
+// أم وسطها. أمّا «في» و«the» فكانتا في القائمة ونجتا بـ 2000ms مقابل 1700ms.
+// المتصفّح يرسل قطعاً من ‎256ms (4096 عيّنة على 16kHz)، فالنافذة تحتمل قطعةً هادئة.
+const CHUNK_MS = 256;
+const HOLD_WINDOW = 600;
+const MAX_HOLD = 2000;
+check('النافذة تحتمل قطعةً صامتة واحدة', HOLD_WINDOW > CHUNK_MS * 2, true);
+check('ولا تحتمل قطعتين — كي لا تُطيل الصمت بلا داعٍ', HOLD_WINDOW < CHUNK_MS * 3, true);
+const holding = (msSinceLoudAudio: number, heldMs = 0) =>
+    shouldHoldForLiveSpeech({
+        msSinceLoudAudio,
+        heldMs,
+        liveSpeechHoldWindowMs: HOLD_WINDOW,
+        liveSpeechMaxHoldMs: MAX_HOLD,
+    });
+
+check('صوتٌ وصل للتوّ → احبس الدور', holding(80), true);
+check('صوتٌ على حافّة النافذة → احبس', holding(HOLD_WINDOW), true);
+check('صمتٌ تجاوز النافذة → أرسل', holding(HOLD_WINDOW + 1), false);
+check('لم يصدر صوتٌ قطّ → أرسل', holding(Infinity), false);
+check('يتكلّم لكنّ السقف بلغ → أرسل رغم ذلك', holding(80, MAX_HOLD), false);
+check('يتكلّم وتحت السقف → احبس', holding(80, MAX_HOLD - LIVE_SPEECH_POLL_MS), true);
+
+// ── إعادة تمثيل القطع نفسه ────────────────────────────────────────────────────
+//
+// النصّ متأخّر عن الصوت: Speechmatics يتأخّر حتى 1.35s، فمن استأنف كلامه قبل 200ms
+// لم يصل منه حرف بعد ويبدو للمؤقّت صامتاً. الحبس جسرٌ يعبر تلك الفجوة وحدها.
+const FINAL_GRACE = 400;
+const STT_LAG = 1350;
+
+function simulateTurn(opts: {
+    tail: string;
+    /** متى استأنف المرشّح الكلام (null = أنهى جوابه فعلاً) */
+    resumeAtMs: number | null;
+    /** كم استمرّ الكلام المستأنف */
+    speaksForMs: number;
+    /** ضجيجٌ عالٍ لا كلام: يتجاوز عتبة الشدّة ولا ينتج عنه نصّ أبداً */
+    noiseOnly?: boolean;
+    hold: boolean;
+}): { outcome: 'cut' | 'survived'; dispatchAtMs: number } {
+    let t = sil(true, false, opts.tail) + FINAL_GRACE;
+    const textArrivesAt =
+        opts.resumeAtMs === null || opts.noiseOnly ? Infinity : opts.resumeAtMs + STT_LAG;
+    let held = 0;
+    if (opts.hold) {
+        while (t < textArrivesAt) {
+            const loud =
+                opts.resumeAtMs !== null &&
+                t >= opts.resumeAtMs &&
+                t <= opts.resumeAtMs + opts.speaksForMs;
+            if (!holding(loud ? 0 : Infinity, held)) break;
+            const step = Math.min(LIVE_SPEECH_POLL_MS, MAX_HOLD - held);
+            held += step;
+            t += step;
+        }
+    }
+    return { outcome: t >= textArrivesAt ? 'survived' : 'cut', dispatchAtMs: t };
+}
+
+// الدور 4: «…من اجل البدء بعملية» — استأنفت بعد 1500ms، وكانت تُرسَل عند 1700ms.
+const T4 = { tail: 'من اجل البدء بعملية', resumeAtMs: 1500, speaksForMs: 4000 };
+check('الدور 4 كان يُقطع قبل الحبس', simulateTurn({ ...T4, hold: false }).outcome, 'cut');
+check('الدور 4 ينجو بالحبس', simulateTurn({ ...T4, hold: true }).outcome, 'survived');
+
+// الدور 22: «…ومستوى الإجادة بها متوسط على مستوى» — وقفةٌ أطول.
+const T22 = { tail: 'ومستوى الإجادة بها متوسط على مستوى', resumeAtMs: 1650, speaksForMs: 3000 };
+check('الدور 22 كان يُقطع', simulateTurn({ ...T22, hold: false }).outcome, 'cut');
+check('الدور 22 ينجو', simulateTurn({ ...T22, hold: true }).outcome, 'survived');
+
+// الدور 40 (إنجليزي): «…just depend on the manual of the 2» — «2» ليست في القائمة.
+const T40 = { tail: 'just depend on the manual of the 2', resumeAtMs: 1550, speaksForMs: 3000 };
+check('الدور 40 كان يُقطع', simulateTurn({ ...T40, hold: false }).outcome, 'cut');
+check('الدور 40 ينجو', simulateTurn({ ...T40, hold: true }).outcome, 'survived');
+
+// ── والثمن، وهو الشرط الذي يجعل هذا مقبولاً في مسار حيّ ───────────────────────
+//
+// من أنهى جوابه لا يدفع مللي ثانية واحدة: لا صوت ⇒ لا حبس ⇒ نفس لحظة الإرسال.
+const doneTail = 'اشتغلت كموظف موارد بشرية في شركة انشاءات.';
+const withoutHold = simulateTurn({ tail: doneTail, resumeAtMs: null, speaksForMs: 0, hold: false });
+const withHold = simulateTurn({ tail: doneTail, resumeAtMs: null, speaksForMs: 0, hold: true });
+check('من أنهى جوابه: لا تأخير إطلاقاً', withHold.dispatchAtMs, withoutHold.dispatchAtMs);
+check('ولا يزال يُرسَل عند 1700ms', withHold.dispatchAtMs, LONG + FINAL_GRACE);
+
+// وسعلةٌ عابرة لا تحبس الدور: الصوت انقطع قبل لحظة الإرسال.
+const cough = simulateTurn({ tail: doneTail, resumeAtMs: 1000, speaksForMs: 120, hold: true });
+check('سعلةٌ عابرة لا تؤخّر الإرسال', cough.dispatchAtMs, LONG + FINAL_GRACE);
+
+// وضجيجٌ متّصل لا يحبس بلا نهاية: السقف يُنهيه.
+const noisy = simulateTurn({
+    tail: doneTail,
+    resumeAtMs: 0,
+    speaksForMs: 60000,
+    noiseOnly: true,
+    hold: true,
+});
+check('غرفةٌ ضاجّة: الحبس محدود بالسقف', noisy.dispatchAtMs, LONG + FINAL_GRACE + MAX_HOLD);
+check('وأسوأ تأخير ممكن ثانيتان', noisy.dispatchAtMs - (LONG + FINAL_GRACE), MAX_HOLD);
 
 if (failures > 0) {
     console.error(`\n${failures} case(s) failed`);
