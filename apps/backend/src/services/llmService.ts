@@ -847,6 +847,39 @@ function resolveAcknowledgmentTurn(ack: number | LLMContext = 0): number {
 }
 
 /**
+ * هل ردّد النموذجُ التعليمةَ بدل أن ينفّذها؟
+ *
+ * توجيهات المرحلة الثانية في `questionEngine` مكتوبةٌ **أمراً للنموذج** لا سؤالاً
+ * للمرشّح — «اسأل المرشح: … لا تذكر مستوى أي لغة من الاستمارة … استخدم كذا وليس
+ * كذا» — ثمّ تُوضع في حقل `SelectedQuestion.text` ويُسلَّم للنموذج تحت عنوان
+ * «Question to rephrase». وهي بنيةٌ تُغري بالترديد: أمرٌ في خانة سؤال.
+ *
+ * وقد حدث في الجلسة c6660f6c: نطق الوكيل التعليمة حرفيّاً بصوته، **ومعها بيانات
+ * الاستمارة** — «اللغات من الاستمارة: Arabic، English، Persian». سمع المرشّح ما
+ * لم يكن ليُسمَع.
+ *
+ * ولم يمنعه `validateLLMQuestion` لأنّ التعليمة تحوي «؟» فتبدو سؤالاً. فهذا فحصٌ
+ * مستقلّ: أثرُ التعليمة نفسها، لا شكلُ السؤال. والعائلة كلّها تبدأ بـ«اسأل المرشح»
+ * (questionEngine ~58، 60، 742، 747، 755…)، فأيّ توجيه جديد يرث الحماية.
+ */
+const PROMPT_INSTRUCTION_MARKERS: RegExp[] = [
+    /(?<!\p{L})اسأل\s+المرشح(?!\p{L})/u,
+    /(?<!\p{L})من\s+الاستمارة(?!\p{L})/u,
+    /(?<!\p{L})لا\s+تذكر(?!\p{L})/u,
+    /(?<!\p{L})استخدم\s+\S+\s+وليس(?!\p{L})/u,
+    /(?<!\p{L})اسأله\s+عن(?!\p{L})/u,
+    /\bask\s+the\s+candidate\b/i,
+    /\bdo\s+not\s+mention\b/i,
+];
+
+/** يُستدعى مع `validateLLMQuestion`: ردٌّ يحمل أثر التعليمة يُرفض ولو بدا سؤالاً. */
+export function looksLikePromptInstruction(reply?: string | null): boolean {
+    const t = String(reply ?? '').trim();
+    if (!t) return false;
+    return PROMPT_INSTRUCTION_MARKERS.some((re) => re.test(t));
+}
+
+/**
  * إجابة نافية: المرشح قال إنّ الشيء غير موجود عنده، لا إنّه أدّاه بشكل ضعيف.
  *
  * من الجلسة 6afff73c: «ما يطلب أي عمل جماعي» ثمّ **ممتاز**، و«عملي لا يتطلب اي

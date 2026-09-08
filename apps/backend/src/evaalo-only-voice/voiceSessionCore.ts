@@ -5,14 +5,14 @@ import { createRateLimiter } from "./rateLimiter.js";
 import { createSession, removeSession, touchSession, updateState } from "./sessionStore.js";
 import { createInterviewState, getInterviewState, removeInterviewState, onExchangeComplete, FOLLOW_UP_MAX_PER_INTERVIEW, FOLLOW_UP_MIN_GAP_TURNS } from "./interviewState.js";
 import { getControllerOutput } from "./interviewController.js";
-import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer } from "./questionEngine.js";
+import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer, isEndInterviewRequest, buildRequestedClosing } from "./questionEngine.js";
 import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
 import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend, shouldHoldForLiveSpeech, LIVE_SPEECH_POLL_MS } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
 import { recordMetricAsync } from "../services/siteMetricService.js";
 import { createSTTRouterConnection, sendAudioToSTTRouter, closeSTTRouterConnection } from "../services/sttRouterService.js";
-import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, isNegativeAnswer, polishVoiceArabicReply, resolveFixedAnswerPath, type InterviewPhase } from "../services/llmService.js";
+import { getLLMResponse, getTimeEndedApologyMessage, getInitialGreetingMessage, getVoiceTestGreeting, getVoiceTestChatResponse, isNegativeAnswer, looksLikePromptInstruction, polishVoiceArabicReply, resolveFixedAnswerPath, type InterviewPhase } from "../services/llmService.js";
 import { textToSpeech, textToSpeechWithTimestamps } from "../services/ttsService.js";
 import Candidate from "../models/Candidate.js";
 import RecruitmentCampaign from "../models/RecruitmentCampaign.js";
@@ -548,8 +548,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
      * عشرة ذيول في مقابلة فاطمة: كلمات معنى لم تُنقذها قائمة الأدوات المعلّقة.
      */
     const heldMs = buffer.heldMs ?? 0;
+    const msSinceLoudAudio = lastLoudAudioAt > 0 ? Date.now() - lastLoudAudioAt : Infinity;
     const holding = shouldHoldForLiveSpeech({
-      msSinceLoudAudio: lastLoudAudioAt > 0 ? Date.now() - lastLoudAudioAt : Infinity,
+      msSinceLoudAudio,
       heldMs,
       liveSpeechHoldWindowMs: LIVE_SPEECH_HOLD_WINDOW_MS,
       liveSpeechMaxHoldMs: LIVE_SPEECH_MAX_HOLD_MS,
@@ -564,13 +565,33 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     }
     if (heldMs > 0) {
       console.log(`[TURN HOLD] ${sessionId.substring(0, 8)}... held ${heldMs}ms — candidate was still speaking`);
-      recordMetricAsync({
-        scope: "interview",
-        name: "voice:turn_held_for_speech",
-        durationMs: heldMs,
-        outcome: heldMs >= LIVE_SPEECH_MAX_HOLD_MS ? "capped" : "resumed",
-      });
     }
+    /**
+     * قياسٌ عند كل إرسال — لأنّ الحبس لم يعمل ولا مرّة، ولا أعرف السبب.
+     *
+     * `voice:turn_held_for_speech` خالٍ تماماً منذ نشره، رغم وجود ذيول مقطوعة في
+     * الجلسات. والاحتمالان لا يُفرَّق بينهما من الخارج: إمّا أنّ العتبة 175 أعلى
+     * من كلام حقيقي فلا يُسجَّل صوتٌ أصلاً، وإمّا أنّ الأدوار لم تكن تحتاج حبساً.
+     *
+     * فيُسجَّل هنا **كم مضى على آخر صوتٍ عالٍ** لحظةَ الإرسال:
+     *   - `no_loud_audio` = لم يتجاوز أيّ مقطع العتبة في نافذة الاستماع كلّها ⇒
+     *     العتبة هي المشكلة، وهذا هو الجواب الحاسم.
+     *   - `silent` = سُمع صوت، لكنّه بَعُد ⇒ الحبس صحيحٌ في امتناعه.
+     *   - `capped` = حُبس حتى السقف.
+     * لا تُضبط العتبة قبل قراءة هذا التوزيع.
+     */
+    recordMetricAsync({
+      scope: "interview",
+      name: "voice:turn_dispatch_gap",
+      durationMs: Number.isFinite(msSinceLoudAudio) ? Math.round(msSinceLoudAudio) : -1,
+      outcome: !Number.isFinite(msSinceLoudAudio)
+        ? "no_loud_audio"
+        : heldMs >= LIVE_SPEECH_MAX_HOLD_MS
+          ? "capped"
+          : heldMs > 0
+            ? "resumed"
+            : "silent",
+    });
     sendCompleteSentence();
   };
 
@@ -980,8 +1001,21 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
 
       let selectedQuestion: ReturnType<typeof selectNextQuestion>;
 
-      // LLM يختار الموضوع — Phase 1 بدون إلزامي أو متابعة
-      if (!clarificationRequested && !changeRequested && !followUpNext && currentPhase === 1 && !mandatoryQuestionDue) {
+      /**
+       * طلبَ المرشّح الإنهاء: يُغلَق كما يُغلق المسار الطبيعي، لا يُطرح سؤال جديد.
+       * يسبق كلّ اختيار آخر — من قال «سأنهي المقابلة» لا يُسأل عن ترتيب أولوياته.
+       */
+      const endRequested = isEndInterviewRequest(cleaned);
+      if (endRequested) {
+        console.log(`[END REQUESTED] ${sessionId.substring(0, 8)}... candidate asked to end — closing`);
+        recordMetricAsync({
+          scope: "interview",
+          name: "voice:end_requested",
+          durationMs: userMessageCount,
+          outcome: "closed",
+        });
+        selectedQuestion = buildRequestedClosing(candidateLastLang === 'ar');
+      } else if (!clarificationRequested && !changeRequested && !followUpNext && currentPhase === 1 && !mandatoryQuestionDue) {
         const availableTopics = getAvailableTopicsForPhase1(interviewState);
         if (availableTopics.length > 0) {
           selectedQuestion = { availableTopics, preferArabic: candidateLastLang === 'ar' };
@@ -1153,7 +1187,20 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           sessionLanguage: interviewLanguage,
         });
         const fixedAnswerTurn = fixedPath === 'identity' || fixedPath === 'policy';
-        if (!fixedAnswerTurn && !validateLLMQuestion(llmReply, duplicateGuard)) {
+        // ترديدُ التعليمة يمرّ من `validateLLMQuestion` لأنّ فيه «؟»، فيُفحص على حدة.
+        const instructionEcho = looksLikePromptInstruction(llmReply);
+        if (instructionEcho) {
+          console.warn(
+            `[PROMPT LEAK] ${sessionId.substring(0, 8)}... model echoed its instruction instead of asking: "${llmReply.substring(0, 90)}"`
+          );
+          recordMetricAsync({
+            scope: 'interview',
+            name: 'voice:prompt_instruction_echo',
+            durationMs: llmReply.length,
+            outcome: 'replaced',
+          });
+        }
+        if (!fixedAnswerTurn && (instructionEcho || !validateLLMQuestion(llmReply, duplicateGuard))) {
           // احتياطيات المواضيع مكتوبة بالعراقية فقط — الجلسة الإنجليزية تأخذ
           // بديلاً إنجليزياً محايداً بدلاً من كسر قفل اللغة عند أول فشل تحقق.
           // Phase 3 إنجليزية دائماً حتى في جلسة عربية ثنائية: أي fallback هنا يجب أن
@@ -1188,6 +1235,31 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           });
         }
       }
+
+      /**
+       * مخرجٌ واحد للصقل — آخر ما يُلمس قبل النطق.
+       *
+       * `llmReply` يُسنَد في خمسة مواضع أعلاه: سؤال ثابت، ونداء النموذج، وإعادته،
+       * ونصّ ثابت عند فشل الإعادة، واحتياطي المحرّك. وكان كلٌّ منها مسؤولاً عن
+       * تذكّر الصقل بنفسه — فالنصّ الثابت لم يكن يُصقل أصلاً، والمساران الآخران
+       * يمرّران `gender` دون `full_name` فيتعطّل استدلال المخاطبة من الاسم عند من
+       * لا جنس مخزّن له (خمسة من اثني عشر في الإنتاج).
+       *
+       * وفي الجلسة c6660f6c وصلت «؟» شاردة إلى النطق رغم أنّ المصفّي يزيلها حين
+       * يُستدعى على النصّ نفسه — أي أنّ ردّاً ما التفّ حوله. صقلٌ واحد هنا يُغني عن
+       * تتبّع أيّ فرعٍ كان، ويمنع الفرع القادم من التسلّل.
+       *
+       * والصقل خاملٌ عند التكرار: النصّ المصقول لا يتغيّر بصقلةٍ ثانية (الافتتاحية
+       * المحايدة ليست في قائمة المديح، والصيغ المؤنّثة ليست مفاتيح في جدول التذكير).
+       */
+      llmReply = polishVoiceArabicReply(llmReply, {
+        gender: candidateProfile?.gender,
+        fullName: candidateProfile?.full_name,
+        acknowledgmentTurn: ackTurn,
+        clarificationRequested,
+        changeRequested,
+        mandatoryQuestionDue,
+      });
 
       console.log(`[AGENT] ${sessionId.substring(0, 8)}... "${llmReply.substring(0, 160)}${llmReply.length > 160 ? '...' : ''}"`);
       history.push({ role: "user", content: cleaned });

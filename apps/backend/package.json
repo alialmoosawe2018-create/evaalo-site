@@ -98,7 +98,8 @@
     "test:voice-late-batch": "tsx src/scripts/voice-late-batch-test.ts",
     "test:voice-turn-endpoint": "tsx src/scripts/voice-turn-endpoint-test.ts",
     "test:voice-mandatory-question": "tsx src/scripts/voice-mandatory-question-test.ts",
-    "test:voice-gender-nonanswer": "tsx src/scripts/voice-gender-and-nonanswer-test.ts"
+    "test:voice-gender-nonanswer": "tsx src/scripts/voice-gender-and-nonanswer-test.ts",
+    "test:voice-prompt-leak-end": "tsx src/scripts/voice-prompt-leak-and-end-test.ts"
   },
   "keywords": [
     "career",

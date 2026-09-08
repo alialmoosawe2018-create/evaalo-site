@@ -152,6 +152,46 @@ export function detectIntent(transcript: string): TurnIntent {
   return 'normal';
 }
 
+/**
+ * طلبٌ صريح لإنهاء المقابلة.
+ *
+ * من الجلسة c6660f6c: «I will end the interview. ثانك يو. Now I should go» —
+ * فطرح الوكيل سؤالاً جديداً. المرشّح يودّع والنظام يستجوب.
+ *
+ * والعتبة مرتفعة عمداً: كلفة الخطأ هنا غير متماثلة. تجاهلُ طلبٍ حقيقي دورٌ محرج،
+ * أمّا إنهاء مقابلةٍ بالغلط فيُضيّع فرصة المرشّح كلّها. فلا تُقبل الوداعات المجرّدة
+ * («باي»، «مع السلامة») ولا فعلُ الإنهاء وحده («انتهيت»، «خلصت» — قد تخصّ مشروعاً
+ * أو سؤالاً)، بل يلزم فاعلٌ أوّل مع مفعولٍ صريح: المقابلة، أو المغادرة الآن.
+ */
+export function isEndInterviewRequest(transcript: string): boolean {
+  const t = String(transcript ?? '').trim();
+  if (!t) return false;
+  const patterns: RegExp[] = [
+    // «أريد أنهي المقابلة» / «لازم أروح» / «حاب أغادر»
+    /(?<!\p{L})(?:اريد|أريد|ابي|أبي|حاب|لازم|يجب|راح|بدي)\s+(?:ان\s+|أن\s+)?(?:انهي|أنهي|اغادر|أغادر|اروح|أروح|امشي|أمشي|اترك|أترك)(?!\p{L})/u,
+    // «ننهي المقابلة» / «نخلص المقابلة» / «انتهت المقابلة» — لا بدّ من ذكرها
+    /(?<!\p{L})(?:انهي|أنهي|ننهي|نخلص|خلصنا|انتهت|نوقف|نكتفي)\s+(?:ال)?(?:مقابلة|مقابله|اتصال|مكالمة|جلسة)(?!\p{L})/u,
+    /(?<!\p{L})(?:ال)?(?:مقابلة|مقابله)\s+(?:خلصت|انتهت|كافية|تكفي)(?!\p{L})/u,
+    /\b(?:i(?:'| a)?m|i)\s+(?:will|want to|wanna|need to|have to|gonna|going to|would like to)\s+(?:end|finish|stop|leave|quit)\b/i,
+    /\bend\s+the\s+(?:interview|call|session)\b/i,
+    /\bi\s+(?:should|have to|need to|must|gotta)\s+go\b/i,
+    /\bi(?:'| a)?m\s+leaving\b/i,
+  ];
+  return patterns.some((re) => re.test(t));
+}
+
+/** الإغلاق حين يطلبه المرشّح — يُقرّ بالطلب أوّلاً، ثم يُغلق كالمسار الطبيعي. */
+export function buildRequestedClosing(preferArabic: boolean): SelectedQuestion {
+  return {
+    text: preferArabic
+      ? 'تمام، نخلّيها هنا. شكراً لوقتك — فريق الموارد البشرية راح يراجع إجاباتك ويتواصل وياك بالخطوات القادمة.'
+      : "Of course, we'll stop here. Thank you for your time — our HR team will review your answers and contact you with the next steps.",
+    preferArabic,
+    isFixed: true,
+    isInterviewEnd: true,
+  };
+}
+
 /** طلب التحدث بالإنجليزي قبل Phase 3 — عبارات واضحة (ليس «أي نص يحوي english») */
 export function isWantsEnglishBeforePhase3(transcript: string): boolean {
   const t = transcript.trim();
