@@ -1283,6 +1283,11 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         mandatoryQuestion2Asked: mandatoryQuestionDue === 2,
         poolUsed: clarificationRequested || followUpNext ? undefined : selectedQuestion?.pool,
         topicUsed: isVoiceTopicMemoryEnabled() ? topicUsed : undefined,
+        // يُسجَّل دائماً — لا خلف علَم ذاكرة المواضيع: هذا ليس تحسيناً للتنويع بل
+        // منعُ طرح السؤال نفسه مرّتين متتاليتين. ولا يُسجَّل عند طلب التوضيح أو
+        // المتابعة لأنّهما يعودان للموضوع نفسه بقصد.
+        phase2TopicUsed:
+          clarificationRequested || followUpNext ? undefined : selectedQuestion?.topicKey,
         followUpCount: nextFollowUpCount,
         followUpAsked: followUpNext === 1,
         phase3Reached: currentPhase === 3,

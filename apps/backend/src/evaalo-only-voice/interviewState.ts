@@ -36,6 +36,19 @@ export interface InterviewState {
   lastFollowUpTurn: number;
   /** Topic Memory: المواضيع التي تم طرحها — منع التكرار */
   askedTopics: string[];
+  /**
+   * مواضيع المرحلة الثانية المطروحة. منفصلة عن `askedTopics` عمداً: تلك مواضيع
+   * pools المرحلة الأولى، وخلطُ فضاءَي أسماء في مصفوفة واحدة يجعل توفّر مواضيع
+   * المرحلة الأولى يعتمد على ما جرى في الثانية.
+   *
+   * وسببُ وجودها أصلاً: كان اختيار موضوع المرحلة الثانية دالةً على العدّاد وحده،
+   * `(userMessageCount + (changeRequested ? 1 : 0)) % KEYS.length` — فالقفزة عند
+   * طلب التغيير **عابرة لا تُسجَّل**، فيُخدَم الموضوع الذي قُفز إليه مرّةً ثانيةً في
+   * الدور التالي حين يتقدّم العدّاد إليه طبيعيّاً. أي أنّ كلّ «غيّر السؤال» في
+   * المرحلة الثانية كان يضمن تكراراً بعده مباشرة (الجلسة c6660f6c: سؤال اللغات
+   * مرّتين متتاليتين).
+   */
+  askedPhase2Topics: string[];
 }
 
 /** سقف المتابعات للمقابلة الواحدة */
@@ -62,6 +75,7 @@ export function createInterviewState(sessionId: string): InterviewState {
     englishQuestionsAsked: 0,
     englishTestAnnounced: false,
     askedTopics: [],
+    askedPhase2Topics: [],
     deflectionProbesUsed: 0,
     followUpCount: 0,
     totalFollowUps: 0,
@@ -108,6 +122,8 @@ export function onExchangeComplete(
     englishIntroEmitted?: boolean;
     /** true عندما يكون رد هذا الدور تنبيه تهرّب (طلب مثال محدد) */
     deflectionProbeUsed?: boolean;
+    /** مفتاح موضوع المرحلة الثانية الذي طُرح في هذا الدور — يمنع إعادته */
+    phase2TopicUsed?: string;
   }
 ): InterviewState | undefined {
   const state = stateStore.get(sessionId);
@@ -129,6 +145,12 @@ export function onExchangeComplete(
     const asked = state.askedTopics ?? [];
     if (!asked.includes(options.topicUsed)) {
       state.askedTopics = [...asked, options.topicUsed];
+    }
+  }
+  if (options?.phase2TopicUsed) {
+    const asked = state.askedPhase2Topics ?? [];
+    if (!asked.includes(options.phase2TopicUsed)) {
+      state.askedPhase2Topics = [...asked, options.phase2TopicUsed];
     }
   }
   if (options?.followUpCount !== undefined) {

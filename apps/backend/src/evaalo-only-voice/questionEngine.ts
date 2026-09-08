@@ -896,6 +896,39 @@ export function getFallbackForTopic(topic: string, genderRaw?: string | null): s
  * يختار السؤال التالي بشكل حتمي
  * Question Engine → selected question → LLM rephrase
  */
+/**
+ * موضوع المرحلة الثانية التالي — من الذاكرة لا من العدّاد.
+ *
+ * الحساب السابق كان `(userMessageCount + (changeRequested ? 1 : 0)) % KEYS.length`،
+ * والـ`+1` فيه **قفزةٌ عابرة لا أثر لها**: تُقدّم الدورَ الحاليّ إلى الموضوع التالي،
+ * ثمّ يتقدّم العدّاد في الدور الذي يليه إلى **نفس** ذلك الموضوع فيُطرح مرّتين.
+ *
+ * أي أنّ كلّ «غيّر السؤال» في المرحلة الثانية كان يضمن تكراراً بعده مباشرة — لا
+ * أحياناً ولا في سباق، بل حسابياً. أُعيد بناء الجلسة c6660f6c رقماً برقم: الدور 10
+ * طلب تغييراً فقفز إلى الفهرس 5 (اللغات)، والدور 11 تقدّم طبيعيّاً إلى 5 نفسه.
+ * والحارس النصّي لم يمسكه لأنّ التكرار خرج بصيغة مختلفة تماماً.
+ *
+ * فالمعيار الآن ما طُرح فعلاً: أوّل مفتاح لم يُطرح بعد. وطلبُ التغيير يتخطّى مرشّحاً
+ * إضافيّاً — وهو تخطٍّ آمن الآن، لأنّ ما يُطرح يُسجَّل فلا يعود.
+ *
+ * وإن استُنفدت المواضيع كلّها (مقابلة أطول من عددها) نعود للتناوب على العدّاد: تكرارٌ
+ * بعد تغطية الجميع خيرٌ من صمت.
+ */
+export function pickPhase2Topic(
+  state: InterviewState | undefined,
+  changeRequested: boolean
+): Phase2TopicKey {
+  const asked = new Set(state?.askedPhase2Topics ?? []);
+  const unasked = PHASE2_TOPIC_KEYS.filter((k) => !asked.has(k));
+  if (unasked.length === 0) {
+    const idx = (state?.userMessageCount ?? 0) % PHASE2_TOPIC_KEYS.length;
+    return PHASE2_TOPIC_KEYS[idx];
+  }
+  // طلب التغيير يتخطّى المرشّح الأوّل ما دام هناك بديل.
+  if (changeRequested && unasked.length > 1) return unasked[1];
+  return unasked[0];
+}
+
 export function selectNextQuestion(
   controller: ControllerOutput,
   state: InterviewState | undefined,
@@ -1008,13 +1041,12 @@ export function selectNextQuestion(
   }
 
   if (phase === 2) {
-    const baseIdx = state?.userMessageCount ?? 0;
-    const topicIdx = (baseIdx + (changeRequested ? 1 : 0)) % PHASE2_TOPIC_KEYS.length;
-    const topicKey = PHASE2_TOPIC_KEYS[topicIdx];
+    const topicKey = pickPhase2Topic(state, changeRequested === true);
     const ar = candidateLastLanguage === 'ar';
     const text = buildPhase2TopicPrompt(topicKey, ar, candidateProfile);
     return {
       text,
+      topicKey,
       evaluates: PHASE2_TOPIC_EVALUATES[topicKey],
       preferArabic: ar,
     };
