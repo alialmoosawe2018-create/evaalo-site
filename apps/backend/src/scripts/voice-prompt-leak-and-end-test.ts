@@ -18,7 +18,11 @@
  *
  * Run: npm run test:voice-prompt-leak-end
  */
-import { looksLikePromptInstruction, polishVoiceArabicReply } from '../services/llmService.js';
+import {
+    looksLikePromptInstruction,
+    polishVoiceArabicReply,
+    trimBoltedOnQuestion,
+} from '../services/llmService.js';
 import { isEndInterviewRequest, buildRequestedClosing } from '../evaalo-only-voice/questionEngine.js';
 
 let failures = 0;
@@ -130,6 +134,48 @@ check(
     'gender is inferred at the exit from the name alone',
     polishVoiceArabicReply('شنو تحب تعرف عن نفسك؟', { fullName: 'Zahraa Aqeel Salim' }),
     'شنو تحبين تعرفين عن نفسك؟'
+);
+
+// ── 4. two questions bolted into one turn ────────────────────────────────────
+//
+// From session d4cec7ea. Spoken aloud, with no text in front of the candidate,
+// he answered one and the other was scored as unanswered.
+const DOUBLE =
+    'Good, thank you. Can you tell me about your ideal workspace and what elements contribute to your comfort in that environment? Now, can you share an example of a challenging situation you faced at work and how you handled it?';
+const trimmed = trimBoltedOnQuestion(DOUBLE);
+check('the bolted-on second question is dropped', /Now, can you share/.test(trimmed), false);
+check('the first question survives whole', trimmed.endsWith('in that environment?'), true);
+
+check(
+    'other resumption markers too',
+    trimBoltedOnQuestion('What is your background? Also, can you describe a challenge?'),
+    'What is your background?'
+);
+
+// ⚠️ The rule must NOT touch our own deliberately multi-part questions. Blind
+// truncation at the second «؟» would break both of these — they are templates,
+// not model slips.
+const MANDATORY_2 = 'شنو مستواك ببرامج مايكروسوفت أوفيس، وأي برنامج تفضل أكثر؟ وليش؟';
+const EDUCATION =
+    'زين، شنو الدروس أو المهارات اللي تعلمتها خلال سنوات دراستك الجامعية، وشلون كانت تجربتك بشكل عام؟ وهل كانت لها تأثيرات على مسار حياتك؟ هل تگدر تحكيلي عن مشروع أو تجربة عملية شاركت بها خلال دراستك؟';
+check('the second mandatory is untouched', trimBoltedOnQuestion(MANDATORY_2), MANDATORY_2);
+check('the multi-part education question is untouched', trimBoltedOnQuestion(EDUCATION), EDUCATION);
+check(
+    'an ordinary single question is untouched',
+    trimBoltedOnQuestion('Can you describe a recent success?'),
+    'Can you describe a recent success?'
+);
+check(
+    'a following sentence that is NOT a question is untouched',
+    trimBoltedOnQuestion('What is your background? Now take your time.'),
+    'What is your background? Now take your time.'
+);
+
+// and it runs inside the polish, not only standalone
+check(
+    'the exit polish drops it too',
+    /Now, can you share/.test(polishVoiceArabicReply(DOUBLE, { gender: 'male' })),
+    false
 );
 
 if (failures > 0) {

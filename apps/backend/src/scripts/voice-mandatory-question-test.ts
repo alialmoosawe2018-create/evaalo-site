@@ -89,6 +89,31 @@ check(
     true
 );
 
+// ── the opening question is asked VERBATIM, not rephrased ────────────────────
+//
+// Handing the text to the model was not enough. Across the two sessions that
+// followed that fix it came out right once («شنو تگدر تحچيلي عن نفسك بشكل
+// مختصر…», f25ee81e) and narrowed once, to «شنو خبرتك في مجال الهندسة
+// البترولية؟» (d4cec7ea) — despite two explicit rules against narrowing. A
+// question the model can narrow is not mandatory, and this one anchors the
+// comparison between every candidate.
+check('the opening question skips the LLM entirely', selected?.isFixed, true);
+check('and it is the exact mandatory text', selected?.text, MANDATORY_QUESTIONS[1].iq);
+
+// The second mandatory (Microsoft Office) deliberately stays on the rephrase
+// path: its text is already specific so there is nothing to narrow, and it lands
+// mid-interview where an acknowledgment opener reads naturally.
+const secondDue = getControllerOutput(
+    5,
+    { firstMandatoryAsked: true, secondMandatoryAsked: false } as never,
+    'ar'
+);
+check('turn 5 is the second mandatory', secondDue.mandatoryQuestionDue, 2);
+const secondQ = selectNextQuestion(secondDue, undefined, 'ar');
+check('the second mandatory is its own text', secondQ?.text, MANDATORY_QUESTIONS[2].iq);
+check('but is NOT fixed — it keeps its opener', secondQ?.isFixed, false);
+check('and its text is still authoritative', secondQ?.textIsAuthoritative, true);
+
 // ── a pool question must still be built from its topic ────────────────────────
 //
 // The fix must not disable topic mode; only questions carrying an explicit text

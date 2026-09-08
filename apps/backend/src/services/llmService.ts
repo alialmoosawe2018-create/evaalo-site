@@ -878,6 +878,36 @@ const PROMPT_INSTRUCTION_MARKERS: RegExp[] = [
     /\bdo\s+not\s+mention\b/i,
 ];
 
+/**
+ * سؤالان في دور واحد — يُقتطع الثاني.
+ *
+ * من الجلسة d4cec7ea: «Can you tell me about your ideal workspace…? **Now, can
+ * you share an example of a challenging situation you faced at work and how you
+ * handled it?**» سؤالان مستقلّان في نفَسٍ واحد، يُنطقان صوتاً بلا نصٍّ أمام المرشّح،
+ * فيُجيب أحدهما ويُحسب الآخر بلا جواب.
+ *
+ * ⚠️ والقاعدة ضيّقة عمداً — الاقتطاع الأعمى عند كلّ «؟» ثانية **يكسر أسئلةً
+ * مقصودة متعدّدة الأجزاء**: الإلزامي الثاني «…وأي برنامج تفضل أكثر؟ وليش؟»،
+ * وسؤال الدراسة «…وشلون كانت تجربتك؟ وهل كان إلها تأثير…؟ وبالمناسبة، شنو أكثر
+ * مشروع…؟». تلك قوالبنا نحن، لا هفوة من الموديل.
+ *
+ * فالشرطان معاً: علامة استفهام منتهية، يليها **أداةُ استئناف صريحة** (now/also/…)
+ * ثمّ **سؤالٌ مستقلّ كامل**. وإنجليزيّة فقط: العيب المرصود إنجليزيّ، والعربية هي
+ * التي تحمل القوالب المتعمَّدة، فتوسيعها إليها يهدم ما يعمل.
+ */
+const BOLTED_ON_SECOND_QUESTION_RE =
+    /[?؟]\s+(?:now|also|additionally|next|besides|and\s+now|and\s+also)\s*,?\s+(?=(?:can|could|would|will|do|does|did|have|has|are|is|what|how|why|where|which|who|tell|share|describe|explain)\b)/i;
+
+/** يقتطع سؤالاً ثانياً مُلحقاً، ويُبقي الأوّل كاملاً بعلامته. */
+export function trimBoltedOnQuestion(reply: string): string {
+    const m = BOLTED_ON_SECOND_QUESTION_RE.exec(reply);
+    if (!m) return reply;
+    // نُبقي كلّ شيء حتى علامة الاستفهام الأولى ضمناً.
+    const cut = reply.slice(0, m.index + 1).trim();
+    // لا نقتطع إلى لا شيء: إن كان الأوّل أقصر من أن يكون سؤالاً، نترك النصّ كما هو.
+    return cut.length >= 15 ? cut : reply;
+}
+
 /** يُستدعى مع `validateLLMQuestion`: ردٌّ يحمل أثر التعليمة يُرفض ولو بدا سؤالاً. */
 export function looksLikePromptInstruction(reply?: string | null): boolean {
     const t = String(reply ?? '').trim();
@@ -1047,6 +1077,7 @@ function sanitizeVoiceReply(text: string, ack: number | LLMContext = 0): string 
     // قد يعيدها الوكيل عمداً عند التأكيد من فهمه.
     s = s.replace(/["“”«»]\s*([^"“”«»\n]{1,40}?)\s*["“”«»]/gu, '$1');
     s = fixAcknowledgmentOpener(s, acknowledgmentTurn, praiseSuppressed);
+    s = trimBoltedOnQuestion(s);
     s = applyIraqiGenderPhrasing(s, gender);
     return s.replace(/\s{2,}/g, ' ').trim();
 }
