@@ -100,6 +100,9 @@ const profileCardStyle = {
  * @param {string} [props.audioBlockedAction] - Label of the resume-audio button.
  * @param {string} [props.completedTitle] - Heading shown after the server ends the interview.
  * @param {string|null} [props.completedMessage] - Optional line under that heading.
+ * @param {string} [props.endConfirmMessage] - Warning shown when End is pressed.
+ * @param {string} [props.endConfirmAction] - Label that actually ends the interview.
+ * @param {string} [props.endCancelAction] - Label that returns to the interview.
  */
 const VoiceInterviewStage = ({
   title = 'Voice Interview',
@@ -119,7 +122,15 @@ const VoiceInterviewStage = ({
   dir = 'ltr',
   completedTitle = 'The interview has ended',
   completedMessage = null,
+  // ⚠️ Ending is irreversible: the server scores whatever was said so far. A
+  // candidate pressed this at his fourth answer, then reopened the link eight
+  // seconds later and was refused — he had not meant to finish. The button now
+  // asks first, in the candidate's own language.
+  endConfirmMessage = 'End the interview now? You cannot return to it, and your answers so far are what will be evaluated.',
+  endConfirmAction = 'Yes, end it',
+  endCancelAction = 'Keep going',
 }) => {
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const {
     connectionStatus,
     serverState,
@@ -414,10 +425,71 @@ const VoiceInterviewStage = ({
               <span className="vi-interview-start-btn__icon" aria-hidden>▶</span>
               <span>{connectionStatus === 'connecting' ? 'Starting...' : 'Start'}</span>
             </button>
+          ) : endConfirmOpen ? (
+            // Deliberately inline rather than window.confirm: a native dialog
+            // ignores the page direction and can be suppressed by the browser,
+            // and this one has to be readable in Arabic and Kurdish too.
+            <div
+              role="alertdialog"
+              aria-label={endConfirmMessage}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '14px',
+                maxWidth: '420px',
+                padding: '18px 22px',
+                borderRadius: '14px',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                background: 'rgba(239, 68, 68, 0.08)',
+              }}
+            >
+              <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: 1.6, color: '#b91c1c', textAlign: 'center' }}>
+                {endConfirmMessage}
+              </p>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => setEndConfirmOpen(false)}
+                  style={{
+                    padding: '12px 24px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    color: '#fff',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {endCancelAction}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEndConfirmOpen(false);
+                    disconnect();
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    color: '#b91c1c',
+                    background: 'transparent',
+                    border: '1px solid rgba(185, 28, 28, 0.5)',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {endConfirmAction}
+                </button>
+              </div>
+            </div>
           ) : (
             <button
               type="button"
-              onClick={disconnect}
+              onClick={() => setEndConfirmOpen(true)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',

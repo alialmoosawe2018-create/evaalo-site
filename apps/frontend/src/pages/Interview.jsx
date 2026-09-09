@@ -142,6 +142,9 @@ const Interview = () => {
       audioBlockedAction={t('voiceInterview_audioBlockedAction')}
       completedTitle={t('voiceInterview_completedTitle')}
       completedMessage={t('voiceInterview_completedMessage')}
+      endConfirmMessage={t('voiceInterview_endConfirmMessage')}
+      endConfirmAction={t('voiceInterview_endConfirmAction')}
+      endCancelAction={t('voiceInterview_endCancelAction')}
     />
   );
 };

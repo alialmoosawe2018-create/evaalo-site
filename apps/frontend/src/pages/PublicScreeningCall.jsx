@@ -152,6 +152,9 @@ const PublicScreeningCall = () => {
         dir={isRtl ? 'rtl' : 'ltr'}
         completedTitle={t('voiceInterview_completedTitle')}
         completedMessage={t('voiceInterview_completedMessage')}
+        endConfirmMessage={t('voiceInterview_endConfirmMessage')}
+        endConfirmAction={t('voiceInterview_endConfirmAction')}
+        endCancelAction={t('voiceInterview_endCancelAction')}
       />
     );
   }

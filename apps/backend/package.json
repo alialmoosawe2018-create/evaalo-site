@@ -103,7 +103,8 @@
     "test:voice-phase2-topic-memory": "tsx src/scripts/voice-phase2-topic-memory-test.ts",
     "test:voice-stt-retry": "tsx src/scripts/voice-stt-retry-test.ts",
     "test:phone-identity": "tsx src/scripts/phone-identity-test.ts",
-    "test:voice-sessions-1768-1770": "tsx src/scripts/voice-sessions-1768-1770-test.ts"
+    "test:voice-sessions-1768-1770": "tsx src/scripts/voice-sessions-1768-1770-test.ts",
+    "test:voice-session-end": "tsx src/scripts/voice-session-end-test.ts"
   },
   "keywords": [
     "career",

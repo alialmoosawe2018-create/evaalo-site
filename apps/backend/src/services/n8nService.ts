@@ -11,6 +11,7 @@ import {
     type VoiceInterviewEvalContext,
     type VoiceInterviewEvaluation,
 } from './llmService.js';
+import type { VoiceSessionEndSummary } from '../evaalo-only-voice/voiceSessionEnd.js';
 import { N8N_HONEYPOT_FIELD_NAMES } from '../constants/n8nStage1.js';
 import Candidate from '../models/Candidate.js';
 import {
@@ -743,6 +744,8 @@ export const sendVoiceTranscriptToN8N = async (payload: {
     campaignId?: string;
     /** إعلان الوظيفة من الحملة — اختياري */
     jobAdvertisement?: string;
+    /** من أنهى الجلسة وهل انتهت قبل مرحلة الإنجليزية — يقرأه مُقيّم n8n. */
+    sessionEnd?: VoiceSessionEndSummary;
 }): Promise<boolean> => {
     dotenv.config({ path: path.resolve(__dirname, '../../.env') });
     const isPublic = payload.mode === 'public';
@@ -805,6 +808,11 @@ export const sendVoiceTranscriptToN8N = async (payload: {
         if (payload.jobAdvertisement?.trim()) {
             body.jobAdvertisement = payload.jobAdvertisement.trim();
         }
+        // كيف انتهت الجلسة. `earlyEnd` وحدها هي ما يغيّر سلوك المقيّم؛ البقية
+        // تشخيص يُحفظ مع التنفيذ ليُقرأ لاحقاً دون العودة إلى سجلّات الحاوية.
+        if (payload.sessionEnd) {
+            body.sessionEnd = payload.sessionEnd;
+        }
         const applicationId = await resolveOutboundApplicationId(candidateId, campaignId);
         if (applicationId) body.applicationId = applicationId;
         const stageBundle = tryBuildStageOutboundBundle('stage2', {
@@ -815,7 +823,10 @@ export const sendVoiceTranscriptToN8N = async (payload: {
         });
         appendStageOutboundFields(body, stageBundle);
         console.log(
-            `[n8n voice] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} lang=${effectiveLanguage} criteria=${payload.jobCriteria ? Object.keys(payload.jobCriteria).length : 0} metrics=${JSON.stringify(evaluation)} transcriptChars=${String(body.fullTranscript || '').length}`
+            `[n8n voice] payload | mode=${isPublic ? 'public' : 'screening'} campaignId=${String(body.campaignId || '')} lang=${effectiveLanguage} criteria=${payload.jobCriteria ? Object.keys(payload.jobCriteria).length : 0} metrics=${JSON.stringify(evaluation)} transcriptChars=${String(body.fullTranscript || '').length}` +
+                (payload.sessionEnd
+                    ? ` endedBy=${payload.sessionEnd.completedByServer ? 'server' : 'client'} earlyEnd=${payload.sessionEnd.earlyEnd}`
+                    : '')
         );
         const jsonBody = JSON.stringify(body);
         const post = (url: string) =>
@@ -1062,6 +1073,7 @@ export const finalizeAndSendVoiceTranscriptToN8N = async (payload: {
     /** Wall-clock session length (seconds). Required for the evidence gate. */
     durationSec?: number;
     applicationId?: string | null;
+    sessionEnd?: VoiceSessionEndSummary;
 }): Promise<boolean> => {
     const {
         assessVoiceInterviewEvidence,
@@ -1100,6 +1112,7 @@ export const finalizeAndSendVoiceTranscriptToN8N = async (payload: {
         jobCriteria: payload.jobCriteria,
         campaignId: payload.campaignId,
         jobAdvertisement: payload.jobAdvertisement,
+        sessionEnd: payload.sessionEnd,
     });
 };
 

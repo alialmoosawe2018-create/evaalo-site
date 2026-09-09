@@ -30,6 +30,7 @@ import {
   INTERVIEW_LINK_ALREADY_USED,
 } from "../services/interviewLinkAccess.js";
 import { bumpSttPurgeToken, getSttPurgeToken, clearSttPurgeToken, shouldKeepLateBatch } from "./sttPurgeToken.js";
+import { completesInterview, endedBeforeEnglishPhase, type VoiceSessionEndCause } from "./voiceSessionEnd.js";
 import {
   finalizeUsageReservation,
   reserveUsage,
@@ -52,6 +53,15 @@ const VOICE_WS_BILLING_ENFORCE = process.env.BILLING_ENFORCE !== "false";
 // فائدة جانبية: الحجز المسبق للرصيد (estimatedUnits) ينكمش من 3600 إلى 900.
 const VOICE_WS_MAX_SESSION_MS = (Number(process.env.VOICE_MAX_INTERVIEW_SECONDS) || 900) * 1000;
 const VOICE_WS_IDLE_TIMEOUT_MS = (Number(process.env.VOICE_IDLE_TIMEOUT_SECONDS) || 120) * 1000;
+/**
+ * مفتاح تراجع فوري لتقرير «غير مكتملة».
+ *
+ * على العيّنة المحفوظة كانت مقابلتان من ثلاثٍ قابلةٍ للتقييم ستنقلبان إلى «غير
+ * مكتملة»، وهي نسبة كبيرة تستحقّ طريق رجوع لا يمرّ بتعديل n8n: ضبط المتغيّر
+ * على "false" يُطفئ العلَم في الحمولة فيعود المقيّم لسلوكه السابق فوراً.
+ */
+const REPORT_INCOMPLETE_ON_EARLY_END =
+  String(process.env.VOICE_REPORT_INCOMPLETE_ON_EARLY_END ?? "true").trim().toLowerCase() !== "false";
 // أدنى مدة جلسة يقبلها الحجز المُقلَّم — أقل من ذلك تُرفض الجلسة (رصيد لا يكفي لمقابلة مجدية).
 const VOICE_WS_MIN_SESSION_SECONDS = Number(process.env.VOICE_MIN_SESSION_SECONDS) || 120;
 // سقف تنبيهات التهرّب لكل مقابلة — «أعطني مثالاً محدداً» بعد نفي التحدي. صارم كي لا
@@ -285,14 +295,26 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   // Billing + safety timers: track when the session began, auto-close on idle or
   // on hitting the hard max duration so an abandoned socket can't drain credits.
   const sessionStartedAt = Date.now();
+
+  /**
+   * من أنهى هذه الجلسة.
+   *
+   * تبقى "client" ما لم يُغلق الخادم المقبس بنفسه — فكل استدعاء لـws.close في
+   * هذه الدالة يضبطها أولاً. هي المتغيّر الوحيد الذي يفرّق بين «انتهت المقابلة»
+   * و«خرج المرشّح»، وعليها يتوقّف قفل الرابط. راجع voiceSessionEnd.ts.
+   */
+  let sessionEndCause: VoiceSessionEndCause = "client";
+
   let idleTimer: NodeJS.Timeout | undefined;
   const resetIdleTimer = () => {
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = setTimeout(() => {
+      sessionEndCause = "idle_timeout";
       try { ws.close(1000, "idle timeout"); } catch { /* noop */ }
     }, VOICE_WS_IDLE_TIMEOUT_MS);
   };
   let maxTimer = setTimeout(() => {
+    sessionEndCause = "max_duration";
     try { ws.close(1000, "max duration"); } catch { /* noop */ }
   }, VOICE_WS_MAX_SESSION_MS);
   resetIdleTimer();
@@ -325,6 +347,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           try {
             send(ws, { type: "error", code: reserve.code, message: "billing denied" });
           } catch { /* noop */ }
+          sessionEndCause = "server_refused";
           try { ws.close(1008, "billing denied"); } catch { /* noop */ }
           return;
         }
@@ -335,6 +358,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           );
           clearTimeout(maxTimer);
           maxTimer = setTimeout(() => {
+            // ⚠️ ليست "max_duration": هذه جلسة قُصّت لأنّ الأرصدة نفدت، لا لأنّ
+            // المرشّح استوفى وقته. قفل رابطه هنا يعاقبه على حسابٍ ليس حسابه.
+            sessionEndCause = "credits_exhausted";
             try { ws.close(1000, "max duration"); } catch { /* noop */ }
           }, remainingMs);
           console.log(
@@ -867,6 +893,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       updateState(sessionId, "IDLE");
       send(ws, { type: "state", state: "IDLE" });
       await new Promise((r) => setTimeout(r, voiceTiming.postPlaybackResumeMs));
+      sessionEndCause = "interview_complete";
       if (ws.readyState === ws.OPEN) ws.close(1000, "interview_complete");
       return;
     }
@@ -1353,6 +1380,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     resetIdleTimer();
     const byteLength = typeof data === "string" ? Buffer.byteLength(data) : Buffer.byteLength(Buffer.from(data as any));
     if (byteLength > maxMessageBytes) {
+      sessionEndCause = "server_refused";
       ws.close(1009, "message too big");
       return;
     }
@@ -1412,6 +1440,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
                 code: INTERVIEW_LINK_ALREADY_USED,
                 message: "This interview link has already been used.",
               });
+              sessionEndCause = "link_consumed";
               ws.close(4001, "link_consumed");
               return;
             }
@@ -1527,6 +1556,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           } finally {
             updateState(sessionId, "IDLE");
             send(ws, { type: "state", state: "IDLE" });
+            sessionEndCause = "interview_complete";
             if (ws.readyState === ws.OPEN) ws.close(1000, "interview_complete");
           }
         })();
@@ -1579,8 +1609,12 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     }
   });
 
-  ws.on("close", () => {
+  ws.on("close", (closeCode?: number, closeReasonRaw?: Buffer | string) => {
     activeConnections = Math.max(0, activeConnections - 1);
+    // كانت هذه الدالة تُهمل الوسيطين، فكل النهايات — زرّ End، وإغلاق التبويب،
+    // وانقطاع الشبكة (1006)، ورفض الرابط المستهلَك — تطبع سطراً واحداً متطابقاً.
+    const closeReason = String(closeReasonRaw ?? "").slice(0, 120);
+    const completedByServer = completesInterview(sessionEndCause);
     if (idleTimer) clearTimeout(idleTimer);
     clearTimeout(maxTimer);
     closeSTTRouterConnection(sessionId);
@@ -1659,6 +1693,19 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         durationMs: Math.max(0, Date.now() - sessionStartedAt),
         outcome: turns === 0 ? "no_turns" : `phase_${interviewState?.phase ?? "unknown"}`,
       });
+      /**
+       * Who ended it — the rate the link-lock rule now depends on.
+       *
+       * Over the preserved logs it was 14 of 15 sessions closed by the browser
+       * against one by the server, which is the whole reason for the change.
+       * Counting it turns that one-off measurement into something watchable.
+       */
+      recordMetricAsync({
+        scope: "interview",
+        name: "voice:session_end",
+        durationMs: Math.max(0, Date.now() - sessionStartedAt),
+        outcome: sessionEndCause,
+      });
     }
 
     void (async () => {
@@ -1688,10 +1735,19 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         });
       }
 
-      // Only lock the share link after a session that is thick enough to score.
-      // Thin/cut-off calls stay reusable so the candidate can retry.
+      /**
+       * ⚠️ لا تُقفل الرابط إلّا إذا أنهى الخادمُ المقابلة.
+       *
+       * كانت البوّابة `evidence.ok` وحدها: ثلاث إجابات و150 حرفاً و75 ثانية.
+       * فمن ضغط End عند إجابته الرابعة استُهلك رابطه في نفس المِلّي ثانية، ثمّ
+       * رُفض بعد ثماني ثوانٍ حين حاول العودة (الجلسة 4e0aca31، 2026-09-09).
+       *
+       * `evidence.ok` تجيب سؤالاً آخر — «هل يكفي هذا للتقييم؟» — لا سؤال «هل
+       * انتهت المقابلة؟». والخادم يعرف جواب الثاني يقيناً لأنّه هو من يُغلق.
+       */
       if (
         evidence.ok &&
+        completedByServer &&
         candidateId &&
         /^[a-fA-F0-9]{24}$/.test(candidateId) &&
         hasMeaningfulConversation(historyCopy)
@@ -1726,6 +1782,19 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           evalContext,
           durationSec,
           applicationId: applicationIdParam,
+          sessionEnd: {
+            cause: sessionEndCause,
+            completedByServer,
+            closeCode,
+            closeReason,
+            phaseReached: interviewState?.phase ?? null,
+            earlyEnd:
+              REPORT_INCOMPLETE_ON_EARLY_END &&
+              endedBeforeEnglishPhase({
+                completedByServer,
+                phaseReached: interviewState?.phase ?? null,
+              }),
+          },
         });
       } catch (err: any) {
         console.warn(`[VOICE TRANSCRIPT] n8n send failed: ${err?.message || err}`);
@@ -1740,7 +1809,11 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       });
     }
 
-    console.log(`[SESSION END] ${sessionId.substring(0, 8)}...`);
+    console.log(
+      `[SESSION END] ${sessionId.substring(0, 8)}... endedBy=${completedByServer ? "server" : "client"} ` +
+        `cause=${sessionEndCause} code=${closeCode ?? "-"}${closeReason ? ` reason="${closeReason}"` : ""} ` +
+        `linkLock=${completedByServer ? "eligible" : "held"}`
+    );
   });
 }
 
