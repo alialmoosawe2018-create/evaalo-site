@@ -156,6 +156,40 @@ check('catalog plumbing never reaches the report', () => {
     assert.equal(out[0].label, 'Communication and active listening');
 });
 
+check('protected attributes never reach the report', () => {
+    // gender/age are real stored criteria (3 and 4 of 14 prod campaigns set
+    // them) and Stage 1 still scores them — but this payload is what asks the
+    // model to NAME unmet criteria, so "does not meet gender" must be
+    // impossible by construction, not by the model's discretion.
+    const out = buildCriteriaFit(
+        withRubricResults([
+            { rubricItemId: 'preset__gender__1111', result: 'does_not_meet' },
+            { rubricItemId: 'preset__age__2222', result: 'does_not_meet' },
+            { rubricItemId: 'preset__skills__3333', result: 'meets' },
+        ]),
+        RUBRIC
+    )!;
+    assert.equal(out.length, 1);
+    assert.equal(out[0].label, 'Communication and active listening');
+});
+
+check('exclusion is exact, not substring — "Storage" survives "age"', () => {
+    const rubric = lookup([
+        { id: 'custom__storage__a', key: 'storage', label: 'Storage systems', expectation: 'x' },
+        { id: 'custom__languages__b', key: 'languages', label: 'Languages', expectation: 'y' },
+    ]);
+    const out = buildCriteriaFit(
+        withRubricResults([
+            { rubricItemId: 'custom__storage__zzzz', result: 'meets' },
+            { rubricItemId: 'custom__languages__yyyy', result: 'meets' },
+        ]),
+        rubric
+    )!;
+    assert.equal(out.length, 2);
+    assert.equal(out[0].label, 'Storage systems');
+    assert.equal(out[1].label, 'Languages');
+});
+
 check('two criteria sharing a key are left unlabelled rather than mislabelled', () => {
     const ambiguous = lookup([
         { id: 'custom__team__a', key: 'team', label: 'Team leadership', expectation: 'x' },

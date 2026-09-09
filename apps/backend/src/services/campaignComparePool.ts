@@ -87,6 +87,23 @@ export interface PoolRubricItem {
 const RUBRIC_INTERNAL_KEYS = new Set(['rolekey', 'labelkey', 'rolematchsource', 'evaluationlanguage']);
 
 /**
+ * Protected attributes. These ARE real stored criteria — 3 of 14 production
+ * campaigns set `gender`, 4 set `age` — and nothing here changes that: Stage 1
+ * still scores them and the UI still shows them.
+ *
+ * They are kept out of the comparison payload because this block is the one
+ * place that asks the model to NAME an unmet criterion, both in prose and in
+ * `keyGaps`. Left in, a woman applying to a `gender: male` campaign would get
+ * "does not meet gender" printed into a hiring report as a reason to reject
+ * her. Excluding them here makes that impossible deterministically, instead of
+ * relying on the model to be tactful.
+ */
+const PROTECTED_ATTRIBUTE_KEYS = new Set(['gender', 'age']);
+
+/** Everything held out of the rubric and the per-criterion verdict list. */
+const EXCLUDED_RUBRIC_KEYS = new Set([...RUBRIC_INTERNAL_KEYS, ...PROTECTED_ATTRIBUTE_KEYS]);
+
+/**
  * Canonical form of a criterion key — the join key between a stored verdict and
  * the criterion it was scored against.
  *
@@ -289,7 +306,7 @@ export function buildCriteriaFit(c: CompareRow, rubric: RubricLookup): CriteriaF
     const out = results
         .map((row) => String(row.rubricItemId ?? ''))
         .map((id, i) => ({ id, row: results[i] }))
-        .filter(({ id }) => !RUBRIC_INTERNAL_KEYS.has(rubricKeyFromId(id)))
+        .filter(({ id }) => !EXCLUDED_RUBRIC_KEYS.has(rubricKeyFromId(id)))
         .slice(0, MAX_RUBRIC_ITEMS)
         .map(({ id, row }) => {
             const label = resolveRubricItem(rubric, id)?.label;
@@ -692,7 +709,7 @@ export async function buildCampaignComparePool(input: {
     const resolvedRubric = resolveCampaignEvaluationRubric(
         campaign as unknown as CampaignFormContext
     )
-        .filter((r) => !RUBRIC_INTERNAL_KEYS.has(canonicalRubricKey(r.key || r.label)))
+        .filter((r) => !EXCLUDED_RUBRIC_KEYS.has(canonicalRubricKey(r.key || r.label)))
         .slice(0, MAX_RUBRIC_ITEMS)
         .map((r) => ({
             id: String(r.id ?? ''),
