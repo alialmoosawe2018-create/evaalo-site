@@ -56,6 +56,13 @@ export async function dispatchCampaignCompareToN8n(input: {
          */
         evaluationLanguage: resolveEvaluationLanguage({ campaignCriteria: input.pool.criteria }),
         criteria: input.pool.criteria,
+        /**
+         * The recruiter's criteria as they wrote them. `criteria` carries the
+         * preset keys, but the custom ones a recruiter types live only on the
+         * campaign's evaluationRubric — so before this a report could not name
+         * a criterion the recruiter had invented, let alone say who missed it.
+         */
+        rubric: input.pool.rubric,
         candidatePool: input.pool.candidatePool,
         candidateSnapshotHash: input.pool.candidateSnapshotHash,
         callbackUrl: minted.callbackUrl,

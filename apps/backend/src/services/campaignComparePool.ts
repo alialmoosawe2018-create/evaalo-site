@@ -18,6 +18,8 @@ const DEFAULT_TOP_N = 5;
 const MAX_TEXT = 2000;
 const MAX_SHORT = 1500;
 const MAX_LIST_ITEMS = 8;
+/** A campaign's criteria list is short; this only guards against a runaway one. */
+const MAX_RUBRIC_ITEMS = 20;
 
 export class CampaignComparePoolError extends Error {
     readonly statusCode: number;
@@ -58,6 +60,46 @@ function parseTopN(raw: unknown): number {
     return Math.min(Math.floor(n), MAX_TOP_N);
 }
 
+/**
+ * One of the recruiter's own evaluation criteria, worded as they typed it when
+ * the campaign was created.
+ *
+ * These live on the campaign's `evaluationRubric`, which is also the ONLY place
+ * a custom criterion exists — `stripRubricAndTemplateKeysFromCriteria` removes
+ * `customRubricItems`/`customCriteria` from `criteria`. Without this block a
+ * comparison never sees the criteria the recruiter actually wrote.
+ */
+export interface PoolRubricItem {
+    id: string;
+    label: string;
+    expectation: string;
+}
+
+/**
+ * How Stage 1 judged this candidate against one criterion. Stage 1 is where the
+ * rubric is actually scored, so stages 2 and 3 carry the verdicts forward —
+ * otherwise the later the report, the less it knows about what the job asked
+ * for, and the final report would rank on interview performance alone.
+ */
+export interface CriteriaFitItem {
+    rubricItemId: string;
+    /** The criterion's wording — the id on its own is unreadable to a reader. */
+    label?: string;
+    result: string;
+    confidence?: string;
+}
+
+/** A stage already cleared. Context for consistency, never a ranking input. */
+export interface PriorStageResult {
+    score: number | null;
+    recommendation: string;
+}
+
+export interface PriorStages {
+    screening?: PriorStageResult;
+    voice?: PriorStageResult;
+}
+
 export interface Stage1PoolItem {
     candidateId: string;
     candidateName: string;
@@ -69,11 +111,7 @@ export interface Stage1PoolItem {
     weaknesses: string[];
     fitForRole: string;
     finalHrEvaluation: string;
-    eligibility?: Array<{
-        rubricItemId: string;
-        result: string;
-        confidence?: string;
-    }>;
+    eligibility?: CriteriaFitItem[];
     applicationId?: string;
 }
 
@@ -94,6 +132,8 @@ export interface Stage2PoolItem {
     finalHrEvaluation: string;
     dataCompleteness?: 'High' | 'Medium' | 'Low';
     notAssessedDimensions?: string[];
+    criteriaFit?: CriteriaFitItem[];
+    priorStages?: PriorStages;
     applicationId?: string;
 }
 
@@ -132,6 +172,8 @@ export interface Stage3PoolItem {
         evidence?: string[];
         redFlags?: string[];
     }>;
+    criteriaFit?: CriteriaFitItem[];
+    priorStages?: PriorStages;
     applicationId?: string;
 }
 
@@ -144,11 +186,13 @@ export interface BuiltCampaignComparePool {
     criteria: Record<string, unknown>;
     candidateIds: string[];
     candidatePool: CampaignComparePoolItem[];
+    /** The recruiter's criteria, so the report can name what was and was not met. */
+    rubric: PoolRubricItem[];
     candidateSnapshotHash: string;
 }
 
 /** صف مقارنة: Application + هوية الشخص المدمجة. */
-type CompareRow = {
+export type CompareRow = {
     personId: string;
     applicationId: string;
     applicationMongoId: string;
@@ -158,6 +202,61 @@ type CompareRow = {
     voiceInterviewEvaluation?: ICandidate['voiceInterviewEvaluation'];
     videoInterviewEvaluation?: ICandidate['videoInterviewEvaluation'];
 };
+
+export type RubricLookup = Map<string, PoolRubricItem>;
+
+/**
+ * The recruiter's criteria and how Stage 1 judged this candidate against each.
+ * Returns undefined when the campaign has no rubric or the candidate was never
+ * screened, so the payload is unchanged for those.
+ */
+export function buildCriteriaFit(c: CompareRow, rubric: RubricLookup): CriteriaFitItem[] | undefined {
+    const results = c.writtenInterviewEvaluation?.rubricResults;
+    if (!Array.isArray(results) || results.length === 0) return undefined;
+    const out = results.slice(0, MAX_LIST_ITEMS).map((row) => {
+        const rubricItemId = String(row.rubricItemId ?? '');
+        const label = rubric.get(rubricItemId)?.label;
+        return {
+            rubricItemId,
+            label: label ? truncateText(label, 200) : undefined,
+            result: String(row.result ?? ''),
+            confidence: row.confidence,
+        };
+    });
+    return out.length ? out : undefined;
+}
+
+/**
+ * Score and recommendation from the stages already behind this one. Deliberately
+ * thin — a score and a verdict, not the narrative — because this is meant to
+ * answer "was the candidate consistent?", not to be re-scored.
+ */
+export function buildPriorStages(
+    c: CompareRow,
+    compareStage: CampaignCompareStage
+): PriorStages | undefined {
+    // Screening is the first stage: nothing precedes it, and returning its own
+    // result as a "prior stage" would double-report it.
+    if (compareStage === 'stage1') return undefined;
+    const out: PriorStages = {};
+    const w = c.writtenInterviewEvaluation;
+    if (w && w.overall_score != null) {
+        out.screening = {
+            score: numOrNull(w.overall_score),
+            recommendation: String(w.recommendation ?? ''),
+        };
+    }
+    if (compareStage === 'stage3') {
+        const v = c.voiceInterviewEvaluation;
+        if (v && v.overall_score != null) {
+            out.voice = {
+                score: numOrNull(v.overall_score),
+                recommendation: String(v.recommendation ?? ''),
+            };
+        }
+    }
+    return out.screening || out.voice ? out : undefined;
+}
 
 function scoreFromWritten(c: CompareRow): number {
     return Number(c.writtenInterviewEvaluation?.overall_score ?? 0);
@@ -171,15 +270,8 @@ function scoreFromVideo(c: CompareRow): number {
     return Number(c.videoInterviewEvaluation?.overall_score ?? 0);
 }
 
-function buildStage1Item(c: CompareRow): Stage1PoolItem {
+function buildStage1Item(c: CompareRow, rubric: RubricLookup): Stage1PoolItem {
     const w = c.writtenInterviewEvaluation!;
-    const eligibility = Array.isArray(w.rubricResults)
-        ? w.rubricResults.slice(0, MAX_LIST_ITEMS).map((row) => ({
-              rubricItemId: String(row.rubricItemId ?? ''),
-              result: String(row.result ?? ''),
-              confidence: row.confidence,
-          }))
-        : undefined;
     return {
         candidateId: c.personId,
         applicationId: c.applicationId,
@@ -192,7 +284,7 @@ function buildStage1Item(c: CompareRow): Stage1PoolItem {
         weaknesses: truncateList(w.weaknesses, MAX_LIST_ITEMS),
         fitForRole: truncateText(w.fit_for_role, MAX_SHORT),
         finalHrEvaluation: truncateText(w.final_hr_evaluation, MAX_SHORT),
-        eligibility: eligibility?.length ? eligibility : undefined,
+        eligibility: buildCriteriaFit(c, rubric),
     };
 }
 
@@ -201,7 +293,7 @@ function isEmptyDimension(v: unknown): boolean {
     return String(v).trim() === '';
 }
 
-function buildStage2Item(c: CompareRow): Stage2PoolItem {
+function buildStage2Item(c: CompareRow, rubric: RubricLookup): Stage2PoolItem {
     const v = c.voiceInterviewEvaluation!;
     const dims: Array<[string, unknown]> = [
         ['communication', v.communication],
@@ -233,6 +325,8 @@ function buildStage2Item(c: CompareRow): Stage2PoolItem {
         finalHrEvaluation: truncateText(v.final_hr_evaluation, MAX_SHORT),
         dataCompleteness,
         notAssessedDimensions: notAssessedDimensions.length ? notAssessedDimensions : undefined,
+        criteriaFit: buildCriteriaFit(c, rubric),
+        priorStages: buildPriorStages(c, 'stage2'),
     };
 }
 
@@ -269,7 +363,7 @@ function mapCompetencyScore(row: {
     };
 }
 
-function buildStage3Item(c: CompareRow): Stage3PoolItem {
+function buildStage3Item(c: CompareRow, rubric: RubricLookup): Stage3PoolItem {
     const v = c.videoInterviewEvaluation!;
     return {
         candidateId: c.personId,
@@ -294,6 +388,8 @@ function buildStage3Item(c: CompareRow): Stage3PoolItem {
                   mapCompetencyScore(row as Parameters<typeof mapCompetencyScore>[0])
               )
             : undefined,
+        criteriaFit: buildCriteriaFit(c, rubric),
+        priorStages: buildPriorStages(c, 'stage3'),
     };
 }
 
@@ -416,10 +512,14 @@ function scoreForStage(c: CompareRow, compareStage: CampaignCompareStage): numbe
     return scoreFromVideo(c);
 }
 
-function buildItemForStage(c: CompareRow, compareStage: CampaignCompareStage): CampaignComparePoolItem {
-    if (compareStage === 'stage1') return buildStage1Item(c);
-    if (compareStage === 'stage2') return buildStage2Item(c);
-    return buildStage3Item(c);
+function buildItemForStage(
+    c: CompareRow,
+    compareStage: CampaignCompareStage,
+    rubric: RubricLookup
+): CampaignComparePoolItem {
+    if (compareStage === 'stage1') return buildStage1Item(c, rubric);
+    if (compareStage === 'stage2') return buildStage2Item(c, rubric);
+    return buildStage3Item(c, rubric);
 }
 
 export async function buildCampaignComparePool(input: {
@@ -507,7 +607,23 @@ export async function buildCampaignComparePool(input: {
         );
     }
 
-    const candidatePool = poolCandidates.map((c) => buildItemForStage(c, input.compareStage));
+    // The campaign document is already loaded; only `criteria` was ever read off
+    // it, which left the rubric — and with it every custom criterion — behind.
+    const rubricItems: PoolRubricItem[] = Array.isArray(campaign.evaluationRubric)
+        ? campaign.evaluationRubric
+              .slice(0, MAX_RUBRIC_ITEMS)
+              .map((r) => ({
+                  id: String((r as { id?: unknown }).id ?? ''),
+                  label: truncateText((r as { label?: unknown }).label, 200),
+                  expectation: truncateText((r as { expectation?: unknown }).expectation, MAX_SHORT),
+              }))
+              .filter((r) => r.id && r.label)
+        : [];
+    const rubricLookup: RubricLookup = new Map(rubricItems.map((r) => [r.id, r]));
+
+    const candidatePool = poolCandidates.map((c) =>
+        buildItemForStage(c, input.compareStage, rubricLookup)
+    );
     const candidateIds = candidatePool.map((p) => p.candidateId);
     const candidateSnapshotHash = createHash('sha256')
         .update(
@@ -527,6 +643,7 @@ export async function buildCampaignComparePool(input: {
         criteria,
         candidateIds,
         candidatePool,
+        rubric: rubricItems,
         candidateSnapshotHash,
     };
 }
