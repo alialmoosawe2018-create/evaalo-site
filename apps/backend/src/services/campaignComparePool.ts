@@ -13,6 +13,7 @@ import {
     type InterviewEvidence,
 } from '../services/videoEvaluationEvidence.js';
 import { resolveCampaignEvaluationRubric } from '../services/stage1N8nPayloadBuilder.js';
+import { NON_CRITERION_META_KEYS } from '../shared/formTemplates/index.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 
 const MAX_TOP_N = 10;
@@ -84,7 +85,9 @@ export interface PoolRubricItem {
  * a report naming "does not meet roleMatchSource" would be nonsense, so it is
  * kept out of the rubric and out of the verdict list.
  */
-const RUBRIC_INTERNAL_KEYS = new Set(['rolekey', 'labelkey', 'rolematchsource', 'evaluationlanguage']);
+const RUBRIC_INTERNAL_KEYS = new Set(
+    [...NON_CRITERION_META_KEYS].map((k) => canonicalRubricKey(k))
+);
 
 /**
  * Protected attributes. These ARE real stored criteria — 3 of 14 production

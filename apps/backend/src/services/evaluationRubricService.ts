@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import {
     PRESET_RUBRIC_KEYS,
+    NON_CRITERION_META_KEYS,
     buildRubricDraftsFromCampaignInput,
     buildRubricItemsFromDrafts,
     sanitizeRubricText,
@@ -112,6 +113,9 @@ export function deriveLegacyRubricFromCriteria(criteria: Record<string, unknown>
     const customItems: Array<{ label: string; expectation: string }> = [];
     for (const [k, v] of Object.entries(criteria)) {
         if (PRESET_RUBRIC_KEYS.has(k)) continue;
+        // Catalog plumbing and the report language are not things a candidate
+        // can meet; without this the scorer was handed 4 unanswerable criteria.
+        if (NON_CRITERION_META_KEYS.has(k)) continue;
         if (v == null || !String(v).trim()) continue;
         customItems.push({ label: k, expectation: String(v).trim() });
     }

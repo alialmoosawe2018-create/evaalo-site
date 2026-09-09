@@ -123,6 +123,26 @@ export const PRESET_RUBRIC_KEYS = new Set([
     'industryType',
 ]);
 
+/**
+ * Keys that live in a campaign's `criteria` but are NOT hiring criteria: job
+ * catalog resolution, and the report language.
+ *
+ * Each has a real job — `resolveEvaluationLanguage` reads
+ * `criteria.evaluationLanguage` and sends it as its own top-level payload field,
+ * and the roleKey/labelKey pair resolves the job catalog entry. None of them is
+ * something a candidate can "meet", so deriving a rubric must not turn them into
+ * criteria the scorer is asked to judge ("does this candidate meet `ar`?").
+ *
+ * Removing them from the rubric does NOT remove the values: they stay in
+ * `criteria`, and every consumer that actually needs them reads them from there.
+ */
+export const NON_CRITERION_META_KEYS = new Set([
+    'roleKey',
+    'labelKey',
+    'roleMatchSource',
+    'evaluationLanguage',
+]);
+
 /** Fields always allowed on submit but not part of form schema UI. */
 export const SUBMIT_META_FIELDS = new Set([
     'campaignId',
