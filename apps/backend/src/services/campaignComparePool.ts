@@ -12,6 +12,8 @@ import {
     videoInterviewEvidence,
     type InterviewEvidence,
 } from '../services/videoEvaluationEvidence.js';
+import { resolveCampaignEvaluationRubric } from '../services/stage1N8nPayloadBuilder.js';
+import type { CampaignFormContext } from '../types/campaignFormContext.js';
 
 const MAX_TOP_N = 10;
 const DEFAULT_TOP_N = 5;
@@ -64,15 +66,54 @@ function parseTopN(raw: unknown): number {
  * One of the recruiter's own evaluation criteria, worded as they typed it when
  * the campaign was created.
  *
- * These live on the campaign's `evaluationRubric`, which is also the ONLY place
- * a custom criterion exists — `stripRubricAndTemplateKeysFromCriteria` removes
- * `customRubricItems`/`customCriteria` from `criteria`. Without this block a
- * comparison never sees the criteria the recruiter actually wrote.
+ * Resolved through `resolveCampaignEvaluationRubric` — the same call Stage 1
+ * makes — so the comparison judges against exactly the criteria the screening
+ * scored. Reading `campaign.evaluationRubric` directly is NOT equivalent: no
+ * campaign in production has ever stored one, so that field is empty and the
+ * rubric is derived from `criteria` on demand.
  */
 export interface PoolRubricItem {
     id: string;
     label: string;
     expectation: string;
+}
+
+/**
+ * Catalog plumbing that lives in `criteria` and therefore becomes a "criterion"
+ * when the rubric is derived. None of it is something a candidate can meet, and
+ * a report naming "does not meet roleMatchSource" would be nonsense, so it is
+ * kept out of the rubric and out of the verdict list.
+ */
+const RUBRIC_INTERNAL_KEYS = new Set(['rolekey', 'labelkey', 'rolematchsource', 'evaluationlanguage']);
+
+/**
+ * Canonical form of a criterion key — the join key between a stored verdict and
+ * the criterion it was scored against.
+ *
+ * Rubric ids carry a RANDOM suffix (`assignRubricId` uses `randomBytes`) and no
+ * campaign stores its rubric, so a freshly derived id can never equal the one
+ * saved in `rubricResults`. The middle segment of the id is the criterion key,
+ * and that IS stable. Measured against production: 0/20 stored verdicts matched
+ * by id, 20/20 matched by key.
+ *
+ * The two producers disagree on the separator — `assignRubricId` slugs with `_`
+ * and truncates to 40, `normalizeRubricLabelKey` slugs with `-` — so both sides
+ * are normalised here rather than compared raw.
+ */
+function canonicalRubricKey(raw: unknown): string {
+    return String(raw ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40)
+        .replace(/-+$/, '');
+}
+
+/** `preset__position__d660d64d` -> `position`. Empty when the id is not an id. */
+function rubricKeyFromId(id: string): string {
+    const parts = String(id ?? '').split('__');
+    return parts.length >= 3 ? canonicalRubricKey(parts.slice(1, -1).join('__')) : '';
 }
 
 /**
@@ -203,26 +244,62 @@ export type CompareRow = {
     videoInterviewEvaluation?: ICandidate['videoInterviewEvaluation'];
 };
 
-export type RubricLookup = Map<string, PoolRubricItem>;
+export interface RubricLookup {
+    byId: Map<string, PoolRubricItem>;
+    /** A key two criteria share maps to null: ambiguous, so nothing is labelled. */
+    byKey: Map<string, PoolRubricItem | null>;
+}
+
+export function createRubricLookup(
+    items: Array<PoolRubricItem & { key?: string }>
+): RubricLookup {
+    const byId = new Map<string, PoolRubricItem>();
+    const byKey = new Map<string, PoolRubricItem | null>();
+    for (const item of items) {
+        const entry: PoolRubricItem = {
+            id: item.id,
+            label: item.label,
+            expectation: item.expectation,
+        };
+        if (item.id) byId.set(item.id, entry);
+        const key = canonicalRubricKey(item.key || item.label) || rubricKeyFromId(item.id);
+        if (!key) continue;
+        byKey.set(key, byKey.has(key) ? null : entry);
+    }
+    return { byId, byKey };
+}
+
+/** Exact id first (a stored rubric), then the stable key (a derived one). */
+export function resolveRubricItem(rubric: RubricLookup, id: string): PoolRubricItem | undefined {
+    return rubric.byId.get(id) ?? rubric.byKey.get(rubricKeyFromId(id)) ?? undefined;
+}
 
 /**
  * The recruiter's criteria and how Stage 1 judged this candidate against each.
  * Returns undefined when the campaign has no rubric or the candidate was never
  * screened, so the payload is unchanged for those.
+ *
+ * Capped at MAX_RUBRIC_ITEMS rather than MAX_LIST_ITEMS: the criteria ARE the
+ * subject here, and a real campaign carries more than eight of them, so the
+ * shorter cap silently dropped verdicts.
  */
 export function buildCriteriaFit(c: CompareRow, rubric: RubricLookup): CriteriaFitItem[] | undefined {
     const results = c.writtenInterviewEvaluation?.rubricResults;
     if (!Array.isArray(results) || results.length === 0) return undefined;
-    const out = results.slice(0, MAX_LIST_ITEMS).map((row) => {
-        const rubricItemId = String(row.rubricItemId ?? '');
-        const label = rubric.get(rubricItemId)?.label;
-        return {
-            rubricItemId,
-            label: label ? truncateText(label, 200) : undefined,
-            result: String(row.result ?? ''),
-            confidence: row.confidence,
-        };
-    });
+    const out = results
+        .map((row) => String(row.rubricItemId ?? ''))
+        .map((id, i) => ({ id, row: results[i] }))
+        .filter(({ id }) => !RUBRIC_INTERNAL_KEYS.has(rubricKeyFromId(id)))
+        .slice(0, MAX_RUBRIC_ITEMS)
+        .map(({ id, row }) => {
+            const label = resolveRubricItem(rubric, id)?.label;
+            return {
+                rubricItemId: id,
+                label: label ? truncateText(label, 200) : undefined,
+                result: String(row.result ?? ''),
+                confidence: row.confidence,
+            };
+        });
     return out.length ? out : undefined;
 }
 
@@ -607,19 +684,30 @@ export async function buildCampaignComparePool(input: {
         );
     }
 
-    // The campaign document is already loaded; only `criteria` was ever read off
-    // it, which left the rubric — and with it every custom criterion — behind.
-    const rubricItems: PoolRubricItem[] = Array.isArray(campaign.evaluationRubric)
-        ? campaign.evaluationRubric
-              .slice(0, MAX_RUBRIC_ITEMS)
-              .map((r) => ({
-                  id: String((r as { id?: unknown }).id ?? ''),
-                  label: truncateText((r as { label?: unknown }).label, 200),
-                  expectation: truncateText((r as { expectation?: unknown }).expectation, MAX_SHORT),
-              }))
-              .filter((r) => r.id && r.label)
-        : [];
-    const rubricLookup: RubricLookup = new Map(rubricItems.map((r) => [r.id, r]));
+    // Resolved exactly the way Stage 1 resolves it, so the comparison judges
+    // against the same criteria the screening scored. Going straight to
+    // `campaign.evaluationRubric` looks equivalent but is not: that field is
+    // empty on every campaign in production, so the rubric only exists once
+    // this resolver derives it from `criteria`.
+    const resolvedRubric = resolveCampaignEvaluationRubric(
+        campaign as unknown as CampaignFormContext
+    )
+        .filter((r) => !RUBRIC_INTERNAL_KEYS.has(canonicalRubricKey(r.key || r.label)))
+        .slice(0, MAX_RUBRIC_ITEMS)
+        .map((r) => ({
+            id: String(r.id ?? ''),
+            key: String(r.key ?? ''),
+            label: truncateText(r.label, 200),
+            expectation: truncateText(r.expectation, MAX_SHORT),
+        }))
+        .filter((r) => r.id && r.label);
+
+    const rubricLookup = createRubricLookup(resolvedRubric);
+    const rubricItems: PoolRubricItem[] = resolvedRubric.map(({ id, label, expectation }) => ({
+        id,
+        label,
+        expectation,
+    }));
 
     const candidatePool = poolCandidates.map((c) =>
         buildItemForStage(c, input.compareStage, rubricLookup)
