@@ -14,6 +14,7 @@ import {
     toApplicationAttachments,
 } from '../services/candidateApplicationService.js';
 import { withCampaignRoles } from '../services/campaignRole.js';
+import { applyCandidateHide } from '../services/candidateHideService.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import { normalizePhoneKey } from '../services/phoneIdentity.js';
@@ -1676,21 +1677,25 @@ router.post(
                 auditMeta = { view, requested: ids.length };
             }
 
-            const result = await Candidate.updateMany(
-                orgScopedQuery(req, { _id: { $in: ids } }),
-                update
-            );
+            /* Addresses the application rows the stage list actually serves, not
+               just the legacy candidate rows — see applyCandidateHide. */
+            const { matchedCount, modifiedCount } = await applyCandidateHide({
+                organizationId: getOrgId(req),
+                ids,
+                update,
+            });
 
             logAudit(req, {
                 action: auditAction,
                 targetType: 'candidate',
                 targetId: ids.join(','),
-                metadata: { ...auditMeta, modified: result.modifiedCount ?? 0 },
+                metadata: { ...auditMeta, matched: matchedCount, modified: modifiedCount },
             });
 
             return res.json({
                 success: true,
-                modifiedCount: result.modifiedCount ?? 0,
+                matchedCount,
+                modifiedCount,
                 hidden,
                 ...(hasStage ? { stage } : { view }),
                 message: hidden
