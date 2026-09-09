@@ -440,6 +440,7 @@ function testStage3SnapshotHash(): void {
             candidateName: 'Alice',
             overallScore: 88,
             recommendation: 'Hire',
+            screened: true,
             interviewEvidence: 'complete',
             summary: 'Strong video',
             roleUnderstanding: 8,

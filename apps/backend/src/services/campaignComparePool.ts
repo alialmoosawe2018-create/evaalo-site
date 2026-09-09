@@ -195,6 +195,9 @@ export interface Stage2PoolItem {
     notAssessedDimensions?: string[];
     criteriaFit?: CriteriaFitItem[];
     priorStages?: PriorStages;
+    /** False when the candidate joined at this stage via a public link. */
+    screened: boolean;
+    entryStage?: string;
     applicationId?: string;
 }
 
@@ -235,6 +238,9 @@ export interface Stage3PoolItem {
     }>;
     criteriaFit?: CriteriaFitItem[];
     priorStages?: PriorStages;
+    /** False when the candidate joined at this stage via a public link. */
+    screened: boolean;
+    entryStage?: string;
     applicationId?: string;
 }
 
@@ -259,10 +265,25 @@ export type CompareRow = {
     applicationMongoId: string;
     full_name: string;
     position_applied_for?: string;
+    /** Where the candidate joined the pipeline: 'screening' | 'audio' | 'video'. */
+    entryStage?: string;
     writtenInterviewEvaluation?: ICandidate['writtenInterviewEvaluation'];
     voiceInterviewEvaluation?: ICandidate['voiceInterviewEvaluation'];
     videoInterviewEvaluation?: ICandidate['videoInterviewEvaluation'];
 };
+
+/**
+ * Whether this candidate ever went through CV screening.
+ *
+ * A public interview link drops an applicant straight into the voice or video
+ * stage, so they have no Stage 1 evaluation and never will — 22 of 27
+ * applications in production entered that way. Without this the later reports
+ * cannot tell "screened and met nothing" from "never screened": both arrive as
+ * an absent `criteriaFit`, and the second must not read as a shortcoming.
+ */
+export function wasScreened(c: CompareRow): boolean {
+    return c.writtenInterviewEvaluation?.overall_score != null;
+}
 
 export interface RubricLookup {
     byId: Map<string, PoolRubricItem>;
@@ -424,6 +445,8 @@ function buildStage2Item(c: CompareRow, rubric: RubricLookup): Stage2PoolItem {
         notAssessedDimensions: notAssessedDimensions.length ? notAssessedDimensions : undefined,
         criteriaFit: buildCriteriaFit(c, rubric),
         priorStages: buildPriorStages(c, 'stage2'),
+        screened: wasScreened(c),
+        entryStage: c.entryStage || undefined,
     };
 }
 
@@ -487,6 +510,8 @@ function buildStage3Item(c: CompareRow, rubric: RubricLookup): Stage3PoolItem {
             : undefined,
         criteriaFit: buildCriteriaFit(c, rubric),
         priorStages: buildPriorStages(c, 'stage3'),
+        screened: wasScreened(c),
+        entryStage: c.entryStage || undefined,
     };
 }
 
@@ -554,6 +579,7 @@ async function loadEligibleFromApplications(
             personId: String(a.candidateId),
             applicationId: a.applicationId,
             applicationMongoId: String(a._id),
+            entryStage: a.entryStage ? String(a.entryStage) : undefined,
             full_name: String((p as any)?.full_name || snap.full_name || ''),
             position_applied_for: String(
                 a.position_applied_for || snap.position_applied_for || ''
@@ -595,6 +621,7 @@ async function loadEligibleLegacyCandidates(
         personId: String(c._id),
         applicationId: '',
         applicationMongoId: String(c._id),
+        entryStage: c.entryStage ? String(c.entryStage) : undefined,
         full_name: c.full_name || '',
         position_applied_for: c.position_applied_for,
         writtenInterviewEvaluation: c.writtenInterviewEvaluation,

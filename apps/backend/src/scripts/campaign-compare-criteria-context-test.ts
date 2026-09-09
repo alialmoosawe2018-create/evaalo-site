@@ -10,6 +10,7 @@ import assert from 'node:assert';
 import {
     buildCriteriaFit,
     buildPriorStages,
+    wasScreened,
     createRubricLookup,
     type CompareRow,
     type PoolRubricItem,
@@ -248,6 +249,35 @@ check('an evaluation with no score is not reported as a prior stage', () => {
         'stage3'
     );
     assert.equal(out, undefined);
+});
+
+console.log('screened');
+
+check('a candidate who came through CV screening reads as screened', () => {
+    assert.equal(wasScreened(row({ writtenInterviewEvaluation: screened })), true);
+});
+
+check('THE PUBLIC-LINK CASE: a direct entrant is not screened', () => {
+    // 22 of 27 production applications enter at audio/video via a public link,
+    // so they have no Stage 1 evaluation and never will. Their absent
+    // criteriaFit must read as "never asked", not "met nothing".
+    assert.equal(wasScreened(row({ entryStage: 'audio' })), false);
+    assert.equal(wasScreened(row({ entryStage: 'video' })), false);
+});
+
+check('an evaluation with no score does not count as screened', () => {
+    assert.equal(
+        wasScreened(row({ writtenInterviewEvaluation: { recommendation: 'Hire' } as never })),
+        false
+    );
+});
+
+check('screened is independent of entryStage — the evaluation decides', () => {
+    // entryStage is context for the reader; the evaluation is the fact.
+    assert.equal(
+        wasScreened(row({ entryStage: 'audio', writtenInterviewEvaluation: screened })),
+        true
+    );
 });
 
 console.log(failures === 0 ? '\n✅ criteria-context: all passed' : `\n❌ ${failures} failure(s)`);

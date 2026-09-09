@@ -3,13 +3,17 @@ import apiClient from '../services/apiClient';
 import { useLanguage } from '../contexts/LanguageContext';
 
 /**
- * "Suggest criteria with AI" button for the search pages (Head Hunter + CV
- * Comparison). Activates only once both position and location are filled; calls
- * the page's suggest-criteria endpoint (1 credit) and hands the returned filter
- * values to onApply, which maps them onto the page's optional filters.
+ * "Suggest criteria with AI" button. Activates only once both position and
+ * location are filled; calls the page's suggest-criteria endpoint (1 credit)
+ * and hands the returned filter values to onApply, which maps them onto the
+ * page's optional filters.
+ *
+ * Mounted on AI CV Comparison only. The Head Hunter page never adopted it, so
+ * its matching backend route was removed — add the route back before pointing
+ * this at Head Hunter again.
  *
  * Props:
- *   endpoint  — '/api/head-hunter/suggest-criteria' | '/api/cv-comparison/suggest-criteria'
+ *   endpoint  — '/api/cv-comparison/suggest-criteria'
  *   position  — current position value (string)
  *   location  — current location value (string)
  *   onApply   — (criteria: Record<string,string>) => void

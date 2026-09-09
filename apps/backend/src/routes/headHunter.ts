@@ -40,7 +40,6 @@ import {
     mirrorHeadHunterPhotos,
 } from '../services/headHunterPhotoMirror.js';
 import { getObjectBuffer } from '../services/r2Service.js';
-import { suggestSearchCriteriaHandler } from './suggestSearchCriteriaHandler.js';
 import { buildHeadHunterCompetencyModel } from '../services/headHunterCompetencyModel.js';
 
 const router = Router();
@@ -876,13 +875,13 @@ router.get(
     }
 );
 
-/** POST /api/head-hunter/suggest-criteria — AI-suggest search filters from position+location (1 credit) */
-router.post(
-    '/suggest-criteria',
-    conditionalRequireAuth(),
-    requirePermission('headhunter.search'),
-    suggestSearchCriteriaHandler
-);
+/* POST /suggest-criteria was removed here: no caller remained. The shared
+   `SuggestSearchCriteriaButton` is mounted on one page only — AI CV Comparison,
+   which passes `/api/cv-comparison/suggest-criteria` — and the Head Hunter page
+   has no such button, so this endpoint had been unreachable from the product
+   since 2026-08-19 (its last two uses in the audit log) while still spending a
+   credit for anyone who called it directly. `suggestSearchCriteriaHandler`
+   itself stays: cvComparison.ts still serves it. */
 
 /** POST /api/head-hunter/search */
 router.post('/search', conditionalRequireAuth(), requirePermission('headhunter.search'), async (req: Request, res: Response) => {
