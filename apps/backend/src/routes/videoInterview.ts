@@ -90,10 +90,15 @@ async function applyApplicationJobContext(
  * بما استُخدم فعلاً، ويعدّ الاختلاف. لا يغيّر سلوكاً — يقيس فقط.
  */
 async function logAgentJobContext(
-    stage: 'prepare' | 'start',
+    stage: 'prepare' | 'start' | 'start_reused',
     candidate: Record<string, unknown>,
     campaignId: string | undefined,
-    bank: { jobIdForBank: string; positionSlug: string }
+    /**
+     * غائبة على مسار إعادة الاستخدام: `/start` يعود قبل أن تُحسب الحزمة، لأنّ
+     * الوكيل يستعمل بيانات `/prepare`. القياس يبقى مطلوباً هناك تحديداً — فذلك
+     * هو المسار المتّهم في حادثة الوظيفة الخاطئة، وكان أعمى في أوّل تشغيل.
+     */
+    bank?: { jobIdForBank: string; positionSlug: string }
 ): Promise<void> {
     try {
         const used = String(candidate.position_applied_for ?? '').trim();
@@ -109,7 +114,7 @@ async function logAgentJobContext(
                 : 'MISMATCH';
         console.log(
             `[AGENT JOB] ${stage} campaign=${camp || '-'} role="${role}" used="${used}" ` +
-                `slug="${bank.positionSlug}" jobId=${bank.jobIdForBank || '-'} → ${outcome}`
+                `slug="${bank?.positionSlug ?? '(reused)'}" jobId=${bank?.jobIdForBank || '-'} → ${outcome}`
         );
         recordMetricAsync({
             scope: 'interview',
@@ -1044,6 +1049,14 @@ router.post('/start', async (req, res) => {
         const reusedStartSession = await resolvePreparedSessionReuseDurable(candidateId, normalizedCampaignIdEarly);
         if (reusedStartSession) {
             console.log(`ℹ️ Reusing existing session for candidate ${candidateId} (prevents duplicate avatar)`);
+            // ⚠️ هذا الفرع يعود قبل موضع القياس أدناه، فكان أعمى تماماً — ولا
+            // مسار أولى بالمراقبة منه: الغرفة المحضَّرة تحمل بياناتها من
+            // `/prepare`، وهي المتّهمة في حادثة الوظيفة الخاطئة.
+            void logAgentJobContext(
+                'start_reused',
+                candidate as unknown as Record<string, unknown>,
+                normalizedCampaignIdEarly
+            );
             // /prepare لا يحفظ في Mongo. بدون هذا السطر يصل /end بجلسة null
             // فيضيع campaignId ولقطة الكفاءات ويُقيَّم النص بلا blueprint.
             if (!isTestMode) {

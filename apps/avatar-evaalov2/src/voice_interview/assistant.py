@@ -35,6 +35,7 @@ from voice_interview.config import (
     tts_reply_prefetch_max_chars,
 )
 from voice_interview.cross_domain_guard import validate_cross_domain_output
+from voice_interview.presupposition_guard import presupposes_unstated_act
 from voice_interview.entity_policy import (
     CONTINUATION_POOL,
     DIFFICULTY_FOLLOWUP_POOL,
@@ -285,6 +286,10 @@ class InterviewMemory:
     consecutive_unsure: int = 0
     turn_index: int = 0
     last_candidate_snippet: str = ""
+    # كل ما قاله المرشّح هذه الجلسة — يحتاجه حارس الافتراض: «آخر مقتطف» وحده لا
+    # يكفي للحكم هل ادّعى فعلاً ما يفترضه السؤال، فالادّعاء قد يكون قبل دورين.
+    # محدودة الطول كي لا تنمو بلا سقف في جلسة طويلة.
+    candidate_turns: list[str] = field(default_factory=list)
     rejected_entities: set[str] = field(default_factory=set)
     session_entities: set[str] = field(default_factory=set)
     last_correction: dict[str, str] | None = None
@@ -1521,6 +1526,13 @@ class InterviewAssistant(Agent):
             return _FINAL_CLOSING_AR
         recent = self._memory.asked_questions[-12:]
         is_hybrid = contains_hybrid_latin_arabic_token(text)
+        # سؤالٌ يفترض فعلاً لم يدّعِه المرشّح. النموذج يخترعها رغم أنّ التعليمات
+        # تمنعها صراحةً — «وقت اتخاذ القرار اللي اتخذته» سُئلت لمرشّحَين لم يصف
+        # أيٌّ منهما قراراً، وأحدهما كان قد قال للتوّ إنّه بلا خبرة ميدانية.
+        # تُعامَل معاملة التكرار: تُستبدل بمرساة جديدة بدل أن تُقال.
+        is_presupposing = mode not in (MODE_CLARIFY, MODE_FOLLOW_UP) and presupposes_unstated_act(
+            text, mem.candidate_turns
+        )
         # Duplicate check applies to turns that ask a NEW question (ask / topic
         # resume / guidance). Clarify restates the active question and follow-up
         # deepens it, so both are meant to echo it — never dedup those.
@@ -1528,15 +1540,16 @@ class InterviewAssistant(Agent):
             is_semantic_duplicate_question(text, recent)
             or is_topic_repeat(text, recent)  # paraphrased same-topic repeat
         )
-        if not (is_dup or is_hybrid):
+        if not (is_dup or is_hybrid or is_presupposing):
             return text
         anchor = self._pick_next_bank_anchor(recent)
         if anchor:
             logger.info(
-                "[reply-guard] replaced %s (dup=%s hybrid=%s) with fresh bank anchor",
+                "[reply-guard] replaced %s (dup=%s hybrid=%s presupposing=%s) with fresh bank anchor",
                 mode,
                 is_dup,
                 is_hybrid,
+                is_presupposing,
             )
             return enforce_single_question_response(anchor, self._turn_plan)
         # No fresh question is left, so a replacement would just recycle a covered
@@ -2702,6 +2715,15 @@ class InterviewAssistant(Agent):
                 mem.last_candidate_snippet = text.strip()[:400]
             elif diag.get("is_greeting_or_ready"):
                 mem.last_candidate_snippet = ""
+
+            # يُسجَّل كل كلامٍ للمرشّح، لا الجوهريّ وحده: «ما مر علي» و«ما عندي
+            # خبرة» ليستا إجابتين جوهريّتين، وهما بالضبط ما يجب أن يمنع سؤالاً
+            # يفترض أنّه فعلها.
+            _said = (text or "").strip()
+            if _said:
+                mem.candidate_turns.append(_said[:400])
+                if len(mem.candidate_turns) > 60:
+                    del mem.candidate_turns[:-60]
 
             frame = self._build_decision_frame(diag)
             action = self._infer_action_from_frame(diag)
