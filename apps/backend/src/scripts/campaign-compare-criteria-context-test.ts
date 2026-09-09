@@ -11,6 +11,7 @@ import {
     buildCriteriaFit,
     buildPriorStages,
     wasScreened,
+    stripProtectedAttributes,
     createRubricLookup,
     type CompareRow,
     type PoolRubricItem,
@@ -278,6 +279,49 @@ check('screened is independent of entryStage — the evaluation decides', () => 
         wasScreened(row({ entryStage: 'audio', writtenInterviewEvaluation: screened })),
         true
     );
+});
+
+console.log('criteria blob sent to the model');
+
+check('gender and age are removed from the criteria object', () => {
+    // The prompt interpolates this verbatim:
+    //   Campaign Criteria: {{ JSON.stringify($json.criteria || {}) }}
+    const out = stripProtectedAttributes({
+        position: 'Senior HR Specialist',
+        location: 'Baghdad',
+        gender: 'male',
+        age: '25-34',
+        evaluationLanguage: 'ar',
+    });
+    assert.deepEqual(Object.keys(out).sort(), ['evaluationLanguage', 'location', 'position']);
+});
+
+check('the language key survives — the report language depends on it', () => {
+    const out = stripProtectedAttributes({ evaluationLanguage: 'ar', gender: 'male' });
+    assert.equal(out.evaluationLanguage, 'ar');
+});
+
+check('position survives — the prompt reads criteria.position as the target role', () => {
+    const out = stripProtectedAttributes({ position: 'Accountant', age: '25-34' });
+    assert.equal(out.position, 'Accountant');
+});
+
+check('case variants go too', () => {
+    const out = stripProtectedAttributes({ Gender: 'male', AGE: '25-34', location: 'Basra' });
+    assert.deepEqual(Object.keys(out), ['location']);
+});
+
+check('a criterion merely CONTAINING "age" is kept', () => {
+    const out = stripProtectedAttributes({
+        storage: 'yes',
+        average_handling_time: '5m',
+        languages: 'Arabic',
+    });
+    assert.equal(Object.keys(out).length, 3);
+});
+
+check('an empty object is untouched', () => {
+    assert.deepEqual(stripProtectedAttributes({}), {});
 });
 
 console.log(failures === 0 ? '\n✅ criteria-context: all passed' : `\n❌ ${failures} failure(s)`);

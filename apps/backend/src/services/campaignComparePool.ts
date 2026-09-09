@@ -107,6 +107,28 @@ const PROTECTED_ATTRIBUTE_KEYS = new Set(['gender', 'age']);
 const EXCLUDED_RUBRIC_KEYS = new Set([...RUBRIC_INTERNAL_KEYS, ...PROTECTED_ATTRIBUTE_KEYS]);
 
 /**
+ * Removes protected attributes from the criteria object IN PLACE, and returns
+ * it for convenience.
+ *
+ * Separate from the rubric filter because this object travels a different road:
+ * the compare prompt interpolates it verbatim as
+ * `Campaign Criteria: {{ JSON.stringify($json.criteria || {}) }}`, so a stored
+ * `gender: "male"` reaches the model as part of the job description even though
+ * no per-candidate verdict on it is sent any more.
+ *
+ * Matching is on the canonical key, so `Gender` and `AGE` go too, and it is
+ * exact — a criterion like `storage` or `average_handling_time` survives.
+ */
+export function stripProtectedAttributes(
+    criteria: Record<string, unknown>
+): Record<string, unknown> {
+    for (const key of Object.keys(criteria)) {
+        if (PROTECTED_ATTRIBUTE_KEYS.has(canonicalRubricKey(key))) delete criteria[key];
+    }
+    return criteria;
+}
+
+/**
  * Canonical form of a criterion key — the join key between a stored verdict and
  * the criterion it was scored against.
  *
@@ -680,6 +702,20 @@ export async function buildCampaignComparePool(input: {
             ? (input.criteriaOverride as Record<string, unknown>)
             : {};
     const criteria = { ...criteriaBase, ...criteriaOverride };
+
+    /* The prompt interpolates this object verbatim —
+       `Campaign Criteria: {{ JSON.stringify($json.criteria || {}) }}` — so
+       leaving gender/age here tells the model the job asks for a man aged
+       25-34, and it can act on that from a name alone. They are dropped after
+       the override merge so an injected override cannot smuggle them back.
+
+       The campaign still stores them and Stage 1 still scores them; this only
+       decides what the comparison model is shown. Both compare paths (v2 and
+       the legacy branch in recruitmentCampaigns.ts) read this same object, and
+       the stored CampaignCompareRequest.criteria records what was actually
+       sent — so stripping here keeps that audit record honest rather than
+       weakening it. */
+    stripProtectedAttributes(criteria);
 
     const eligible = await loadEligibleFromApplications(input.compareStage, campaignId, organizationId);
     // مفاتيح التصفية: personId أو applicationMongoId أو applicationId العام
