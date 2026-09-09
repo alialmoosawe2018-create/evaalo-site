@@ -152,6 +152,16 @@ export type UpsertApplicationInput = {
     jobPostingId?: string;
     status?: ICandidateApplication['status'];
     evaluationContext?: ICandidateApplication['evaluationContext'];
+    /**
+     * الوظيفة كما حسمتها الحملة عند هذا التقديم بالذات.
+     *
+     * ضرورية لأنّ `position_applied_for` على الشخص يُكتب عند أوّل تقديم و**لا
+     * يُحدَّث بعده** (ليس في قائمة التحديث المسموحة في routes/candidates.ts).
+     * فبدون هذا، متقدّمٌ عائد يملأ طلبه الجديد بوظيفة تقديمه القديم — وهي
+     * بالضبط الحالة التي وصفها a7de348. الشخص يبقى كما هو عمداً؛ الطلب وحده
+     * يحمل وظيفة حملته.
+     */
+    positionOverride?: { position_applied_for?: string; declaredPosition?: string };
     /** إن true: أعد استخدام Application الموجود لنفس الحملة دون إنشاء جديد. */
     reuseExisting?: boolean;
     eventType?: ApplicationEventType;
@@ -197,6 +207,12 @@ export async function upsertCandidateApplication(
         if (orphan) return orphan;
     }
 
+    // الحملة تحسم الوظيفة لهذا التقديم؛ يليها ما على الشخص.
+    const appliedPosition =
+        input.positionOverride?.position_applied_for || input.candidate.position_applied_for;
+    const declaredPosition =
+        input.positionOverride?.declaredPosition ?? input.candidate.declaredPosition;
+
     const snapshot = buildApplicationSnapshot({
         full_name: input.candidate.full_name,
         current_title: input.candidate.current_title,
@@ -205,7 +221,7 @@ export async function upsertCandidateApplication(
         location: input.candidate.location,
         skills: input.candidate.skills,
         languages: input.candidate.languages,
-        position_applied_for: input.candidate.position_applied_for,
+        position_applied_for: appliedPosition,
     });
 
     const filesAsAttachments = toApplicationAttachments(input.candidate.files);
@@ -220,7 +236,8 @@ export async function upsertCandidateApplication(
         campaignId: campaignId || undefined,
         applicationId: generateApplicationId(),
         emailDenorm: email,
-        position_applied_for: input.candidate.position_applied_for,
+        position_applied_for: appliedPosition,
+        declaredPosition,
         company_applied_to: input.candidate.company_applied_to,
         years_of_experience: input.candidate.years_of_experience,
         current_company: input.candidate.current_company,

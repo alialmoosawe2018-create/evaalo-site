@@ -46,6 +46,7 @@ import {
     buildBlueprintMetadata,
 } from '../services/expertise/blueprintMetadata.js';
 import { resolveApplicationJobContext } from '../services/applicationJobContext.js';
+import { loadCampaignRoles } from '../services/campaignRole.js';
 import { findApplicationForCallback } from '../services/candidateApplicationService.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { recordMetricAsync } from '../services/siteMetricService.js';
@@ -73,6 +74,54 @@ async function applyApplicationJobContext(
     // down, still reading them off `candidate`. Same overlay, same reason.
     if (job.campaignId) candidate.campaignId = job.campaignId;
     if (job.jobPostingId) candidate.jobPostingId = job.jobPostingId;
+}
+
+/**
+ * سجِّل أي وظيفةٍ سُلِّمت للوكيل فعلاً — لا أيّها كان يُفترض أن تُسلَّم.
+ *
+ * في 2026-09-06 سُئل مرشّحٌ على حملة «Senior HR Assistant» عن الآبار والمكامن
+ * وGOR، ثمّ قُيّم على كفاءات موارد بشرية فنال صفر تغطية وصفر درجة. المخطّط
+ * (جهة التقييم) كان صحيحاً؛ الأسئلة (جهة المقابلة) جاءت من
+ * `candidate.position_applied_for` وكان فاسداً. واحدةٌ من الحالتين فسّرها
+ * التوقيت — العلَم صار حيّاً بعد بدء الجلسة بستٍّ وثلاثين ثانية — والأخرى
+ * **بقيت بلا تفسير**، لأنّ سجلّات ذلك اليوم مُسحت.
+ *
+ * فهذا سطرٌ يجعل التكرار القادم مُثبَتاً بدل أن يكون تنقيباً: يقارن دور الحملة
+ * بما استُخدم فعلاً، ويعدّ الاختلاف. لا يغيّر سلوكاً — يقيس فقط.
+ */
+async function logAgentJobContext(
+    stage: 'prepare' | 'start',
+    candidate: Record<string, unknown>,
+    campaignId: string | undefined,
+    bank: { jobIdForBank: string; positionSlug: string }
+): Promise<void> {
+    try {
+        const used = String(candidate.position_applied_for ?? '').trim();
+        const camp = String(campaignId ?? '').trim();
+        const role = camp ? (await loadCampaignRoles([camp])).get(camp) ?? '' : '';
+        const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+        const outcome = !camp
+            ? 'no_campaign'
+            : !role
+              ? 'campaign_has_no_role'
+              : norm(role) === norm(used)
+                ? 'match'
+                : 'MISMATCH';
+        console.log(
+            `[AGENT JOB] ${stage} campaign=${camp || '-'} role="${role}" used="${used}" ` +
+                `slug="${bank.positionSlug}" jobId=${bank.jobIdForBank || '-'} → ${outcome}`
+        );
+        recordMetricAsync({
+            scope: 'interview',
+            name: 'video:agent_job_context',
+            durationMs: 0,
+            outcome,
+            failed: outcome === 'MISMATCH',
+        });
+    } catch (err: any) {
+        // القياس لا يُفشل مقابلة أبداً.
+        console.warn(`[AGENT JOB] logging failed: ${err?.message || err}`);
+    }
 }
 
 function rejectIfStageCallbackSecurityMisconfigured(res: express.Response): boolean {
@@ -698,6 +747,14 @@ router.post('/prepare', async (req, res) => {
                 message: bankMeta.error
             });
         }
+        void logAgentJobContext(
+            'prepare',
+            candidate as unknown as Record<string, unknown>,
+            (typeof (candidate as { campaignId?: string }).campaignId === 'string'
+                ? (candidate as { campaignId?: string }).campaignId
+                : undefined) || (typeof campaignId === 'string' ? campaignId : undefined),
+            bankMeta
+        );
 
         const sessionId = `video-interview-${candidateId}-${Date.now()}`;
         let livekitRoomName: string | null = null;
@@ -1110,6 +1167,13 @@ router.post('/start', async (req, res) => {
             typeof (candidate as { campaignId?: string }).campaignId === 'string'
                 ? (candidate as { campaignId?: string }).campaignId?.trim()
                 : undefined;
+        void logAgentJobContext(
+            'start',
+            candidate as unknown as Record<string, unknown>,
+            (typeof campaignId === 'string' && campaignId.trim() ? campaignId.trim() : undefined) ||
+                candidateCampaignId,
+            bankMeta
+        );
         const normalizedCampaignId =
             (typeof campaignId === 'string' && campaignId.trim() ? campaignId.trim() : undefined)
             || candidateCampaignId;

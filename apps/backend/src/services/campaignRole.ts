@@ -92,6 +92,37 @@ export function applyCampaignRole<T extends Record<string, unknown>>(
     };
 }
 
+/**
+ * ما يُكتَب عند التقديم — لا ما يُعرض.
+ *
+ * `applyCampaignRole` أعلاه تُصلح القراءة فقط، وتعليق رأس هذا الملف يقول ذلك
+ * صراحةً: «هذا للعرض فقط؛ ما يُسأل عنه الوكيل يأتي من applicationJobContext».
+ * وهناك تكلفة ذلك: في 2026-09-06 قدّم «علي احمد عواد» على حملة
+ * «Senior HR Assistant» وسجلّ طلبه يحمل `position_applied_for` = «Senior
+ * Petroleum Engineer» — وهو تقديمه الأوّل والوحيد، أي أنّ القيمة كُتبت خطأً من
+ * البداية لا أنّها بقيّة تقديمٍ سابق. فبنك أسئلة الوكيل يقرأ هذا الحقل، فسُئل
+ * عن الآبار والمكامن وGOR، ثمّ قُيّم على كفاءات موارد بشرية: صفر تغطية، وصفر
+ * درجة، ورفض.
+ *
+ * القاعدة: الحملة هي مصدر الحقيقة للوظيفة المتقدَّم إليها. ولا نمحو ما كتبه
+ * المرشّح — يُحفَظ في `declaredPosition`، لأنّه إشارة بحدّ ذاته (قد يكون عمله
+ * الحالي، وقد يكون تقديماً في المكان الخطأ).
+ */
+export function reconcileIntakePosition(opts: {
+    declared?: unknown;
+    campaignRole?: unknown;
+}): { position_applied_for?: string; declaredPosition?: string; corrected: boolean } {
+    const role = String(opts.campaignRole ?? '').trim();
+    const declared = String(opts.declared ?? '').trim();
+    // بلا دورٍ للحملة لا مرجع نصحّح إليه — تُترك كلمة المرشّح كما هي.
+    if (!role) return { corrected: false };
+    if (!declared) return { position_applied_for: role, corrected: false };
+    // المقارنة تتساهل في المسافات وحالة الأحرف فقط؛ أي فرقٍ حقيقي يُسجَّل.
+    const same = declared.toLowerCase().replace(/\s+/g, ' ') === role.toLowerCase().replace(/\s+/g, ' ');
+    if (same) return { position_applied_for: role, corrected: false };
+    return { position_applied_for: role, declaredPosition: declared, corrected: true };
+}
+
 /** Enrich a whole list in one campaign lookup. */
 export async function withCampaignRoles<T extends Record<string, unknown>>(
     rows: T[]

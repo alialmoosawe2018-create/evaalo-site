@@ -20,6 +20,8 @@ export interface ICandidate extends Document {
     location?: string;
     gender?: string;
     position_applied_for: string;
+    /** ما كتبه المرشّح حين خالف وظيفة الحملة — يُحفظ ولا يُعرض مكان الوظيفة. */
+    declaredPosition?: string;
     company_applied_to?: string;
     years_of_experience: string;
     current_company?: string;
@@ -252,6 +254,17 @@ const CandidateSchema = new Schema<ICandidate>({
     position_applied_for: {
         type: String,
         required: true,
+        trim: true
+    },
+    /**
+     * ما كتبه المرشّح بنفسه حين خالف وظيفةَ الحملة.
+     *
+     * `position_applied_for` صار يُحسم من الحملة عند التقديم، فبدون هذا الحقل
+     * تُمحى كلمة المرشّح نهائياً — وهي إشارة تستحقّ البقاء: قد تكون وظيفته
+     * الحالية، وقد تكون تقديماً في المكان الخطأ. يُكتب فقط عند الاختلاف.
+     */
+    declaredPosition: {
+        type: String,
         trim: true
     },
     company_applied_to: {

@@ -13,7 +13,11 @@ import {
     pushApplicationEvent,
     toApplicationAttachments,
 } from '../services/candidateApplicationService.js';
-import { withCampaignRoles } from '../services/campaignRole.js';
+import {
+    withCampaignRoles,
+    campaignRoleFromCampaign,
+    reconcileIntakePosition,
+} from '../services/campaignRole.js';
 import { applyCandidateHide } from '../services/candidateHideService.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
@@ -808,13 +812,15 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
         let campaignRubricHash = '';
         let campaignOrganizationId: string | undefined;
         let campaignCreatedByClerkUserId: string | undefined;
+        /** ما حسمته الحملة للوظيفة؛ يُمرَّر للطلب لأنّ حقل الشخص لا يُحدَّث. */
+        let intakePosition: ReturnType<typeof reconcileIntakePosition> = { corrected: false };
         if (campaignId) {
             candidateData.campaignId = campaignId;
             // رفض الطلبات الجديدة إذا كانت الحملة مُغلقة (إيقاف استلام الطلبات)
             try {
                 const campaign = await RecruitmentCampaign.findOne({ campaignId })
                     .select(
-                        'status formBinding rubricVersion rubricSnapshotHash firstCandidateAt organizationId createdByClerkUserId'
+                        'status formBinding rubricVersion rubricSnapshotHash firstCandidateAt organizationId createdByClerkUserId criteria.position criteria.position_applied_for criteria.job templateName'
                     )
                     .lean();
                 if (campaign && campaign.status === 'closed') {
@@ -840,6 +846,38 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                         campaign.createdByClerkUserId.trim()
                     ) {
                         campaignCreatedByClerkUserId = campaign.createdByClerkUserId.trim();
+                    }
+                    /**
+                     * الوظيفة المتقدَّم إليها تُحسم من الحملة، هنا، قبل أن تُكتب.
+                     *
+                     * الشخص الجديد يأخذها من `candidateData`. أمّا المتقدّم
+                     * العائد فحقله على الشخص لا يُحدَّث عمداً (ليس في قائمة
+                     * `personPatch` أدناه)، فتُمرَّر أيضاً كـ`positionOverride`
+                     * إلى upsertCandidateApplication كي يحمل **الطلب** وظيفة
+                     * حملته لا وظيفة تقديمه السابق.
+                     */
+                    intakePosition = reconcileIntakePosition({
+                        declared: candidateData.position_applied_for,
+                        campaignRole: campaignRoleFromCampaign(campaign),
+                    });
+                    const reconciled = intakePosition;
+                    if (reconciled.position_applied_for) {
+                        candidateData.position_applied_for = reconciled.position_applied_for;
+                    }
+                    if (reconciled.declaredPosition) {
+                        candidateData.declaredPosition = reconciled.declaredPosition;
+                    }
+                    if (reconciled.corrected) {
+                        console.log(
+                            `[INTAKE POSITION] campaign=${campaignId} corrected ` +
+                                `"${reconciled.declaredPosition}" → "${reconciled.position_applied_for}"`
+                        );
+                        recordMetricAsync({
+                            scope: 'backend',
+                            name: 'application:position_corrected',
+                            durationMs: 0,
+                            outcome: 'campaign_role',
+                        });
                     }
                 }
             } catch (statusErr) {
@@ -1204,6 +1242,12 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                 (typeof candidate.organizationId === 'string' && candidate.organizationId) ||
                 orgForLookup,
             candidate,
+            positionOverride: intakePosition.position_applied_for
+                ? {
+                      position_applied_for: intakePosition.position_applied_for,
+                      declaredPosition: intakePosition.declaredPosition,
+                  }
+                : undefined,
             campaignId,
             /* The stage an application ENTERS at belongs to the link it came
                from, not to the person. The person's entryStage is set once, on

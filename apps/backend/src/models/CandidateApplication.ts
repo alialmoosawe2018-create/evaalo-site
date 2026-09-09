@@ -84,6 +84,8 @@ export interface ICandidateApplication extends Document {
     emailDenorm: string;
 
     position_applied_for?: string;
+    /** كلمة المرشّح نفسه حين خالفت وظيفة الحملة. */
+    declaredPosition?: string;
     company_applied_to?: string;
     years_of_experience?: string;
     current_company?: string;
@@ -282,6 +284,8 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
             index: true,
         },
         position_applied_for: { type: String, trim: true },
+        /** كلمة المرشّح نفسه حين خالفت وظيفة الحملة؛ تُكتب عند الاختلاف فقط. */
+        declaredPosition: { type: String, trim: true },
         company_applied_to: { type: String, trim: true },
         years_of_experience: { type: String },
         current_company: { type: String, trim: true },
