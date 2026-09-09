@@ -81,6 +81,54 @@ check('joins the criterion wording onto the verdict', () => {
     assert.equal(out[1].result, 'does_not_meet');
 });
 
+check('the requirement text travels WITH the verdict', () => {
+    // Before this, keyGaps could only name "position" — the requirement text
+    // reached the model in `rubric` but nothing tied it to this verdict.
+    const out = buildCriteriaFit(
+        withRubricResults([{ rubricItemId: 'preset__skills__a1', result: 'does_not_meet' }]),
+        RUBRIC
+    )!;
+    assert.equal(out[0].label, 'Communication and active listening');
+    assert.equal(out[0].expectation, 'Evidence in CV');
+});
+
+check('a long requirement is truncated, not dropped', () => {
+    const long = 'x'.repeat(400);
+    const rubric = lookup([
+        { id: 'preset__certifications__c1', key: 'certifications', label: 'certifications', expectation: long },
+    ]);
+    const out = buildCriteriaFit(
+        withRubricResults([{ rubricItemId: 'preset__certifications__zzzz', result: 'does_not_meet' }]),
+        rubric
+    )!;
+    assert.ok(out[0].expectation, 'expectation was dropped');
+    assert.ok(out[0].expectation!.length <= 120, 'not truncated: ' + out[0].expectation!.length);
+});
+
+check('the real longest production requirement survives intact', () => {
+    const real = 'HR professional certification (SHRM, CIPD, PHR) or equivalent accredited training';
+    const rubric = lookup([
+        { id: 'preset__certifications__c1', key: 'certifications', label: 'certifications', expectation: real },
+    ]);
+    const out = buildCriteriaFit(
+        withRubricResults([{ rubricItemId: 'preset__certifications__abcd', result: 'does_not_meet' }]),
+        rubric
+    )!;
+    assert.equal(out[0].expectation, real);
+});
+
+check('a criterion with no expectation stays undefined, not empty string', () => {
+    const rubric = lookup([
+        { id: 'custom__x__1', key: 'x', label: 'Some criterion', expectation: '' },
+    ]);
+    const out = buildCriteriaFit(
+        withRubricResults([{ rubricItemId: 'custom__x__9999', result: 'meets' }]),
+        rubric
+    )!;
+    assert.equal(out[0].expectation, undefined);
+    assert.equal(out[0].label, 'Some criterion');
+});
+
 check('an id with no rubric entry still passes through, just unlabelled', () => {
     const out = buildCriteriaFit(withRubricResults([{ rubricItemId: 'gone', result: 'meets' }]), RUBRIC)!;
     assert.equal(out.length, 1);

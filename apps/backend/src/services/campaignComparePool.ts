@@ -23,6 +23,14 @@ const MAX_SHORT = 1500;
 const MAX_LIST_ITEMS = 8;
 /** A campaign's criteria list is short; this only guards against a runaway one. */
 const MAX_RUBRIC_ITEMS = 20;
+/**
+ * The requirement text repeated next to each verdict. Short on purpose: it is
+ * copied per candidate per criterion (up to 20 × topN), and the untruncated
+ * text is already in `rubric`. Long enough for a real requirement — the longest
+ * in production is "HR professional certification (SHRM, CIPD, PHR) or
+ * equivalent accredited training" at 88 characters.
+ */
+const MAX_EXPECTATION_IN_VERDICT = 120;
 
 export class CampaignComparePoolError extends Error {
     readonly statusCode: number;
@@ -168,6 +176,20 @@ export interface CriteriaFitItem {
     rubricItemId: string;
     /** The criterion's wording — the id on its own is unreadable to a reader. */
     label?: string;
+    /**
+     * What the recruiter actually asked for, next to the verdict.
+     *
+     * A derived rubric's `label` is the FIELD KEY (`position`), not prose — the
+     * real requirement (`Senior HR Assistant`) lives in `expectation`. Without
+     * it here a report could name the gap only as "position": the requirement
+     * text reached the model in `rubric`, but nothing tied it to this
+     * candidate's verdict. Observed on a real run: keyGaps came back
+     * ["position", "location", "industryType"].
+     *
+     * Kept short on purpose — the untruncated text is already in `rubric`, and
+     * this copy repeats per candidate per criterion.
+     */
+    expectation?: string;
     result: string;
     confidence?: string;
 }
@@ -355,10 +377,14 @@ export function buildCriteriaFit(c: CompareRow, rubric: RubricLookup): CriteriaF
         .filter(({ id }) => !EXCLUDED_RUBRIC_KEYS.has(rubricKeyFromId(id)))
         .slice(0, MAX_RUBRIC_ITEMS)
         .map(({ id, row }) => {
-            const label = resolveRubricItem(rubric, id)?.label;
+            const item = resolveRubricItem(rubric, id);
+            const expectation = item?.expectation
+                ? truncateText(item.expectation, MAX_EXPECTATION_IN_VERDICT)
+                : undefined;
             return {
                 rubricItemId: id,
-                label: label ? truncateText(label, 200) : undefined,
+                label: item?.label ? truncateText(item.label, 200) : undefined,
+                expectation: expectation || undefined,
                 result: String(row.result ?? ''),
                 confidence: row.confidence,
             };
