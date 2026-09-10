@@ -1372,6 +1372,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       onExchangeComplete(sessionId, llmReply, userMessageCount, {
         mandatoryQuestion1Asked: mandatoryQuestionDue === 1,
         mandatoryQuestion2Asked: mandatoryQuestionDue === 2,
+        mandatoryQuestion3Asked: mandatoryQuestionDue === 3,
         poolUsed: clarificationRequested || followUpNext ? undefined : selectedQuestion?.pool,
         topicUsed: isVoiceTopicMemoryEnabled() ? topicUsed : undefined,
         // يُسجَّل دائماً — لا خلف علَم ذاكرة المواضيع: هذا ليس تحسيناً للتنويع بل

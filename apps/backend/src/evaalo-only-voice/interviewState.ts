@@ -22,6 +22,16 @@ export interface InterviewState {
   firstMandatoryAsked: boolean;
   /** هل تم طرح السؤال الإلزامي الثاني (Microsoft Office)؟ */
   secondMandatoryAsked: boolean;
+  /**
+   * هل طُرح سؤال الدور الإلزامي (مهمّة يوميّة في الوظيفة المتقدَّم إليها)؟
+   *
+   * ⚠️ صار إلزاميّاً في ٢٠٢٦-٠٩-١٠ بعد قياس ١٦ مقابلة حقيقية: بُعد
+   * `relevant_experience_role_fit` — ٢٠ نقطة — كان يُقيَّم في ١٦/١٦ بينما لا
+   * يُسأل عن الدور إلّا في ٦/١٦. أي أنّ ١٠ مرشّحين نالوا درجةً على سؤالٍ لم
+   * يُطرح عليهم، فالتُقطت من فتاتٍ في التعريف بالنفس — والفتات لا يبلغ «جيّد»
+   * أبداً، ومن هنا: Intermediate ١٤، Good صفر، Excellent صفر.
+   */
+  roleMandatoryAsked: boolean;
   /** عدد أسئلة الإنجليزية المطروحة في Phase 3 */
   englishQuestionsAsked: number;
   /** هل تم إعلان اختبار الإنجليزية ("هسة راح أختبر لغتك الإنكليزية. جاهز؟")؟ */
@@ -72,6 +82,7 @@ export function createInterviewState(sessionId: string): InterviewState {
     askedPools: [],
     firstMandatoryAsked: false,
     secondMandatoryAsked: false,
+    roleMandatoryAsked: false,
     englishQuestionsAsked: 0,
     englishTestAnnounced: false,
     askedTopics: [],
@@ -111,6 +122,7 @@ export function onExchangeComplete(
   options?: {
     mandatoryQuestion1Asked?: boolean;
     mandatoryQuestion2Asked?: boolean;
+    mandatoryQuestion3Asked?: boolean;
     poolUsed?: number;
     topicUsed?: string;
     followUpCount?: 0 | 1;
@@ -137,6 +149,9 @@ export function onExchangeComplete(
   }
   if (options?.mandatoryQuestion2Asked) {
     state.secondMandatoryAsked = true;
+  }
+  if (options?.mandatoryQuestion3Asked) {
+    state.roleMandatoryAsked = true;
   }
   if (options?.poolUsed != null && options.poolUsed > 0 && !state.askedPools.includes(options.poolUsed)) {
     state.askedPools.push(options.poolUsed);

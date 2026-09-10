@@ -225,7 +225,7 @@ function buildPoolListForPrompt(): string {
  * Phase Prompt — Phase 1 pools, Phase 2 instructions, Phase 3 instructions
  * طبقة تتغير حسب المرحلة الحالية — من interviewConfig
  */
-function getPhasePrompt(phase: InterviewPhase, candidateProfile?: CandidateProfile, isFirstPhase3Message?: boolean, mandatoryQuestionDue?: 1 | 2, mode?: 'public', englishLock = false): string {
+function getPhasePrompt(phase: InterviewPhase, candidateProfile?: CandidateProfile, isFirstPhase3Message?: boolean, mandatoryQuestionDue?: 1 | 2 | 3, mode?: 'public', englishLock = false): string {
     // «لا تتحول للإنجليزية» موجّه للمقابلة العربية فقط — في الجلسة المقفلة على
     // الإنجليزية ينقلب إلى تعليمة معاكسة تماماً.
     const noSwitchRule = englishLock
@@ -365,7 +365,7 @@ export interface LLMContext {
     /** أول رسالة في المرحلة 3 — يجب إخبار المرشح ببدء اختبار الإنجليزية */
     isFirstPhase3Message?: boolean;
     /** من الـ Controller: يجب طرح السؤال الإلزامي (Microsoft Office) الآن */
-    mandatoryQuestionDue?: 1 | 2;
+    mandatoryQuestionDue?: 1 | 2 | 3;
     /** من Question Engine — النظام اختار السؤال، LLM يعيد صياغته أو يختار من pool */
     selectedQuestion?: SelectedQuestion | null;
     /** المرشح طلب تغيير السؤال — اعترف باختصار ثم اطرح السؤال الجديد */
@@ -1124,7 +1124,7 @@ export function polishVoiceArabicReply(
         clarificationRequested?: boolean;
         changeRequested?: boolean;
         /** السؤال الافتتاحي: المرشّح لم يُجب بعد، إنّما ردّ على تحيّة — لا مديح فيه. */
-        mandatoryQuestionDue?: 1 | 2;
+        mandatoryQuestionDue?: 1 | 2 | 3;
     }
 ): string {
     const ctx: LLMContext = {

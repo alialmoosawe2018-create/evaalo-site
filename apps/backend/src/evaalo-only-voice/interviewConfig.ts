@@ -56,6 +56,34 @@ export type InterviewEvaluationIntent =
   | 'learning_agility'
   | 'english_fluency';
 
+/**
+ * السؤال الإلزامي الثالث — مهمّة الدور. يُبنى بالوظيفة، فلا يصلح ثابتاً.
+ *
+ * ⚠️ استشرافيّ عمداً: «شنو راح تسوي» لا «كم سنة اشتغلت». سؤال الخبرة الماضية
+ * يُغلق الباب بـ«ما عندي خبرة» — جوابٌ صادق لا يقيس شيئاً — بينما مهمّة الدور
+ * تكشف التوجّه والقابل للنقل حتى عند مَن غيّر مجاله. وهذا ما كان موضوع الدور في
+ * المرحلة الثانية يقصده أصلاً؛ لكنّ قياس 16 مقابلة أظهر أنّ النموذج يحرّفه:
+ * الاستشرافي خرج مرّتين فقط، وسؤال الخبرة الماضية ست مرّات — ثلاثة أضعاف. لذلك
+ * يُطرح هنا بنصّه (`textIsAuthoritative` + `isFixed`) كما فُعل بالسؤال الافتتاحي
+ * لنفس السبب: سؤالٌ يملك الموديل تضييقه ليس إلزاميّاً.
+ */
+export function buildRoleTaskQuestion(position?: string | null): {
+  en: string;
+  iq: string;
+  evaluates: InterviewEvaluationIntent[];
+} {
+  const p = String(position ?? '').trim();
+  return {
+    iq: p
+      ? `شنو المهمّة اليوميّة اللي تتوقّع تسويها بوظيفة ${p}، وشلون راح تتعامل وياها؟`
+      : 'شنو المهمّة اليوميّة اللي تتوقّع تسويها بالوظيفة اللي تقدمت إلها، وشلون راح تتعامل وياها؟',
+    en: p
+      ? `What day-to-day task do you expect in the ${p} role, and how would you handle it?`
+      : 'What day-to-day task do you expect in the role you applied for, and how would you handle it?',
+    evaluates: ['experience', 'clarity'],
+  };
+}
+
 export const MANDATORY_QUESTIONS: Record<1 | 2, { en: string; iq: string; evaluates?: InterviewEvaluationIntent[] }> = {
   1: {
     en: 'Can you tell me a bit about yourself in your own words?',

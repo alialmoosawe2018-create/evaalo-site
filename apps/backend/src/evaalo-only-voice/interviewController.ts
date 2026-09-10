@@ -9,8 +9,8 @@ import type { InterviewState } from './interviewState.js';
 export interface ControllerOutput {
   phase: InterviewPhase;
   isFirstPhase3Message: boolean;
-  /** 1 = أول سؤال (tell me about yourself)، 2 = Microsoft Office — undefined = لا إلزامي */
-  mandatoryQuestionDue: 1 | 2 | undefined;
+  /** 1 = أول سؤال (tell me about yourself)، 2 = Microsoft Office، 3 = مهمّة الدور — undefined = لا إلزامي */
+  mandatoryQuestionDue: 1 | 2 | 3 | undefined;
   suggestedPool?: number;
 }
 
@@ -49,10 +49,20 @@ export function getControllerOutput(
   const isFirstPhase3Message = phase === 3 && userMessageCount === PHASE2_MAX_USER_MSGS;
 
   // الأسئلة الإلزامية: 1 = أول سؤال (بداية)، 2 = Microsoft Office (لاحقاً)
-  let mandatoryQuestionDue: 1 | 2 | undefined;
+  let mandatoryQuestionDue: 1 | 2 | 3 | undefined;
   if (phase === 1) {
     if (userMessageCount <= 1 && !(state?.firstMandatoryAsked ?? false)) {
       mandatoryQuestionDue = 1;
+    } else if (userMessageCount >= 2 && !(state?.roleMandatoryAsked ?? false)) {
+      /* سؤال الدور ثانياً وعند الرسالة 2 عمداً — أبكر من أوفيس.
+       *
+       * ⚠️ قياس 16 مقابلة حقيقية (2026-09-10): بُعد
+       * `relevant_experience_role_fit` بوزن 20 نقطة كان يُقيَّم في 16/16 بينما
+       * لا يُسأل عن الدور إلّا في 6/16 — أي أنّ 10 مرشّحين نالوا درجةً على
+       * سؤالٍ لم يُطرح عليهم. وكان موضوع الدور يقع في المرحلة الثانية، ولم تكن
+       * المقابلات القصيرة تبلغها: كل مقابلة من 5–10 أسئلة لم تُسأله ولا مرّة.
+       * وأقصر مقابلة مقيسة كانت 5 أسئلة، فالموضع 2 يضمنه فيها جميعاً. */
+      mandatoryQuestionDue = 3;
     } else if (userMessageCount >= 4 && !(state?.secondMandatoryAsked ?? false)) {
       mandatoryQuestionDue = 2;
     } else {

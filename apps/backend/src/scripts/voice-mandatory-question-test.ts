@@ -26,7 +26,7 @@
 import { buildSystemPrompt, polishVoiceArabicReply } from '../services/llmService.js';
 import { selectNextQuestion } from '../evaalo-only-voice/questionEngine.js';
 import { getControllerOutput } from '../evaalo-only-voice/interviewController.js';
-import { MANDATORY_QUESTIONS } from '../evaalo-only-voice/interviewConfig.js';
+import { buildRoleTaskQuestion, MANDATORY_QUESTIONS } from '../evaalo-only-voice/interviewConfig.js';
 
 let failures = 0;
 function check(name: string, actual: unknown, expected: unknown) {
@@ -100,12 +100,59 @@ check(
 check('the opening question skips the LLM entirely', selected?.isFixed, true);
 check('and it is the exact mandatory text', selected?.text, MANDATORY_QUESTIONS[1].iq);
 
+// ── the role question: mandatory, early, and immune to narrowing ──────────────
+//
+// ⚠️ Measured over 16 real interviews (2026-09-10). `relevant_experience_role_fit`
+// carries 20 of the 100 points and was rated in 16/16 — while a role question was
+// asked in only 6/16. Ten candidates were scored on a question never put to them,
+// from crumbs dropped in the self-introduction; crumbs never reach "Good", which
+// is why that dimension read Intermediate 14, Good 0, Excellent 0.
+//
+// It lived in phase 2 and short interviews never got there: every run of 5-10
+// questions asked it zero times. It sits at turn 2 now, before Office, so the
+// shortest measured interview (5 questions) still reaches it.
+//
+// And it is FIXED, like the opener and for the same reason: the phase-2 directive
+// said "ask about a day-to-day task", and the model turned it into "how many years
+// have you worked" 6 times against 2 — three to one. Past-experience is a different
+// question measuring a different thing, and it dead-ends on "I have no experience",
+// which is honest and measures nothing.
+const roleDue = getControllerOutput(2, { firstMandatoryAsked: true } as never, 'ar');
+check('turn 2 is the role mandatory', roleDue.mandatoryQuestionDue, 3);
+
+const roleQ = selectNextQuestion(roleDue, undefined, 'ar', undefined, {
+    position_applied_for: 'Senior HR Specialist',
+} as never);
+check('the role question skips the LLM entirely', roleQ?.isFixed, true);
+check('its text is authoritative', roleQ?.textIsAuthoritative, true);
+check(
+    'and it is the exact role text, with the position in it',
+    roleQ?.text,
+    buildRoleTaskQuestion('Senior HR Specialist').iq
+);
+check('it asks forward, not for past years', /المهمّة اليوميّة/.test(roleQ?.text ?? ''), true);
+check('it never asks how many years', /كم سنة|شكد سنة/.test(roleQ?.text ?? ''), false);
+check('it books its own topic so a pool cannot repeat it', roleQ?.topic, 'role_task_and_fit');
+
+// No position on file must not drop the question — it falls back to a neutral wording.
+const roleNoPos = selectNextQuestion(roleDue, undefined, 'ar');
+check('still asked when no position is known', !!roleNoPos?.text, true);
+check('and stays forward-looking', /المهمّة اليوميّة/.test(roleNoPos?.text ?? ''), true);
+
+// Once asked, it must not come back and block Office.
+const afterRole = getControllerOutput(
+    3,
+    { firstMandatoryAsked: true, roleMandatoryAsked: true } as never,
+    'ar'
+);
+check('it is not re-asked once answered', afterRole.mandatoryQuestionDue !== 3, true);
+
 // The second mandatory (Microsoft Office) deliberately stays on the rephrase
 // path: its text is already specific so there is nothing to narrow, and it lands
 // mid-interview where an acknowledgment opener reads naturally.
 const secondDue = getControllerOutput(
     5,
-    { firstMandatoryAsked: true, secondMandatoryAsked: false } as never,
+    { firstMandatoryAsked: true, roleMandatoryAsked: true, secondMandatoryAsked: false } as never,
     'ar'
 );
 check('turn 5 is the second mandatory', secondDue.mandatoryQuestionDue, 2);
@@ -123,7 +170,7 @@ check('and its text is still authoritative', secondQ?.textIsAuthoritative, true)
 // presence of `text`, or every phase-1 question would switch mode at once.
 const poolTurn = getControllerOutput(
     6,
-    { firstMandatoryAsked: true, secondMandatoryAsked: true } as never,
+    { firstMandatoryAsked: true, roleMandatoryAsked: true, secondMandatoryAsked: true } as never,
     'ar'
 );
 const poolQ = selectNextQuestion(poolTurn, undefined, 'ar');

@@ -8,6 +8,7 @@ import type { InterviewPhase, SelectedQuestion } from '../services/llmService.js
 import type { InterviewState } from './interviewState.js';
 import type { ControllerOutput } from './interviewController.js';
 import {
+  buildRoleTaskQuestion,
   MANDATORY_QUESTIONS,
   POOL_QUESTIONS,
   PHASE1_TOPICS,
@@ -969,7 +970,13 @@ export function selectNextQuestion(
   if (phase === 1) {
     if (mandatoryQuestionDue) {
       const useArabic = candidateLastLanguage === 'ar';
-      const q = MANDATORY_QUESTIONS[mandatoryQuestionDue];
+      /* الثالث يُبنى بالوظيفة فلا يوجد في الجدول الثابت. ونصُّه سلطويّ ومثبَّت
+         مثل الافتتاحي: القياس أظهر أنّ الموديل يحوّل «مهمّة يوميّة» إلى «كم سنة
+         اشتغلت» ثلاثة أضعاف، وذاك سؤالٌ آخر يقيس شيئاً آخر. */
+      const q =
+        mandatoryQuestionDue === 3
+          ? buildRoleTaskQuestion(candidateProfile?.position_applied_for)
+          : MANDATORY_QUESTIONS[mandatoryQuestionDue];
       return {
         text: useArabic ? q.iq : q.en,
         pool: 0, // mandatory
@@ -990,13 +997,15 @@ export function selectNextQuestion(
          * أصلاً فلا يُضيَّق، وموضعه وسط المقابلة حيث تُناسبه افتتاحيةُ إقرار —
          * والافتتاحي لا يُناسبه إقرار أصلاً لأنّ المرشّح لم يُجب بعد.
          */
-        isFixed: mandatoryQuestionDue === 1,
+        isFixed: mandatoryQuestionDue === 1 || mandatoryQuestionDue === 3,
         // نسجّل موضوع السؤال الإلزامي في ذاكرة المواضيع كي لا يتكرّر لاحقاً: الأول
         // «عرّف نفسك» = warmup، والثاني «Microsoft Office» يغطّي «الأدوات الرقمية».
         topic:
           mandatoryQuestionDue === 1
             ? 'warmup_and_self_introduction'
-            : 'digital_skills_and_tools',
+            : mandatoryQuestionDue === 3
+              ? 'role_task_and_fit'
+              : 'digital_skills_and_tools',
         evaluates: q.evaluates,
         preferArabic: useArabic,
       };

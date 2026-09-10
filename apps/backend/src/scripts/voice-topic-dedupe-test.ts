@@ -46,6 +46,11 @@ function runTurn(sid: string, count: number) {
     onExchangeComplete(sid, selected?.text ?? 'q', count, {
         mandatoryQuestion1Asked: controller.mandatoryQuestionDue === 1,
         mandatoryQuestion2Asked: controller.mandatoryQuestionDue === 2,
+        /* ⚠️ Without this the role mandatory never records as asked and the
+           controller re-issues it every turn — this simulation asked it SEVEN
+           times in a row and starved three phase-1 topics. Any caller that
+           schedules a mandatory question must also report it back. */
+        mandatoryQuestion3Asked: controller.mandatoryQuestionDue === 3,
         poolUsed: selected?.pool,
         topicUsed: selected?.topic, // topic memory is enabled by default
         phase3Reached: controller.phase === 3,
@@ -68,7 +73,20 @@ const distinct = new Set(topics);
 
 console.log('   Phase 1 topics asked:', topics.join(' > '));
 check('digital-tools topic is asked exactly once', digitalCount, 1);
-check('all five Phase 1 topics were covered', distinct.size, 5);
+/* Five pool topics plus `role_task_and_fit`, which became a mandatory question at
+   turn 2 on 2026-09-10 and books its own topic so a later pool cannot repeat it.
+   The five that matter are still all covered — the role question is added to the
+   phase, not taken out of it. */
+const POOL_TOPICS = [
+    'warmup_and_self_introduction',
+    'communication_and_clarity',
+    'teamwork_and_collaboration',
+    'time_management_and_problem_solving',
+    'digital_skills_and_tools',
+];
+check('all five Phase 1 pool topics were covered', POOL_TOPICS.every((t) => distinct.has(t)), true);
+check('the role question is asked exactly once', topics.filter((t) => t === 'role_task_and_fit').length, 1);
+check('and nothing else crept in', distinct.size, POOL_TOPICS.length + 1);
 check(
     'the mandatory Office question owns the tools slot (recorded in memory)',
     getInterviewState(SID)?.askedTopics.includes('digital_skills_and_tools'),
