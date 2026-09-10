@@ -6,9 +6,9 @@
   "name": "Campaign Compare — Stage 2 (Secure)",
   "active": true,
   "description": "Secure Campaign Compare Stage 2 draft: backend-owned candidatePool, inbound secret validation, dynamic signed callback. Inactive — do not publish.",
-  "versionId": "2142c6cc-f39c-4925-83be-c5fd4c13bd0c",
-  "activeVersionId": "2142c6cc-f39c-4925-83be-c5fd4c13bd0c",
-  "updatedAt": "2026-09-09T19:49:33.647Z",
+  "versionId": "97dbf5a0-460f-4f00-9c21-53373ac7c853",
+  "activeVersionId": "97dbf5a0-460f-4f00-9c21-53373ac7c853",
+  "updatedAt": "2026-09-10T13:53:49.075Z",
   "settings": {
     "executionOrder": "v1",
     "availableInMCP": true,
@@ -19,7 +19,8 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "cceec6bc-9ffc-42ee-bd57-845c7ee04eb0",
-        "options": {}
+        "options": {},
+        "responseMode": "responseNode"
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
