@@ -251,16 +251,34 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     }
   };
 
-  const publicCampaignContextPromise =
-    sessionMode === "public"
-      ? loadPublicCampaignContext().then((ctx) => {
-          applyPublicCampaignContext(ctx);
-          console.log(
-            `[PUBLIC] ${sessionId.substring(0, 8)}... campaign=${ctx.resolvedCampaignId || "none"} criteriaKeys=${jobCriteria ? Object.keys(jobCriteria).length : 0}`
-          );
-          return ctx;
-        })
-      : undefined;
+  /* Load the campaign for EVERY session, not just public ones.
+   *
+   * ⚠️ This was gated on `sessionMode === "public"`, and that gate conflated two
+   * different questions: "is this a public session?" — about origin and
+   * permissions — and "should we load the campaign?" — about context. The second
+   * is always yes whenever a campaign can be resolved.
+   *
+   * `sessionMode` comes only from `?mode=public` on the URL, and
+   * `buildCandidateInterviewQuery` — which builds every link HR shares from the
+   * stage pages — never sets it. So the whole form → shared-link path ran blind.
+   *
+   * Measured 2026-09-10 over 16 real Stage 2 interviews, a perfect 16/16 split:
+   * the 10 that came from a public link carried jobCriteria; the 6 from the
+   * shared-link path carried NONE. And those six were not merely SCORED without
+   * the job — they were CONDUCTED without it, because jobCriteria also feeds
+   * question selection. Two of them (execs 1791/1798) came back with
+   * byte-identical seven-label ratings.
+   *
+   * Safe to run always: the loader resolves nothing and returns {} when there is
+   * no campaignId and no usable candidateId, and it swallows its own errors.
+   */
+  const campaignContextPromise = loadPublicCampaignContext().then((ctx) => {
+    applyPublicCampaignContext(ctx);
+    console.log(
+      `[SESSION CTX] ${sessionId.substring(0, 8)}... mode=${sessionMode || "direct"} campaign=${ctx.resolvedCampaignId || "none"} criteriaKeys=${jobCriteria ? Object.keys(jobCriteria).length : 0}`
+    );
+    return ctx;
+  });
 
   console.log(
     `[SESSION START] ${sessionId.substring(0, 8)}... candidateId: ${candidateId || "none"} language: ${language || "auto"} voiceTest: ${isVoiceTest}${sessionMode === "public" ? ` mode=public campaignId=${campaignIdParam || "from-candidate"}` : ""}`
@@ -1762,11 +1780,16 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         }
       }
 
-      if (sessionMode === "public") {
-        const ctx = publicCampaignContextPromise
-          ? await publicCampaignContextPromise
-          : await loadPublicCampaignContext();
-        applyPublicCampaignContext(ctx);
+      /* Re-apply before the transcript leaves: the load above is async and a very
+       * short session can reach this point before it settled. Same reason this is
+       * no longer gated on `mode=public` — Stage 2 cannot judge fit against a job
+       * it was never told about. Guarded because this runs on the close path: a
+       * throw here would break session teardown, and a missing campaign must cost
+       * context, never the transcript. */
+      try {
+        applyPublicCampaignContext(await campaignContextPromise);
+      } catch (ctxErr: any) {
+        console.warn(`[SESSION CTX] campaign context unavailable: ${ctxErr?.message || ctxErr}`);
       }
 
       try {
