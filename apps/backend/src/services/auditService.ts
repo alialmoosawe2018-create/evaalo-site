@@ -13,6 +13,15 @@ export interface AuditLogInput {
     targetType: string;
     targetId?: string;
     metadata?: Record<string, unknown>;
+    /**
+     * المنظّمة حين لا تأتي من الجلسة.
+     *
+     * التقديم العام لا يحمل جلسة موقَّعة، فـ`ctx.orgId` يعود فارغاً و`organizationId`
+     * حقلٌ مطلوب في النموذج — فكان كل سجلّ تدقيق لتقديمٍ عام يفشل بصمت
+     * («AuditLog validation failed: Path organizationId is required»، 2026-09-10).
+     * المنادي يعرف المنظّمة الصحيحة من الحملة، فليمرّرها.
+     */
+    organizationId?: string;
 }
 
 /**
@@ -23,7 +32,9 @@ export async function logAudit(req: Request, input: AuditLogInput): Promise<void
     try {
         const ctx = getAuthContext(req);
         await AuditLog.create({
-            organizationId: ctx.orgId,
+            // الجلسة أوّلاً؛ ثم ما مرّره المنادي (المسار العام بلا جلسة)؛ ثم الافتراضي
+            // كي لا يسقط السجلّ أبداً — فقدان أثر المراجعة أسوأ من نسبته للمنظّمة الافتراضية.
+            organizationId: ctx.orgId || input.organizationId?.trim() || DEFAULT_ORG_ID,
             actorClerkUserId: ctx.userId,
             actorEmail: ctx.email,
             action: input.action,

@@ -26,6 +26,57 @@ function testIdempotencyKeyLegacyFallback() {
     assert.ok(key.endsWith(':legacy'));
 }
 
+/**
+ * ⚠️ 2026-09-10: a returning applicant's new application was never analysed.
+ *
+ * علي محمود نجم applied to campaign 1ae52ee1 on 09-06 — outbox row delivered,
+ * key `stage1-evaluation:<cand>:legacy`. On 09-10 he applied to a DIFFERENT
+ * campaign, a7070dada. `normalizeStage1RubricSnapshotHash` returns 'legacy' for
+ * every campaign without a rubric snapshot — all five production rows carry it —
+ * so the key was identical, the September row was found, and
+ * `shouldDispatch = status === 'pending' && attempts === 0` was false because it
+ * was already 'delivered'. No send, no new row, no error, no log line.
+ *
+ * The evaluation belongs to the APPLICATION, not the person, so the campaign has
+ * to be part of the key. Without it every returning applicant is analysed once,
+ * ever, and every later application silently records an empty result.
+ */
+function testIdempotencyKeyIsPerCampaign() {
+    const cid = '507f1f77bcf86cd799439011';
+    const first = buildStage1EvaluationIdempotencyKey(cid, 'legacy', '1ae52ee1a11f93eb0e0e6dca44d8c03f');
+    const second = buildStage1EvaluationIdempotencyKey(cid, 'legacy', 'a7070dada04939ea3802fe8844e8c2c7');
+    assert.notEqual(first, second, 'the same person applying to a second campaign must not be deduped');
+    // Same person, same campaign, same rubric → still one evaluation.
+    assert.equal(
+        first,
+        buildStage1EvaluationIdempotencyKey(cid, 'legacy', '1ae52ee1a11f93eb0e0e6dca44d8c03f'),
+        're-submitting to the SAME campaign must still dedupe'
+    );
+    // The rubric hash must keep separating keys within one campaign.
+    assert.notEqual(
+        first,
+        buildStage1EvaluationIdempotencyKey(cid, 'sha256:aaa', '1ae52ee1a11f93eb0e0e6dca44d8c03f')
+    );
+}
+
+/**
+ * Rows written before this change have no campaign in their key. Callers fall back
+ * to that shape (filtered by campaignId) so an existing row for the SAME campaign
+ * still dedupes; keeping the shape byte-identical is what makes that lookup work.
+ */
+function testIdempotencyKeyWithoutCampaignKeepsLegacyShape() {
+    const cid = '507f1f77bcf86cd799439011';
+    assert.equal(
+        buildStage1EvaluationIdempotencyKey(cid, 'legacy'),
+        `stage1-evaluation:${cid}:legacy`
+    );
+    assert.equal(
+        buildStage1EvaluationIdempotencyKey(cid, 'legacy', '   '),
+        `stage1-evaluation:${cid}:legacy`,
+        'a blank campaign must not produce an empty segment'
+    );
+}
+
 function testNormalizeRubricHashLegacy() {
     assert.equal(normalizeStage1RubricSnapshotHash(''), 'legacy');
     assert.equal(normalizeStage1RubricSnapshotHash('sha256:abc'), 'sha256:abc');
@@ -97,6 +148,8 @@ function testN8nPayloadGuardrailsPresent() {
 function main() {
     testIdempotencyKeyUniquePerRubricHash();
     testIdempotencyKeyLegacyFallback();
+    testIdempotencyKeyIsPerCampaign();
+    testIdempotencyKeyWithoutCampaignKeepsLegacyShape();
     testNormalizeRubricHashLegacy();
     testEvaluationLanguageNormalization();
     console.log('✓ outbox idempotency keys');

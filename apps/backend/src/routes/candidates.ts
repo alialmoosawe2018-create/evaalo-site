@@ -1348,6 +1348,10 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             action: createdNewPerson ? 'candidate.created' : 'application.created',
             targetType: 'candidate',
             targetId: candidate._id?.toString(),
+            // التقديم العام بلا جلسة موقَّعة؛ المنظّمة تُحسم من الحملة (وهو المصدر
+            // الوحيد المسموح به هنا متعدّد المستأجرين) وإلّا سقط سجلّ التدقيق.
+            organizationId:
+                typeof candidate.organizationId === 'string' ? candidate.organizationId : undefined,
             metadata: {
                 email: candidate.email,
                 campaignId,

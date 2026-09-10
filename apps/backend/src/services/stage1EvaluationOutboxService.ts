@@ -21,12 +21,32 @@ export function normalizeStage1RubricSnapshotHash(raw?: string): string {
     return hash || 'legacy';
 }
 
+/**
+ * ⚠️ The campaign is part of the key. Leaving it out cost a real evaluation.
+ *
+ * The key used to be (candidate, rubricHash). But `normalizeStage1RubricSnapshotHash`
+ * returns the literal `'legacy'` for every campaign without a rubric snapshot — all
+ * five rows in production carry it — so a returning applicant's SECOND application
+ * produced a byte-identical key, matched the first application's already-delivered
+ * row, and was dropped: no send, no new row, no error, no log. The candidate's
+ * analysis simply never happened. (علي محمود نجم, 2026-09-10, campaign a7070dada
+ * deduped against campaign 1ae52ee1 from 09-06.)
+ *
+ * A Stage 1 evaluation belongs to an APPLICATION, not to a person.
+ *
+ * When no campaign is given the key keeps its historical two-part shape, so rows
+ * written before this change still match — see the legacy fallback in
+ * `enqueueStage1EvaluationOutbox`.
+ */
 export function buildStage1EvaluationIdempotencyKey(
     candidateId: string,
-    rubricSnapshotHash: string
+    rubricSnapshotHash: string,
+    campaignId?: string
 ): string {
     const hash = (rubricSnapshotHash || 'legacy').trim();
-    return `stage1-evaluation:${candidateId}:${hash}`;
+    const campaign = (campaignId || '').trim();
+    if (!campaign) return `stage1-evaluation:${candidateId}:${hash}`;
+    return `stage1-evaluation:${candidateId}:${campaign}:${hash}`;
 }
 
 export interface EnqueueStage1EvaluationInput {
@@ -41,10 +61,27 @@ export async function enqueueStage1EvaluationOutbox(
     input: EnqueueStage1EvaluationInput
 ): Promise<{ outboxId: string; shouldDispatch: boolean }> {
     const candidateId = input.candidateId.trim();
+    const campaignId = input.campaignId?.trim() || undefined;
     const rubricSnapshotHash = normalizeStage1RubricSnapshotHash(input.rubricSnapshotHash);
-    const idempotencyKey = buildStage1EvaluationIdempotencyKey(candidateId, rubricSnapshotHash);
+    const idempotencyKey = buildStage1EvaluationIdempotencyKey(
+        candidateId,
+        rubricSnapshotHash,
+        campaignId
+    );
 
-    const existing = await Stage1EvaluationOutbox.findOne({ idempotencyKey }).exec();
+    let existing = await Stage1EvaluationOutbox.findOne({ idempotencyKey }).exec();
+    /**
+     * Rows written before the campaign joined the key carry the two-part shape.
+     * Match one ONLY when it belongs to this same campaign — otherwise the very
+     * bug this change fixes would survive through the fallback: a returning
+     * applicant's older campaign would keep swallowing every new application.
+     */
+    if (!existing && campaignId) {
+        existing = await Stage1EvaluationOutbox.findOne({
+            idempotencyKey: buildStage1EvaluationIdempotencyKey(candidateId, rubricSnapshotHash),
+            campaignId,
+        }).exec();
+    }
     if (existing) {
         return {
             outboxId: String(existing._id),
@@ -55,7 +92,7 @@ export async function enqueueStage1EvaluationOutbox(
     const [doc] = await Stage1EvaluationOutbox.create([
         {
             candidateId,
-            campaignId: input.campaignId?.trim() || undefined,
+            campaignId,
             organizationId: input.organizationId?.trim() || undefined,
             rubricSnapshotHash,
             formSchemaHash: input.formSchemaHash?.trim() || undefined,
