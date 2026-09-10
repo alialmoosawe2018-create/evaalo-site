@@ -44,23 +44,44 @@ different webhook paths** from the live workflows, so importing them cannot over
 production — it creates new, inactive copies. The danger is not overwriting; it is
 mistaking them for the truth, or activating one.
 
-## Two traps that live in n8n itself
+## Webhook-path decoys (both handled 2026-09-10)
 
-Both are **latent** — n8n registers a webhook only for an ACTIVE workflow, so nothing
-is fighting today. Each fires the moment someone activates the wrong row:
+n8n registers a webhook only for an ACTIVE workflow, so a duplicate path on an
+inactive copy is latent, not live. Two copies held a production path:
 
-| Inactive workflow | holds path | which belongs to |
-|---|---|---|
-| `stage 1 v.2` (`fk4pPx4MQ1PClqfl`, root folder, 23 nodes) | `cc4f6e33` | **Stage 1 v.2** — live screening |
-| `compare stage 1` (`4cUPnQwiHhkBDCk0`, evaalo folder, 8 nodes) | `9391209e` | **Campaign Compare — Stage 1** |
+| Inactive workflow | held path | belongs to | state now |
+|---|---|---|---|
+| `stage 1 v.2` (`fk4pPx4MQ1PClqfl`, root, 23 nodes) | `cc4f6e33` | **Stage 1 v.2** — live screening | **path changed + archived** |
+| `compare stage 1` (`4cUPnQwiHhkBDCk0`, evaalo, 8 nodes) | `9391209e` | **Campaign Compare — Stage 1** | still holds it, but **was already archived** |
 
-Note the near-identical names: the live screening workflow is `Stage 1 v.2` in the
-`evaalo` folder; the decoy is `stage 1 v.2` in the root. Case and folder are the only
-things telling them apart in the UI.
+`fk4pPx4MQ1PClqfl` was the real hazard: it sat in the normal workflow list, one
+click from activation, under a name differing from the live one only by letter case
+and folder (`stage 1 v.2` in root vs `Stage 1 v.2` in `evaalo`). Its path is now a
+dead value and it is archived.
+
+`4cUPnQwiHhkBDCk0` still carries `9391209e`, but it was already archived — reaching
+it takes un-archiving first, and n8n refuses edits to an archived workflow, which is
+why its path could not be changed. Two deliberate steps from danger, not one. **If you
+ever un-archive it, change its webhook path before doing anything else.**
+
+Verified after the change: `webhook_entity` still holds exactly 10 rows, one per
+active workflow, and no NON-archived workflow holds a live path.
 
 ⚠️ Also: the three Compare workflows still carry the description
 *"Inactive — do not publish"*. That text is stale — **all three are active and
 published.** Do not trust a workflow's description over its `active` flag.
+
+## Archived ≠ gone
+
+n8n hides archived workflows from the default list, which makes the instance look
+smaller than it is. As of 2026-09-10 there are **22 workflows: 10 active, 4 inactive
+and visible, 8 archived.** An archived workflow still exists in the database and still
+holds its webhook path — it simply cannot run or be edited until un-archived. Do not
+conclude a workflow is deleted because the list does not show it; check `isArchived`.
+
+The four inactive-but-visible ones are the three `— DRAFT TEST (do not activate)`
+redesigns (Stage 1/2/3), which are deliberately kept because open plan items still
+reference them, and the retired `stage 1 v.2` above.
 
 ## Editing a live workflow
 
