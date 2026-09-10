@@ -9,6 +9,7 @@ import {
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { canAffordScreening } from './screeningBilling.js';
 import { StageCallbackConfigurationError } from './stageCallbackAuth.js';
+import { recordSiteErrorAsync } from './siteErrorService.js';
 
 const MAX_ATTEMPTS = 5;
 
@@ -57,9 +58,20 @@ export interface EnqueueStage1EvaluationInput {
     formSchemaHash?: string;
 }
 
+/**
+ * لماذا أُرسل الطلب أو لم يُرسَل. `already_delivered` و`attempts_exhausted`
+ * تعنيان أنّ التحليل **لن يجري أبداً** ما لم يتدخّل أحد — وهما ما يجب أن يُسجَّل.
+ */
+export type Stage1EnqueueReason =
+    | 'created'
+    | 'existing_queued'
+    | 'already_delivered'
+    | 'attempts_exhausted'
+    | 'in_flight';
+
 export async function enqueueStage1EvaluationOutbox(
     input: EnqueueStage1EvaluationInput
-): Promise<{ outboxId: string; shouldDispatch: boolean }> {
+): Promise<{ outboxId: string; shouldDispatch: boolean; reason: Stage1EnqueueReason }> {
     const candidateId = input.candidateId.trim();
     const campaignId = input.campaignId?.trim() || undefined;
     const rubricSnapshotHash = normalizeStage1RubricSnapshotHash(input.rubricSnapshotHash);
@@ -83,10 +95,23 @@ export async function enqueueStage1EvaluationOutbox(
         }).exec();
     }
     if (existing) {
-        return {
-            outboxId: String(existing._id),
-            shouldDispatch: existing.status === 'pending' && existing.attempts === 0,
-        };
+        const shouldDispatch = existing.status === 'pending' && existing.attempts === 0;
+        /**
+         * ⚠️ لماذا لم يُرسَل — السبب يعود للمنادي كي يُسجَّل.
+         *
+         * كان هذا الفرع يعود بـ`false` صامتاً، فسقوط تحليلٍ إلى الأبد صار مطابقاً
+         * في السجلّ لطلبٍ لم يمرّ أصلاً. أربعة أيّام وطلبان قبل أن يكتشفه مرشّح.
+         * إغلاق سبب واحد لا يُغلق الصمت: صفٌّ استنفد `MAX_ATTEMPTS` يسقط من المسح
+         * الدوري كذلك (`attempts: { $lt: MAX_ATTEMPTS }`) ويعود من هنا بـ`false`.
+         */
+        const reason: Stage1EnqueueReason = shouldDispatch
+            ? 'existing_queued'
+            : existing.status === 'delivered'
+              ? 'already_delivered'
+              : existing.attempts >= MAX_ATTEMPTS
+                ? 'attempts_exhausted'
+                : 'in_flight';
+        return { outboxId: String(existing._id), shouldDispatch, reason };
     }
 
     const [doc] = await Stage1EvaluationOutbox.create([
@@ -101,7 +126,38 @@ export async function enqueueStage1EvaluationOutbox(
             attempts: 0,
         },
     ]);
-    return { outboxId: String(doc._id), shouldDispatch: true };
+    return { outboxId: String(doc._id), shouldDispatch: true, reason: 'created' };
+}
+
+/**
+ * سطر واحد يجعل أي سقوطٍ صامت مرئياً — أياً كان سببه.
+ *
+ * يُستدعى من كل مدخل حين `shouldDispatch === false`. إصلاح مفتاح التفرّد أزال
+ * السبب الذي اكتُشف؛ هذا يزيل **الصمت**، فلا يعود اكتشافُ العطل التالي معلّقاً
+ * على شكوى مرشّح.
+ */
+export function reportSuppressedStage1Dispatch(input: {
+    reason: Stage1EnqueueReason;
+    outboxId: string;
+    candidateId: string;
+    campaignId?: string;
+    organizationId?: string;
+    route: string;
+}): void {
+    // فرعٌ منتظر التسليم ليس عطلاً — يتكفّل به المسح الدوري.
+    if (input.reason === 'existing_queued' || input.reason === 'in_flight') return;
+    const message =
+        `Stage 1 analysis suppressed (${input.reason}) — candidate ${input.candidateId} ` +
+        `campaign ${input.campaignId || '(none)'} outbox ${input.outboxId}`;
+    console.warn(`⚠️ [stage1Outbox] ${message}`);
+    recordSiteErrorAsync({
+        source: 'backend',
+        severity: 'error',
+        message,
+        route: input.route,
+        organizationId: input.organizationId,
+        fingerprint: `stage1-suppressed:${input.reason}`,
+    });
 }
 
 export async function flushStage1EvaluationOutboxEntry(outboxId: string): Promise<boolean> {
@@ -138,10 +194,23 @@ export async function flushStage1EvaluationOutboxEntry(outboxId: string): Promis
     ).exec();
 
     if (!entry) {
+        /**
+         * ⚠️ لم يُرسَل شيء هنا — الصفّ لم يُطالَب به أصلاً.
+         *
+         * الصفّ المُسلَّم يُعيد `true` لأنّ التسليم تمّ سابقاً، وهذا صحيح للمسح
+         * الدوري. لكنّه ضلّل الاستعادة اليدوية: سكربت الإنقاذ يطبع `flush true`
+         * فيقرأها المشغّل نجاحاً، ولا شيء أُرسل. لذا يُسجَّل الفرق صراحةً.
+         */
         const delivered = await Stage1EvaluationOutbox.findOne({
             _id: outboxId,
             status: 'delivered',
         }).exec();
+        console.log(
+            `[stage1Outbox] ${outboxId} not claimable — ` +
+                (delivered
+                    ? 'already delivered earlier; NOTHING WAS SENT by this call'
+                    : 'no pending/failed row within attempt budget; NOTHING WAS SENT')
+        );
         return Boolean(delivered);
     }
 

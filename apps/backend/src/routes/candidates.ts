@@ -42,6 +42,7 @@ import {
     enqueueStage1EvaluationOutbox,
     dispatchStage1EvaluationOutbox,
     normalizeStage1RubricSnapshotHash,
+    reportSuppressedStage1Dispatch,
 } from '../services/stage1EvaluationOutboxService.js';
 import { normalizeStage1EvaluationLanguage } from '../services/stage1EvaluationLanguage.js';
 import {
@@ -1382,7 +1383,7 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             console.log('↩️ Skipping Stage 1 n8n send for public_screening candidate:', candidateObj._id?.toString?.() || candidateObj._id);
         } else if (createdNewPerson || campaignFormBinding) {
             try {
-                const { outboxId, shouldDispatch } = await enqueueStage1EvaluationOutbox({
+                const { outboxId, shouldDispatch, reason } = await enqueueStage1EvaluationOutbox({
                     candidateId: String(candidateObj._id?.toString?.() || candidateObj._id),
                     campaignId,
                     organizationId:
@@ -1394,6 +1395,20 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                 });
                 if (shouldDispatch) {
                     dispatchStage1EvaluationOutbox(outboxId);
+                } else {
+                    // بلا هذا الفرع كان التحليل يسقط للأبد بلا أثر — راجع
+                    // reportSuppressedStage1Dispatch.
+                    reportSuppressedStage1Dispatch({
+                        reason,
+                        outboxId,
+                        candidateId: String(candidateObj._id?.toString?.() || candidateObj._id),
+                        campaignId,
+                        organizationId:
+                            typeof candidateObj.organizationId === 'string'
+                                ? candidateObj.organizationId
+                                : undefined,
+                        route: 'POST /api/candidates',
+                    });
                 }
             } catch (err) {
                 if (err instanceof StageCallbackConfigurationError) {

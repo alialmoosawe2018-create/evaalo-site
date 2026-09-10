@@ -12,10 +12,19 @@ import {
     resolveRubricHashForCampaign,
 } from '../services/stage1EvaluationOutboxService.js';
 
-const candidateId = (process.argv[2] || '6a4fe8c9c79a739f7e94f63e').trim();
-const campaignId = (process.argv[3] || '9eced689e1f63e833e974a8c16de4b42').trim();
+/**
+ * ⚠️ لا قيم افتراضية. كانت تُشغَّل بلا وسيطين فتعيد إرسال مرشّح آخر تماماً —
+ * وهي أداة استعادة يدوية تُستخدم تحت الضغط.
+ */
+const candidateId = (process.argv[2] || '').trim();
+const campaignId = (process.argv[3] || '').trim();
 
 async function main() {
+    if (!candidateId || !campaignId) {
+        console.error('Usage: stage1-redispatch-one <candidateId> <campaignId>');
+        console.error('Both are required — this script sends a real evaluation for a real person.');
+        process.exit(1);
+    }
     await mongoose.connect(process.env.MONGODB_URI!);
     const c = await Candidate.findById(candidateId).lean();
     if (!c) {
@@ -23,19 +32,27 @@ async function main() {
         process.exit(1);
     }
 
-    await Candidate.updateOne({ _id: candidateId }, { status: 'pending_evaluation' });
+    // لا نلمس حالة الشخص: مع APPLICATION_OWNS_CAMPAIGN_STATE الحالةُ تخصّ الطلب،
+    // فكتابتها على الشخص تذهب حيث لا يقرأها أحد وتُلوّث حملاته الأخرى.
 
     const rubricSnapshotHash = normalizeStage1RubricSnapshotHash(
         (await resolveRubricHashForCampaign(campaignId || c.campaignId)) || ''
     );
 
-    const { outboxId, shouldDispatch } = await enqueueStage1EvaluationOutbox({
+    const { outboxId, shouldDispatch, reason } = await enqueueStage1EvaluationOutbox({
         candidateId,
         campaignId: campaignId || c.campaignId || undefined,
         organizationId: typeof c.organizationId === 'string' ? c.organizationId : undefined,
         rubricSnapshotHash,
     });
-    console.log('enqueue', { outboxId, shouldDispatch });
+    console.log('enqueue', { outboxId, shouldDispatch, reason });
+
+    const attemptsBefore =
+        (
+            await mongoose.connection
+                .collection('stage1_evaluation_outbox')
+                .findOne({ _id: new mongoose.Types.ObjectId(outboxId) })
+        )?.attempts ?? 0;
 
     const ok = await flushStage1EvaluationOutboxEntry(outboxId);
     const db = mongoose.connection.db;
@@ -44,7 +61,19 @@ async function main() {
         .collection('stage1_evaluation_outbox')
         .findOne({ _id: new mongoose.Types.ObjectId(outboxId) });
 
-    console.log('flush', ok);
+    /**
+     * ⚠️ `flush true` وحدها كذبة مريحة: تعود `true` أيضاً لصفٍّ سُلّم سابقاً، بلا
+     * إرسال. المشغّل يقرأها نجاحاً فيمضي، والمرشّح يبقى بلا تحليل. المحاولة
+     * تزيد فقط حين يُطالَب بالصفّ فعلاً — وهذا هو الفارق الذي يُطبع.
+     */
+    const actuallySent = (entry?.attempts ?? 0) > attemptsBefore;
+    console.log('flush', ok, actuallySent ? '(SENT)' : '(NOTHING SENT — pre-existing row)');
+    if (!actuallySent) {
+        console.warn(
+            '⚠️ No evaluation was dispatched by this run. The row was not claimable ' +
+                '(already delivered, or out of attempt budget). This candidate is NOT recovered.'
+        );
+    }
     console.log(
         'outbox',
         JSON.stringify({

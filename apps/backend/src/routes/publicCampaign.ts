@@ -24,6 +24,7 @@ import {
     enqueueStage1EvaluationOutbox,
     dispatchStage1EvaluationOutbox,
     normalizeStage1RubricSnapshotHash,
+    reportSuppressedStage1Dispatch,
 } from '../services/stage1EvaluationOutboxService.js';
 import { normalizeStage1EvaluationLanguage } from '../services/stage1EvaluationLanguage.js';
 import { loadCampaignRoles } from '../services/campaignRole.js';
@@ -402,7 +403,7 @@ router.post(
             if (n8nConfigured) {
                 try {
                     const candidateObj = candidate.toObject();
-                    const { outboxId, shouldDispatch } = await enqueueStage1EvaluationOutbox({
+                    const { outboxId, shouldDispatch, reason } = await enqueueStage1EvaluationOutbox({
                         candidateId: String(candidateObj._id?.toString?.() || candidateObj._id),
                         campaignId: campaign.campaignId,
                         organizationId:
@@ -416,6 +417,18 @@ router.post(
                     });
                     if (shouldDispatch) {
                         dispatchStage1EvaluationOutbox(outboxId);
+                    } else {
+                        reportSuppressedStage1Dispatch({
+                            reason,
+                            outboxId,
+                            candidateId: String(candidateObj._id?.toString?.() || candidateObj._id),
+                            campaignId: campaign.campaignId,
+                            organizationId:
+                                typeof campaign.organizationId === 'string'
+                                    ? campaign.organizationId
+                                    : undefined,
+                            route: 'POST /api/public-campaign (apply)',
+                        });
                     }
                 } catch (err) {
                     console.error('Failed to enqueue Stage 1 evaluation outbox (non-blocking):', err);
