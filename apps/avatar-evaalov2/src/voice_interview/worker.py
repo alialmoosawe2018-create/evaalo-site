@@ -484,7 +484,7 @@ def _initial_greeting_instructions(meta: dict[str, Any]) -> str:
     if mode in ("bilingual", "auto", "mixed"):
         parts = [
             "You are opening a professional video interview.",
-            "Speak one short warm welcome (1-2 sentences maximum, under ~35 words total).",
+            "Speak one short warm welcome (1-2 sentences maximum, under ~40 words total).",
             "Use Arabic if the candidate would expect Arabic; otherwise English.",
         ]
         if name:
@@ -506,7 +506,7 @@ def _initial_greeting_instructions(meta: dict[str, Any]) -> str:
         parts = [
             "You are opening a professional video interview.",
             "Speak only in English.",
-            "One short warm welcome: 1-2 sentences maximum, under ~35 words total.",
+            "One short warm welcome: 1-2 sentences maximum, under ~40 words total.",
         ]
         if name:
             parts.append(f"Address them by name: {name}.")

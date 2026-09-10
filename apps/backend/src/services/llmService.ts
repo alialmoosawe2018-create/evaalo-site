@@ -190,7 +190,7 @@ Context Handling
 - Speak naturally, like a human interviewer
 
 Response Guidelines (VOICE — CRITICAL)
-- Keep responses with more room: about 40–65 words when useful (acknowledgment + one clear question)
+- Keep responses with more room: about 50–75 words when useful (acknowledgment + one clear question)
 - ONE question per answer — never ask follow-up questions or drill down
 ${acknowledgmentGuidelines}
 
@@ -315,7 +315,7 @@ ${phase3Transition}
 You MUST respond in ENGLISH ONLY (except the first message which is the Arabic announcement "هسة راح أختبر لغتك الإنكليزية. جاهز؟" — no English question in that message).
 After the candidate responds to "جاهز؟", ask 5 questions in English to assess fluency, vocabulary, grammar. The Question Engine then adds a final translation question verbatim — never ask it yourself.
 Examples: ${PHASE3_QUESTIONS.map((q) => `"${q}"`).join(' | ')}
-Keep responses with more room (about 35–55 words per turn). Speak ONLY in English after the announcement.`;
+Keep responses with more room (about 45–65 words per turn). Speak ONLY in English after the announcement.`;
 }
 
 /** سؤال مُختار من Question Engine — LLM يعيد صياغته أو يبني السؤال من topic */
@@ -474,7 +474,7 @@ function createSystemPrompt(context: LLMContext): string {
         return `You are EVAALO. Ask ONE short probe that digs into the candidate's last answer, in the same spirit as the example.
 ${langRule}
 Example: "${ex}"
-Rules: exactly ONE question, ONE clause, at most 18 words. Ask for a concrete example, a specific action, or a measurable result. No compound or two-part questions, no "and". Do NOT announce "follow-up" — just ask.`;
+Rules: exactly ONE question, at most 35 words. You may open with ONE short framing sentence naming the thing you are asking about, then ask the question — a bare one-clause probe often landed as abrupt and the candidate had to guess what was meant. Ask for a concrete example, a specific action, or a measurable result. Still ONE question only: no compound or two-part questions. Do NOT announce "follow-up" — just ask.`;
     }
 
     // وضع التوضيح: المرشح طلب توضيح — وضّح السؤال وأعد طرحه
@@ -512,7 +512,7 @@ Your last question was: "${context.lastAssistantMessage}"`;
 Available topics: ${topicsList}
 ${lastAnswer}${extracted}
 
-CRITICAL: Do NOT say "the topic is X" or "الموضوع الأنسب هو..." — the topic choice is INTERNAL. Just ask the question directly. You may add ONE brief varied acknowledgment (${englishLock ? 'Great, Alright, Thanks, Understood' : IRAQI_ACKNOWLEDGMENT_PHRASES.slice(0, 4).join('، ')}, etc.) then ask — NEVER "${englishLock ? 'How are you?' : 'شلونك؟'}" as acknowledgment. Keep it about 45–70 words.
+CRITICAL: Do NOT say "the topic is X" or "الموضوع الأنسب هو..." — the topic choice is INTERNAL. Just ask the question directly. You may add ONE brief varied acknowledgment (${englishLock ? 'Great, Alright, Thanks, Understood' : IRAQI_ACKNOWLEDGMENT_PHRASES.slice(0, 4).join('، ')}, etc.) then ask — NEVER "${englishLock ? 'How are you?' : 'شلونك؟'}" as acknowledgment. Keep it about 55–80 words.
 
 ${langRule}`;
     }
@@ -551,7 +551,7 @@ ${langRule}`;
         return `You are EVAALO, a professional interviewer. Based on the candidate's answer, ask a question about this topic: ${selectedQuestion.topic}.
 ${lastAnswer}${extracted}
 
-You decide the best question. Make it natural and relevant. You may add a brief acknowledgment if it flows well. Keep it about 45–70 words.
+You decide the best question. Make it natural and relevant. You may add a brief acknowledgment if it flows well. Keep it about 55–80 words.
 
 Question quality (the candidate hears this aloud, once, with no text in front of them):
 - ONE ask. No second clause bolted on with "و" or "وكمان".
@@ -573,7 +573,7 @@ ${langRule}`;
             ? 'Keep the question in ENGLISH. Do not translate to Arabic.'
             : 'Use the same language as the selected question.';
         const changeNote = context.changeRequested
-            ? `The candidate asked to change the question. Acknowledge briefly (${englishLock ? '"Sure"' : '"تمام" or "Sure"'}) then ask the new question. Keep under 65 words.`
+            ? `The candidate asked to change the question. Acknowledge briefly (${englishLock ? '"Sure"' : '"تمام" or "Sure"'}) then ask the new question. Keep under 75 words.`
             : '';
         /**
          * السؤال الإلزامي (pool 0) يُطرح على كلّ مرشّح ليُقارَن الناس على سؤال واحد.
@@ -593,7 +593,7 @@ Output clean punctuation: never leave a lone "؟" or "?" in the middle of the se
 ${changeNote ? changeNote + '\n' : ''}
 ${langRule}
 Question to rephrase: "${selectedQuestion.text}"
-Keep it about 35–60 words.`;
+Keep it about 45–70 words.`;
     }
 
     const candidateGender = resolveCandidateGender(context);
@@ -1225,7 +1225,7 @@ function getNextQuestionOnlyBlock(): string {
     return `CRITICAL — NEXT QUESTION ONLY (deflection line is prepended by the system outside the model)
 You must output ONLY the next interview question in Iraqi Arabic (natural dialect: شنو، شلون، چان).
 - No English. Do not write the "English test later" sentence — that is added separately.
-- Optional ONE varied acknowledgment (${IRAQI_ACKNOWLEDGMENT_PHRASES.join('، ')}) before the question only; never شلونك/شلونج; one question, about 40–70 words, ending with ؟
+- Optional ONE varied acknowledgment (${IRAQI_ACKNOWLEDGMENT_PHRASES.join('، ')}) before the question only; never شلونك/شلونج; one question, about 50–80 words, ending with ؟
 - The candidate may have asked to switch to English; your output is still the interview question in Iraqi Arabic only.
 
 ${getProfessionalRegisterBlock()}`;

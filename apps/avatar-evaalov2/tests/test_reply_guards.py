@@ -548,7 +548,11 @@ def test_openai_llm_kwargs_default_is_gpt4o_mini(monkeypatch):
     kw = build_openai_llm_kwargs()
     assert kw["model"] == "gpt-4o-mini"
     assert "temperature" in kw  # gpt-4o family takes our low temperature
-    assert kw["max_completion_tokens"] == 160
+    # ⚠️ Raised 160 -> 240 on 2026-09-10. 160 tokens is roughly 80 Arabic words,
+    # which was BELOW the ~90-word limit assistant.py was already asking for, so a
+    # long turn could be cut mid-sentence. Arabic costs 2-3 tokens a word, so this
+    # ceiling has to move whenever the per-turn word limit does.
+    assert kw["max_completion_tokens"] == 240
 
 
 def test_openai_llm_kwargs_tolerates_malformed_temperature(monkeypatch):

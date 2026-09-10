@@ -49,10 +49,17 @@ def build_openai_llm_kwargs() -> dict[str, Any]:
             kwargs["temperature"] = 0.22
     if api_key:
         kwargs["api_key"] = api_key
-    # Output cap (~80 words for a clear Arabic question). Reasoning models spend
-    # part of the budget on hidden reasoning tokens, so give them more headroom to
-    # avoid a truncated reply. Override with OPENAI_MAX_COMPLETION_TOKENS.
-    default_max = "512" if is_reasoning else "160"
+    # Output cap. Reasoning models spend part of the budget on hidden reasoning
+    # tokens, so give them more headroom to avoid a truncated reply. Override with
+    # OPENAI_MAX_COMPLETION_TOKENS.
+    #
+    # ⚠️ 2026-09-10: was 160, which is roughly 80 Arabic words — BELOW the ~90-word
+    # limit the prompt itself asked for, so a long turn could be cut mid-sentence
+    # before anyone raised the prompt. Arabic tokenises badly (2-3 tokens a word),
+    # so this ceiling must be raised whenever the per-turn word limit in
+    # assistant.py goes up, or the prompt asks for words the model cannot emit.
+    # 240 covers the current ~105-word limit with headroom.
+    default_max = "512" if is_reasoning else "240"
     raw_max = (os.getenv("OPENAI_MAX_COMPLETION_TOKENS", default_max) or "").strip()
     if raw_max and raw_max != "0":
         try:
