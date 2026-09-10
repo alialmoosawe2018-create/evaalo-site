@@ -18,9 +18,31 @@ function mockReq(body: Record<string, unknown>, headers: Record<string, string> 
     return { body, headers } as unknown as Request;
 }
 
+/**
+ * ⚠️ `auth` MUST be a FUNCTION, and what it returns MUST carry
+ * `tokenType: 'session_token'`. Two separate Clerk gates enforce this:
+ *
+ *   1. `getAuth` CALLS the property — `const authObject = req.auth(options)`
+ *      (@clerk/express/dist/index.js). An object here throws
+ *      "req.auth is not a function", and getAuthContext swallows that in its
+ *      try/catch (middleware/auth.ts), so no org resolves at all.
+ *   2. The returned object is passed through `getAuthObjectForAcceptedToken`,
+ *      whose `acceptsToken` defaults to TokenType.SessionToken. Without
+ *      `tokenType` it is REPLACED by signedOutAuthObject (orgId: null).
+ *
+ * Either mistake silently degrades every request to DEFAULT_ORG_ID, which is
+ * exactly how this test read `org_default` for BOTH orgs while it sat
+ * unregistered and never ran. Nothing here needs Clerk keys, clerkMiddleware
+ * or the network.
+ */
 function mockOrgReq(orgId: string): Request {
     return {
-        auth: { orgId, sessionClaims: { orgId } },
+        auth: () => ({
+            tokenType: 'session_token',
+            userId: `user_${orgId}`,
+            orgId,
+            sessionClaims: { orgId },
+        }),
     } as unknown as Request;
 }
 
@@ -122,6 +144,15 @@ function testPublicScreeningSkipsWrittenStage1Send(): void {
 function testOrgScopedQueryIsolation(): void {
     const orgA = orgScopedQuery(mockOrgReq('org_a'), { campaignId: { $in: ['c1'] } });
     const orgB = orgScopedQuery(mockOrgReq('org_b'), { campaignId: { $in: ['c1'] } });
+    // Named guard first: if a future @clerk/backend bump changes the
+    // acceptsToken default or adds a required field, the mock degrades to
+    // signedOutAuthObject and EVERY org collapses to the shared default. The
+    // assertions below would still fail, but this one says why.
+    assert.notEqual(
+        orgA.organizationId,
+        'org_default',
+        'mock req no longer reaches getAuth — see mockOrgReq: auth must be a function returning tokenType session_token'
+    );
     assert.equal(orgA.organizationId, 'org_a');
     assert.equal(orgB.organizationId, 'org_b');
     assert.notEqual(orgA.organizationId, orgB.organizationId);
