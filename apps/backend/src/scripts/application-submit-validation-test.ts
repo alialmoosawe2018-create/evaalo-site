@@ -41,6 +41,39 @@ function testValidMinimalSubmit() {
     assert.ok(result.submittedFieldIds.includes('cv'));
 }
 
+/**
+ * ⚠️ 2026-09-09: every public application returned 400 "Validation failed".
+ *
+ * The intake fix that resolves `position_applied_for` from the campaign also
+ * writes the applicant's own wording to `declaredPosition` — and it ran BEFORE
+ * this validator. `declaredPosition` is a server-side field, never a form field,
+ * so the "Unexpected field" rule below rejected every submission.
+ *
+ * Two lessons are pinned here: the field is legitimately unknown to the form
+ * (so this must keep failing), and therefore the reconciliation belongs AFTER
+ * `validateApplicationSubmission` **and** after `Object.assign(candidateData,
+ * merged)` — which would otherwise overwrite the corrected position with the
+ * applicant's, silently undoing the fix on the public path.
+ */
+function testDeclaredPositionIsNotAFormField() {
+    const binding = createFormBindingForTemplate(DEFAULT_FORM_TEMPLATE_ID);
+    const result = validateApplicationSubmission(binding.snapshot, {
+        body: validBody({ declaredPosition: 'Senior Petroleum Engineer' }),
+        files: validFiles(),
+    });
+    assert.equal(result.ok, false, 'declaredPosition is not a form field and must be rejected');
+    assert.ok(
+        result.errors.some((e) => e.field === 'declaredPosition'),
+        'the rejection must name declaredPosition'
+    );
+    // And the same body without it is fine — proving the field is the only cause.
+    const clean = validateApplicationSubmission(binding.snapshot, {
+        body: validBody(),
+        files: validFiles(),
+    });
+    assert.equal(clean.ok, true, 'the identical submission without it must pass');
+}
+
 function testRejectUnexpectedField() {
     const binding = createFormBindingForTemplate(DEFAULT_FORM_TEMPLATE_ID);
     const result = validateApplicationSubmission(binding.snapshot, {
@@ -281,6 +314,9 @@ function main() {
     testRejectTooManyCertificates();
     testRejectCertificateWrongMimeOrSize();
     console.log('✓ reject too many / oversized / wrong-type certificates');
+
+    testDeclaredPositionIsNotAFormField();
+    console.log('✓ declaredPosition must never reach the validator (2026-09-09 outage)');
 
     console.log('\napplication-submit-validation-test: all passed');
 }

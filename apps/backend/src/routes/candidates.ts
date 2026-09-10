@@ -814,6 +814,8 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
         let campaignCreatedByClerkUserId: string | undefined;
         /** ما حسمته الحملة للوظيفة؛ يُمرَّر للطلب لأنّ حقل الشخص لا يُحدَّث. */
         let intakePosition: ReturnType<typeof reconcileIntakePosition> = { corrected: false };
+        /** دور الحملة، يُلتقط عند تحميلها ويُستعمل بعد تحقّق الاستمارة. */
+        let campaignRoleForIntake = '';
         if (campaignId) {
             candidateData.campaignId = campaignId;
             // رفض الطلبات الجديدة إذا كانت الحملة مُغلقة (إيقاف استلام الطلبات)
@@ -847,38 +849,8 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                     ) {
                         campaignCreatedByClerkUserId = campaign.createdByClerkUserId.trim();
                     }
-                    /**
-                     * الوظيفة المتقدَّم إليها تُحسم من الحملة، هنا، قبل أن تُكتب.
-                     *
-                     * الشخص الجديد يأخذها من `candidateData`. أمّا المتقدّم
-                     * العائد فحقله على الشخص لا يُحدَّث عمداً (ليس في قائمة
-                     * `personPatch` أدناه)، فتُمرَّر أيضاً كـ`positionOverride`
-                     * إلى upsertCandidateApplication كي يحمل **الطلب** وظيفة
-                     * حملته لا وظيفة تقديمه السابق.
-                     */
-                    intakePosition = reconcileIntakePosition({
-                        declared: candidateData.position_applied_for,
-                        campaignRole: campaignRoleFromCampaign(campaign),
-                    });
-                    const reconciled = intakePosition;
-                    if (reconciled.position_applied_for) {
-                        candidateData.position_applied_for = reconciled.position_applied_for;
-                    }
-                    if (reconciled.declaredPosition) {
-                        candidateData.declaredPosition = reconciled.declaredPosition;
-                    }
-                    if (reconciled.corrected) {
-                        console.log(
-                            `[INTAKE POSITION] campaign=${campaignId} corrected ` +
-                                `"${reconciled.declaredPosition}" → "${reconciled.position_applied_for}"`
-                        );
-                        recordMetricAsync({
-                            scope: 'backend',
-                            name: 'application:position_corrected',
-                            durationMs: 0,
-                            outcome: 'campaign_role',
-                        });
-                    }
+                    // الدور فقط يُلتقط هنا؛ الحسم يجري بعد تحقّق الاستمارة أدناه.
+                    campaignRoleForIntake = campaignRoleFromCampaign(campaign);
                 }
             } catch (statusErr) {
                 console.warn('⚠️ Campaign status check failed (allowing submission):', statusErr);
@@ -942,6 +914,45 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                 }
             }
             Object.assign(candidateData, merged);
+        }
+
+        /**
+         * الوظيفة المتقدَّم إليها تُحسم من الحملة — **بعد** تحقّق الاستمارة ودمجها.
+         *
+         * كانت قبلَه، فوقع خطآن: `validateApplicationSubmission` رأت
+         * `declaredPosition` حقلاً لا تعرفه الاستمارة فردّت 400 على كل تقديم عام،
+         * ثم — لو مرّت — كان `Object.assign(candidateData, merged)` أعلاه يعيد
+         * كتابة `position_applied_for` بقيمة المرشّح فيُلغي الحسم أصلاً، وحلقة
+         * الحذف قبله كانت تُسقط `declaredPosition` لأنّه ليس حقل استمارة.
+         *
+         * وهنا الموضع الصحيح: بعد أن استقرّت حقول الاستمارة، وقبل كتابة الشخص
+         * والطلب. أمّا المتقدّم العائد فحقله على الشخص لا يُحدَّث عمداً (ليس في
+         * `personPatch`)، فيُمرَّر الحسم كـ`positionOverride` إلى
+         * upsertCandidateApplication كي يحمل **الطلب** وظيفة حملته.
+         */
+        if (campaignRoleForIntake) {
+            intakePosition = reconcileIntakePosition({
+                declared: candidateData.position_applied_for,
+                campaignRole: campaignRoleForIntake,
+            });
+            if (intakePosition.position_applied_for) {
+                candidateData.position_applied_for = intakePosition.position_applied_for;
+            }
+            if (intakePosition.declaredPosition) {
+                candidateData.declaredPosition = intakePosition.declaredPosition;
+            }
+            if (intakePosition.corrected) {
+                console.log(
+                    `[INTAKE POSITION] campaign=${campaignId} corrected ` +
+                        `"${intakePosition.declaredPosition}" → "${intakePosition.position_applied_for}"`
+                );
+                recordMetricAsync({
+                    scope: 'backend',
+                    name: 'application:position_corrected',
+                    durationMs: 0,
+                    outcome: 'campaign_role',
+                });
+            }
         }
 
         if (uploadedFiles.length) {
