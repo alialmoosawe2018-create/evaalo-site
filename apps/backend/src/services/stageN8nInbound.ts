@@ -5,6 +5,8 @@
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Candidate from '../models/Candidate.js';
+import { findApplicationForCallback } from './candidateApplicationService.js';
+import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import {
     bodyIdentityConflictsWithClaims,
     candidateCorrelationRef,
@@ -312,15 +314,37 @@ export async function postStageN8nInbound(
             return;
         }
 
-        if (claims.campaignId && candidate.campaignId && claims.campaignId !== candidate.campaignId) {
-            return rejectIngress(
-                res,
-                403,
-                routeMode,
-                'secure_complete',
-                'campaign_id_mismatch',
-                candidateCorrelationRef(candidateId)
-            );
+        /**
+         * ⚠️ العضوية تُقرّرها الطلبات، لا حقل الحملة على الشخص.
+         *
+         * `candidate.campaignId` يحمل حملة **آخر** تقديم فقط. فكان تقييمُ متقدّمٍ
+         * عائدٍ على أي حملة سابقة يُرفض 403 `campaign_id_mismatch` — رأيته حيّاً:
+         * التنفيذ 1792 (2026-09-10 09:51) أنتج تقييماً صحيحاً لحملة 098e58dd ثمّ
+         * رُدّ لأنّ حقل الشخص كان يقول a7070dada (تقديمه الأحدث). التقييم ضاع.
+         *
+         * النيّة الأمنية تبقى كما هي — منع كتابةٍ عبر الحملات — لكن الشرط الصحيح
+         * هو: هل لهذا المرشّح طلبٌ في الحملة المُدّعاة؟ فيُقبل تقييم أي حملة قدّم
+         * إليها فعلاً، ويُرفض ما عداها.
+         */
+        if (claims.campaignId) {
+            const belongs = isApplicationOwnsCampaignStateEnabled()
+                ? Boolean(
+                      await findApplicationForCallback({
+                          candidateId,
+                          campaignId: claims.campaignId,
+                      })
+                  )
+                : !candidate.campaignId || claims.campaignId === candidate.campaignId;
+            if (!belongs) {
+                return rejectIngress(
+                    res,
+                    403,
+                    routeMode,
+                    'secure_complete',
+                    'campaign_id_mismatch',
+                    candidateCorrelationRef(candidateId)
+                );
+            }
         }
 
         if (!verifyInboundStageSecret(req)) {
