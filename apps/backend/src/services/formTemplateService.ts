@@ -4,6 +4,7 @@ import {
     buildFullSnapshot,
     DEFAULT_FORM_TEMPLATE_ID,
     resolveFormTemplate,
+    rubricContentPayloadForHash,
     rubricPayloadForHash,
     snapshotPayloadForHash,
     type CampaignFormBinding,
@@ -18,6 +19,18 @@ export function hashSnapshot(snapshot: FormTemplateSnapshot): string {
 
 export function hashRubric(items: EvaluationRubricItem[]): string {
     const payload = rubricPayloadForHash(items);
+    return `sha256:${createHash('sha256').update(payload, 'utf8').digest('hex')}`;
+}
+
+/**
+ * A campaign's rubric identity — stable across re-derivation.
+ *
+ * Use this for `rubricSnapshotHash`, never `hashRubric`: that one includes the
+ * item ids, which carry a random suffix, so it answers "is this the same stored
+ * list?" and not "are these the same criteria?".
+ */
+export function hashRubricContent(items: EvaluationRubricItem[]): string {
+    const payload = rubricContentPayloadForHash(items);
     return `sha256:${createHash('sha256').update(payload, 'utf8').digest('hex')}`;
 }
 

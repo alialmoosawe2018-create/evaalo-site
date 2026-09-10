@@ -11,7 +11,7 @@ import {
     RUBRIC_EXPECTATION_MAX,
     RUBRIC_LABEL_MAX,
 } from '../shared/formTemplates/index.js';
-import { hashRubric } from './formTemplateService.js';
+import { hashRubricContent } from './formTemplateService.js';
 
 export class RubricValidationError extends Error {
     readonly statusCode = 400;
@@ -86,7 +86,8 @@ export function buildEvaluationRubricFromCampaignBody(body: Record<string, unkno
     const items = buildRubricItemsFromDrafts(drafts, assignRubricId);
     return {
         items,
-        rubricSnapshotHash: hashRubric(items),
+        // المحتوى لا الهويّة — معرّفات البنود تحمل لاحقة عشوائية.
+        rubricSnapshotHash: hashRubricContent(items),
         rubricVersion: 1,
     };
 }

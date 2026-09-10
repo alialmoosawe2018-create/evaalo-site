@@ -12,11 +12,13 @@ import { cacheGetOrSet } from '../services/cache.js';
 import { ensureBlueprintForCampaign } from '../services/expertise/ensureBlueprint.js';
 import {
     buildEvaluationRubricFromCampaignBody,
+    deriveLegacyRubricFromCriteria,
     RubricValidationError,
     stripRubricAndTemplateKeysFromCriteria,
 } from '../services/evaluationRubricService.js';
 import {
     createFormBindingForTemplate,
+    hashRubricContent,
     mintPublicApplicationToken,
 } from '../services/formTemplateService.js';
 import { DEFAULT_FORM_TEMPLATE_ID } from '../shared/formTemplates/index.js';
@@ -364,6 +366,24 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
         let rubricVersion = 1;
         let rubricSnapshotHash: string | undefined;
 
+        /**
+         * ⚠️ ثبّت المعايير التي سيُقاس عليها المرشّح فعلاً — لكل حملة تُصنّف.
+         *
+         * كان الحقلان معلَّقين على `isScreeningForm` (`interviewType==='form' ||
+         * formTemplateId`) ومسار بدء العملية لا يضبط أيّاً منهما — تماماً كما اكتُشف
+         * أعلاه في فحص `rubric_required`. النتيجة: **صفر من ١٥ حملة** تحمل لقطة،
+         * فكل حملة تُطبَّع إلى `'legacy'`. وذلك ما جعل تصادم مفتاح صندوق المرحلة ١
+         * **مضموناً** لا نادراً، وترك المرشّحين يُقيَّمون على معايير غير مثبَّتة.
+         *
+         * والتجزئة تُحسب من المعايير **المشتَقّة** لا من قائمةٍ نخزّنها، لأنّ
+         * `resolveCampaignEvaluationRubric` تشتقّ من `criteria` ما لم يكن
+         * `evaluationRubric` مخزَّناً. تخزينُ قائمةٍ هنا كان سيغيّر ما يُقيَّم عليه
+         * الناس فعلاً — وهذا إصلاحٌ لا يجوز أن يفعله. فنحن نثبّت الواقع، لا نبدّله.
+         */
+        if (!isInterviewOnly) {
+            rubricSnapshotHash = hashRubricContent(deriveLegacyRubricFromCriteria(criteria));
+        }
+
         if (isScreeningForm) {
             try {
                 const rubric = buildEvaluationRubricFromCampaignBody(body);
@@ -403,8 +423,8 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
             publicApplicationToken,
             formBinding,
             evaluationRubric,
-            rubricVersion: isScreeningForm ? rubricVersion : undefined,
-            rubricSnapshotHash: isScreeningForm ? rubricSnapshotHash : undefined,
+            rubricVersion: rubricVersion || undefined,
+            rubricSnapshotHash: rubricSnapshotHash || undefined,
             ...orgScopedDefaults(req),
         });
         
