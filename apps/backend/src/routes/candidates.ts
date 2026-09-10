@@ -59,6 +59,7 @@ import { logAudit } from '../services/auditService.js';
 import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
 import { getPresignedDownloadUrl } from '../services/r2Service.js';
 import { ensureBlueprintForCampaign } from '../services/expertise/ensureBlueprint.js';
+import { shouldSendStage1ToN8n } from '../services/stage1N8nPayloadBuilder.js';
 import {
     clearVoiceLinkAccess,
     clearVideoLinkAccess,
@@ -1147,8 +1148,10 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
         }
 
         const n8nWebhookConfigured = Boolean(process.env.N8N_WEBHOOK_URL?.trim());
-        const willSendStage1N8n =
-            candidateDataForDB.sourceType !== 'public_screening' && n8nWebhookConfigured;
+        const willSendStage1N8n = shouldSendStage1ToN8n(
+            candidateDataForDB.sourceType,
+            n8nWebhookConfigured
+        );
         const submissionEvaluationLanguage = normalizeStage1EvaluationLanguage(
             candidateDataForDB.evaluationLanguage ?? candidateDataForDB.language
         );

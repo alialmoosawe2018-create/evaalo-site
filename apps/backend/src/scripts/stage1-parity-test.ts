@@ -11,6 +11,24 @@ import {
     STAGE1_INCOMPLETE_EVALUATION_ERROR,
 } from '../services/stage1WrittenEvaluationGate.js';
 import { buildN8nStageIdempotencyKey } from '../services/webhookIdempotency.js';
+import { mergeEval, applyN8nRejectHandling } from '../services/stageWebhookMerge.js';
+import { shouldSendStage1ToN8n } from '../services/stage1N8nPayloadBuilder.js';
+
+/**
+ * The frontend utilities this file checks parity against, loaded from the REAL
+ * frontend source.
+ *
+ * The specifier is built at runtime on purpose. The backend tsconfig sets
+ * `rootDir: ./src` with `allowJs` off, so a static import of a sibling
+ * workspace's .js would fail the type-check. A computed specifier is not
+ * resolved by TypeScript, while Node/tsx resolves it normally — which is what
+ * makes this a parity test instead of a copy of one.
+ */
+const FRONTEND_UTILS = new URL('../../../frontend/src/utils/', import.meta.url).href;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const stageRecommendation: any = await import(`${FRONTEND_UTILS}stageRecommendation.js`);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const screeningCampaigns: any = await import(`${FRONTEND_UTILS}screeningCampaigns.js`);
 
 const CANDIDATE_ID = '507f1f77bcf86cd799439011';
 
@@ -44,50 +62,6 @@ function mockOrgReq(orgId: string): Request {
             sessionClaims: { orgId },
         }),
     } as unknown as Request;
-}
-
-/** Mirrors frontend stageRecommendation.js for offline parity verification. */
-function normalizeStageEvalText(raw: unknown): string | null {
-    if (raw == null) return null;
-    const s = String(raw).trim();
-    if (!s || new Set(['undefined', 'null', 'nan', '']).has(s.toLowerCase())) return null;
-    return s;
-}
-
-function normalizeStageEvalStringList(raw: unknown): string[] {
-    if (raw == null) return [];
-    const items = Array.isArray(raw) ? raw : [raw];
-    return items
-        .flatMap((item) => {
-            if (typeof item === 'string') {
-                const trimmed = item.trim();
-                if (trimmed.startsWith('[')) {
-                    try {
-                        const parsed = JSON.parse(trimmed);
-                        if (Array.isArray(parsed)) return parsed;
-                    } catch {
-                        /* keep scalar */
-                    }
-                }
-            }
-            return [item];
-        })
-        .map((x) => normalizeStageEvalText(x))
-        .filter(Boolean) as string[];
-}
-
-/** Mirrors screeningCampaigns.js title/deleted rules for batch metadata display. */
-function resolveTitleFromMeta(meta: { criteria?: Record<string, unknown>; templateName?: string } | null): string {
-    if (!meta) return '';
-    const criteria = meta.criteria;
-    if (criteria && typeof criteria === 'object') {
-        const pos = criteria.position || criteria.position_applied_for || criteria.job;
-        if (pos != null && String(pos).trim()) return String(pos).trim();
-    }
-    if (meta.templateName && String(meta.templateName).trim()) {
-        return String(meta.templateName).trim();
-    }
-    return '';
 }
 
 function testStage1IdempotencyIncludesSessionId(): void {
@@ -133,12 +107,14 @@ function testSamePayloadSameIdempotencyKey(): void {
 }
 
 function testPublicScreeningSkipsWrittenStage1Send(): void {
-    const n8nConfigured = true;
-    const willSend = (sourceType: string | undefined) =>
-        sourceType !== 'public_screening' && n8nConfigured;
-    assert.equal(willSend('public_screening'), false);
-    assert.equal(willSend('manual'), true);
-    assert.equal(willSend(undefined), true);
+    // ⚠️ لا تُعِد كتابة الشرط هنا. كان سطراً مضمَّناً داخل الاختبار فينجح مهما
+    // تغيّرت البوّابة الحقيقية؛ استُخرج إلى services/stage1N8nPayloadBuilder.ts.
+    assert.equal(shouldSendStage1ToN8n('public_screening', true), false);
+    assert.equal(shouldSendStage1ToN8n('manual', true), true);
+    assert.equal(shouldSendStage1ToN8n(undefined, true), true);
+    // البوّابة الثانية: بلا webhook مضبوط لا يُرسَل شيء مهما كان المصدر.
+    assert.equal(shouldSendStage1ToN8n('manual', false), false);
+    assert.equal(shouldSendStage1ToN8n('public_screening', false), false);
 }
 
 function testOrgScopedQueryIsolation(): void {
@@ -158,25 +134,59 @@ function testOrgScopedQueryIsolation(): void {
     assert.notEqual(orgA.organizationId, orgB.organizationId);
 }
 
+/** مرشّح واحد يكفي لبناء مجموعة — الحقول الأخرى لا تؤثّر في العنوان أو الحذف. */
+const CANDIDATE_IN_CAMP_1 = { _id: 'cand-1', campaignId: 'camp-1' };
+
 function testCampaignBatchTitleNotDeletedWhenMetaExists(): void {
     const meta = {
         campaignId: 'camp-1',
         criteria: { position: 'HR Business Partner' },
         templateName: 'HR BP Template',
     };
-    const title = resolveTitleFromMeta(meta);
-    const isDeleted = !meta;
-    assert.equal(isDeleted, false);
-    assert.equal(title, 'HR Business Partner');
-    assert.notEqual(title, 'Deleted campaign');
+    const groups = screeningCampaigns.buildScreeningCampaignGroups(
+        [CANDIDATE_IN_CAMP_1],
+        [],
+        { 'camp-1': meta },
+        {}
+    );
+    const row = groups.active.find((g: { selectionKey: string }) => g.selectionKey === 'camp-1');
+    assert.ok(row, 'camp-1 group must exist');
+    assert.equal(row.isDeleted, false);
+    assert.equal(row.title, 'HR Business Partner');
 }
 
 function testCampaignDeletedOnlyWithoutMeta(): void {
-    const meta = null;
-    const isDeleted = meta == null;
-    const title = isDeleted ? 'Deleted campaign' : resolveTitleFromMeta(meta);
-    assert.equal(isDeleted, true);
-    assert.equal(title, 'Deleted campaign');
+    // بلا بيانات وصفية وبمرشّحين موجودين ⇒ محذوفة، والعنوان من الإنتاج نفسه.
+    const deleted = screeningCampaigns.buildScreeningCampaignGroups(
+        [CANDIDATE_IN_CAMP_1],
+        [],
+        {},
+        {}
+    );
+    const gone = deleted.active.find((g: { selectionKey: string }) => g.selectionKey === 'camp-1');
+    assert.ok(gone, 'camp-1 group must exist');
+    assert.equal(gone.isDeleted, true);
+    assert.equal(gone.title, 'Deleted Campaign');
+
+    /**
+     * ⚠️ الحارس الذي أسقطته النسخة المرآتية تماماً: خريطة فارغة **لم تُجب بعد**
+     * لا تقول شيئاً عن وجود الحملة. اعتبارُها حذفاً هو ما كان يُومض «حملة
+     * محذوفة» على اللوحة قبل وصول الدفعة. النسخة القديمة كانت تحسبها
+     * `isDeleted = meta == null` فتُغفل هذا الشرط كلّه.
+     */
+    const stillLoading = screeningCampaigns.buildScreeningCampaignGroups(
+        [CANDIDATE_IN_CAMP_1],
+        [],
+        {},
+        {},
+        { metaPending: true }
+    );
+    const pendingRow = stillLoading.active.find(
+        (g: { selectionKey: string }) => g.selectionKey === 'camp-1'
+    );
+    assert.ok(pendingRow, 'camp-1 group must exist');
+    assert.equal(pendingRow.isDeleted, false, 'a snapshot that has not answered must never assert deletion');
+    assert.notEqual(pendingRow.title, 'Deleted Campaign');
 }
 
 function testPlaceholderFinalHrRejected(): void {
@@ -193,6 +203,9 @@ function testPlaceholderFinalHrRejected(): void {
 }
 
 function testFrontendNormalization(): void {
+    // ⚠️ هذه هي دوالّ الواجهة الحقيقية، لا نسخة عنها — وإلّا فالاسم «parity» كذب.
+    const { normalizeStageEvalText, normalizeStageEvalStringList } = stageRecommendation;
+    assert.equal(typeof normalizeStageEvalText, 'function', 'frontend util failed to load');
     assert.equal(normalizeStageEvalText('undefined'), null);
     assert.equal(normalizeStageEvalText('null'), null);
     assert.equal(normalizeStageEvalText('Valid HR report.'), 'Valid HR report.');
@@ -200,73 +213,54 @@ function testFrontendNormalization(): void {
     assert.deepEqual(parsed, ['Strength one', 'Strength two']);
 }
 
-/** Mirrors server.ts mergeEval placeholder cleanup for Stage 1 persistence. */
-function mergeEvalMirror(
-    existing: Record<string, unknown> | undefined,
-    patch: Record<string, unknown>
-): Record<string, unknown> {
-    const INVALID = new Set(['', 'undefined', 'null', 'nan']);
-    const base = existing ? { ...existing } : {};
-    for (const [k, v] of Object.entries(patch)) {
-        if (v === undefined || v === null) continue;
-        if (typeof v === 'string' && INVALID.has(v.trim().toLowerCase())) continue;
-        base[k] = v;
-    }
-    for (const [k, v] of Object.entries(base)) {
-        if (typeof v === 'string' && INVALID.has(v.trim().toLowerCase())) {
-            delete base[k];
-        }
-    }
-    return base;
-}
-
+/**
+ * ⚠️ لا تُعِد كتابة `mergeEval` هنا. كان هذا الاختبار ينسخها داخله فينجح مهما
+ * انكسر الإنتاج؛ استُخرجت الآن إلى services/stageWebhookMerge.ts وتُستورد.
+ */
 function testMergeEvalStripsPlaceholderText(): void {
-    const merged = mergeEvalMirror(
+    const merged = mergeEval(
         { fit_for_role: 'Good fit', summary: 'Prior summary' },
         { fit_for_role: 'undefined', final_hr_evaluation: 'Valid HR narrative.' }
     );
     assert.equal(merged.fit_for_role, 'Good fit');
     assert.equal(merged.final_hr_evaluation, 'Valid HR narrative.');
     assert.equal(merged.summary, 'Prior summary');
-}
 
-/** Mirrors server.ts applyN8nRejectHandling for Stage 1 reject/spam paths. */
-function applyRejectMirror(
-    dataRec: Record<string, unknown>,
-    updateData: Record<string, unknown>,
-    existingNotes?: string
-): void {
-    const rejectCode =
-        dataRec.rejectCode != null ? String(dataRec.rejectCode).trim() : '';
-    const ingress = String(dataRec.ingress ?? '').toLowerCase();
-    const isReject = Boolean(rejectCode) || ingress.includes('reject');
-
-    if (isReject && !dataRec.status) {
-        updateData.status = 'rejected';
-    }
-
-    if (rejectCode) {
-        const summary = dataRec.summary != null ? String(dataRec.summary).trim() : '';
-        const line = `[n8n:${rejectCode}]${summary ? ` ${summary}` : ''}`;
-        const base = existingNotes?.trim() || '';
-        updateData.notes = base ? `${base}\n${line}` : line;
-    }
+    // القيمة النائبة المخزَّنة سلفاً تُحذف حتى لو لم يمسّها الـ patch — هذا
+    // الشرط الثاني في mergeEval ولم تكن النسخة المرآتية تختبره أصلاً.
+    const cleaned = mergeEval({ stale: 'NaN', keep: 'real' }, {});
+    assert.equal('stale' in cleaned, false);
+    assert.equal(cleaned.keep, 'real');
 }
 
 function testRejectSpamSetsRejectedAndNotes(): void {
     const updateData: Record<string, unknown> = {};
-    applyRejectMirror(
+    applyN8nRejectHandling(
         {
             ingress: 'stage1-reject',
             rejectCode: 'honeypot',
             summary: 'Spam detected',
         },
         updateData,
+        {},
         'Existing note'
     );
     assert.equal(updateData.status, 'rejected');
     assert.match(String(updateData.notes), /\[n8n:honeypot\]/);
     assert.match(String(updateData.notes), /Spam detected/);
+    assert.match(String(updateData.notes), /^Existing note\n/);
+
+    // فرعٌ لم تكن النسخة المرآتية تملكه أصلاً: التوصية وحدها تكفي للرفض حتى بلا
+    // rejectCode ولا ingress. النسخة القديمة كانت بثلاثة معاملات فقط، فلم تكن
+    // ترى الـ patch إطلاقاً — أي أنّ هذا المسار لم يُختبر ولا مرّة.
+    const byRecommendation: Record<string, unknown> = {};
+    applyN8nRejectHandling({}, byRecommendation, { recommendation: 'no hire' });
+    assert.equal(byRecommendation.status, 'rejected');
+
+    // ولا يُرفَض من لم يُرفَض.
+    const notRejected: Record<string, unknown> = {};
+    applyN8nRejectHandling({}, notRejected, { recommendation: 'Consider' });
+    assert.equal(notRejected.status, undefined);
 }
 
 function main(): void {

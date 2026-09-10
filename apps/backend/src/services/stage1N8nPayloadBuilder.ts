@@ -12,6 +12,25 @@ import { attachmentKind } from './n8nService.js';
 
 export const STAGE1_PAYLOAD_SCHEMA_VERSION = 2;
 
+/**
+ * هل يُرسَل تقييم المرحلة الأولى إلى n8n لهذا المرشّح؟
+ *
+ * المسار العام (`public_screening`) لا توجد فيه استمارة مكتوبة تُقيَّم — المرشّح
+ * يذهب مباشرةً إلى المقابلة الصوتية، فالترانسكريبت وحده يُرسَل لاحقاً في
+ * المرحلة الثانية. إرسال المرحلة الأولى له يُنتج تقييماً لشيءٍ لم يُقدَّم.
+ *
+ * ⚠️ كانت هذه القاعدة تعبيراً مضمَّناً داخل `routes/candidates.ts` فقط، فلم
+ * تكن قابلة للفحص: اختبار `stage1-parity` كان يُعيد كتابتها داخله ثمّ يتحقّق من
+ * نسخته هو، فينجح مهما تغيّرت البوّابة الحقيقية. استُخرجت في ٢٠٢٦-٠٩-١٠ بلا
+ * تغيير في السلوك.
+ */
+export function shouldSendStage1ToN8n(
+    sourceType: string | undefined | null,
+    n8nWebhookConfigured: boolean
+): boolean {
+    return sourceType !== 'public_screening' && n8nWebhookConfigured;
+}
+
 export interface Stage1FormTemplateBucket {
     id: string;
     schemaVersion: number;
