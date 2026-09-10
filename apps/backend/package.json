@@ -101,6 +101,7 @@
     "test:voice-turn-endpoint": "tsx src/scripts/voice-turn-endpoint-test.ts",
     "test:voice-mandatory-question": "tsx src/scripts/voice-mandatory-question-test.ts",
     "test:voice-topic-dedupe": "tsx src/scripts/voice-topic-dedupe-test.ts",
+    "test:recommendation-normalizer": "tsx src/scripts/recommendation-normalizer-test.ts",
     "test:voice-gender-nonanswer": "tsx src/scripts/voice-gender-and-nonanswer-test.ts",
     "test:voice-prompt-leak-end": "tsx src/scripts/voice-prompt-leak-and-end-test.ts",
     "test:voice-phase2-topic-memory": "tsx src/scripts/voice-phase2-topic-memory-test.ts",
