@@ -27,8 +27,8 @@ Run: uv run pytest tests/test_framing_guard.py
 
 from voice_interview.framing_guard import needs_framing
 
-
 # ── fires: the shapes the prompt forbids ───────────────────────────────────────
+
 
 def test_bare_arabic_question_fires():
     assert needs_framing("شلون تستخدم البيانات؟")
@@ -54,6 +54,7 @@ def test_bare_question_with_leading_acknowledgment_only_still_fires():
 
 # ── does not fire: a real framing sentence precedes the question ───────────────
 
+
 def test_framing_sentence_then_question_passes():
     assert not needs_framing(
         "حاب أفهم أكثر عن شغلك بالفرز. شنو أكثر موقف صعب مرّ عليك بيه؟"
@@ -74,6 +75,7 @@ def test_english_framing_then_question_passes():
 
 # ── nothing to frame ──────────────────────────────────────────────────────────
 
+
 def test_no_question_does_not_fire():
     assert not needs_framing("شكراً على وقتك.")
 
@@ -89,6 +91,7 @@ def test_statement_ending_without_question_mark_does_not_fire():
 
 
 # ── the guard must not undo the previous fix ──────────────────────────────────
+
 
 def test_long_multi_sentence_turn_passes():
     """The shape assistant.py actually asks for: frame, ground, then ask once."""

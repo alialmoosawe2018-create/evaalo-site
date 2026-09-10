@@ -35,6 +35,7 @@ from voice_interview.config import (
     tts_reply_prefetch_max_chars,
 )
 from voice_interview.cross_domain_guard import validate_cross_domain_output
+from voice_interview.framing_guard import needs_framing
 from voice_interview.presupposition_guard import presupposes_unstated_act
 from voice_interview.entity_policy import (
     CONTINUATION_POOL,
@@ -683,6 +684,14 @@ def tts_router_aligned_with_stream(r: TtsRouteContext) -> bool:
     return False
 
 
+_REFRAME_INSTRUCTION = (
+    "You rewrite ONE interview question so the candidate never has to ask what it "
+    "means. Keep the SAME intent and the SAME language as the input. Open with ONE "
+    "short sentence naming the concrete subject, then ask exactly ONE question about "
+    "it. Two or three short sentences, under ~60 words. No preamble, no thanks, no "
+    "lists, no second question. Output only the rewritten question."
+)
+
 class InterviewAssistant(Agent):
     """Routes ElevenLabs voice by agent reply text before TTS (not only user transcript)."""
 
@@ -746,6 +755,13 @@ class InterviewAssistant(Agent):
         # closing is emitted, so the session is actually torn down after it plays.
         self._winddown_turn: int = -1
         self._winddown_line: str | None = None
+        # Same reason as the wind-down memo above: the reply guard runs TWICE per
+        # turn (transcription_node + tts_node). A reframe must happen at most
+        # once, or the interview pays two LLM round-trips and the SPOKEN question
+        # can drift from the RECORDED one — and the recorded one is what the
+        # evaluation scores.
+        self._reframe_turn: int = -1
+        self._reframe_text: str | None = None
         self._conclude_after_reply: bool = False
         # Hold a reference to the fire-and-forget conclude task so it is not
         # garbage-collected before it tears the room down.
@@ -1563,6 +1579,73 @@ class InterviewAssistant(Agent):
             logger.info("[reply-guard] no fresh anchor for %s; offering wrap-up", mode)
             return _WRAP_UP_PROMPT_AR
         return text
+
+    async def _regenerate_framed_question(self, bare: str) -> str:
+        """Ask the model to rewrite one bare question with its framing sentence.
+
+        Kept as its own method so the decision logic above can be tested without
+        a live model — the tests replace exactly this.
+        """
+        session = getattr(self, "session", None)
+        model = getattr(session, "llm", None) if session is not None else None
+        if model is None:
+            return ""
+        ctx = ChatContext.empty()
+        ctx.add_message(role="system", content=_REFRAME_INSTRUCTION)
+        ctx.add_message(role="user", content=bare)
+        parts: list[str] = []
+        stream = model.chat(chat_ctx=ctx)
+        try:
+            async for chunk in stream:
+                delta = getattr(getattr(chunk, "delta", None), "content", None)
+                if delta:
+                    parts.append(str(delta))
+        finally:
+            aclose = getattr(stream, "aclose", None)
+            if aclose is not None:
+                await aclose()
+        return "".join(parts).strip()
+
+    async def reframe_bare_question(self, text: str) -> str:
+        """Regenerate a question that arrived without the framing sentence.
+
+        ⚠️ 2026-09-10, reported from real interviews: the question was sometimes
+        unclear enough that the candidate had to ask «شنو تقصدين؟». The framing
+        instruction was never missing — nothing checked it was OBEYED, and the
+        reply-guard's own bank anchors are context-free one-liners delivered
+        without ever meeting that instruction. That is the "sometimes": clear
+        when the model wrote it, bare when the guard replaced it.
+
+        Never touches clarify/follow-up: those intentionally echo the active
+        question. A failed or empty rewrite keeps the original — a dead model
+        must not take the interview down with it.
+        """
+        mode = self._turn_plan.response_mode if self._turn_plan else MODE_ASK
+        if mode in (MODE_WAIT, MODE_ACKNOWLEDGE, MODE_CLARIFY, MODE_FOLLOW_UP):
+            return text
+        turn = self._memory.turn_index
+        if self._reframe_turn == turn:
+            return self._reframe_text if self._reframe_text is not None else text
+        if not needs_framing(text):
+            return text
+        # Claim the turn BEFORE awaiting, so the second guard pass cannot open a
+        # second request while this one is still in flight.
+        self._reframe_turn = turn
+        self._reframe_text = text
+        try:
+            rewritten = (await self._regenerate_framed_question(text) or "").strip()
+        except Exception:
+            logger.warning(
+                "[framing-guard] regeneration failed; keeping the original question",
+                exc_info=True,
+            )
+            return text
+        if not rewritten:
+            return text
+        out = enforce_single_question_response(rewritten, self._turn_plan)
+        self._reframe_text = out
+        logger.info("[framing-guard] bare question reframed (mode=%s)", mode)
+        return out
 
     def _update_experience_track(self, text: str) -> None:
         mem = self._memory
@@ -2831,7 +2914,9 @@ class InterviewAssistant(Agent):
                 yield item
             full = "".join(parts).strip()
             if full:
-                guarded = self._apply_guard_to_agent_text(full)
+                guarded = await self.reframe_bare_question(
+                    self._apply_guard_to_agent_text(full)
+                )
                 self.record_agent_reply(guarded)
             return
 
@@ -2842,7 +2927,9 @@ class InterviewAssistant(Agent):
         if not full:
             return
         collapsed = " ".join(full.split())
-        guarded = self._apply_guard_to_agent_text(collapsed)
+        guarded = await self.reframe_bare_question(
+            self._apply_guard_to_agent_text(collapsed)
+        )
         self.record_agent_reply(guarded)
         yield guarded
 
@@ -2885,7 +2972,9 @@ class InterviewAssistant(Agent):
             buffered.append(str(chunk))
         raw_combined = "".join(buffered).strip()
         if raw_combined:
-            guarded = self._apply_guard_to_agent_text(raw_combined)
+            guarded = await self.reframe_bare_question(
+                self._apply_guard_to_agent_text(raw_combined)
+            )
 
             async def _guarded_text() -> AsyncIterable[str]:
                 yield guarded
