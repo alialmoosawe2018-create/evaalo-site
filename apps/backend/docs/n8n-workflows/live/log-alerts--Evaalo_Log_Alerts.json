@@ -1,0 +1,78 @@
+{
+  "_exportedFrom": "n8n live (n8n.evaalo.com)",
+  "_exportedAt": "2026-09-10",
+  "_warning": "BASELINE SNAPSHOT OF THE LIVE WORKFLOW. Do NOT import over production without checking webhook path collisions first.",
+  "id": "lubD2hXcYHDKcbLG",
+  "name": "Evaalo Log Alerts",
+  "active": true,
+  "versionId": "c6a2f9c5-0293-4d35-90a8-0c050241f8a0",
+  "updatedAt": "2026-07-17 16:45:20.459",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "nodes": [
+    {
+      "id": "6826f08a-3e32-4cd1-a4a4-ca092ee36b13",
+      "name": "Log Alert Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evaalo-log-alerts",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "add70b19-0b62-4537-aecf-b58494b16522"
+    },
+    {
+      "id": "e903493d-0fe8-404d-a0ca-767aadffc6d0",
+      "name": "Email Owner",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "alialmoosawe2018@gmail.com",
+        "subject": "={{ '⚠️ Evaalo monitor: ' + ($json.body?.summary ?? 'alert') }}",
+        "emailType": "text",
+        "message": "={{ 'Evaalo production alert\\n\\nHost: ' + ($json.body?.host ?? '?') + '\\nChecked: ' + ($json.body?.checkedAt ?? '?') + '\\n\\n' + ($json.body?.details ?? 'no details') }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "WwAUoVN05BkeF3Iy",
+          "name": "Gmail account"
+        }
+      },
+      "webhookId": "d10db088-01a3-404e-8171-cc2a8b1ff64f"
+    }
+  ],
+  "connections": {
+    "Log Alert Webhook": {
+      "main": [
+        [
+          {
+            "node": "Email Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}
