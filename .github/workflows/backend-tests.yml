@@ -1,0 +1,71 @@
+# The backend test suite.
+#
+# Until 2026-09-10 this repo had 83 backend test files and CI ran FOUR of them
+# (two of those were the same script twice, with a flag flipped). Eighteen files
+# had no npm script at all, so they had never executed once — one of them was
+# failing, and had been failing since a Clerk v2 contract change, with nobody to
+# say so.
+#
+# This job runs the whole CI-safe suite. What it excludes, and why, lives in
+# apps/backend/scripts/run-test-suite.mjs — including a QUARANTINE list of
+# suites that were already red before any of this was wired up. Read that file
+# before adding to it: the exclusion list is the one place where a suite can
+# disappear quietly, so it carries a reason per line.
+#
+# Branch list matches candidate-model-verify.yml: origin's default is `main`
+# while local work happens on `master`, so both must be listed or the push
+# trigger silently never fires.
+name: Backend tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'apps/backend/**'
+      # The parity suite imports the real frontend utilities, so a change there
+      # can legitimately break a backend test. That is the point of it.
+      - 'apps/frontend/src/utils/**'
+      - '.github/workflows/backend-tests.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    paths:
+      - 'apps/backend/**'
+      - 'apps/frontend/src/utils/**'
+      - '.github/workflows/backend-tests.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+# A newer push to the same branch makes an in-flight run pointless.
+concurrency:
+  group: backend-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NODE_ENV: test
+      # No secrets are used on purpose. Every suite here runs offline: no
+      # network, no production URL, no real database. A suite that needs one
+      # belongs in candidate-model-verify.yml's database-verify job instead.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # Printed before the run so a reviewer can see what was skipped without
+      # digging through the log of a job that passed.
+      - name: Which suites run, and what is excluded
+        run: npm run test:suite:list --workspace=apps/backend
+
+      - name: Run the backend suite
+        run: npm run test:suite --workspace=apps/backend

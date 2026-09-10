@@ -10,6 +10,8 @@
     "build": "node scripts/sync-job-catalog.cjs && tsc && node scripts/copy-reception-data.cjs",
     "start": "node dist/server.js",
     "type-check": "tsc --noEmit",
+    "test:suite": "node scripts/run-test-suite.mjs",
+    "test:suite:list": "node scripts/run-test-suite.mjs --list",
     "test:int": "tsx src/scripts/integration/atomicity.int.ts",
     "test:job-context": "tsx src/scripts/application-job-context-test.ts",
     "test:rubric-results": "tsx src/scripts/stage1-rubric-results-test.ts",
