@@ -103,6 +103,7 @@
     "test:voice-topic-dedupe": "tsx src/scripts/voice-topic-dedupe-test.ts",
     "test:recommendation-normalizer": "tsx src/scripts/recommendation-normalizer-test.ts",
     "test:certificate-signal": "tsx src/scripts/certificate-signal-test.ts",
+    "test:certificate-vision": "tsx src/scripts/certificate-vision-test.ts",
     "test:voice-gender-nonanswer": "tsx src/scripts/voice-gender-and-nonanswer-test.ts",
     "test:voice-prompt-leak-end": "tsx src/scripts/voice-prompt-leak-and-end-test.ts",
     "test:voice-phase2-topic-memory": "tsx src/scripts/voice-phase2-topic-memory-test.ts",

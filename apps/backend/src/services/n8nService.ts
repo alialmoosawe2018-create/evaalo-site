@@ -32,6 +32,11 @@ import { findApplicationForCallback } from './candidateApplicationService.js';
 import { extractTextFromCv, CvExtractionError } from './cvTextExtractor.js';
 import { deriveCertificateTitle } from './certificateTitle.js';
 import {
+    readCertificateWithVision,
+    formatVisionRead,
+    CERT_VISION_MAX_PER_APPLICATION,
+} from './certificateVisionReader.js';
+import {
     buildBlueprintSnapshot,
     getLockedBlueprintForCampaign,
 } from './expertise/ensureBlueprint.js';
@@ -318,6 +323,9 @@ async function buildCertificatesTextForN8n(
     const parts: string[] = [];
     const titles: Record<string, string> = {};
     let idx = 0;
+    /** Calls attempted and titles actually recovered — logged so the cost is visible. */
+    let visionReads = 0;
+    let visionRecovered = 0;
     for (const f of certs) {
         idx += 1;
         const label = `[Certificate ${idx}: ${f.originalName || f.filename || 'certificate'}]`;
@@ -334,6 +342,26 @@ async function buildCertificatesTextForN8n(
             // A recognised qualification always survives: if the text names one,
             // the file carried meaning however short it is.
             if (!title && meaningfulCertificateChars(text, holderName) < CERT_MIN_MEANINGFUL_CHARS) {
+                // The title is in the image. Read it there — but only here, only
+                // for the files that need it, and only up to a cap. A certificate
+                // with a sound text layer never reaches this branch and never
+                // costs a call.
+                if (visionReads < CERT_VISION_MAX_PER_APPLICATION) {
+                    visionReads += 1;
+                    const seen = await readCertificateWithVision(
+                        buf,
+                        f.mimeType || '',
+                        f.originalName || f.filename
+                    );
+                    if (seen) {
+                        visionRecovered += 1;
+                        parts.push(`${label}\n${formatVisionRead(seen)}`);
+                        // The profile showed the applicant's own filename for these
+                        // files, for the same reason the evaluator saw nothing.
+                        if (f.filename) titles[String(f.filename)] = seen.title;
+                        continue;
+                    }
+                }
                 parts.push(
                     `${label} (no readable qualification — ${CERT_NOT_EXTRACTED}; the file's text layer holds only a name and an identifier, so the title is in the image)`
                 );
@@ -361,6 +389,13 @@ async function buildCertificatesTextForN8n(
     }
     let joined = parts.join('\n\n');
     if (joined.length > CERT_TOTAL_CHARS) joined = joined.slice(0, CERT_TOTAL_CHARS);
+    // Printed so the cost of this feature is visible in the logs rather than
+    // inferred from a bill: attempts vs titles actually recovered.
+    if (visionReads) {
+        console.log(
+            `📄 certificate vision: ${visionRecovered}/${visionReads} title(s) recovered from images`
+        );
+    }
     return { certificatesText: joined, certificatesCount: certs.length, titles };
 }
 
