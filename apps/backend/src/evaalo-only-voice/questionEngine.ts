@@ -831,20 +831,22 @@ const PHASE2_TOPIC_PROMPTS: Record<Phase2TopicKey, Phase2TopicHandler> = {
   certification: (profile) => {
     const raw = profile?.certifications?.trim();
     const cert = raw ? (raw.split(/[,،]/)[0]?.trim() || raw) : undefined;
-    const position = profile?.position_applied_for?.trim();
     if (cert) {
       return {
         ar: `اسأل المرشح عن شهادته "${cert}" وكيف تفيده في عمله.`,
         en: `Ask the candidate about their certification "${cert}" and how it helps them.`,
       };
     }
+    /**
+     * حين لا شهادة: نبقى في محور التأهيل، ولا نرتدّ إلى الوظيفة.
+     *
+     * كان الاحتياطيّ يسأل «عن خبرته في مجال {position}، وكم سنة اشتغل» — أي سؤال
+     * الدور مرّةً ثالثة، وبالصيغة الماضية التي بُني سؤال الدور الاستشرافي لتفاديها.
+     * مقيس في جلسة الإنتاج 621efd4e، الدور ١٢، بعد تكرارَي الدورين ٢ و٩.
+     */
     return {
-      ar: position
-        ? `اسأل المرشح عن خبرته في مجال "${position}"،وكم سنة اشتغل بهذا المجال، وما هي الشركات االي اشتغل بيها سابقا اذا چان مشتغل .`
-        : 'اسأل المرشح عن خبرته في المجال، وكم سنة اشتغل بهذا المجال، وما هي الشركات التي عمل بها إن وجدت.',
-      en: position
-        ? `Ask the candidate about their experience in the "${position}" field, how many years they worked in this field, and which companies they worked at, if any.`
-        : 'Ask the candidate about their experience in the field, how many years they worked in this field, and which companies they worked at, if any.',
+      ar: 'اسأل المرشح عن أي دورة أو تدريب أو تعلّم ذاتي أخذه حتى يطوّر نفسه مهنياً، وشلون استفاد منه بشغله.',
+      en: 'Ask the candidate about any course, training, or self-study they took to develop professionally, and how it helped them at work.',
     };
   },
   education: (profile) => {
@@ -946,6 +948,10 @@ export function pickPhase2Topic(
   changeRequested: boolean
 ): Phase2TopicKey {
   const asked = new Set(state?.askedPhase2Topics ?? []);
+  // ملاحظة مقصودة: لا نضيف 'role' هنا من `state.roleMandatoryAsked`. ذاك العلَم
+  // يُضبط من *استحقاق* السؤال لا من نطقه؛ فحين يستبدل تنبيهُ التهرّب أو الخاتمة
+  // الكائنَ المختار، يُرفع العلَم بلا أن يُطرح السؤال. عندها يسقط `topicKey` مع
+  // الكائن المستبدَل، فتلتقط المرحلةُ الثانية الموضوع — وهو التعويض الصحيح.
   const unasked = PHASE2_TOPIC_KEYS.filter((k) => !asked.has(k));
   if (unasked.length === 0) {
     const idx = (state?.userMessageCount ?? 0) % PHASE2_TOPIC_KEYS.length;
@@ -985,27 +991,40 @@ export function selectNextQuestion(
         // بناء الموجّه، فيُبنى السؤال من اسم الموضوع ولا يرى الموديلُ نصَّه.
         textIsAuthoritative: true,
         /**
-         * والسؤال الافتتاحي يُطرح **بنصّه**، بلا نموذج.
+         * الافتتاحي عاد إلى مسار إعادة الصياغة — **بأمر المالك، ٢٠٢٦-٠٩-١٢**.
          *
-         * إيصالُ النصّ إلى الموديل لم يكفِ: في الجلستين اللتين تلتا ذلك الإصلاح
-         * خرج مرّةً سليماً («شنو تگدر تحچيلي عن نفسك بشكل مختصر…») ومرّةً مضيَّقاً
-         * إلى «شنو خبرتك في مجال الهندسة البترولية؟» — رغم قاعدتين صريحتين تمنعان
-         * التضييق. وسؤالٌ يملك الموديل تضييقه ليس إلزاميّاً، وعليه تقوم المقارنة
-         * بين المرشّحين جميعاً.
+         * كان مثبَّتاً منذ `1286890` بعد أن ضيّقه الموديل إلى «شنو خبرتك في مجال
+         * الهندسة البترولية؟». والاعتراض وجيه: ذاك عولج بتثبيت السؤال بدل منع
+         * التضييق، أي عولج العرَض. فصار الآن كالإلزامي الثاني (أوفيس): الموديل
+         * يصوغ، و`textIsAuthoritative` أعلاه يضمن أنّ نصّه هو ما يصل الموديل لا
+         * اسمُ الموضوع — وهذا ما يمنع عودة عطل `64bc19d` (بناء سؤال من الـslug).
          *
-         * الإلزامي الثاني (أوفيس) يبقى على مسار إعادة الصياغة عمداً: نصُّه محدّد
-         * أصلاً فلا يُضيَّق، وموضعه وسط المقابلة حيث تُناسبه افتتاحيةُ إقرار —
-         * والافتتاحي لا يُناسبه إقرار أصلاً لأنّ المرشّح لم يُجب بعد.
+         * والحارس الباقي هو قاعدتا «لا تُضيّق» و«MANDATORY … أبقِ الموضوع والمدى»
+         * في `llmService`. إن عاد التضييق فالعلاج حارسٌ على المخرَج، لا تثبيتٌ ثانٍ.
+         *
+         * الثالث (مهمّة الدور) يبقى مثبَّتاً: قياس ١٦ مقابلة أظهر أنّ الموديل
+         * يحوّله إلى «كم سنة اشتغلت» ثلاثة أضعاف، وذاك سؤالٌ يقيس شيئاً آخر.
          */
-        isFixed: mandatoryQuestionDue === 1 || mandatoryQuestionDue === 3,
+        isFixed: mandatoryQuestionDue === 3,
         // نسجّل موضوع السؤال الإلزامي في ذاكرة المواضيع كي لا يتكرّر لاحقاً: الأول
-        // «عرّف نفسك» = warmup، والثاني «Microsoft Office» يغطّي «الأدوات الرقمية».
+        // «عرّف نفسك» = warmup، والثاني «Microsoft Office» يغطّي محور التقنيات.
         topic:
           mandatoryQuestionDue === 1
             ? 'warmup_and_self_introduction'
             : mandatoryQuestionDue === 3
               ? 'role_task_and_fit'
               : 'digital_skills_and_tools',
+        /**
+         * ⚠️ سجلّان لا ثالث: `topic` أعلاه يدخل `askedTopics` (المرحلة الأولى)،
+         * و`topicKey` هنا يدخل `askedPhase2Topics` (المرحلة الثانية) — وهما
+         * منفصلان عمداً. سؤال الدور يعيش في الاثنين: إلزاميّاً في الدور ٢، وأوّلَ
+         * محاور المرحلة الثانية منذ `d88e1af`. فبلا هذا السطر لا ترى المرحلةُ
+         * الثانية أنّه طُرح، فتعيده.
+         *
+         * مقيس في جلسة الإنتاج 621efd4e: الدور ٢ «شنو المهمّة اليوميّة…»، ثمّ
+         * الدور ٩ السؤال نفسه مُعاد الصياغة — وردّ المرشّح «سألتيني هذا السؤال».
+         */
+        topicKey: mandatoryQuestionDue === 3 ? 'role' : undefined,
         evaluates: q.evaluates,
         preferArabic: useArabic,
       };

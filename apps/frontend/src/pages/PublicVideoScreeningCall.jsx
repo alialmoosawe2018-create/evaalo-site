@@ -19,6 +19,7 @@ import {
     missingRequiredFields,
 } from '../utils/publicIntakeForm.js';
 import PublicIntakeFields from '../components/PublicIntakeFields.jsx';
+import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import { API_BASE_URL } from '../config/apiBase.js';
 import '../styles.css';
 
@@ -39,6 +40,8 @@ const PublicVideoScreeningCall = () => {
 
   const campaignId = searchParams.get('campaignId') || undefined;
   const position = searchParams.get('position') || undefined;
+  // للعرض فقط — `position` يبقى كما هو لأنّه يُكتب في بيانات الاستمارة أدناه.
+  const displayPosition = localizeCatalogLabel(position || '', currentLang) || position;
   const headHunterContextId = searchParams.get('hh') || undefined;
 
   // The role from the link pre-fills the field the candidate can still correct.
@@ -132,7 +135,7 @@ const PublicVideoScreeningCall = () => {
           {position ? (
             <div className="psc-role-badge">
               <span className="psc-role-badge__text">
-                {t('publicScreening_roleLabel')} {position}
+                {t('publicScreening_roleLabel')} {displayPosition}
               </span>
             </div>
           ) : null}

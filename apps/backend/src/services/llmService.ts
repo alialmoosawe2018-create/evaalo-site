@@ -448,6 +448,21 @@ These are the JOB's requirements (not data the candidate provided). Use them to 
 }
 
 /**
+ * ما يراه الموديل بدل مفتاح الموضوع الخام.
+ *
+ * مفتاح الموضوع يُحقن حرفيّاً في موجّه فرع «الموضوع» أدناه، فيترجمه الموديل بنفسه:
+ * `digital_skills_and_tools` كان يخرج «شنو الأدوات الرقمية والبرامج…» في جلسة
+ * الإنتاج 621efd4e (الدوران ١ و٨). العبارة المطلوبة هي «التقنيات»، فنُري الموديل
+ * `technical` بدل `digital`.
+ *
+ * المفاتيح الداخلية لا تتغيّر: `PHASE1_TOPICS` و`TOPIC_TO_POOL` و`askedTopics`
+ * تُقارَن بها نصّاً، وتغييرها هنا كان سيكسر ذاكرة المواضيع بصمت.
+ */
+const TOPIC_PROMPT_LABEL: Record<string, string> = {
+    digital_skills_and_tools: 'technical_skills_and_tools',
+};
+
+/**
  * إنشاء system prompt — Base + Phase (طبقات)
  * Base: Persona, Voice rules, Language rules
  * Phase: Phase 1 pools | Phase 2 instructions | Phase 3 instructions
@@ -548,7 +563,8 @@ ${langRule}`;
             : 'Use the same language as the candidate\'s last message.';
         const lastAnswer = context.candidateLastAnswer ? `\n\nCandidate just said: "${context.candidateLastAnswer}"` : '';
         const extracted = context.extractedTopics?.length ? ` They mentioned: ${context.extractedTopics.join(', ')}.` : '';
-        return `You are EVAALO, a professional interviewer. Based on the candidate's answer, ask a question about this topic: ${selectedQuestion.topic}.
+        const topicLabel = TOPIC_PROMPT_LABEL[selectedQuestion.topic] ?? selectedQuestion.topic;
+        return `You are EVAALO, a professional interviewer. Based on the candidate's answer, ask a question about this topic: ${topicLabel}.
 ${lastAnswer}${extracted}
 
 You decide the best question. Make it natural and relevant. You may add a brief acknowledgment if it flows well. Keep it about 55–80 words.

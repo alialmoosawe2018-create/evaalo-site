@@ -24,7 +24,7 @@
  * Run: npm run test:voice-mandatory-question
  */
 import { buildSystemPrompt, polishVoiceArabicReply } from '../services/llmService.js';
-import { selectNextQuestion } from '../evaalo-only-voice/questionEngine.js';
+import { selectNextQuestion, pickPhase2Topic } from '../evaalo-only-voice/questionEngine.js';
 import { getControllerOutput } from '../evaalo-only-voice/interviewController.js';
 import { buildRoleTaskQuestion, MANDATORY_QUESTIONS } from '../evaalo-only-voice/interviewConfig.js';
 
@@ -89,16 +89,21 @@ check(
     true
 );
 
-// ── the opening question is asked VERBATIM, not rephrased ────────────────────
+// ── the opening question is REPHRASED by the model, not pinned ───────────────
 //
-// Handing the text to the model was not enough. Across the two sessions that
-// followed that fix it came out right once («شنو تگدر تحچيلي عن نفسك بشكل
-// مختصر…», f25ee81e) and narrowed once, to «شنو خبرتك في مجال الهندسة
-// البترولية؟» (d4cec7ea) — despite two explicit rules against narrowing. A
-// question the model can narrow is not mandatory, and this one anchors the
-// comparison between every candidate.
-check('the opening question skips the LLM entirely', selected?.isFixed, true);
-check('and it is the exact mandatory text', selected?.text, MANDATORY_QUESTIONS[1].iq);
+// It was pinned in 1286890 after the model narrowed it to «شنو خبرتك في مجال
+// الهندسة البترولية؟» (session d4cec7ea). The owner overruled that on 2026-09-12:
+// pinning treats the symptom. It now behaves like the second mandatory (Office) —
+// the model phrases it, and `textIsAuthoritative` guarantees the model receives
+// the TEXT rather than the topic slug, which is what caused the original defect
+// in 64bc19d (a question invented from `warmup_and_self_introduction`).
+//
+// What still holds it: the "do NOT narrow" rule and the pool===0 MANDATORY note
+// in llmService. If narrowing returns, the fix is a guard on the OUTPUT — never
+// a second pin.
+check('the opening question is left to the model', selected?.isFixed ?? false, false);
+check('but the model receives its exact text, not the topic slug', selected?.text, MANDATORY_QUESTIONS[1].iq);
+check('and that text is authoritative in the prompt', selected?.textIsAuthoritative, true);
 
 // ── the role question: mandatory, early, and immune to narrowing ──────────────
 //
@@ -133,6 +138,31 @@ check(
 check('it asks forward, not for past years', /المهمّة اليوميّة/.test(roleQ?.text ?? ''), true);
 check('it never asks how many years', /كم سنة|شكد سنة/.test(roleQ?.text ?? ''), false);
 check('it books its own topic so a pool cannot repeat it', roleQ?.topic, 'role_task_and_fit');
+
+// ── and it must book the PHASE 2 topic too — the repeat the owner heard ───────
+//
+// Two registries, deliberately separate: `askedTopics` (phase 1, keyed by
+// `topic`) and `askedPhase2Topics` (phase 2, keyed by `topicKey`). The role
+// question lives in BOTH — mandatory at turn 2, and the FIRST phase-2 topic
+// since d88e1af. Booking only the phase-1 key let phase 2 serve it again.
+//
+// Measured in production session 621efd4e (2026-09-11): turn 2 «شنو المهمّة
+// اليوميّة اللي تتوقّع تسويها بوظيفة …»، turn 9 the same question reworded, and
+// the candidate answered «سألتيني هذا السؤال وجاوبتك».
+check('it also books the phase-2 role topic', roleQ?.topicKey, 'role');
+check('the other mandatories book no phase-2 topic', selected?.topicKey, undefined);
+
+// …and the picker must then skip it.
+check(
+    'phase 2 no longer opens on role once the mandatory booked it',
+    pickPhase2Topic({ askedPhase2Topics: ['role'], userMessageCount: 9 } as never, false) !== 'role',
+    true
+);
+check(
+    'while an interview that never booked it still gets it',
+    pickPhase2Topic({ askedPhase2Topics: [], userMessageCount: 9 } as never, false),
+    'role'
+);
 
 // No position on file must not drop the question — it falls back to a neutral wording.
 const roleNoPos = selectNextQuestion(roleDue, undefined, 'ar');

@@ -17,6 +17,7 @@ import {
     missingRequiredFields,
 } from '../utils/publicIntakeForm.js';
 import PublicIntakeFields from '../components/PublicIntakeFields.jsx';
+import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import useVoiceInterview from '../hooks/useVoiceInterview';
 import VoiceInterviewStage from '../components/VoiceInterviewStage';
 import VoiceInterviewPrepTips from '../components/VoiceInterviewPrepTips';
@@ -44,6 +45,9 @@ const PublicScreeningCall = () => {
 
   const campaignId = searchParams.get('campaignId') || undefined;
   const position = searchParams.get('position') || undefined;
+  // للعرض فقط. `position` نفسه يبقى بالإنجليزية لأنّه يُرسَل مع الاستمارة وإلى جلسة
+  // الصوت (أدناه)؛ ترجمتُه هناك كانت ستكتب عنواناً عربياً في قاعدة البيانات.
+  const displayPosition = localizeCatalogLabel(position || '', currentLang) || position;
 
   // The role from the link pre-fills the field the candidate can still correct.
   const [intake, setIntake] = useState(() => {
@@ -131,7 +135,7 @@ const PublicScreeningCall = () => {
         <VoiceInterviewPrepTips
           title={t('publicScreening_title')}
           subtitle={
-            (fullName.trim() || t('publicScreening_candidate')) + (position ? ` — ${position}` : '')
+            (fullName.trim() || t('publicScreening_candidate')) + (position ? ` — ${displayPosition}` : '')
           }
           onContinue={() => setPrepDone(true)}
           dir={isRtl ? 'rtl' : 'ltr'}
@@ -141,7 +145,7 @@ const PublicScreeningCall = () => {
     return (
       <VoiceInterviewStage
         title={t('publicScreening_title')}
-        subtitle={(fullName.trim() || t('publicScreening_candidate')) + (position ? ` — ${position}` : '')}
+        subtitle={(fullName.trim() || t('publicScreening_candidate')) + (position ? ` — ${displayPosition}` : '')}
         candidateName={fullName.trim() || t('publicScreening_candidate')}
         session={session}
         canStart={!session.linkConsumed}
@@ -191,7 +195,7 @@ const PublicScreeningCall = () => {
           {position ? (
             <div className="psc-role-badge">
               <span className="psc-role-badge__text">
-                {t('publicScreening_roleLabel')} {position}
+                {t('publicScreening_roleLabel')} {displayPosition}
               </span>
             </div>
           ) : null}

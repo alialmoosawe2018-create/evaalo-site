@@ -14,6 +14,7 @@ import VoiceInterviewPrepTips from '../components/VoiceInterviewPrepTips';
 import InterviewLinkBlocked from '../components/InterviewLinkBlocked.jsx';
 import { isVoiceInterviewLinkConsumed } from '../utils/interviewLinkAccess.js';
 import { parseInterviewUrlLanguage } from '../utils/interviewShareLink.js';
+import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import '../design-styles.css';
 
 const Interview = () => {
@@ -95,7 +96,13 @@ const Interview = () => {
   const displayName = candidate
     ? ((candidate.full_name || candidate.fullName) || '').trim() || candidate.email?.split('@')[0] || 'Candidate'
     : 'Candidate';
-  const displayPosition = candidate?.position_applied_for || candidate?.positionAppliedFor || 'Position';
+  // المخزَّن دائماً هو العنوان الإنجليزي من الكتالوج (`criteria.position`)، والعرض
+  // يتبع لغة الواجهة — كما تفعل استمارة التقديم التي جاء منها المرشّح للتوّ
+  // (DynamicApplicationForm). بدون هذا كان المتقدّم على «أخصائي موارد بشرية عام»
+  // يُسلَّم صفحةً تسمّي وظيفته "Senior HR Generalist": نفس الدور بسجلّين مختلفين.
+  const displayPosition =
+    localizeCatalogLabel(candidate?.position_applied_for || candidate?.positionAppliedFor || '', currentLang) ||
+    'Position';
   const subtitle = loadingCandidate
     ? 'Loading...'
     : candidateError

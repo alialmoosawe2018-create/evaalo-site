@@ -8,6 +8,7 @@ import InterviewCompletedScreen from '../components/InterviewCompletedScreen';
 import InterviewLinkBlocked from '../components/InterviewLinkBlocked.jsx';
 import { isVideoInterviewLinkConsumed, INTERVIEW_LINK_ALREADY_USED } from '../utils/interviewLinkAccess.js';
 import { parseInterviewUrlLanguage } from '../utils/interviewShareLink.js';
+import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import useLiveKitToken from '../hooks/useLiveKitToken';
 import useLiveKitState from '../hooks/useLiveKitState';
 import useSoundEffects from '../hooks/useSoundEffects';
@@ -615,7 +616,10 @@ const VideoInterviewCall = () => {
           candidate.email?.split('@')[0] ||
           t('publicScreening_candidate')
         : t('publicScreening_candidate');
-    const displayPosition = candidate?.position_applied_for || candidate?.positionAppliedFor || t('videoInterview_positionFallback');
+    // يتبع لغة الواجهة مثل استمارة التقديم — المخزَّن هو العنوان الإنجليزي من الكتالوج.
+    const displayPosition =
+        localizeCatalogLabel(candidate?.position_applied_for || candidate?.positionAppliedFor || '', currentLang) ||
+        t('videoInterview_positionFallback');
 
     useEffect(() => {
         const fromUrl = parseInterviewUrlLanguage(searchParams.get('language'));

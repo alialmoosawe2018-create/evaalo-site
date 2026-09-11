@@ -307,8 +307,8 @@ export const POOL_QUESTIONS: Record<number, { L1: BilingualQuestion[]; L2: Bilin
   5: {
     L1: [
       {
-        en: 'What tools or software do you use regularly?',
-        iq: 'شنو الأدوات أو البرامج اللي تستخدمها بشكل يومي؟',
+        en: 'What technologies or software do you use regularly?',
+        iq: 'شنو التقنيات أو البرامج اللي تستخدمها بشكل يومي؟',
         evaluates: ['digital_skills'],
       },
       {
@@ -341,8 +341,8 @@ export const POOL_QUESTIONS: Record<number, { L1: BilingualQuestion[]; L2: Bilin
         evaluates: ['learning_strategy', 'adaptability'],
       },
       {
-        en: 'Describe a situation where you improved workflow using a digital tool.',
-        iq: 'وصفلي موقف حسّنت بيه سير العمل باستخدام أداة رقمية.',
+        en: 'Describe a situation where you improved workflow using a technology.',
+        iq: 'وصفلي موقف حسّنت بيه سير العمل باستخدام تقنية.',
         evaluates: ['innovation', 'digital_skills'],
       },
       {
@@ -365,7 +365,7 @@ export const POOL_METADATA: Record<number, { name: string; goal: string }> = {
   2: { name: 'Communication & English', goal: 'Fluency, storytelling, clarity' },
   3: { name: 'Soft Skills & Collaboration', goal: 'Values, interpersonal behavior' },
   4: { name: 'Work Behavior & Ownership', goal: 'Ownership, professionalism, organization' },
-  5: { name: 'Digital & Learning Skills', goal: 'Digital readiness, self-learning, adaptability' },
+  5: { name: 'Technical & Learning Skills', goal: 'Technical readiness, self-learning, adaptability' },
 };
 
 /** Phase 1 Topics — Engine يوجّه فقط، لا يفرض السؤال */
