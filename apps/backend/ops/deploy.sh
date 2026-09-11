@@ -138,6 +138,26 @@ replace_container
 # Health gate + auto-rollback.
 if health_ok; then
   log "=== deploy OK: $(git rev-parse --short HEAD) healthy, /health 200 ==="
+  # Every build leaves its layers behind, and nothing reclaims them. On
+  # 2026-09-10 that filled the disk to 100% and a deploy FAILED at `chown` with
+  # "No space left on device" — not a code fault, and it rolled back a healthy
+  # release. Measured the next day: 88GB of build cache, 82GB of it reclaimable,
+  # against 1.6GB held by images. The cache is the whole problem.
+  #
+  # Run only AFTER a healthy deploy: a failed build keeps its cache for the
+  # retry, and a rollback rebuild is not slowed by a cold cache.
+  #
+  # --keep-storage leaves the recent layers, so the next build stays fast. This
+  # is deliberately NOT a daemon-level builder GC setting: that lives in
+  # /var/snap/docker/current/config/daemon.json here (docker is a snap, so the
+  # usual /etc/docker/daemon.json is read by nobody) and applying it needs a
+  # docker restart, which restarts the API, n8n and the reception agent too.
+  # A line in the script we already own costs no outage.
+  #
+  # Never `docker image prune -a`: the rollback path above rebuilds from the
+  # previous image, and -a deletes it.
+  freed="$(docker builder prune -f --keep-storage 10GB 2>/dev/null | tail -1)"
+  log "build cache pruned (kept 10GB): ${freed:-nothing to reclaim}"
   exit 0
 else
   log "HEALTH FAILED -> ROLLING BACK to ${PREV:0:9}"
