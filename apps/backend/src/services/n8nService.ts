@@ -234,8 +234,74 @@ export function attachmentKind(f: { kind?: unknown; type?: unknown } | null | un
 
 const CERT_PER_FILE_CHARS = 6000;
 const CERT_TOTAL_CHARS = 20000;
+
+/**
+ * The canonical marker. The Stage 1 prompt keys on this exact phrase — "a
+ * certificate noted as 'not extracted' is an image/scan and is not evidence by
+ * itself ... never cite one marked 'not extracted' as a strength" — so every
+ * note that means "this file told us nothing" must contain it verbatim, or the
+ * guard cannot fire.
+ */
+export const CERT_NOT_EXTRACTED = 'content not extracted';
+
+/**
+ * How much real content a certificate must carry to count as evidence.
+ *
+ * Measured, not guessed: across the 9 Stage 1 applications that carried
+ * certificates, EIGHT extracted successfully and yielded 37–46 characters per
+ * file — the holder's own name and an ID line, nothing else. A genuine
+ * certificate's text layer runs to hundreds of characters ("This is to certify
+ * that … has successfully completed …"). 40 sits an order of magnitude below
+ * the real thing and above the noise.
+ */
+export const CERT_MIN_MEANINGFUL_CHARS = 40;
+
+/** Lines that are pure bookkeeping: an identifier, not a qualification. */
+const CERT_ID_LINE =
+    /^\s*(?:cert(?:ificate)?\s*(?:id|no\.?|number|#)|serial(?:\s*(?:no\.?|number))?|ref(?:erence)?(?:\s*(?:no\.?|number))?|reg(?:istration)?\s*(?:no\.?|number)|id)\s*[:#-]?\s*\S*\s*$/i;
+
+/**
+ * What is left of a certificate once the parts that say nothing about the
+ * qualification are removed: the holder's own name, identifier lines, dates and
+ * punctuation.
+ *
+ * This exists because "extraction succeeded" and "extraction produced meaning"
+ * were the same state. A design-heavy or scanned certificate keeps its title in
+ * the image and leaves only a name and an ID in the text layer, so it sailed
+ * past the error path and was handed to the evaluator as legitimate evidence.
+ * The evaluator then did the only thing it could and reported the ID as a
+ * strength — "certificates uploaded exist (Cert ID: PTTFL721)" — which tells a
+ * reviewer nothing and reads as if it did.
+ */
+export function meaningfulCertificateChars(text: string, holderName?: string): number {
+    const nameTokens = String(holderName || '')
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length > 2);
+
+    return text
+        .split(/\r?\n/)
+        .filter((line) => !CERT_ID_LINE.test(line))
+        .join(' ')
+        // the holder's own name is on every certificate and identifies nothing
+        .split(/\s+/)
+        .filter((word) => {
+            const bare = word.replace(/[^\p{L}\p{N}]/gu, '');
+            if (!bare) return false;
+            if (nameTokens.some((t) => t.localeCompare(bare, undefined, { sensitivity: 'base' }) === 0)) return false;
+            // bare identifiers and dates carry no qualification meaning
+            if (/^\d+$/.test(bare)) return false;
+            if (/^\p{L}{0,4}\d{3,}/u.test(bare)) return false;
+            return true;
+        })
+        .join(' ')
+        .replace(/[^\p{L}\p{N} ]/gu, '')
+        .trim().length;
+}
+
 async function buildCertificatesTextForN8n(
-    files: CandidateData['files']
+    files: CandidateData['files'],
+    holderName?: string
 ): Promise<{
     certificatesText: string;
     certificatesCount: number;
@@ -263,19 +329,33 @@ async function buildCertificatesTextForN8n(
         try {
             const buf = await readFile(diskPath);
             const text = await extractTextFromCv(buf, f.mimeType || '', f.originalName || f.filename);
+            const title = deriveCertificateTitle(text);
+
+            // A recognised qualification always survives: if the text names one,
+            // the file carried meaning however short it is.
+            if (!title && meaningfulCertificateChars(text, holderName) < CERT_MIN_MEANINGFUL_CHARS) {
+                parts.push(
+                    `${label} (no readable qualification — ${CERT_NOT_EXTRACTED}; the file's text layer holds only a name and an identifier, so the title is in the image)`
+                );
+                continue;
+            }
+
             const capped =
                 text.length > CERT_PER_FILE_CHARS ? text.slice(0, CERT_PER_FILE_CHARS) : text;
             parts.push(`${label}\n${capped}`);
-            const title = deriveCertificateTitle(text);
             if (title && f.filename) titles[String(f.filename)] = title;
         } catch (err) {
             const code = err instanceof CvExtractionError ? err.code : 'PARSE_FAILED';
+            // Every branch carries CERT_NOT_EXTRACTED verbatim. Two of these used
+            // to say "no readable text" and "could not read certificate", neither
+            // of which contains the phrase the prompt actually looks for — so the
+            // guard silently failed to fire on exactly the files it was written for.
             const note =
                 code === 'UNSUPPORTED_TYPE'
-                    ? '(image/unsupported certificate — content not extracted)'
+                    ? `(image/unsupported certificate — ${CERT_NOT_EXTRACTED})`
                     : code === 'EMPTY_CV'
-                      ? '(no readable text — likely a scanned/image certificate)'
-                      : '(could not read certificate)';
+                      ? `(no readable text, likely a scanned/image certificate — ${CERT_NOT_EXTRACTED})`
+                      : `(could not read certificate — ${CERT_NOT_EXTRACTED})`;
             parts.push(`${label} ${note}`);
         }
     }
@@ -481,7 +561,10 @@ const sendToN8NImpl = async (candidateData: CandidateData, campaignId?: string):
         // Stage 1 v2 (#4): attach extracted certificate text as supporting evidence.
         // Non-fatal — never block the evaluation if a certificate can't be read.
         try {
-            const certExtract = await buildCertificatesTextForN8n(candidateData.files);
+            const certExtract = await buildCertificatesTextForN8n(
+                candidateData.files,
+                candidateData.full_name
+            );
             if (certExtract) {
                 payload.certificatesText = certExtract.certificatesText;
                 payload.certificatesCount = certExtract.certificatesCount;
