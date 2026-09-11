@@ -32,15 +32,41 @@ const PHASE1_MAX_USER_MSGS_EN = 12;
 export function getControllerOutput(
   userMessageCount: number,
   state?: InterviewState | null,
-  sessionLanguage?: 'ar' | 'en'
+  sessionLanguage?: 'ar' | 'en',
+  phase1TopicsExhausted?: boolean
 ): ControllerOutput {
   const englishSession = sessionLanguage === 'en';
 
+  /**
+   * الخروج المبكر من المرحلة الأولى حين تنفد محاورها.
+   *
+   * ⚠️ الحساب هو المشكلة: المرحلة الأولى تسعة أدوار ومحاورها خمسة، والإلزاميّات
+   * تحجز منها اثنين (الافتتاحي ⇒ warmup، وأوفيس ⇒ digital_skills_and_tools).
+   * فيبقى ستّة أدوار حرّة لثلاثة محاور طازجة — أي ثلاثة أدوار بلا محورٍ جديد في
+   * كلّ مقابلة. وحارس التنويع لا يملك بديلاً عندها فيُبقي البنك على ما استنتجه
+   * من آخر إجابة، فيعود الموضوع نفسه. رُصد في جلسة الإنتاج 621efd4e، الدور 8.
+   *
+   * فبدل إنفاق تلك الأدوار على مواضيع مطروقة، تُسلَّم إلى المرحلة الثانية —
+   * ومحاورها ستّة مبنيّة من ملفّ المرشّح نفسه، وأربعة أدوار لا تكفيها أصلاً.
+   *
+   * شرطان يحكمانه:
+   *   • ألّا يبقى سؤالٌ إلزاميّ غير مطروح. هي أرض المقارنة بين المرشّحين جميعاً،
+   *     فلا يجوز أن يقفز الخروج المبكر فوق واحدٍ منها.
+   *   • أن يمرّر المتصل العلَم أصلاً — وهو لا يمرّره إلّا حين يملك بيانات
+   *     المرشّح، لأنّ المرحلة الثانية بلا ملفّ تهبط إلى أسئلة عامّة أضعف من
+   *     بنوك المرحلة الأولى. فالجلسة العامّة بلا ملفّ تبقى على سلوكها.
+   */
+  const allMandatoriesAsked =
+    (state?.firstMandatoryAsked ?? false) &&
+    (state?.roleMandatoryAsked ?? false) &&
+    (state?.secondMandatoryAsked ?? false);
+  const leavePhase1Early = phase1TopicsExhausted === true && allMandatoriesAsked;
+
   const phase: InterviewPhase = englishSession
-    ? userMessageCount < PHASE1_MAX_USER_MSGS_EN
+    ? userMessageCount < PHASE1_MAX_USER_MSGS_EN && !leavePhase1Early
       ? 1
       : 2
-    : userMessageCount < PHASE1_MAX_USER_MSGS
+    : userMessageCount < PHASE1_MAX_USER_MSGS && !leavePhase1Early
       ? 1
       : userMessageCount < PHASE2_MAX_USER_MSGS
         ? 2

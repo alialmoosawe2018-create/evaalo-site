@@ -1018,7 +1018,22 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
 
       const userMessageCount = history.filter((m) => m.role === "user").length;
       const interviewState = getInterviewState(sessionId);
-      const controllerOutput = getControllerOutput(userMessageCount, interviewState, interviewLanguage);
+      /**
+       * تُسلَّم المرحلة الأولى ما تبقّى من أدوارها للثانية حين تنفد محاورها.
+       *
+       * والشرط `candidateProfile` هنا لا في وحدة القرار عمداً: المرحلة الثانية
+       * تُبنى من ملفّ المرشّح، وبلا ملفّ تهبط إلى أسئلة عامّة أضعف من بنوك
+       * المرحلة الأولى (llmService، فرع «بلا بيانات»). فالجلسة العامّة بلا ملفّ
+       * تبقى على سلوكها القديم، ولا تخسر شيئاً.
+       */
+      const phase1TopicsExhausted =
+        !!candidateProfile && getAvailableTopicsForPhase1(interviewState).length === 0;
+      const controllerOutput = getControllerOutput(
+        userMessageCount,
+        interviewState,
+        interviewLanguage,
+        phase1TopicsExhausted
+      );
       const { phase: currentPhase, isFirstPhase3Message, mandatoryQuestionDue } = controllerOutput;
 
       // الجلسة الإنجليزية المقفلة: لا تُستنتج اللغة من كلام المرشح إطلاقاً،
