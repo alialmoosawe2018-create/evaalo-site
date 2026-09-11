@@ -5,6 +5,7 @@
 
 import type { InterviewPhase } from '../services/llmService.js';
 import type { InterviewState } from './interviewState.js';
+import { POOL_COUNT } from './interviewConfig.js';
 
 export interface ControllerOutput {
   phase: InterviewPhase;
@@ -40,11 +41,12 @@ export function getControllerOutput(
   /**
    * الخروج المبكر من المرحلة الأولى حين تنفد محاورها.
    *
-   * ⚠️ الحساب هو المشكلة: المرحلة الأولى تسعة أدوار ومحاورها خمسة، والإلزاميّات
-   * تحجز منها اثنين (الافتتاحي ⇒ warmup، وأوفيس ⇒ digital_skills_and_tools).
-   * فيبقى ستّة أدوار حرّة لثلاثة محاور طازجة — أي ثلاثة أدوار بلا محورٍ جديد في
+   * ⚠️ الحساب هو المشكلة: المرحلة الأولى تسعة أدوار، والإلزاميّات تحجز محورين
+   * (الافتتاحي ⇒ warmup، وأوفيس ⇒ technical_skills_and_tools). فحين كانت المحاور
+   * خمسة بقي ستّة أدوار حرّة لثلاثة محاور طازجة — ثلاثة أدوار بلا محورٍ جديد في
    * كلّ مقابلة. وحارس التنويع لا يملك بديلاً عندها فيُبقي البنك على ما استنتجه
    * من آخر إجابة، فيعود الموضوع نفسه. رُصد في جلسة الإنتاج 621efd4e، الدور 8.
+   * وتوسيعُ المحاور إلى سبعة قلّص الفجوة ولم يُلغها، فهذا الخروج يبقى لازماً.
    *
    * فبدل إنفاق تلك الأدوار على مواضيع مطروقة، تُسلَّم إلى المرحلة الثانية —
    * ومحاورها ستّة مبنيّة من ملفّ المرشّح نفسه، وأربعة أدوار لا تكفيها أصلاً.
@@ -98,8 +100,8 @@ export function getControllerOutput(
     mandatoryQuestionDue = undefined;
   }
 
-  // round-robin 1-5 حسب عدد الرسائل — يقلل تكرار نفس الـ Pool
-  const suggestedPool = ((userMessageCount % 5) + 1) as number;
+  // round-robin على كل البنوك حسب عدد الرسائل — يقلل تكرار نفس الـ Pool
+  const suggestedPool = ((userMessageCount % POOL_COUNT) + 1) as number;
 
   return {
     phase,

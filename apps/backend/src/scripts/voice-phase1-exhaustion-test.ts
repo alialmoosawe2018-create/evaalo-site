@@ -31,7 +31,7 @@
  */
 import { getControllerOutput } from '../evaalo-only-voice/interviewController.js';
 import { getAvailableTopicsForPhase1 } from '../evaalo-only-voice/questionEngine.js';
-import { PHASE1_TOPICS } from '../evaalo-only-voice/interviewConfig.js';
+import { PHASE1_TOPICS, POOL_COUNT, POOL_QUESTIONS } from '../evaalo-only-voice/interviewConfig.js';
 import type { InterviewState } from '../evaalo-only-voice/interviewState.js';
 
 let failures = 0;
@@ -61,11 +61,11 @@ function state(over: Partial<InterviewState> = {}): InterviewState {
 }
 
 // ── the premise: five topics, and two of them are spoken for ─────────────────
-check('phase 1 has exactly five topics', ALL_TOPICS.length, 5);
+check('phase 1 topic count matches POOL_COUNT', ALL_TOPICS.length, POOL_COUNT);
 check(
     'a fresh state has all five available',
     getAvailableTopicsForPhase1(state({ askedTopics: [] })).length,
-    5
+    POOL_COUNT
 );
 check(
     'and none once they are all booked',
@@ -177,7 +177,7 @@ const walk: Array<{ count: number; asked: string[]; expect: 1 | 2 }> = [
 for (const w of walk) {
     const exhausted = getAvailableTopicsForPhase1(state({ askedTopics: w.asked })).length === 0;
     check(
-        `turn ${w.count} with ${w.asked.length}/5 booked -> phase ${w.expect}`,
+        `turn ${w.count} with ${w.asked.length}/${POOL_COUNT} booked -> phase ${w.expect}`,
         getControllerOutput(w.count, state({ askedTopics: w.asked }), 'ar', exhausted).phase,
         w.expect
     );

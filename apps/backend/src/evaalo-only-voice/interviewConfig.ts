@@ -266,6 +266,13 @@ export const POOL_QUESTIONS: Record<number, { L1: BilingualQuestion[]; L2: Bilin
       },
     ],
   },
+  /**
+   * ⚠️ كان هذا البنك يحمل موضوعين: إدارة الوقت في L1/L2، والسلوك المهني في L3
+   * كلّه. ومفتاحه كان يقول `time_management_and_problem_solving` بينما حلّ
+   * المشكلات يعيش في البنك ٣. فُصل: الوقت يبقى هنا، والسلوك المهني انتقل إلى
+   * بنكه الخاصّ (٧) — وهو أثقل كفاءة بلا بنك: 18 نقطة من 100 في بوّابة المرحلة
+   * الثانية، وأسئلتها كانت مبعثرة بين بنكين.
+   */
   4: {
     L1: [
       {
@@ -288,6 +295,127 @@ export const POOL_QUESTIONS: Record<number, { L1: BilingualQuestion[]; L2: Bilin
     ],
     L3: [
       {
+        en: 'Two tasks are both urgent, and two different managers each say theirs comes first. How do you decide?',
+        iq: 'مهمتين الثنتين مستعجلة، وكل مدير يكلك مهمته هي الأهم — شلون تقرر؟',
+        evaluates: ['prioritization', 'decision_making', 'communication'],
+      },
+      {
+        en: 'How do you protect time for important work that has no deadline?',
+        iq: 'الشغل المهم اللي ماكو عليه موعد نهائي — شلون تحافظ إله وقت؟',
+        evaluates: ['prioritization', 'organization'],
+      },
+    ],
+  },
+  5: {
+    L1: [
+      {
+        en: 'What technologies or software do you use regularly?',
+        iq: 'شنو التقنيات أو البرامج اللي تستخدمها بشكل يومي؟',
+        evaluates: ['digital_skills'],
+      },
+    ],
+    L2: [
+      {
+        en: 'How do you keep your technical skills up to date with the rapid changes in technology?',
+        iq: 'شلون تطور مهاراتك التقنية وتواكب التطور السريع بالتكنولوجيا والذكاء الاصطناعي؟',
+        evaluates: ['self_learning', 'industry_awareness'],
+      },
+      {
+        en: 'How do you communicate with your team remotely?',
+        iq: 'شلون تتواصل مع فريقك عن بعد؟',
+        evaluates: ['communication', 'remote_work'],
+      },
+    ],
+    L3: [
+      {
+        en: 'Describe a situation where you improved workflow using a technology.',
+        iq: 'وصفلي موقف حسّنت بيه سير العمل باستخدام تقنية.',
+        evaluates: ['innovation', 'digital_skills'],
+      },
+      {
+        en: 'How do you choose the right tool for a specific task?',
+        iq: 'شلون تختار الأداة المناسبة لمهمة معينة؟',
+        evaluates: ['decision_making', 'technical_judgment'],
+      },
+    ],
+  },
+  /** التعلّم — كان مدموجاً مع التقنيات في البنك ٥، وهو قياسٌ آخر. */
+  6: {
+    L1: [
+      {
+        en: 'What skill have you learned in the last six months?',
+        iq: 'شنو آخر مهارة تعلمتها خلال آخر ستة أشهر؟ وشلون استخدمتها؟',
+        evaluates: ['learning', 'initiative'],
+      },
+    ],
+    L2: [
+      {
+        en: 'Tell me about a skill you learned recently and how you applied it.',
+        iq: 'احچيلي عن مهارة تعلمتها مؤخرًا وشلون استخدمتها؟',
+        evaluates: ['learning', 'initiative'],
+      },
+    ],
+    L3: [
+      {
+        en: 'If you had to learn a completely new skill in 48 hours, what would your plan be?',
+        iq: 'لو طلبوا منك تتعلم مهارة جديدة خلال 48 ساعة، شنو خطتك؟',
+        evaluates: ['learning_strategy', 'adaptability'],
+      },
+      {
+        en: 'Tell us about something you learned on your own without being asked.',
+        iq: 'احچيلي عن شي تعلمته لوحدك بدون ما ينطلب منك.',
+        evaluates: ['initiative', 'self_learning'],
+      },
+    ],
+  },
+  /**
+   * السلوك المهني — بنكٌ جديد. الثلاثة في L3 كانت تعيش في البنك ٤، والبقيّة
+   * مؤلَّفة. كلّها تسأل عن **سلوكٍ وقع** أو عن قرارٍ يكشف قيمةً، لا عن تعريفٍ
+   * نظريّ — فالمرشّح يستطيع أن يصف الاحترافية بلا أن يكون قد مارسها.
+   */
+  7: {
+    /**
+     * ⚠️ لا سؤال تعريفٍ هنا، ولا سؤال تفضيل.
+     *
+     * أوّل صياغة كانت «شنو يعني إلك الالتزام المهني؟» و«شلون تحب يوصلك
+     * التقييم؟» — ورُفضتا بحقّ: الأولى تُقاس بالحفظ لا بالسلوك، والثانية تجيب
+     * عنها كلّ الناس بنفس الجواب («مباشر وصريح»). فصفرُ تمييز بين المرشّحين.
+     *
+     * وكلاهما الآن يسأل عن **واقعة أو موقف محدَّد**، وكلاهما مصوغ كي لا يفترض
+     * وظيفةً سابقة — «شغلك أو دراستك» — فالخرّيج ومَن غيّر مجاله يجيبان عنه،
+     * وهي العلّة نفسها التي أُعيد سؤال الدور لتفاديها.
+     */
+    L1: [
+      {
+        en: 'What is the one thing you want people to be able to rely on you for?',
+        iq: 'شنو الشي اللي تحب الناس تعتمد عليك بيه بشغلك؟',
+        evaluates: ['professionalism', 'accountability', 'self_awareness'],
+      },
+      {
+        en: 'What was the last piece of feedback anyone gave you on your work or studies, and what did you do with it?',
+        iq: 'آخر ملاحظة انطاك إياها أحد على شغلك أو دراستك، شنو چانت وشنو سويت بيها؟',
+        evaluates: ['maturity', 'learning', 'accountability'],
+      },
+    ],
+    L2: [
+      {
+        en: 'Tell me about a time you received criticism you did not agree with. What did you do?',
+        iq: 'احچيلي عن مرة انتقدوا شغلك وانت ما چنت موافق على الانتقاد، شنو سويت؟',
+        evaluates: ['maturity', 'professionalism', 'emotional_intelligence'],
+      },
+      {
+        en: 'What do you do when you realise you cannot deliver something you committed to on time?',
+        iq: 'إذا التزمت بشغلة وانتبهت إنك ما راح تلحق عليها بالوقت، شنو تسوي؟',
+        evaluates: ['accountability', 'communication', 'integrity'],
+      },
+      {
+        en: 'What do you do when you are asked to do something outside your job description?',
+        iq: 'إذا انطلب منك شغل مو من ضمن مهامك، شلون تتصرف؟',
+        evaluates: ['professionalism', 'initiative', 'respect'],
+      },
+    ],
+    L3: [
+      {
         en: 'Describe a time you made a mistake at work. How did you handle it?',
         iq: 'هم فد يوم ارتكبت غلط بالعمل، شصار؟ شلون تعاملت وياه؟',
         evaluates: ['ownership', 'integrity'],
@@ -304,59 +432,6 @@ export const POOL_QUESTIONS: Record<number, { L1: BilingualQuestion[]; L2: Bilin
       },
     ],
   },
-  5: {
-    L1: [
-      {
-        en: 'What technologies or software do you use regularly?',
-        iq: 'شنو التقنيات أو البرامج اللي تستخدمها بشكل يومي؟',
-        evaluates: ['digital_skills'],
-      },
-      {
-        en: 'What skill have you learned in the last six months?',
-        iq: 'شنو آخر مهارة تعلمتها خلال آخر ستة أشهر؟ وشلون استخدمتها؟',
-        evaluates: ['learning', 'initiative'],
-      },
-    ],
-    L2: [
-      {
-        en: 'Tell me about a skill you learned recently and how you applied it.',
-        iq: 'احچيلي عن مهارة تعلمتها مؤخرًا وشلون استخدمتها؟',
-        evaluates: ['learning', 'initiative'],
-      },
-      {
-        en: 'How do you keep your technical skills up to date with the rapid changes in technology?',
-        iq: 'شلون تطور مهاراتك التقنية وتواكب التطور السريع بالتكنولوجيا والذكاء الاصطناعي؟',
-        evaluates: ['self_learning', 'industry_awareness'],
-      },
-      {
-        en: 'How do you communicate with your team remotely?',
-        iq: 'شلون تتواصل مع فريقك عن بعد؟',
-        evaluates: ['communication', 'remote_work'],
-      },
-    ],
-    L3: [
-      {
-        en: 'If you had to learn a completely new skill in 48 hours, what would your plan be?',
-        iq: 'لو طلبوا منك تتعلم مهارة جديدة خلال 48 ساعة، شنو خطتك؟',
-        evaluates: ['learning_strategy', 'adaptability'],
-      },
-      {
-        en: 'Describe a situation where you improved workflow using a technology.',
-        iq: 'وصفلي موقف حسّنت بيه سير العمل باستخدام تقنية.',
-        evaluates: ['innovation', 'digital_skills'],
-      },
-      {
-        en: 'How do you choose the right tool for a specific task?',
-        iq: 'شلون تختار الأداة المناسبة لمهمة معينة؟',
-        evaluates: ['decision_making', 'technical_judgment'],
-      },
-      {
-        en: 'Tell us about something you learned on your own without being asked.',
-        iq: 'احچيلي عن شي تعلمته لوحدك بدون ما ينطلب منك.',
-        evaluates: ['initiative', 'self_learning'],
-      },
-    ],
-  },
 };
 
 /** Phase 1 — وصف كل Pool (للـ LLM prompt) */
@@ -364,18 +439,33 @@ export const POOL_METADATA: Record<number, { name: string; goal: string }> = {
   1: { name: 'Warm-up & Rapport', goal: 'Ice-breaking, storytelling, motivation' },
   2: { name: 'Communication & English', goal: 'Fluency, storytelling, clarity' },
   3: { name: 'Soft Skills & Collaboration', goal: 'Values, interpersonal behavior' },
-  4: { name: 'Work Behavior & Ownership', goal: 'Ownership, professionalism, organization' },
-  5: { name: 'Technical & Learning Skills', goal: 'Technical readiness, self-learning, adaptability' },
+  4: { name: 'Time & Priorities', goal: 'Organization, prioritization under pressure' },
+  5: { name: 'Technical Readiness', goal: 'Tools, technical judgement, staying current' },
+  6: { name: 'Learning & Adaptability', goal: 'Self-learning, initiative, adapting to change' },
+  7: { name: 'Professional Attitude', goal: 'Accountability, integrity, conduct under friction' },
 };
 
-/** Phase 1 Topics — Engine يوجّه فقط، لا يفرض السؤال */
+/**
+ * Phase 1 Topics — Engine يوجّه فقط، لا يفرض السؤال.
+ *
+ * ⚠️ عددها هو مصدر `POOL_COUNT`، وكلّ تدوير في المحرّك مشتقٌّ منه. إضافةُ محورٍ
+ * هنا مع بنكٍ في `POOL_QUESTIONS` تكفي — لا رقم مكتوباً يدوياً يحتاج تحديثاً.
+ *
+ * وكلّ بنك **يجب** أن يحمل L1 وL2 وL3 غير فارغة: درجةُ الصعوبة تُختار بعدد
+ * البنوك المطروحة، ومستوىً فارغ يعني فهرساً خارج المصفوفة.
+ */
 export const PHASE1_TOPICS: Record<number, string> = {
   1: 'warmup_and_self_introduction',
   2: 'communication_and_clarity',
   3: 'teamwork_and_collaboration',
-  4: 'time_management_and_problem_solving',
-  5: 'digital_skills_and_tools',
+  4: 'time_management_and_prioritization',
+  5: 'technical_skills_and_tools',
+  6: 'learning_and_adaptability',
+  7: 'professional_attitude',
 };
+
+/** عدد بنوك المرحلة الأولى — مشتقّ، فلا يُكتب الرقم في أيّ موضع آخر. */
+export const POOL_COUNT = Object.keys(PHASE1_TOPICS).length;
 
 /**
  * Phase 2 — مواضيع ديناميكية حسب بيانات المرشح الفعلية.

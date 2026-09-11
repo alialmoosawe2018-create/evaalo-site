@@ -105,6 +105,52 @@ check('the opening question is left to the model', selected?.isFixed ?? false, f
 check('but the model receives its exact text, not the topic slug', selected?.text, MANDATORY_QUESTIONS[1].iq);
 check('and that text is authoritative in the prompt', selected?.textIsAuthoritative, true);
 
+// ── and the prompt itself proves it: the rephrase branch, not the fixed path ──
+//
+// `isFixed: false` alone is not proof that the candidate hears a rephrasing —
+// it only proves voiceSessionCore does not short-circuit. The load-bearing link
+// is which branch buildSystemPrompt takes. Asserted here so that a future edit
+// to the prompt builder cannot quietly put the opening question back on a path
+// that speaks it verbatim.
+const openingPrompt = buildSystemPrompt({
+    sessionId: 'mandatory-opening',
+    currentPhase: 1,
+    mandatoryQuestionDue: 1,
+    selectedQuestion: selected ?? undefined,
+    candidateProfile: { full_name: 'علي', position_applied_for: 'HR Generalist' },
+    position: 'HR Generalist',
+    interviewDurationMinutes: 12,
+    conversationHistory: [],
+    candidateLastAnswer: '',
+    sessionLanguage: 'ar',
+} as never);
+check(
+    'the prompt takes the rephrase branch',
+    openingPrompt.includes('Rephrase this question naturally'),
+    true
+);
+check(
+    'and NOT the topic branch (that was the 64bc19d defect)',
+    openingPrompt.includes('ask a question about this topic:'),
+    false
+);
+check(
+    'the exact bank text is what the model is handed',
+    /Question to rephrase: "ممكن تحچيلي شوية عن نفسك؟"/.test(openingPrompt),
+    true
+);
+// The freedom is bounded on purpose: wording varies, subject does not.
+check(
+    'it still carries the MANDATORY keep-the-scope note',
+    openingPrompt.includes('This is a MANDATORY question asked to every candidate'),
+    true
+);
+check(
+    'and the do-not-narrow rule',
+    openingPrompt.includes('Do NOT narrow a broad question'),
+    true
+);
+
 // ── the role question: mandatory, early, and immune to narrowing ──────────────
 //
 // ⚠️ Measured over 16 real interviews (2026-09-10). `relevant_experience_role_fit`

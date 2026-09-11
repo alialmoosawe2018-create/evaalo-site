@@ -17,6 +17,7 @@ import {
   MANDATORY_QUESTIONS,
   POOL_QUESTIONS,
   POOL_METADATA,
+  POOL_COUNT,
   PHASE3_QUESTIONS,
   IRAQI_DIALECT_EXAMPLES,
 } from '../evaalo-only-voice/interviewConfig.js';
@@ -209,7 +210,7 @@ ${closingSection}`;
 /** بناء قائمة Pools من interviewConfig للـ Phase 1 prompt */
 function buildPoolListForPrompt(): string {
   const lines: string[] = [];
-  for (let p = 1; p <= 5; p++) {
+  for (let p = 1; p <= POOL_COUNT; p++) {
     const meta = POOL_METADATA[p];
     const pool = POOL_QUESTIONS[p];
     if (!meta || !pool) continue;
@@ -382,6 +383,13 @@ export interface LLMContext {
     followUpNext?: 1;
     /** رقم التدوير للمتابعة (عادةً عدد المتابعات المستخدمة) — لتنويع صيغة المتابعة */
     followUpRotation?: number;
+    /**
+     * `evaluates` السؤال الذي أجاب عنه المرشّح للتوّ — مصدر بذرة المتابعة.
+     *
+     * ⚠️ بدونه تُشتقّ البذرة من `selectedQuestion`، وهو في دور المتابعة سؤالٌ
+     * جديد يُنتقى ثمّ يُرمى — فتُصاغ المتابعة على نيّة سؤالٍ لم يُطرح.
+     */
+    followUpEvaluates?: string[];
     /** طلب إنجليزي مبكر — النظام يضخ جملة إلحاح ثابتة والموديل يخرج السؤال فقط */
     nextQuestionOnly?: boolean;
     /** إن true: رد «من أنت؟» يكون سطر التعريف فقط (لا متابعة) — مثلاً بعد انتهاء وقت المقابلة */
@@ -448,21 +456,6 @@ These are the JOB's requirements (not data the candidate provided). Use them to 
 }
 
 /**
- * ما يراه الموديل بدل مفتاح الموضوع الخام.
- *
- * مفتاح الموضوع يُحقن حرفيّاً في موجّه فرع «الموضوع» أدناه، فيترجمه الموديل بنفسه:
- * `digital_skills_and_tools` كان يخرج «شنو الأدوات الرقمية والبرامج…» في جلسة
- * الإنتاج 621efd4e (الدوران ١ و٨). العبارة المطلوبة هي «التقنيات»، فنُري الموديل
- * `technical` بدل `digital`.
- *
- * المفاتيح الداخلية لا تتغيّر: `PHASE1_TOPICS` و`TOPIC_TO_POOL` و`askedTopics`
- * تُقارَن بها نصّاً، وتغييرها هنا كان سيكسر ذاكرة المواضيع بصمت.
- */
-const TOPIC_PROMPT_LABEL: Record<string, string> = {
-    digital_skills_and_tools: 'technical_skills_and_tools',
-};
-
-/**
  * إنشاء system prompt — Base + Phase (طبقات)
  * Base: Persona, Voice rules, Language rules
  * Phase: Phase 1 pools | Phase 2 instructions | Phase 3 instructions
@@ -479,7 +472,10 @@ function createSystemPrompt(context: LLMContext): string {
 
     // وضع المتابعة: متابعة واحدة — صيغتها حسب نوع السؤال (evaluates) عند الوجود
     if (context.followUpNext === 1) {
-        const pair = getFollowUpPromptPair(context.selectedQuestion, context.followUpRotation ?? 0);
+        const pair = getFollowUpPromptPair(
+            context.followUpEvaluates?.length ? { evaluates: context.followUpEvaluates } : context.selectedQuestion,
+            context.followUpRotation ?? 0
+        );
         const langRule = englishLock
             ? ENGLISH_LOCK_RULE
             : preferArabic
@@ -563,7 +559,7 @@ ${langRule}`;
             : 'Use the same language as the candidate\'s last message.';
         const lastAnswer = context.candidateLastAnswer ? `\n\nCandidate just said: "${context.candidateLastAnswer}"` : '';
         const extracted = context.extractedTopics?.length ? ` They mentioned: ${context.extractedTopics.join(', ')}.` : '';
-        const topicLabel = TOPIC_PROMPT_LABEL[selectedQuestion.topic] ?? selectedQuestion.topic;
+        const topicLabel = selectedQuestion.topic;
         return `You are EVAALO, a professional interviewer. Based on the candidate's answer, ask a question about this topic: ${topicLabel}.
 ${lastAnswer}${extracted}
 
@@ -1291,7 +1287,10 @@ function buildUserContent(transcript: string, context: LLMContext, phaseReminder
         return `Candidate said: ${transcript}\n\nThey asked for clarification. Rephrase the same question in simpler words only. No apology. No "sorry for confusion" or Arabic equivalents. No "أقصد" preface. Output only the clearer question.`;
     }
     if (context.followUpNext) {
-        const pair = getFollowUpPromptPair(context.selectedQuestion, context.followUpRotation ?? 0);
+        const pair = getFollowUpPromptPair(
+            context.followUpEvaluates?.length ? { evaluates: context.followUpEvaluates } : context.selectedQuestion,
+            context.followUpRotation ?? 0
+        );
         const hint = /[\u0600-\u06FF]/.test(transcript) ? pair.ar : pair.en;
         return `Candidate said: ${transcript}\n\nAsk the single allowed follow-up (same intent as this probe): ${hint}`;
     }

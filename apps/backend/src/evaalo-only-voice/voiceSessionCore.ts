@@ -1222,6 +1222,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
               candidateLastAnswer: cleaned,
               followUpNext,
               followUpRotation: interviewState?.totalFollowUps ?? 0,
+              followUpEvaluates: interviewState?.lastQuestionEvaluates,
               timeEndedForInterview: timeEndedSent,
               sessionLanguage: interviewLanguage,
             }),
@@ -1253,6 +1254,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
                 candidateLastAnswer: cleaned,
                 followUpNext,
                 followUpRotation: interviewState?.totalFollowUps ?? 0,
+              followUpEvaluates: interviewState?.lastQuestionEvaluates,
                 timeEndedForInterview: timeEndedSent,
                 sessionLanguage: interviewLanguage,
               }),
@@ -1326,7 +1328,12 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           const fallback = clarificationRequested && lastAssistantMessage
             ? lastAssistantMessage
             : followUpNext
-              ? ((fp) => (!forceEnglish && candidateLastLang === 'ar' ? fp.ar : fp.en))(getFollowUpPromptPair(selectedQuestion, interviewState?.totalFollowUps ?? 0))
+              ? ((fp) => (!forceEnglish && candidateLastLang === 'ar' ? fp.ar : fp.en))(getFollowUpPromptPair(
+                  interviewState?.lastQuestionEvaluates?.length
+                    ? { evaluates: interviewState.lastQuestionEvaluates }
+                    : selectedQuestion,
+                  interviewState?.totalFollowUps ?? 0
+                ))
               : selectedQuestion?.topic
                 ? topicFallback(selectedQuestion.topic)
                 : selectedQuestion?.availableTopics?.length
@@ -1395,6 +1402,10 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         // المتابعة لأنّهما يعودان للموضوع نفسه بقصد.
         phase2TopicUsed:
           clarificationRequested || followUpNext ? undefined : selectedQuestion?.topicKey,
+        // مصدر بذرة المتابعة في الدور التالي. ولا يُكتب في دور المتابعة نفسه ولا
+        // عند طلب التوضيح: كلاهما يبقى على الموضوع القائم، فالمرجع لا يتغيّر.
+        evaluatesUsed:
+          clarificationRequested || followUpNext ? undefined : selectedQuestion?.evaluates,
         followUpCount: nextFollowUpCount,
         followUpAsked: followUpNext === 1,
         phase3Reached: currentPhase === 3,

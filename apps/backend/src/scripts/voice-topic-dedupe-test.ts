@@ -23,6 +23,7 @@ import {
     onExchangeComplete,
     removeInterviewState,
 } from '../evaalo-only-voice/interviewState.js';
+import { PHASE1_TOPICS } from '../evaalo-only-voice/interviewConfig.js';
 
 let failures = 0;
 function check(name: string, actual: unknown, expected: unknown) {
@@ -68,30 +69,35 @@ for (let i = 0; i < 9; i += 1) {
     if (selected?.topic) topics.push(selected.topic);
 }
 
-const digitalCount = topics.filter((t) => t === 'digital_skills_and_tools').length;
+const technicalCount = topics.filter((t) => t === 'technical_skills_and_tools').length;
 const distinct = new Set(topics);
 
 console.log('   Phase 1 topics asked:', topics.join(' > '));
-check('digital-tools topic is asked exactly once', digitalCount, 1);
-/* Five pool topics plus `role_task_and_fit`, which became a mandatory question at
-   turn 2 on 2026-09-10 and books its own topic so a later pool cannot repeat it.
-   The five that matter are still all covered — the role question is added to the
-   phase, not taken out of it. */
-const POOL_TOPICS = [
-    'warmup_and_self_introduction',
-    'communication_and_clarity',
-    'teamwork_and_collaboration',
-    'time_management_and_problem_solving',
-    'digital_skills_and_tools',
-];
-check('all five Phase 1 pool topics were covered', POOL_TOPICS.every((t) => distinct.has(t)), true);
+check('technical topic is asked exactly once', technicalCount, 1);
+/* Every pool topic, plus `role_task_and_fit` — a mandatory since 2026-09-10 that
+   books its own key so a later pool cannot repeat it. The pool topics are still
+   all covered: the role question is added to the phase, not taken out of it. */
+const POOL_TOPICS = Object.values(PHASE1_TOPICS);
+check('every Phase 1 pool topic was covered', POOL_TOPICS.every((t) => distinct.has(t)), true);
 check('the role question is asked exactly once', topics.filter((t) => t === 'role_task_and_fit').length, 1);
 check('and nothing else crept in', distinct.size, POOL_TOPICS.length + 1);
 check(
-    'the mandatory Office question owns the tools slot (recorded in memory)',
-    getInterviewState(SID)?.askedTopics.includes('digital_skills_and_tools'),
+    'the mandatory Office question owns the technical slot (recorded in memory)',
+    getInterviewState(SID)?.askedTopics.includes('technical_skills_and_tools'),
     true
 );
+
+/* ── what widening the banks bought, stated as a number ──────────────────────
+   Phase 1 is nine turns. The mandatories book two pool topics (warmup and
+   technical), so the free turns chase POOL_COUNT - 2 fresh ones. With five
+   pools that left three fresh topics for six free turns — three repeats. With
+   seven it leaves five, so at most one turn has nothing new left, and in
+   production the phase-1 early exit hands that turn to phase 2 instead.
+
+   This simulation calls the engine directly, so it does NOT apply that early
+   exit — which is exactly why one repeat still shows here. */
+const repeats = topics.length - distinct.size;
+check('at most one repeated topic remains across the nine turns', repeats <= 1, true);
 removeInterviewState(SID);
 
 if (failures > 0) {

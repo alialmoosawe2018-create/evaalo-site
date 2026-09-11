@@ -44,6 +44,19 @@ export interface InterviewState {
   totalFollowUps: number;
   /** رقم دور المرشح الذي طُرحت فيه آخر متابعة — يفرض فاصل `FOLLOW_UP_MIN_GAP_TURNS` */
   lastFollowUpTurn: number;
+  /**
+   * `evaluates` آخر سؤالٍ **طُرح فعلاً** — مصدر بذرة المتابعة.
+   *
+   * ⚠️ كانت البذرة تُشتقّ من `selectedQuestion` في دور المتابعة نفسه، وذاك سؤالٌ
+   * جديد يُنتقى ثمّ **يُرمى** (poolUsed وtopicUsed يُجبران على undefined للمتابعة).
+   * فالمتابعة كانت تُصاغ على نيّة سؤالٍ لم يُطرح، بينما السؤال الذي أجاب عنه
+   * المرشّح لا يصل إليها إطلاقاً. مقيس: مرشّح أجاب عن العمل الجماعي فجاءت البذرة
+   * من سؤال ضغط الوقت المرميّ، فسقطت إلى العامّة «انطيني مثال محدد».
+   *
+   * ولا يُحدَّث في دور المتابعة نفسه: المتابعة تعمّق الموضوع القائم، فيبقى هو
+   * المرجع لو جاءت متابعةٌ ثانية لاحقاً.
+   */
+  lastQuestionEvaluates?: string[];
   /** Topic Memory: المواضيع التي تم طرحها — منع التكرار */
   askedTopics: string[];
   /**
@@ -136,6 +149,8 @@ export function onExchangeComplete(
     deflectionProbeUsed?: boolean;
     /** مفتاح موضوع المرحلة الثانية الذي طُرح في هذا الدور — يمنع إعادته */
     phase2TopicUsed?: string;
+    /** `evaluates` السؤال المطروح هذا الدور — يُغذّي بذرة المتابعة في الدور التالي */
+    evaluatesUsed?: string[];
   }
 ): InterviewState | undefined {
   const state = stateStore.get(sessionId);
@@ -161,6 +176,9 @@ export function onExchangeComplete(
     if (!asked.includes(options.topicUsed)) {
       state.askedTopics = [...asked, options.topicUsed];
     }
+  }
+  if (options?.evaluatesUsed?.length) {
+    state.lastQuestionEvaluates = [...options.evaluatesUsed];
   }
   if (options?.phase2TopicUsed) {
     const asked = state.askedPhase2Topics ?? [];

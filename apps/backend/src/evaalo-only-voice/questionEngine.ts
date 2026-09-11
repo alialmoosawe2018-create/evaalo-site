@@ -12,6 +12,7 @@ import {
   MANDATORY_QUESTIONS,
   POOL_QUESTIONS,
   PHASE1_TOPICS,
+  POOL_COUNT,
   PHASE2_TOPIC_KEYS,
   PHASE3_QUESTIONS,
   PHASE3_MAX_QUESTIONS,
@@ -436,14 +437,14 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
     'حل مشاكل الفريق', 'التعامل مع الفريق',
   ],
 
-  digital_skills_and_tools: [
+  technical_skills_and_tools: [
     'برامج', 'software', 'tools', 'أدوات', 'رقمي', 'digital',
     'تعلم', 'learn', 'excel', 'أنظمة', 'نظام', 'computer',
     'technology', 'tech', 'مهارات تقنية', 'حاسوب', 'applications',
     'platforms', 'systems', 'crm', 'erp',
   ],
 
-  time_management_and_problem_solving: [
+  time_management_and_prioritization: [
     'وقت', 'time', 'ضغط', 'pressure', 'مشكلة', 'problem',
     'حل', 'problem solving', 'أولوية', 'prioritize', 'deadline',
     'مهام', 'tasks', 'تنظيم الوقت', 'time management',
@@ -509,7 +510,9 @@ function detectQuestionIntent(text: string): string | null {
   if (/(motiv|جذبك|قدمت|join|role|وظيفة|شركة)/i.test(t)) return 'motivation';
   if (/(team|teamwork|فريق|تعاون|collaboration)/i.test(t)) return 'teamwork';
   if (/(problem|challenge|تحدي|مشكلة|decision|قرار|ضغط)/i.test(t)) return 'problem-solving';
-  if (/(tools|software|digital|برامج|أدوات|مهارة|learn|تعلم)/i.test(t)) return 'digital-learning';
+  if (/(tools|software|digital|technolog|برامج|أدوات|تقنيات|تقنية)/i.test(t)) return 'technical';
+  if (/(learn|تعلم|تعلّم|مهارة جديدة|طورت|develop)/i.test(t)) return 'learning';
+  if (/(professional|integrity|accountab|التزام|احترافية|أخلاق|نزاهة|مسؤولية|سلوك)/i.test(t)) return 'professional-attitude';
   return null;
 }
 
@@ -651,9 +654,49 @@ export const FOLLOW_UP_BY_INTENT: Record<string, FollowUpPair[]> = {
     { ar: 'شلون حليت خلاف صار بينك وبين زميل؟', en: 'How did you resolve a conflict with a colleague?' },
     { ar: 'شنو موقف اختلفت بيه وية مديرك وشلون تعاملت؟', en: 'When did you disagree with your manager, and how?' },
   ],
+  professionalism: [
+    { ar: 'شنو سويت حتى تتعامل وية الموقف بشكل مهني؟', en: 'What did you do to keep it professional?' },
+    { ar: 'شلون حافظت على الاحترام وإنت مو موافق؟', en: 'How did you stay respectful while disagreeing?' },
+  ],
+  accountability: [
+    { ar: 'شنو الجزء اللي تحمّلت مسؤوليته إنت بالذات؟', en: 'Which part did you personally take responsibility for?' },
+    { ar: 'شلون بلّغت الناس المتأثّرين بالموضوع؟', en: 'How did you tell the people it affected?' },
+  ],
+  self_awareness: [
+    { ar: 'شنو الشي اللي انتبهت إله بنفسك من هالموقف؟', en: 'What did you notice about yourself in that?' },
+    { ar: 'شنو اللي تحب تطوّره بنفسك بهالجانب؟', en: 'What would you want to improve in yourself there?' },
+  ],
+  emotional_intelligence: [
+    { ar: 'شلون عرفت شنو يحس بيه الطرف الثاني؟', en: 'How did you read what the other person was feeling?' },
+    { ar: 'شلون سيطرت على انفعالك بهالموقف؟', en: 'How did you keep your own reaction in check?' },
+  ],
+  prioritization: [
+    { ar: 'شنو أجّلت حتى تخلّص الأهم؟', en: 'What did you postpone to finish the important one?' },
+    { ar: 'على أي أساس قرّرت شنو الأهم؟', en: 'On what basis did you decide what came first?' },
+  ],
+  integrity: [
+    { ar: 'شنو چان الخيار الأسهل، وليش ما اخترته؟', en: 'What was the easier option, and why did you not take it?' },
+    { ar: 'شنو كلّفك إنك تلتزم بهالموقف؟', en: 'What did it cost you to hold that line?' },
+  ],
+  technical: [
+    { ar: 'شنو الأداة اللي استخدمتها بالضبط، وليش هي؟', en: 'Which tool exactly did you use, and why that one?' },
+    { ar: 'شنو تغيّر بالشغل بعد ما استخدمتها؟', en: 'What changed in the work after you used it?' },
+  ],
 };
 
-/** يطابق مفاتيح evaluates في interviewConfig مع مفاتيح المتابعة */
+/**
+ * يطابق مفاتيح evaluates في interviewConfig مع مفاتيح المتابعة.
+ *
+ * ⚠️ قِيس 2026-09-12: من 50 سؤالاً في البنوك، 28 فقط (56٪) كان له محورٌ مطابق —
+ * والباقي يسقط إلى البذرة العامّة الثلاثية. و44 قيمةً مميّزة في `evaluates` لم
+ * يكن المغطّى منها إلا 10. أي أنّ جدول المحاور المبنيّ بعناية كان شبه معطَّل،
+ * وأثقلُ ما فاته: professionalism سبع مرّات، self_awareness خمساً،
+ * emotional_intelligence وprioritization وaccountability أربعاً لكلٍّ.
+ *
+ * فما لا يستحقّ محوراً خاصّاً يُربَط هنا بأقرب محورٍ قائم. والقاعدة: الاسم
+ * المستعار يجب أن يُنتج **سؤالاً يصلح فعلاً** للإجابة التي سبقته — لا مجرّد
+ * مطابقةٍ شكلية.
+ */
 const FOLLOW_UP_INTENT_ALIASES: Record<string, string> = {
   learning_agility: 'learning',
   collaboration: 'teamwork',
@@ -661,6 +704,43 @@ const FOLLOW_UP_INTENT_ALIASES: Record<string, string> = {
   impact: 'ownership',
   initiative: 'ownership',
   adaptation: 'adaptability',
+  // السلوك المهني وما يجاوره
+  maturity: 'professionalism',
+  respect: 'professionalism',
+  discipline: 'professionalism',
+  values: 'integrity',
+  // التنظيم والوقت كلّها أسئلة «شنو قدّمت على شنو»
+  organization: 'prioritization',
+  time_management: 'prioritization',
+  stress_management: 'prioritization',
+  // الحكم والقرار
+  judgment: 'decision_making',
+  technical_judgment: 'decision_making',
+  structured_thinking: 'problem_solving',
+  // التعلّم بكل صيغه
+  self_learning: 'learning',
+  learning_strategy: 'learning',
+  growth: 'learning',
+  industry_awareness: 'learning',
+  // الوعي بالذات
+  reflection: 'self_awareness',
+  work_style: 'self_awareness',
+  confidence: 'self_awareness',
+  // الخبرة والدور
+  experience: 'role_fit',
+  practical_experience: 'role_fit',
+  // الدافع والالتزام
+  career_alignment: 'motivation',
+  commitment: 'motivation',
+  research: 'motivation',
+  goal_orientation: 'motivation',
+  // التقني
+  digital_skills: 'technical',
+  innovation: 'technical',
+  // متفرّقات
+  conflict_resolution: 'conflict',
+  patience: 'emotional_intelligence',
+  remote_work: 'communication',
 };
 
 /**
@@ -910,10 +990,12 @@ const TOPIC_FALLBACK_QUESTIONS: Record<string, string> = {
   warmup_and_self_introduction: 'ممكن تحجيلنا عن نفسك شويه شنو الاشياء التي تحب نعرفها عنك؟',
   communication_and_clarity: 'شنو يعني التواصل الفعال بالنسبة لك؟',
   teamwork_and_collaboration: 'شلون تفضل تشتغل لوحدك او  مع فريق؟',
-  digital_skills_and_tools: 'شنو البرامج اللي تستخدمها بلعمل؟',
+  technical_skills_and_tools: 'شنو التقنيات اللي تستخدمها بشغلك؟',
   // «وي» ليست كلمة — الصواب «وية». وهذا نصّ احتياطي يُنطق كما هو، فكان المرشح
   // يسمعه ناقصاً وبلا علامة استفهام (جلسة a8a8d6fd، آخر سؤال في المقابلة).
-  time_management_and_problem_solving: 'شلون تتعامل وية ضغط العمل بشغلك؟',
+  time_management_and_prioritization: 'شلون تتعامل وية ضغط العمل بشغلك؟',
+  learning_and_adaptability: 'شنو آخر شي تعلمته وفادك بشغلك؟',
+  professional_attitude: 'شنو يعني إلك الالتزام المهني بالشغل؟',
 };
 
 export function getFallbackForTopic(topic: string, genderRaw?: string | null): string {
@@ -1013,7 +1095,7 @@ export function selectNextQuestion(
             ? 'warmup_and_self_introduction'
             : mandatoryQuestionDue === 3
               ? 'role_task_and_fit'
-              : 'digital_skills_and_tools',
+              : 'technical_skills_and_tools',
         /**
          * ⚠️ سجلّان لا ثالث: `topic` أعلاه يدخل `askedTopics` (المرحلة الأولى)،
          * و`topicKey` هنا يدخل `askedPhase2Topics` (المرحلة الثانية) — وهما
@@ -1041,7 +1123,7 @@ export function selectNextQuestion(
       ? new Set(state?.askedTopics ?? [])
       : new Set<string>();
     const topicAsked = (p: number) => askedTopicsSet.has(PHASE1_TOPICS[p]);
-    const DIGITAL_POOL = TOPIC_TO_POOL['digital_skills_and_tools'];
+    const DIGITAL_POOL = TOPIC_TO_POOL['technical_skills_and_tools'];
     // سؤال Microsoft Office الإلزامي (الثاني) يغطّي «الأدوات»، فنحجز pool الأدوات له
     // ولا نطرحه بالاستدلال قبله — طرحهما معاً كان يكرّر موضوع الأدوات.
     const digitalReserved = !state?.secondMandatoryAsked;
@@ -1055,11 +1137,11 @@ export function selectNextQuestion(
         ? inferredPool
         : undefined;
     let pool = changeRequested && lastPool > 0
-      ? ((lastPool % 5) + 1) as number
+      ? ((lastPool % POOL_COUNT) + 1) as number
       : (inferredUsable ?? suggestedPool ?? 1);
     if (changeRequested && lastPool === 0) {
       // إذا ماكو pool سابق (mandatory/topic-choice)، لا نرجع لنفس منطق الـwarmup
-      pool = ((pool % 5) + 1) as number;
+      pool = ((pool % POOL_COUNT) + 1) as number;
     }
     if (changeRequested && pool === 1 && (state?.userMessageCount ?? 0) > 0) {
       pool = 2;
@@ -1067,8 +1149,8 @@ export function selectNextQuestion(
     // إن كان موضوع الـ pool المختار مطروحاً بالفعل (أو محجوزاً للإلزامي)، ننتقل لأول
     // pool موضوعه غير مطروح — يمنع تكرار نفس الموضوع دون كسر مسار طلب التغيير.
     if (!changeRequested && (topicAsked(pool) || (pool === DIGITAL_POOL && digitalReserved))) {
-      for (let step = 1; step <= 5; step += 1) {
-        const cand = (((pool - 1 + step) % 5) + 1);
+      for (let step = 1; step <= POOL_COUNT; step += 1) {
+        const cand = (((pool - 1 + step) % POOL_COUNT) + 1);
         if (!topicAsked(cand) && !(cand === DIGITAL_POOL && digitalReserved)) {
           pool = cand;
           break;
