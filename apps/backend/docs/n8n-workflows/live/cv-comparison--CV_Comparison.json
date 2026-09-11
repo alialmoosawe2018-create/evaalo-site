@@ -80,13 +80,7 @@
         176
       ],
       "id": "95f4a47e-859b-4fb5-b6b4-fcbe066b5227",
-      "name": "OpenAI Chat Model",
-      "credentials": {
-        "openAiApi": {
-          "id": "xr8zb16RIutIemnJ",
-          "name": "OpenAI account"
-        }
-      }
+      "name": "OpenAI Chat Model"
     },
     {
       "parameters": {
@@ -301,13 +295,7 @@
         192
       ],
       "id": "8953c4dc-55e4-4885-a436-859875342855",
-      "name": "Translate Chat Model",
-      "credentials": {
-        "openAiApi": {
-          "id": "xr8zb16RIutIemnJ",
-          "name": "OpenAI account"
-        }
-      }
+      "name": "Translate Chat Model"
     },
     {
       "parameters": {

@@ -398,8 +398,18 @@ router.post(
             // Enqueue Stage 1 evaluation for BOTH new and returning candidates. A
             // returning candidate applying to a different campaign has a different
             // rubric snapshot, so it must be re-evaluated against the new criteria;
-            // the outbox idempotency key is (candidateId + rubricSnapshotHash), so a
-            // re-submission to the same campaign/rubric is deduped (no double charge).
+            // a re-submission to the same campaign and rubric is deduped by the
+            // outbox key (no double charge).
+            //
+            // ⚠️ That key is `stage1-evaluation:<candidateId>:<campaignId>:<hash>`
+            // — see buildStage1EvaluationIdempotencyKey. This comment used to say
+            // it was (candidateId + rubricSnapshotHash), which is the pre-campaign
+            // TWO-part shape; rows written before the campaign joined the key
+            // still carry it, and enqueueStage1EvaluationOutbox matches those only
+            // when the campaign also matches. Reading the old description here
+            // would suggest a returning applicant's second campaign is deduped
+            // away, which is the exact bug the third part was added to fix.
+            // `rubricSnapshotHash` falls back to the literal 'legacy' when absent.
             if (n8nConfigured) {
                 try {
                     const candidateObj = candidate.toObject();

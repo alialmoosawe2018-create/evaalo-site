@@ -49,12 +49,6 @@
           "appendAttribution": false
         }
       },
-      "credentials": {
-        "gmailOAuth2": {
-          "id": "WwAUoVN05BkeF3Iy",
-          "name": "Gmail account"
-        }
-      },
       "webhookId": "d10db088-01a3-404e-8171-cc2a8b1ff64f"
     }
   ],

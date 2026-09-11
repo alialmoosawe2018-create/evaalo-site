@@ -22,6 +22,8 @@
     "test:compare-report-photo": "tsx src/scripts/compare-report-photo-test.ts",
     "test:returning-applicant": "tsx src/scripts/returning-applicant-eval-test.ts",
     "verify:application-ownership": "tsx src/scripts/verifyApplicationOwnership.ts",
+    "verify:stage1-victims": "tsx src/scripts/verify-stage1-victims.ts",
+    "verify:n8n-baselines": "tsx src/scripts/verify-n8n-baselines.ts",
     "check-db": "tsx src/scripts/check-db-connection.ts",
     "mongo-ping": "tsx src/scripts/mongo-ping.ts",
     "migrate:org-id": "tsx src/scripts/migrateAddOrgId.ts",
