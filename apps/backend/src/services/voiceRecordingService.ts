@@ -207,6 +207,44 @@ export function voiceRecordingReplaceGuard(incoming: {
 }
 
 /**
+ * هل يُكتب المؤشّر على **الشخص** بعد محاولة الكتابة على الطلب؟
+ *
+ * ثلاث حالات لا اثنتان — وهذا بالضبط ما أخطأتُ فيه:
+ *
+ *   - لا طلبَ أصلاً ⇒ نعم. المسار القديم: الشخص هو الحامل الوحيد.
+ *   - طلبٌ موجود والكتابةُ **رُفضت بالحارس** ⇒ **لا**. الحارس حكم: هذه الجلسة لا
+ *     تملك المؤشّر. والنزول إلى الشخص بعده يُبطل حكمه من الباب الخلفي.
+ *   - طلبٌ موجود والكتابةُ **رمت خطأً** (شبكة، مهلة) ⇒ نعم، بديلٌ حقيقي: لا صفَّ
+ *     يشير إلى الملفّ المرفوع، فيُكتب الشخص كما كان قبل ملكية الطلب.
+ *   - وحين تكون ملكيةُ الحملة بالشخص (العلم مطفأ) ⇒ نعم دائماً، كما كان.
+ *
+ * ⚠️ مقيس في الإنتاج (٢٠٢٦-٠٩-١٢، المرشّح 6aa59318): الجلسة `9a5d0592` كتبت على
+ * الطلب، ثمّ رُفضت `bad91a5a` عليه بحقّ — **فنزلت إلى الشخص** وسكنته. فصار الصفّان
+ * يشيران إلى جلستين مختلفتين، وهو ما لا يجوز أن يحدث أصلاً: الحارس حكم بأنّ هذه
+ * الجلسة لا تملك المؤشّر، فكتابتُها على صفٍّ غيرِ مقيَّدٍ بحملةٍ تُبطل حكمه.
+ *
+ * وتصحيحٌ لتقديرٍ أوّليّ خاطئ منّي: قارئ `GET /:id/voice-recording` يبدأ بصفّ
+ * الشخص، **لكنّ اللوحة تُمرّر معرّف الطلب** (`mapAppsToStageRows` تضع
+ * `_id: app._id`)، فلا يجد الشخصَ بذلك المعرّف ويقع على الطلب. أي أنّ المُوظِّف
+ * على مسار الطلبات يسمع تسجيل الطلب، ولم يُسمَع صفُّ الشخص المُظلِّل. من يقرؤه:
+ * المسار القديم (صفوف الأشخاص حين لا طلبات)، ومسار التراجع، وأيّ قارئ لاحق.
+ *
+ * وسببُ الخطأ أنّني جمعت «هل نجحت الكتابة؟» و«هل يوجد طلب؟» في علمٍ واحد وأنا
+ * أُصلح عيباً آخر (رفعُ العلم قبل نجاح الكتابة كان يُسقط البديل عند خطأٍ عابر).
+ */
+export function shouldWritePersonRow(input: {
+  appResolved: boolean;
+  appWriteThrew: boolean;
+  /** للاختبار؛ الافتراضي قراءةُ العلم الحقيقي. */
+  ownershipEnabled?: boolean;
+}): boolean {
+  const ownership = input.ownershipEnabled ?? isApplicationOwnsCampaignStateEnabled();
+  if (!ownership) return true;
+  if (!input.appResolved) return true;
+  return input.appWriteThrew;
+}
+
+/**
  * تسلسل المهامّ لكلّ مفتاح: مهمّةٌ لا تبدأ قبل أن تنتهي سابقتُها على المفتاح نفسه،
  * ومفاتيح مختلفة لا تنتظر بعضها. فشلُ سابقةٍ لا يمنع اللاحقة.
  *
@@ -303,8 +341,12 @@ async function finalizeVoiceRecordingNow(
     // recording that loses the pointer still exists under its own key.
     const incoming = { sessionId, scorable: scope?.scorable === true };
     const guard = voiceRecordingReplaceGuard(incoming);
-    let storedOnApplication = false;
-    let pointerMoved = false;
+    let appResolved = false;
+    let appWriteThrew = false;
+    // الصفوف التي قبلت المؤشّر فعلاً — تُسجَّل عند نجاح كلّ كتابة، لا تُستنتج بعدها.
+    // (استنتاجها من `appResolved && !appWriteThrew` كان يكذب على مسار التراجع: هناك
+    // تُجرى الكتابتان، فقد يقبلها الشخصُ بعد أن يرفضها الطلب، ويُطبع «على الطلب».)
+    const wroteTo: string[] = [];
     try {
       const { findApplicationForCallback } = await import('./candidateApplicationService.js');
       const app = await findApplicationForCallback({
@@ -313,34 +355,31 @@ async function finalizeVoiceRecordingNow(
         campaignId: scope?.campaignId,
       });
       if (app) {
+        appResolved = true;
         const updated = await CandidateApplication.findOneAndUpdate(
           { _id: app._id, ...guard },
           { $set: { voiceRecording } },
           { new: true }
         );
-        // ⚠️ `storedOnApplication` بعد نجاح الكتابة لا قبلها: كانت تُرفع قبلها،
-        // فكان فشلٌ عابر في Mongo يُسقط بديلَ الشخص أدناه (المشروط بها) ويطبع
-        // «المؤشّر لهذه الجلسة» بينما لا صفَّ يشير إلى الملفّ أصلاً.
-        storedOnApplication = Boolean(updated);
-        pointerMoved = Boolean(updated);
+        if (updated) wroteTo.push('application');
       }
     } catch (appErr: any) {
-      // best-effort — the person write below is the fallback
+      appWriteThrew = true;
       console.warn(`[VOICE RECORDING] ${short}... application pointer write failed: ${appErr?.message || appErr}`);
     }
-    if (!storedOnApplication || !isApplicationOwnsCampaignStateEnabled()) {
+    if (shouldWritePersonRow({ appResolved, appWriteThrew })) {
       const updated = await Candidate.findOneAndUpdate(
         { _id: candidateId, ...guard },
         { $set: { voiceRecording } },
         { new: true }
       );
-      pointerMoved = pointerMoved || Boolean(updated);
+      if (updated) wroteTo.push('person');
     }
     console.log(
       `[VOICE RECORDING] ${short}... uploaded ${(result.sizeBytes / 1024).toFixed(0)}KB → ${key}` +
-        (pointerMoved
-          ? ' (pointer → this session)'
-          : ` (pointer unchanged — session not scorable${storedOnApplication ? '' : ', no row written'})`)
+        (wroteTo.length > 0
+          ? ` (pointer → this session on the ${wroteTo.join(' + ')})`
+          : ' (pointer unchanged — session not scorable, the file stays under its own key)')
     );
   } catch (err: any) {
     console.warn(`[VOICE RECORDING] ${short}... failed: ${err?.message || err}`);

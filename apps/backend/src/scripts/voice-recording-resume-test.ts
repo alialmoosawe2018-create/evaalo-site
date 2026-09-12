@@ -25,6 +25,7 @@ import {
     runSerialized,
     serializedKeyCount,
     shouldReplaceVoiceRecording,
+    shouldWritePersonRow,
     voiceRecordingReplaceGuard,
 } from '../services/voiceRecordingService.js';
 
@@ -207,6 +208,33 @@ check(
 );
 check('door 2: its own earlier file', JSON.stringify(guard.$or[1]), JSON.stringify({ 'voiceRecording.sessionId': TAB2 }));
 check('and never on the link owner', JSON.stringify(guard).includes('voiceInterviewLinkConsumedSessionId'), false);
+
+// ── 2b. the person row is a fallback, not a back door ────────────────────────
+//
+// ⚠️ Measured in production 2026-09-12 (candidate 6aa59318), a defect THIS change
+// introduced: session 9a5d0592 wrote the application pointer, then bad91a5a was
+// correctly refused on the application — and fell through to the person row, so
+// the two rows named different sessions. The guard had already ruled that this
+// session does not own the pointer; writing it to a campaign-agnostic row
+// overrules that. (The board itself was not misled: it passes the APPLICATION's
+// _id, so the route's person-first lookup misses and serves the application. The
+// person row is read on the legacy path and after a rollback.) The cause was one
+// flag standing for two questions: "did the write land?" vs "is there an
+// application?" — a landed write and a guard refusal are not the same outcome.
+const person = (appResolved: boolean, appWriteThrew: boolean) =>
+    shouldWritePersonRow({ appResolved, appWriteThrew, ownershipEnabled: true });
+check('no application at all → the person holds it', person(false, false), true);
+// One answer covers both "the write landed" and "the guard refused it": the
+// application was reached and its guard decided, so the person is never touched.
+// Only a THROWN write means no row points at the file and a fallback is real.
+check('the application answered (landed or refused) → leave the person alone', person(true, false), false);
+check('application write threw → fall back to the person', person(true, true), true);
+check('resolution itself threw (no application known) → fall back', person(false, true), true);
+check(
+    'ownership flag off → the person is always written, as before',
+    shouldWritePersonRow({ appResolved: true, appWriteThrew: false, ownershipEnabled: false }),
+    true
+);
 
 // ── 3. uploads of one session run in order; sessions do not wait on each other ─
 const order: string[] = [];
