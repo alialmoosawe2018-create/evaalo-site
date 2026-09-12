@@ -403,6 +403,7 @@ function withNormalizedOverallScore<T extends Record<string, unknown>>(obj: T): 
 // بدل أن ينسخها. لا تُعِدها إلى هنا.
 import {
     INVALID_WEBHOOK_ID_TOKENS,
+    buildStage2V2Extras,
     normalizeRecommendation,
     pickLoose,
     pickLooseFromSources,
@@ -882,6 +883,11 @@ function buildStrictStage2VoicePatch(data: Record<string, unknown>): Record<stri
     if (statusVal !== undefined && statusVal !== null && String(statusVal).trim() !== '') {
         patch.status = String(statusVal).trim();
     }
+
+    // The v2 scorer's evidence, coverage and priors — computed today, sent never.
+    // Lives in stageWebhookMerge so a test can exercise the real function; see
+    // the note there. All optional: absent fields write nothing.
+    Object.assign(patch, buildStage2V2Extras(sources));
 
     return patch;
 }

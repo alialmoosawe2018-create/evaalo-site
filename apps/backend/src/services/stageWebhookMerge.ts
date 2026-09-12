@@ -236,6 +236,60 @@ export function pickLooseFromSources(sources: unknown[], aliases: string[]): unk
     return undefined;
 }
 
+/**
+ * الحقول التي يحسبها مقيّمُ المرحلة الثانية (v2) ولا يُرسلها اليوم.
+ *
+ * المقيّم الحيّ يزن سبع كفاءات من مئة ويجمع لكلٍّ منها دليلاً، ثمّ يُرسل خمس
+ * كلمات تقدير ولا شيء غيرها: `relevant_experience_role_fit` بوزنه العشرين،
+ * وكلُّ الأدلّة، ومؤشّرُ التغطية الذي يشرح درجةً منخفضة — كلُّها تموت عند
+ * الاستدعاء العائد.
+ *
+ * ⚠️ الثلاثة **اختيارية**، وهذا مقصود. الخادم يقبل الشكل الجديد **قبل** أن
+ * يُرسله المقيّم، لا العكس؛ وإلّا لكان أوّلُ استدعاءٍ بالشكل الجديد هو الذي
+ * يُردّ بـ400 ويضيع تقييمُه. حين يغيب الحقل لا يُكتب شيء، فالشكل القديم سليم.
+ *
+ * وهذه الدالّة هنا لا في `server.ts` لسببٍ واحد: استيراد `server.ts` من اختبارٍ
+ * يُقلع الخادم ويتّصل بالقاعدة، فما يبقى هناك لا يُفحص إلّا بنسخةٍ منه — وهو
+ * الفخّ الذي وُثّق في رأس هذا الملفّ.
+ */
+export function buildStage2V2Extras(sources: unknown[]): Record<string, unknown> {
+    const extras: Record<string, unknown> = {};
+
+    const comp = parseWebhookJsonForStage2(
+        pickLooseFromSources(sources, ['competencyScores', 'competency_scores'])
+    );
+    if (Array.isArray(comp) && comp.length > 0) extras.competencyScores = comp;
+
+    // التغطية رقمٌ صحيح من عقدة الحساب دائماً؛ لا حاجة لتفسير الكسور النصّية.
+    const rawCoverage = pickLooseFromSources(sources, ['coverage', 'Coverage']);
+    if (rawCoverage !== undefined && rawCoverage !== null && String(rawCoverage).trim() !== '') {
+        const n = typeof rawCoverage === 'number' ? rawCoverage : Number(String(rawCoverage).trim());
+        if (Number.isFinite(n)) extras.coverage = Math.max(0, Math.min(100, n));
+    }
+
+    const priors = parseWebhookJsonForStage2(pickLooseFromSources(sources, ['priors', 'Priors']));
+    if (priors && typeof priors === 'object' && !Array.isArray(priors)) extras.priors = priors;
+
+    return extras;
+}
+
+/**
+ * n8n يرسل بـ`multipart/form-data`، فتصل المصفوفات والكائنات **نصوصاً**. تفسيرٌ
+ * صغير مقصورٌ على هذا المسار: ما ليس نصّاً يمرّ كما هو، والنصّ الفاسد يُهمَل بدل
+ * أن يرمي داخل معالج استدعاءٍ عائد.
+ */
+function parseWebhookJsonForStage2(raw: unknown): unknown {
+    if (raw === undefined || raw === null) return undefined;
+    if (typeof raw !== 'string') return raw;
+    const trimmed = raw.trim();
+    if (!trimmed || INVALID_WEBHOOK_ID_TOKENS.has(trimmed.toLowerCase())) return undefined;
+    try {
+        return JSON.parse(trimmed);
+    } catch {
+        return undefined;
+    }
+}
+
 /** دمج تحديث n8n فوق التقييم المخزّن — القيم undefined/null في patch لا تمس الحقول القديمة */
 export function mergeEval(
     existing: Record<string, unknown> | undefined,

@@ -411,6 +411,32 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
             },
             summary: String,
             status: { type: String },
+            // Mirrors Candidate.voiceInterviewEvaluation — the two schemas must
+            // stay in step or a field persists on one row and vanishes on the
+            // other. `strict: true` drops undeclared paths silently.
+            competencyScores: {
+                type: [
+                    new Schema(
+                        {
+                            competencyKey: { type: String, required: true },
+                            title: { type: String },
+                            assessed: { type: Boolean },
+                            // A WORD here, not the 1-5 number Stage 3 uses.
+                            rating: { type: String },
+                            evidence: { type: [String], default: undefined },
+                            selfReported: { type: Boolean },
+                        },
+                        { _id: false }
+                    ),
+                ],
+                default: undefined,
+            },
+            coverage: { type: Number, min: 0, max: 100 },
+            priors: {
+                communicationSkills: { type: Number, min: 0, max: 10 },
+                englishFluency: { type: Number, min: 0, max: 10 },
+                confidenceLevel: { type: Number, min: 0, max: 10 },
+            },
         },
         videoInterviewEvaluation: {
             role_understanding: { type: Number, min: 0, max: 10 },

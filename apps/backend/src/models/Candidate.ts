@@ -90,6 +90,42 @@ export interface ICandidate extends Document {
         overall_score?: number;
         recommendation?: 'Hire' | 'Consider' | 'Reject' | 'Incomplete';
         summary?: string;
+        /**
+         * حالةُ المقيّم، مثل `insufficient_data`. كانت تُلتقط في `server.ts`
+         * وتُكتب على الطلب فقط، لأنّ مخطَّط الشخص لم يكن يعرفها فتُحذف بصمت.
+         */
+        status?: string;
+        /**
+         * الكفاءات الثابتة، كلٌّ بتقديرها ودليلها — نظيرُ `competencyScores`
+         * في المرحلة الثالثة، إلّا أنّ التقدير هنا **كلمة** لا رقمٌ من ١ إلى ٥.
+         *
+         * ⚠️ المقيّم يحسبها اليوم ولا يُرسلها: `relevant_experience_role_fit`
+         * بوزن ٢٠ وكلُّ الأدلّة تُحسب ثمّ تُرمى. هذا الحقل يفتح الباب لها،
+         * ولا يمنع شيئاً: الحقول المسطّحة الستّ تبقى كما هي.
+         */
+        competencyScores?: Array<{
+            competencyKey: string;
+            title?: string;
+            /** false حين لم يجد المقيّم دليلاً في النصّ كلّه. */
+            assessed?: boolean;
+            /** Excellent | Good | Intermediate | Bad | Not Assessed */
+            rating?: string;
+            /** اقتباساتٌ حرفيّة من كلام المرشّح — لا إعادةَ صياغة. */
+            evidence?: string[];
+            /** مصدرُه تصريحُ المرشّح عن نفسه لا قياسٌ (مهارات الحاسوب). */
+            selfReported?: boolean;
+        }>;
+        /** مجموع أوزان الكفاءات المُقيَّمة من مئة — يشرح درجةً منخفضة. */
+        coverage?: number;
+        /**
+         * الأرقام الثلاثة التي يولّدها نموذجٌ صغير قبل التقييم. تُحفظ **مرجعاً
+         * معروضاً لا حاكماً**: الحكم صار من النصّ والدليل.
+         */
+        priors?: {
+            communicationSkills?: number;
+            englishFluency?: number;
+            confidenceLevel?: number;
+        };
     };
     videoInterviewEvaluation?: {
         role_understanding?: number; // 0-10
@@ -463,7 +499,35 @@ const CandidateSchema = new Schema<ICandidate>({
             // Incomplete = evidence gate failed (short/thin session) — not a Hire/Reject judgment
             enum: ['Hire', 'Consider', 'Reject', 'Incomplete']
         },
-        summary: String
+        summary: String,
+        // ⚠️ `strict: true` — anything not declared here is dropped SILENTLY on
+        // write. The four below were computed by the scorer and lost for exactly
+        // that reason; `status` was even being picked in server.ts and written to
+        // the application only, because this schema did not know it.
+        status: String,
+        competencyScores: {
+            type: [
+                new Schema(
+                    {
+                        competencyKey: { type: String, required: true },
+                        title: { type: String },
+                        assessed: { type: Boolean },
+                        // A WORD here, not the 1-5 number Stage 3 uses.
+                        rating: { type: String },
+                        evidence: { type: [String], default: undefined },
+                        selfReported: { type: Boolean },
+                    },
+                    { _id: false }
+                ),
+            ],
+            default: undefined,
+        },
+        coverage: { type: Number, min: 0, max: 100 },
+        priors: {
+            communicationSkills: { type: Number, min: 0, max: 10 },
+            englishFluency: { type: Number, min: 0, max: 10 },
+            confidenceLevel: { type: Number, min: 0, max: 10 },
+        },
     },
     videoInterviewEvaluation: {
         role_understanding: {
