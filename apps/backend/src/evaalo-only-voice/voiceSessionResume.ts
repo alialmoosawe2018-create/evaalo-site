@@ -30,6 +30,23 @@ export type ParkedVoiceSession = {
 
 const parked = new Map<string, ParkedVoiceSession>();
 
+/**
+ * موعد الانتهاء الأصليّ لكلّ مفتاح — **يعيش بعد المطالبة**.
+ *
+ * ⚠️ مقيس في أوّل جلسة على الإنتاج (4929f056، ٢٠٢٦-٠٩-١٢): إغلاقٌ 08:08:55
+ * ⇒ ركنٌ حتى 08:18:55؛ رجوعٌ 08:09:07 (المطالبة تحذف المدخل)؛ إغلاقٌ ثانٍ
+ * 08:10:22 ⇒ ركنٌ **حتى 08:20:22**. أي أنّ «موعداً واحداً لا يُمدَّد» كان صحيحاً
+ * فقط ما دام المدخل مركوناً، وبطل بأوّل رجوع — فصار التسلسل ممكناً بلا حدّ.
+ * (قاعدة البيانات بقيت على 08:18:55 لأنّ أوّل كاتب يفوز؛ السجلّ هنا هو الذي
+ * انحرف.) الموعد الآن يُحفظ هنا ولا يُمحى إلّا بانتهائه أو بإنهاء الخادم.
+ */
+const deadlines = new Map<string, number>();
+
+/** يُنسى الموعد — حين يُنهي الخادمُ المقابلة (لا يبقى ما يُستأنف). */
+export function forgetDeadline(key: string): void {
+  deadlines.delete(key);
+}
+
 /** المهلة بالثواني. `VOICE_RESUME_GRACE_SECONDS`، الافتراضي عشر دقائق. */
 export function resumeGraceMs(): number {
   const raw = Number(process.env.VOICE_RESUME_GRACE_SECONDS);
@@ -69,17 +86,28 @@ export function parkSession(input: {
   onExpire: (sessionId: string) => void;
   now?: number;
   graceMs?: number;
-}): ParkedVoiceSession {
+}): ParkedVoiceSession | null {
   const now = input.now ?? Date.now();
   const existing = parked.get(input.key);
-  const expiresAt = existing ? existing.expiresAt : now + (input.graceMs ?? resumeGraceMs());
   if (existing) clearTimeout(existing.timer);
 
-  const delay = Math.max(0, expiresAt - now);
+  // الموعد الأصليّ إن وُجد — سواء كان المدخل ما زال مركوناً أو طولب به ثمّ عاد.
+  const expiresAt = deadlines.get(input.key) ?? now + (input.graceMs ?? resumeGraceMs());
+  deadlines.set(input.key, expiresAt);
+
+  // بلغنا الموعد أو تجاوزناه: لا ركن. المتصل يمحو الجلسة كأنّها انتهت.
+  if (expiresAt <= now) {
+    parked.delete(input.key);
+    deadlines.delete(input.key);
+    return null;
+  }
+
+  const delay = expiresAt - now;
   const timer = setTimeout(() => {
     const current = parked.get(input.key);
     if (current?.sessionId !== input.sessionId) return; // claimed or replaced meanwhile
     parked.delete(input.key);
+    deadlines.delete(input.key);
     try {
       input.onExpire(input.sessionId);
     } catch {
@@ -119,6 +147,7 @@ export function dropParkedSession(key: string): boolean {
   if (!entry) return false;
   clearTimeout(entry.timer);
   parked.delete(key);
+  deadlines.delete(key);
   return true;
 }
 

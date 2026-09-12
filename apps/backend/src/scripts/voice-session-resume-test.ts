@@ -22,6 +22,7 @@ import {
     peekParkedSession,
     resumeGraceMs,
     resumeKey,
+    forgetDeadline,
 } from '../evaalo-only-voice/voiceSessionResume.js';
 import { isVoiceLinkResumable } from '../services/interviewLinkAccess.js';
 
@@ -43,14 +44,14 @@ let expired: string[] = [];
 const onExpire = (sid: string) => expired.push(sid);
 
 const first = parkSession({ key: 'app:A', sessionId: 's1', candidateId: 'c1', onExpire, now: T0, graceMs: GRACE });
-check('parking records the fixed deadline', first.expiresAt, T0 + GRACE);
+check('parking records the fixed deadline', first?.expiresAt, T0 + GRACE);
 check('and it is visible', peekParkedSession('app:A')?.sessionId, 's1');
 
 // A second park of the same key inside the window (disconnect, return, disconnect)
 // keeps the ORIGINAL deadline — otherwise the window could be chained forever.
 const again = parkSession({ key: 'app:A', sessionId: 's1', candidateId: 'c1', onExpire, now: T0 + 4_000, graceMs: GRACE });
-check('re-parking does not extend the deadline', again.expiresAt, T0 + GRACE);
-check('and keeps the original parkedAt', again.parkedAt, T0);
+check('re-parking does not extend the deadline', again?.expiresAt, T0 + GRACE);
+check('and keeps the original parkedAt', again?.parkedAt, T0);
 
 // Claiming inside the window returns the session and removes it — exactly once.
 const claimed = claimParkedSession('app:A', T0 + 5_000);
@@ -119,6 +120,43 @@ check('otherwise candidate + campaign', resumeKey({ candidateId: 'c', campaignId
 check('candidate alone on the legacy path', resumeKey({ candidateId: 'c' }), 'cand:c');
 check('no candidate, no key (voice test)', resumeKey({ campaignId: 'k' }), null);
 check('blank ids count as absent', resumeKey({ applicationId: '  ', candidateId: 'c' }), 'cand:c');
+
+// ── 5. THE DEADLINE MUST SURVIVE A CLAIM ─────────────────────────────────────
+//
+// Measured in the first production session on this code (4929f056, 2026-09-12):
+// close 08:08:55 → parked until 08:18:55; return 08:09:07 (the claim deletes the
+// entry); close again 08:10:22 → parked until 08:20:22. "One deadline, never
+// extended" only held while the entry was still parked and broke at the first
+// return, so the window could be chained indefinitely. (Mongo kept 08:18:55
+// because the first writer wins there — the in-memory registry was the one
+// that drifted.) The deadline now lives in its own map that a claim leaves alone.
+const D0 = 2_000_000;
+parkSession({ key: 'app:F', sessionId: 'f1', candidateId: 'cf', onExpire, now: D0, graceMs: GRACE });
+check('park → claim inside the window', claimParkedSession('app:F', D0 + 2_000)?.sessionId, 'f1');
+const reparked = parkSession({ key: 'app:F', sessionId: 'f1', candidateId: 'cf', onExpire, now: D0 + 3_000, graceMs: GRACE });
+check('re-park after a claim inherits the ORIGINAL deadline', reparked?.expiresAt, D0 + GRACE);
+check('so a claim right before the original deadline still works', claimParkedSession('app:F', D0 + GRACE - 1)?.sessionId, 'f1');
+// …and once the original deadline has passed, a further close cannot re-open the window.
+const tooLate = parkSession({ key: 'app:F', sessionId: 'f1', candidateId: 'cf', onExpire, now: D0 + GRACE, graceMs: GRACE });
+check('re-park at/after the original deadline is refused', tooLate, null);
+check('and leaves nothing parked', peekParkedSession('app:F'), undefined);
+check('and a later claim finds nothing', claimParkedSession('app:F', D0 + GRACE + 1), null);
+
+// The server ending the interview forgets the deadline, so a NEW interview on the
+// same key (after the recruiter resets the link) starts a fresh window.
+parkSession({ key: 'app:G', sessionId: 'g1', candidateId: 'cg', onExpire, now: D0, graceMs: GRACE });
+claimParkedSession('app:G', D0 + 1_000);
+forgetDeadline('app:G');
+const fresh = parkSession({ key: 'app:G', sessionId: 'g2', candidateId: 'cg', onExpire, now: D0 + 50_000, graceMs: GRACE });
+check('after forgetDeadline a new park mints a fresh deadline', fresh?.expiresAt, D0 + 50_000 + GRACE);
+dropParkedSession('app:G');
+
+// Expiry via the real timer also clears the deadline — the next park is fresh.
+parkSession({ key: 'app:H', sessionId: 'h1', candidateId: 'ch', onExpire, graceMs: 30 });
+await new Promise((r) => setTimeout(r, 80));
+const afterExpiry = parkSession({ key: 'app:H', sessionId: 'h2', candidateId: 'ch', onExpire, now: 5_000_000, graceMs: GRACE });
+check('after expiry the deadline is gone and a new park is fresh', afterExpiry?.expiresAt, 5_000_000 + GRACE);
+dropParkedSession('app:H');
 
 if (failures > 0) {
     console.error(`\n${failures} case(s) failed`);

@@ -30,7 +30,7 @@ import {
   settleVoiceLinkResume,
   INTERVIEW_LINK_ALREADY_USED,
 } from "../services/interviewLinkAccess.js";
-import { claimParkedSession, parkSession, resumeGraceMs, resumeKey } from "./voiceSessionResume.js";
+import { claimParkedSession, forgetDeadline, parkSession, resumeGraceMs, resumeKey } from "./voiceSessionResume.js";
 import { bumpSttPurgeToken, getSttPurgeToken, clearSttPurgeToken, shouldKeepLateBatch } from "./sttPurgeToken.js";
 import { completesInterview, endedBeforeEnglishPhase, type VoiceSessionEndCause } from "./voiceSessionEnd.js";
 import {
@@ -1913,6 +1913,8 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         try {
           await markVoiceLinkConsumed(candidateId!, sessionId, resumeScope);
           await settleVoiceLinkResume(candidateId!, resumeScope);
+          // لا يبقى ما يُستأنف — يُنسى الموعد الأصليّ حتى لا يرثه طلبٌ لاحق.
+          if (parkedKey) forgetDeadline(parkedKey);
         } catch (markErr: any) {
           console.warn(`[VOICE LINK] mark consumed failed: ${markErr?.message || markErr}`);
         }
@@ -1933,9 +1935,16 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
             console.log(`[RESUME] ${sid.substring(0, 8)}... grace window expired — session dropped`);
           },
         });
-        console.log(
-          `[RESUME] ${sessionId.substring(0, 8)}... parked until ${new Date(parked.expiresAt).toISOString()} (key=${parkedKey})`
-        );
+        if (parked) {
+          console.log(
+            `[RESUME] ${sessionId.substring(0, 8)}... parked until ${new Date(parked.expiresAt).toISOString()} (key=${parkedKey})`
+          );
+        } else {
+          // الموعد الأصليّ بلغ نهايته قبل هذا الإغلاق (رجوعٌ ثمّ انقطاعٌ بعد
+          // انقضاء النافذة): لا ركن — الرابط مقفل أصلاً، والجلسة تُنسى.
+          forgetSession(sessionId);
+          console.log(`[RESUME] ${sessionId.substring(0, 8)}... deadline already reached — not parked, session dropped`);
+        }
       } else {
         forgetSession(sessionId);
       }
@@ -1995,7 +2004,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     console.log(
       `[SESSION END] ${sessionId.substring(0, 8)}... endedBy=${completedByServer ? "server" : "client"} ` +
         `cause=${sessionEndCause} code=${closeCode ?? "-"}${closeReason ? ` reason="${closeReason}"` : ""} ` +
-        `linkLock=${completedByServer ? "eligible" : "held"}`
+        `serverEnd=${completedByServer ? "yes" : "no"}`
     );
   });
 }
