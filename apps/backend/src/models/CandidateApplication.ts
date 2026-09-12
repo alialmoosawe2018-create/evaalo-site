@@ -143,6 +143,13 @@ export interface ICandidateApplication extends Document {
     voiceRecording?: ICandidate['voiceRecording'];
     voiceInterviewLinkConsumedAt?: Date | null;
     voiceInterviewLinkConsumedSessionId?: string;
+    /**
+     * حتى متى يجوز استئناف الجلسة الصوتية نفسها بعد إغلاقٍ من المرشّح.
+     * يُكتب مع `voiceInterviewLinkConsumedAt` عند الإغلاق المبكر، ويُصفَّر حين
+     * يُنهي الخادمُ المقابلة أو حين يُفتح الرابط بالزرّ. الواجهة تسمح بالدخول
+     * ما دام في المستقبل؛ الخادم وحده يعرف إن كانت الجلسة ما زالت مركونة.
+     */
+    voiceInterviewResumableUntil?: Date | null;
     videoInterviewLinkConsumedAt?: Date | null;
     videoInterviewLinkConsumedSessionId?: string;
     attachments?: IApplicationAttachment[];
@@ -455,6 +462,7 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
         },
         voiceInterviewLinkConsumedAt: { type: Date, default: null },
         voiceInterviewLinkConsumedSessionId: { type: String, trim: true },
+        voiceInterviewResumableUntil: { type: Date, default: null },
         videoInterviewLinkConsumedAt: { type: Date, default: null },
         videoInterviewLinkConsumedSessionId: { type: String, trim: true },
         attachments: { type: [AttachmentSchema], default: [] },

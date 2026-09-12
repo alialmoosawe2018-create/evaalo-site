@@ -27,7 +27,22 @@ export function hasMeaningfulConversation(history?: ConversationEntry[] | null):
 type LinkFields = {
     voiceInterviewLinkConsumedAt?: Date | null;
     videoInterviewLinkConsumedAt?: Date | null;
+    voiceInterviewResumableUntil?: Date | null;
 };
+
+/**
+ * هل ما زال يجوز **استئناف** الجلسة الصوتية نفسها؟
+ *
+ * الرابط مقفل (`consumedAt` موجود) لكن نافذة الرجوع لم تنتهِ. هذا ما تستعمله
+ * الواجهة لتسمح بالدخول، وما يستعمله الخادم ليقرّر بين «ارفض بـ4001» و«اربط
+ * المقبس الجديد بالجلسة المركونة». الاستئناف الفعليّ يقرّره سجلّ الذاكرة في
+ * voiceSessionResume — هذه الدالّة تقول فقط إنّ الباب لم يُغلق بعد.
+ */
+export function isVoiceLinkResumable(doc: LinkFields | null | undefined, now = Date.now()): boolean {
+    if (!doc?.voiceInterviewLinkConsumedAt) return false;
+    const until = doc.voiceInterviewResumableUntil ? new Date(doc.voiceInterviewResumableUntil).getTime() : 0;
+    return Number.isFinite(until) && until > now;
+}
 
 export type InterviewLinkScope = {
     /** MongoId للشخص (Candidate) */
@@ -120,11 +135,19 @@ export async function isVideoLinkConsumedById(
 export async function markVoiceLinkConsumed(
     candidateId: string,
     sessionId?: string,
-    scope?: Omit<InterviewLinkScope, 'candidateId'>
+    scope?: Omit<InterviewLinkScope, 'candidateId'>,
+    /**
+     * نافذة الرجوع. تُكتب في **الكتابة نفسها** التي تقفل الرابط، لا في كتابة
+     * ثانية: بينهما كانت الواجهة سترى قفلاً بلا نافذة وترفض الدخول.
+     */
+    resumableUntil?: Date | null
 ): Promise<boolean> {
     if (isInterviewTestCandidateId(candidateId)) return false;
     const now = new Date();
-    const update: Record<string, unknown> = { voiceInterviewLinkConsumedAt: now };
+    const update: Record<string, unknown> = {
+        voiceInterviewLinkConsumedAt: now,
+        voiceInterviewResumableUntil: resumableUntil ?? null,
+    };
     if (sessionId) update.voiceInterviewLinkConsumedSessionId = sessionId;
 
     const notConsumed = {
@@ -222,6 +245,32 @@ export async function markVideoLinkConsumed(
     return changed;
 }
 
+/**
+ * يُغلق نافذة الرجوع بلا أن يمسّ القفل — حين يُنهي الخادمُ جلسةً مستأنَفة.
+ *
+ * منفصل عن `markVoiceLinkConsumed` عمداً: تلك تكتب بشرط «لم يُستهلك بعد»
+ * (أوّل كاتب يفوز)، فلا تستطيع تحديث رابطٍ مقفل أصلاً. وهذه تكتب بلا شرط لأنّ
+ * تصفير النافذة على رابطٍ مفتوح لا يضرّ شيئاً.
+ */
+export async function settleVoiceLinkResume(
+    candidateId: string,
+    scope?: Omit<InterviewLinkScope, 'candidateId'>
+): Promise<boolean> {
+    if (isInterviewTestCandidateId(candidateId)) return false;
+    const update = { voiceInterviewResumableUntil: null };
+    const app = await resolveScopedApplication({ candidateId, ...scope });
+    let ok = false;
+    if (app) {
+        const r = await CandidateApplication.findByIdAndUpdate(app._id, { $set: update }, { new: true });
+        ok = Boolean(r);
+    }
+    if (!app || !isApplicationOwnsCampaignStateEnabled()) {
+        const person = await Candidate.findByIdAndUpdate(candidateId, { $set: update }, { new: true });
+        ok = ok || Boolean(person);
+    }
+    return ok;
+}
+
 export async function clearVoiceLinkAccess(
     candidateId: string,
     scope?: Omit<InterviewLinkScope, 'candidateId'>
@@ -229,6 +278,7 @@ export async function clearVoiceLinkAccess(
     const unset = {
         voiceInterviewLinkConsumedAt: null,
         voiceInterviewLinkConsumedSessionId: '',
+        voiceInterviewResumableUntil: null,
     };
     const app = await resolveScopedApplication({ candidateId, ...scope });
     let ok = false;

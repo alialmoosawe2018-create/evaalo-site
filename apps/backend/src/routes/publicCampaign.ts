@@ -40,6 +40,7 @@ type ApplicationScopedView = {
     position: string;
     voiceConsumedAt: Date | null;
     videoConsumedAt: Date | null;
+    voiceResumableUntil: Date | null;
 };
 
 const router = Router();
@@ -94,6 +95,7 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
                 entryStage?: string;
                 voiceInterviewLinkConsumedAt?: Date | null;
                 videoInterviewLinkConsumedAt?: Date | null;
+                voiceInterviewResumableUntil?: Date | null;
             },
             applicationId?: string,
             // Everything campaign-shaped comes from the application when it owns
@@ -118,6 +120,11 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
                 videoInterviewLinkConsumedAt: fromApplication
                     ? fromApplication.videoConsumedAt
                     : person.videoInterviewLinkConsumedAt ?? null,
+                // نافذة الرجوع: الواجهة تسمح بالدخول ما دامت في المستقبل، فيتّصل
+                // المقبس ويقرّر الخادم إن كانت الجلسة ما زالت مركونة.
+                voiceInterviewResumableUntil: fromApplication
+                    ? fromApplication.voiceResumableUntil
+                    : person.voiceInterviewResumableUntil ?? null,
             },
         });
 
@@ -132,6 +139,7 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
                 position: app?.position_applied_for || app?.applicationSnapshot?.position_applied_for || '',
                 voiceConsumedAt: app?.voiceInterviewLinkConsumedAt ?? null,
                 videoConsumedAt: app?.videoInterviewLinkConsumedAt ?? null,
+                voiceResumableUntil: app?.voiceInterviewResumableUntil ?? null,
             };
         };
 

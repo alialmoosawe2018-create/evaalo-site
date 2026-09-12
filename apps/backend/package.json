@@ -114,6 +114,7 @@
     "test:phone-identity": "tsx src/scripts/phone-identity-test.ts",
     "test:voice-sessions-1768-1770": "tsx src/scripts/voice-sessions-1768-1770-test.ts",
     "test:voice-session-end": "tsx src/scripts/voice-session-end-test.ts",
+    "test:voice-session-resume": "tsx src/scripts/voice-session-resume-test.ts",
     "test:intake-position": "tsx src/scripts/intake-position-test.ts",
     "test:campaign-rubric-snapshot": "tsx src/scripts/campaign-rubric-snapshot-test.ts",
     "test:campaign-compare-criteria-context": "tsx src/scripts/campaign-compare-criteria-context-test.ts",

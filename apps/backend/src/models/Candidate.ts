@@ -142,6 +142,8 @@ export interface ICandidate extends Document {
     /** يُقفل رابط المقابلة الصوتية بعد جلسة فعلية (رد مرشح واحد على الأقل). */
     voiceInterviewLinkConsumedAt?: Date | null;
     voiceInterviewLinkConsumedSessionId?: string;
+    /** انظر CandidateApplication — النسخة على الشخص للمسار القديم فقط. */
+    voiceInterviewResumableUntil?: Date | null;
     /** يُقفل رابط مقابلة الفيديو بعد جلسة فعلية. */
     videoInterviewLinkConsumedAt?: Date | null;
     videoInterviewLinkConsumedSessionId?: string;
@@ -560,6 +562,7 @@ const CandidateSchema = new Schema<ICandidate>({
     },
     voiceInterviewLinkConsumedAt: { type: Date, default: null },
     voiceInterviewLinkConsumedSessionId: { type: String, trim: true },
+    voiceInterviewResumableUntil: { type: Date, default: null },
     videoInterviewLinkConsumedAt: { type: Date, default: null },
     videoInterviewLinkConsumedSessionId: { type: String, trim: true },
     files: [{

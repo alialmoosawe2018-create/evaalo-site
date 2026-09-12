@@ -27,8 +27,10 @@ import {
   hasMeaningfulConversation,
   isVoiceLinkConsumedById,
   markVoiceLinkConsumed,
+  settleVoiceLinkResume,
   INTERVIEW_LINK_ALREADY_USED,
 } from "../services/interviewLinkAccess.js";
+import { claimParkedSession, parkSession, resumeGraceMs, resumeKey } from "./voiceSessionResume.js";
 import { bumpSttPurgeToken, getSttPurgeToken, clearSttPurgeToken, shouldKeepLateBatch } from "./sttPurgeToken.js";
 import { completesInterview, endedBeforeEnglishPhase, type VoiceSessionEndCause } from "./voiceSessionEnd.js";
 import {
@@ -191,7 +193,23 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     applicationId: applicationIdParam || undefined,
     campaignId: campaignIdParam || undefined,
   };
-  const sessionId = randomUUID();
+  /**
+   * الرجوع داخل النافذة: إن كانت لهذا الرابط جلسةٌ مركونة (أُغلقت من المرشّح
+   * قبل قليل) نتبنّى **معرّفها** بدل توليد معرّفٍ جديد — فالتاريخ والحالة
+   * والعدّادات كلّها مفهرسة به، ويستمرّ الدور من حيث توقّف. انظر voiceSessionResume.
+   *
+   * القرار هنا، عند فتح المقبس لا عند `start_listening`، لأنّ كلّ ما يُبنى
+   * أدناه (الجلسة، الحالة، التاريخ) يُبنى على `sessionId`.
+   */
+  const parkedKey = isVoiceTest
+    ? null
+    : resumeKey({ applicationId: applicationIdParam, candidateId, campaignId: campaignIdParam });
+  const parkedSession = parkedKey ? claimParkedSession(parkedKey) : null;
+  const resumed = Boolean(parkedSession && parkedSession.candidateId === candidateId);
+  const sessionId = resumed && parkedSession ? parkedSession.sessionId : randomUUID();
+  if (resumed) {
+    console.log(`[RESUME] ${sessionId.substring(0, 8)}... reattached within the grace window (key=${parkedKey})`);
+  }
 
   let jobCriteria: Record<string, any> | undefined;
   let jobAdvertisement: string | undefined;
@@ -306,9 +324,13 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     console.log(`[VOICE RECORDING] ${sessionId.substring(0, 8)}... ${recordingEnabled ? "enabled" : "disabled"}`);
   }
 
+  // الجلسة الحيّة تُسجَّل دائماً (منها يُعدّ `countLiveSessions` الذي يحكم النشر)،
+  // أمّا الحالة والتاريخ فلا يُصفَّران عند الرجوع — هما ما نستأنفه.
   createSession(sessionId, candidateId);
-  createInterviewState(sessionId);
-  conversationHistory.set(sessionId, []);
+  if (!resumed) {
+    createInterviewState(sessionId);
+    conversationHistory.set(sessionId, []);
+  }
 
   // Billing + safety timers: track when the session began, auto-close on idle or
   // on hitting the hard max duration so an abandoned socket can't drain credits.
@@ -1504,6 +1526,40 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         initialGreetingSent = true;
         (async () => {
           try {
+            /**
+             * الرجوع داخل النافذة: الرابط مقفل في قاعدة البيانات (ولهذا لا نسأل
+             * `isVoiceLinkConsumedById` — سترفض)، لكنّ الجلسة مركونة وتبنّيناها
+             * أعلاه. لا تحيّة ثانية ولا سؤالٌ افتتاحيّ ثانٍ: جملة رجوعٍ واحدة لا
+             * تدخل التاريخ (ليست سؤالاً يُقيَّم)، ثمّ نستمع — والدور التالي يُحسب
+             * من التاريخ القائم فيستمرّ من حيث توقّف.
+             */
+            if (resumed) {
+              const resumeLine =
+                interviewLanguage === 'en'
+                  ? 'Welcome back. Let us continue from where we stopped.'
+                  : 'أهلاً بعودتك. نكمل من وين ما وقفنا.';
+              startSpeaking();
+              startListening(true);
+              send(ws, { type: "agent_reply", text: resumeLine });
+              const sendResumeChunk = (c: Buffer) => {
+                recordChunk("agent", "mp3", c);
+                send(ws, { type: "audio_chunk", chunkBase64: c.toString("base64"), format: "mp3" });
+              };
+              await textToSpeech(resumeLine, interviewLanguage, sendResumeChunk);
+              send(ws, { type: "tts_complete" });
+              const resumePlaybackEnded = new Promise<void>((resolve) => {
+                const done = () => {
+                  pendingPlaybackEnded.delete(sessionId);
+                  resolve();
+                };
+                pendingPlaybackEnded.set(sessionId, done);
+                setTimeout(done, voiceTiming.playbackFallbackMs);
+              });
+              await resumePlaybackEnded;
+              await new Promise((r) => setTimeout(r, voiceTiming.postPlaybackResumeMs));
+              if (ws.readyState === ws.OPEN) startListening();
+              return;
+            }
             if (
               !isVoiceTest &&
               candidateId &&
@@ -1746,8 +1802,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           englishQuestionsAsked: interviewState.englishQuestionsAsked,
         }
       : undefined;
-    conversationHistory.delete(sessionId);
-    removeInterviewState(sessionId);
+    // ⚠️ التاريخ والحالة لا يُمحيان هنا بعد الآن. القرار «امحُ أو اركن» يُتّخذ
+    // أدناه حيث يُعرف `evidence.ok`: إغلاقٌ من المرشّح بعد دليلٍ كافٍ يركن الجلسة
+    // لنافذة الرجوع بدل محوها. المحو الفعليّ في الكتلة نفسها التي تقفل الرابط.
     removeSession(sessionId);
 
     /**
@@ -1821,21 +1878,66 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
        * `evidence.ok` تجيب سؤالاً آخر — «هل يكفي هذا للتقييم؟» — لا سؤال «هل
        * انتهت المقابلة؟». والخادم يعرف جواب الثاني يقيناً لأنّه هو من يُغلق.
        */
-      if (
+      /**
+       * قفل الرابط — ثلاث نهايات، لا اثنتان.
+       *
+       * حتى ٢٠٢٦-٠٩-٠٩ كان أيّ إغلاق يقفل الرابط، فضاع مرشّحٌ ضغط End بالغلط.
+       * ثمّ صار الإغلاق من المرشّح لا يقفله أبداً، فصار يُعيد المقابلة من الصفر
+       * وتقييمُها الثاني يستبدل الأوّل بصمت (`mergeEval`). الحلّ الوسط بقرار
+       * المالك (٢٠٢٦-٠٩-١٢):
+       *
+       *   ١. أنهاها الخادم ⇒ قفلٌ نهائي، وتُصفَّر نافذة الرجوع إن كانت مفتوحة،
+       *      وتُمحى الجلسة من الذاكرة.
+       *   ٢. أغلقها المرشّح بعد دليلٍ كافٍ ⇒ قفلٌ **مع نافذة رجوع** (الافتراضي عشر
+       *      دقائق)، وتُركن الجلسة لا تُمحى: من يعود داخلها يستأنف الشيء نفسه.
+       *      والنصّ أُرسل أعلاه كما كان دائماً، فإعادةُ تشغيلٍ داخل النافذة لا
+       *      تُضيّع شيئاً سوى إمكان الاستئناف — والرابط يبقى مقفلاً حتى الزرّ.
+       *   ٣. ما عدا ذلك (جلسة رقيقة، اختبار، انقطاع مبكر بلا دليل) ⇒ لا قفل،
+       *      وتُمحى الجلسة كما كان.
+       *
+       * `markVoiceLinkConsumed` يفوز فيها أوّل كاتب، فإغلاقٌ ثانٍ داخل النافذة لا
+       * يمدّدها — وهذا مقصود، ويطابق موعدَ الركن الثابت في voiceSessionResume.
+       */
+      const linkEligible =
         evidence.ok &&
-        completedByServer &&
-        candidateId &&
-        /^[a-fA-F0-9]{24}$/.test(candidateId) &&
-        hasMeaningfulConversation(historyCopy)
-      ) {
+        Boolean(candidateId) &&
+        /^[a-fA-F0-9]{24}$/.test(candidateId ?? "") &&
+        hasMeaningfulConversation(historyCopy);
+      const resumeScope = { applicationId: applicationIdParam, campaignId: resolvedCampaignId };
+      const forgetSession = (sid: string) => {
+        conversationHistory.delete(sid);
+        removeInterviewState(sid);
+      };
+
+      if (linkEligible && completedByServer) {
         try {
-          await markVoiceLinkConsumed(candidateId, sessionId, {
-            applicationId: applicationIdParam,
-            campaignId: resolvedCampaignId,
-          });
+          await markVoiceLinkConsumed(candidateId!, sessionId, resumeScope);
+          await settleVoiceLinkResume(candidateId!, resumeScope);
         } catch (markErr: any) {
           console.warn(`[VOICE LINK] mark consumed failed: ${markErr?.message || markErr}`);
         }
+        forgetSession(sessionId);
+      } else if (linkEligible && !completedByServer && parkedKey && !isVoiceTest) {
+        const resumableUntil = new Date(Date.now() + resumeGraceMs());
+        try {
+          await markVoiceLinkConsumed(candidateId!, sessionId, resumeScope, resumableUntil);
+        } catch (markErr: any) {
+          console.warn(`[VOICE LINK] mark consumed (resumable) failed: ${markErr?.message || markErr}`);
+        }
+        const parked = parkSession({
+          key: parkedKey,
+          sessionId,
+          candidateId: candidateId!,
+          onExpire: (sid) => {
+            forgetSession(sid);
+            console.log(`[RESUME] ${sid.substring(0, 8)}... grace window expired — session dropped`);
+          },
+        });
+        console.log(
+          `[RESUME] ${sessionId.substring(0, 8)}... parked until ${new Date(parked.expiresAt).toISOString()} (key=${parkedKey})`
+        );
+      } else {
+        forgetSession(sessionId);
       }
 
       /* Re-apply before the transcript leaves: the load above is async and a very
