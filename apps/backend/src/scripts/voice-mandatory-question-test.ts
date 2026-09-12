@@ -24,7 +24,7 @@
  * Run: npm run test:voice-mandatory-question
  */
 import { buildSystemPrompt, polishVoiceArabicReply } from '../services/llmService.js';
-import { selectNextQuestion, pickPhase2Topic } from '../evaalo-only-voice/questionEngine.js';
+import { selectNextQuestion, pickPhase2Topic, turnDefersBookings } from '../evaalo-only-voice/questionEngine.js';
 import { getControllerOutput } from '../evaalo-only-voice/interviewController.js';
 import { buildRoleTaskQuestion, MANDATORY_QUESTIONS } from '../evaalo-only-voice/interviewConfig.js';
 
@@ -196,6 +196,43 @@ check('it books its own topic so a pool cannot repeat it', roleQ?.topic, 'role_t
 // اليوميّة اللي تتوقّع تسويها بوظيفة …»، turn 9 the same question reworded, and
 // the candidate answered «سألتيني هذا السؤال وجاوبتك».
 check('it also books the phase-2 role topic', roleQ?.topicKey, 'role');
+
+// ── …and the booking must survive a turn where a follow-up was DUE ───────────
+//
+// Production 2026-09-12, sessions 1478d3c7 and 0702b4a9. Both reached turn 2
+// with a follow-up (or a clarification) due, and in both the fixed mandatory
+// role question overrode it and was spoken — the log shows [FIXED] and the role
+// text. But the booking was gated on `clarificationRequested || followUpNext`,
+// so `topicKey: 'role'` was suppressed even though the question had been asked.
+// Phase 2 then served the role question again at turn 9. The repeat fix was
+// being undone by a condition three hundred lines away.
+//
+// The rule is now named and testable: what was SPOKEN decides, not what was due.
+check(
+    'a due follow-up defers bookings when the model answers',
+    turnDefersBookings({ clarificationRequested: false, followUpDue: true, spokeFixedQuestion: false }),
+    true
+);
+check(
+    'but NOT when a fixed mandatory overrode it and was spoken',
+    turnDefersBookings({ clarificationRequested: false, followUpDue: true, spokeFixedQuestion: true }),
+    false
+);
+check(
+    'same for a clarification request overridden by a fixed question',
+    turnDefersBookings({ clarificationRequested: true, followUpDue: false, spokeFixedQuestion: true }),
+    false
+);
+check(
+    'a clarification the model actually answers still defers',
+    turnDefersBookings({ clarificationRequested: true, followUpDue: false, spokeFixedQuestion: false }),
+    true
+);
+check(
+    'an ordinary turn never defers',
+    turnDefersBookings({ clarificationRequested: false, followUpDue: false, spokeFixedQuestion: false }),
+    false
+);
 check('the other mandatories book no phase-2 topic', selected?.topicKey, undefined);
 
 // …and the picker must then skip it.

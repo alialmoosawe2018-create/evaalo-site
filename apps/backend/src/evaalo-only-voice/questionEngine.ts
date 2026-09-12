@@ -581,6 +581,28 @@ function isSemanticallySimilarQuestion(a: string, b: string): boolean {
   return ratio >= 0.55;
 }
 
+/**
+ * هل يُؤجَّل تسجيل هذا الدور (البنك، المحور، مفتاح المرحلة الثانية، نيّة المتابعة)؟
+ *
+ * ⚠️ القاعدة: **ما نُطق فعلاً يقرّر، لا ما استُحقّ.**
+ *
+ * «متابعة» و«طلب توضيح» يُحسمان قبل اختيار السؤال، وكلاهما يعود إلى الموضوع
+ * القائم بقصد — فلا يُسجَّل شيء جديد. لكنّ سؤالاً ثابتاً (`isFixed`) يتخطّى
+ * النموذج ويُنطق نصُّه بدلهما، فيكون قد طُرح سؤالٌ جديد فعلاً ووجب تسجيله.
+ *
+ * كان الشرط `clarificationRequested || followUpNext` وحده، فكُبت التسجيل مع أنّ
+ * السؤال طُرح. مقيس في جلستَي الإنتاج 1478d3c7 و0702b4a9 (٢٠٢٦-٠٩-١٢): في
+ * كلتيهما استُحقّت متابعة/توضيح في الدور ٢، وتخطّاهما سؤالُ الدور الإلزاميّ
+ * الثابت ونُطق — ثمّ لم يُحجز محوره، فأعادته المرحلة الثانية في الدور ٩.
+ */
+export function turnDefersBookings(opts: {
+  clarificationRequested: boolean;
+  followUpDue: boolean;
+  spokeFixedQuestion: boolean;
+}): boolean {
+  return (opts.clarificationRequested || opts.followUpDue) && !opts.spokeFixedQuestion;
+}
+
 /** مواضيع متاحة — LLM يختار الأنسب (بدل round-robin) */
 export function getAvailableTopicsForPhase1(state: InterviewState | undefined): string[] {
   const all = Object.values(PHASE1_TOPICS).filter(Boolean) as string[];

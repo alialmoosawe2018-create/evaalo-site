@@ -5,7 +5,7 @@ import { createRateLimiter } from "./rateLimiter.js";
 import { createSession, removeSession, touchSession, updateState } from "./sessionStore.js";
 import { createInterviewState, getInterviewState, removeInterviewState, onExchangeComplete, FOLLOW_UP_MAX_PER_INTERVIEW, FOLLOW_UP_MIN_GAP_TURNS } from "./interviewState.js";
 import { getControllerOutput } from "./interviewController.js";
-import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer, isEndInterviewRequest, buildRequestedClosing } from "./questionEngine.js";
+import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer, isEndInterviewRequest, buildRequestedClosing, turnDefersBookings } from "./questionEngine.js";
 import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
 import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend, shouldHoldForLiveSpeech, LIVE_SPEECH_POLL_MS } from "./voiceTimingEnv.js";
@@ -1090,8 +1090,23 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
        * `deflectionProbe`.
        */
       const answerIsNegative = isNegativeAnswer(cleaned);
+      /**
+       * ⚠️ ولا متابعة في دورٍ يستحقّ سؤالاً إلزامياً.
+       *
+       * الإلزاميّ يفوز دائماً: `selectNextQuestion` يُرجعه، و`isFixed` يتخطّى
+       * النموذج فيُنطق نصُّه بدل المتابعة. لكنّ علَم المتابعة كان يُرفع مع ذلك،
+       * وثمنُه ثلاثة أضرار مقيسة في جلسة الإنتاج 1478d3c7 (٢٠٢٦-٠٩-١٢، الدور ٢):
+       *
+       *   1. كُبت `topicKey: 'role'` — لأنّ تسجيله مشروط بـ`!followUpNext` — فلم
+       *      يُحجز محور الدور، فطرحته المرحلة الثانية ثانيةً في الدور ٩. أي أنّ
+       *      إصلاح التكرار نفسه كان يُبطَل من هنا.
+       *   2. احترقت متابعة من الخمس بلا أن تُطرح: `[FOLLOW-UP BLOCKED] used=1/5`
+       *      في الدور التالي، وبدأت ساعةُ الفاصل من دورٍ لم تحصل فيه متابعة.
+       *   3. ووصل الموجّهَ علَما «متابعة» و«إلزاميّ» معاً — حالةٌ لا معنى لها.
+       */
       const allowFollowUp =
         userMessageCount >= 2 &&
+        !mandatoryQuestionDue &&
         !changeRequested &&
         !clarificationRequested &&
         !deflectionProbe &&
@@ -1378,8 +1393,25 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       history.push({ role: "user", content: cleaned });
       history.push({ role: "assistant", content: llmReply });
       conversationHistory.set(sessionId, history);
+      /**
+       * ما نُطق فعلاً هو ما يُسجَّل — لا ما كان مستحقّاً.
+       *
+       * «متابعة» و«طلب توضيح» يُحسمان قبل اختيار السؤال، لكنّ سؤالاً ثابتاً
+       * (`isFixed`) يتخطّى النموذج ويُنطق نصُّه بدلهما. فكان الكبت يُطبَّق وقد
+       * طُرح السؤال فعلاً، فلا يُحجز محوره. مقيس في جلسة 0702b4a9 (الدور ٢):
+       * `mode=clarify` ثمّ `[FIXED]` ثمّ نصّ سؤال الدور — والمحور لم يُحجز.
+       *
+       * ومنعُ المتابعة عند الإلزاميّ أعلاه يغطّي أشيع الحالتين؛ وهذا يغطّي
+       * الباقي، وأيّ نصٍّ ثابتٍ يُضاف مستقبلاً.
+       */
+      const spokeFixedQuestion = selectedQuestion?.isFixed === true && !deflectionProbe;
+      const deferredTurn = turnDefersBookings({
+        clarificationRequested,
+        followUpDue: !!followUpNext,
+        spokeFixedQuestion,
+      });
       const nextFollowUpCount: 0 | 1 = followUpNext ? 1 : 0;
-      const topicUsed = followUpNext ? undefined
+      const topicUsed = (followUpNext && !spokeFixedQuestion) ? undefined
         : selectedQuestion?.topic
         ? selectedQuestion.topic
         : selectedQuestion?.availableTopics
@@ -1395,19 +1427,18 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         mandatoryQuestion1Asked: mandatoryQuestionDue === 1,
         mandatoryQuestion2Asked: mandatoryQuestionDue === 2,
         mandatoryQuestion3Asked: mandatoryQuestionDue === 3,
-        poolUsed: clarificationRequested || followUpNext ? undefined : selectedQuestion?.pool,
+        poolUsed: deferredTurn ? undefined : selectedQuestion?.pool,
         topicUsed: isVoiceTopicMemoryEnabled() ? topicUsed : undefined,
         // يُسجَّل دائماً — لا خلف علَم ذاكرة المواضيع: هذا ليس تحسيناً للتنويع بل
         // منعُ طرح السؤال نفسه مرّتين متتاليتين. ولا يُسجَّل عند طلب التوضيح أو
         // المتابعة لأنّهما يعودان للموضوع نفسه بقصد.
-        phase2TopicUsed:
-          clarificationRequested || followUpNext ? undefined : selectedQuestion?.topicKey,
+        phase2TopicUsed: deferredTurn ? undefined : selectedQuestion?.topicKey,
         // مصدر بذرة المتابعة في الدور التالي. ولا يُكتب في دور المتابعة نفسه ولا
         // عند طلب التوضيح: كلاهما يبقى على الموضوع القائم، فالمرجع لا يتغيّر.
-        evaluatesUsed:
-          clarificationRequested || followUpNext ? undefined : selectedQuestion?.evaluates,
+        evaluatesUsed: deferredTurn ? undefined : selectedQuestion?.evaluates,
         followUpCount: nextFollowUpCount,
-        followUpAsked: followUpNext === 1,
+        // تُحسب متابعةً فقط إن نُطقت فعلاً — لا إن استحقّت ثم تخطّاها إلزاميّ ثابت.
+        followUpAsked: followUpNext === 1 && !spokeFixedQuestion,
         phase3Reached: currentPhase === 3,
         englishIntroEmitted,
         deflectionProbeUsed: deflectionProbe,
