@@ -26,6 +26,8 @@ export type ParkedVoiceSession = {
   parkedAt: number;
   expiresAt: number;
   timer: NodeJS.Timeout;
+  /** يُستدعى مرّةً حين تُنسى الجلسة بلا رجوع — بانتهاء المهلة أو باستبدالها. */
+  onExpire: (sessionId: string) => void;
 };
 
 const parked = new Map<string, ParkedVoiceSession>();
@@ -89,7 +91,18 @@ export function parkSession(input: {
 }): ParkedVoiceSession | null {
   const now = input.now ?? Date.now();
   const existing = parked.get(input.key);
-  if (existing) clearTimeout(existing.timer);
+  if (existing) {
+    clearTimeout(existing.timer);
+    // جلسةٌ أخرى تُركَن تحت المفتاح نفسه: القديمة لن يُطالَب بها أبداً، فتُنسى
+    // الآن — تاريخُها وحالتُها ومقاطعُ صوتها — لا تبقى في الذاكرة بلا موعد.
+    if (existing.sessionId !== input.sessionId) {
+      try {
+        existing.onExpire(existing.sessionId);
+      } catch {
+        /* cleanup must never throw into the caller */
+      }
+    }
+  }
 
   // الموعد الأصليّ إن وُجد — سواء كان المدخل ما زال مركوناً أو طولب به ثمّ عاد.
   const expiresAt = deadlines.get(input.key) ?? now + (input.graceMs ?? resumeGraceMs());
@@ -123,6 +136,7 @@ export function parkSession(input: {
     parkedAt: existing?.parkedAt ?? now,
     expiresAt,
     timer,
+    onExpire: input.onExpire,
   };
   parked.set(input.key, entry);
   return entry;
@@ -137,7 +151,19 @@ export function claimParkedSession(key: string, now = Date.now()): ParkedVoiceSe
   if (!entry) return null;
   parked.delete(key);
   clearTimeout(entry.timer);
-  if (entry.expiresAt <= now) return null;
+  if (entry.expiresAt <= now) {
+    // ⚠️ بلغنا الموعد والمؤقّت لم يعمل بعد (unref'd setTimeout يعمل في موعده أو
+    // بعده، وقد يتأخّر تحت ضغط الحلقة). كانت هذه الحالة تحذف المدخل وتعيد `null`
+    // بلا أن تُنسي الجلسة، فيبقى تاريخُها وحالتُها ومقاطعُ صوتها (حتى ٦٠ ميغا
+    // بايت) في الذاكرة إلى أن تُعاد العملية. لا أحد سيُطالب بها بعد الآن، فتُنسى.
+    deadlines.delete(key);
+    try {
+      entry.onExpire(entry.sessionId);
+    } catch {
+      /* cleanup must never throw into the caller */
+    }
+    return null;
+  }
   return entry;
 }
 

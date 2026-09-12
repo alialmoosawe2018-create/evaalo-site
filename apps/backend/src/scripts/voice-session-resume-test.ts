@@ -60,14 +60,37 @@ check('and a second claim finds nothing', claimParkedSession('app:A', T0 + 5_000
 check('the registry is empty after the claim', parkedSessionCount(), 0);
 
 // Claiming after the deadline returns null (and clears the entry).
+//
+// ⚠️ And it must RELEASE the session, not merely forget the entry. The parked
+// timer is an unref'd setTimeout: it fires at or after its delay, and later still
+// under event-loop load (a synchronous ffmpeg write for another session is enough).
+// A reconnect that lands in that window used to delete the entry and return null
+// without calling onExpire, so the old session's history, state and carried audio
+// (up to VOICE_RECORDING_MAX_BYTES, 60 MB) stayed in memory until the process
+// restarted. Nobody can claim it after this point, so it is released here.
+expired = [];
 parkSession({ key: 'app:B', sessionId: 's2', candidateId: 'c2', onExpire, now: T0, graceMs: GRACE });
 check('a claim after the deadline returns null', claimParkedSession('app:B', T0 + GRACE + 1), null);
 check('and the stale entry is gone', peekParkedSession('app:B'), undefined);
+check('and the session is released, not leaked', expired.join(','), 's2');
+check('a later park mints a fresh deadline (the old one was cleared)', parkSession({ key: 'app:B', sessionId: 's2b', candidateId: 'c2', onExpire, now: T0 + 90_000, graceMs: GRACE })?.expiresAt, T0 + 90_000 + GRACE);
+dropParkedSession('app:B');
 
 // Explicit drop never fires onExpire.
 parkSession({ key: 'app:C', sessionId: 's3', candidateId: 'c3', onExpire, now: T0, graceMs: GRACE });
 check('drop removes the entry', dropParkedSession('app:C'), true);
 check('dropping twice is a no-op', dropParkedSession('app:C'), false);
+
+// A DIFFERENT session parked under the same key replaces the old one — which will
+// never be claimed again, so it is released (history, state, carried audio) at once.
+expired = [];
+parkSession({ key: 'app:R', sessionId: 'r1', candidateId: 'cr', onExpire, now: T0, graceMs: GRACE });
+parkSession({ key: 'app:R', sessionId: 'r2', candidateId: 'cr', onExpire, now: T0 + 1_000, graceMs: GRACE });
+check('replacing a parked session releases the old one exactly once', expired.join(','), 'r1');
+check('and the new one is what is parked', peekParkedSession('app:R')?.sessionId, 'r2');
+parkSession({ key: 'app:R', sessionId: 'r2', candidateId: 'cr', onExpire, now: T0 + 2_000, graceMs: GRACE });
+check('re-parking the same session releases nothing', expired.join(','), 'r1');
+dropParkedSession('app:R');
 
 // The real timer path: a tiny grace, then expiry calls onExpire once with the id.
 expired = [];

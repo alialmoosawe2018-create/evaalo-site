@@ -30,7 +30,13 @@ import {
   settleVoiceLinkResume,
   INTERVIEW_LINK_ALREADY_USED,
 } from "../services/interviewLinkAccess.js";
-import { claimParkedSession, forgetDeadline, parkSession, resumeGraceMs, resumeKey } from "./voiceSessionResume.js";
+import { claimParkedSession, forgetDeadline, parkSession, peekParkedSession, resumeGraceMs, resumeKey } from "./voiceSessionResume.js";
+import { createVoiceRecordingBuffer, dropCarriedRecording } from "./voiceRecordingCarry.js";
+// ثابتٌ لا ديناميّ: الحكم على كفاية الأدلّة نقيٌّ ومتزامن، ووجوده جاهزاً يسمح
+// بختم التسجيل ورفعه في الجزء المتزامن من معالج الإغلاق — بلا ترتيبٍ هشّ بين
+// انتظاراتٍ متعدّدة (النسخة الأولى من إصلاح التسجيل ماتت على ذلك الترتيب).
+import { assessVoiceInterviewEvidence } from "../services/voiceInterviewEvidenceGate.js";
+import { recordSiteErrorAsync } from "../services/siteErrorService.js";
 import { bumpSttPurgeToken, getSttPurgeToken, clearSttPurgeToken, shouldKeepLateBatch } from "./sttPurgeToken.js";
 import { completesInterview, endedBeforeEnglishPhase, type VoiceSessionEndCause } from "./voiceSessionEnd.js";
 import {
@@ -38,11 +44,7 @@ import {
   reserveUsage,
 } from "../services/usageReservationService.js";
 import { DEFAULT_ORG_ID } from "../config/multiTenant.js";
-import {
-  finalizeVoiceRecording,
-  isVoiceRecordingEnabled,
-  type RecordingSegment,
-} from "../services/voiceRecordingService.js";
+import { finalizeVoiceRecording, isVoiceRecordingEnabled } from "../services/voiceRecordingService.js";
 
 const maxConnections = Number(process.env.VOICE_WS_MAX_CONNECTIONS || "200");
 const maxMessageBytes = Number(process.env.VOICE_WS_MESSAGE_MAX_BYTES || "65536");
@@ -204,8 +206,14 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   const parkedKey = isVoiceTest
     ? null
     : resumeKey({ applicationId: applicationIdParam, candidateId, campaignId: campaignIdParam });
-  const parkedSession = parkedKey ? claimParkedSession(parkedKey) : null;
-  const resumed = Boolean(parkedSession && parkedSession.candidateId === candidateId);
+  // يُنظر قبل المطالبة: مطالبةٌ تحذف المدخل، فلو طالب اتصالٌ بمرشّحٍ آخر (رابطٌ
+  // مُعدَّل يحمل معرّف الطلب نفسه) لضاعت الجلسة على صاحبها ولبقي تاريخُها وحالتُها
+  // ومقاطعُ صوتها في الذاكرة بلا من ينساها. الآن تبقى مركونةً لصاحبها، ويمضي هذا
+  // الاتصال جلسةً جديدة يرفضها قفلُ الرابط.
+  const parkedPeek = parkedKey ? peekParkedSession(parkedKey) : undefined;
+  const parkedSession =
+    parkedKey && parkedPeek && parkedPeek.candidateId === candidateId ? claimParkedSession(parkedKey) : null;
+  const resumed = Boolean(parkedSession);
   const sessionId = resumed && parkedSession ? parkedSession.sessionId : randomUUID();
   if (resumed) {
     console.log(`[RESUME] ${sessionId.substring(0, 8)}... reattached within the grace window (key=${parkedKey})`);
@@ -305,23 +313,25 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   const voiceTiming = getVoiceResponseTiming();
 
   // ── تسجيل المحادثة الكاملة (المرشح PCM + الوكيل MP3) ورفعها إلى R2 عند الإغلاق ──
+  //
+  // المخزن يعبر الرجوع: جلسةٌ مستأنَفة تبدأ بما تركه اتصالُها السابق، فكلّ إغلاق
+  // يرفع المحادثة كاملةً حتى لحظته لا مقاطع اتصاله وحده (voiceRecordingCarry).
   const recordingEnabled = !isVoiceTest && isVoiceRecordingEnabled(candidateId);
-  const recordingMaxBytes = Number(process.env.VOICE_RECORDING_MAX_BYTES || String(60 * 1024 * 1024));
-  const recordingSegments: RecordingSegment[] = [];
-  let recordingBytes = 0;
-  const recordChunk = (speaker: "user" | "agent", format: "pcm" | "mp3", chunk: Buffer) => {
-    if (!recordingEnabled || !chunk || chunk.length === 0) return;
-    if (recordingBytes + chunk.length > recordingMaxBytes) return;
-    recordingBytes += chunk.length;
-    const last = recordingSegments[recordingSegments.length - 1];
-    if (last && last.speaker === speaker) {
-      last.buffer = Buffer.concat([last.buffer, chunk]);
-    } else {
-      recordingSegments.push({ speaker, format, buffer: Buffer.from(chunk) });
-    }
-  };
+  const recordingBuffer = createVoiceRecordingBuffer({
+    sessionId,
+    enabled: recordingEnabled,
+    maxBytes: Number(process.env.VOICE_RECORDING_MAX_BYTES || String(60 * 1024 * 1024)),
+    resumed,
+  });
+  const recordChunk = (speaker: "user" | "agent", format: "pcm" | "mp3", chunk: Buffer) =>
+    recordingBuffer.append(speaker, format, chunk);
   if (candidateId) {
-    console.log(`[VOICE RECORDING] ${sessionId.substring(0, 8)}... ${recordingEnabled ? "enabled" : "disabled"}`);
+    console.log(
+      `[VOICE RECORDING] ${sessionId.substring(0, 8)}... ${recordingEnabled ? "enabled" : "disabled"}` +
+        (recordingBuffer.carriedSegmentCount > 0
+          ? ` — resumed with ${recordingBuffer.carriedSegmentCount} carried segment(s), ${(recordingBuffer.carriedBytes / 1024).toFixed(0)}KB`
+          : "")
+    );
   }
 
   // الجلسة الحيّة تُسجَّل دائماً (منها يُعدّ `countLiveSessions` الذي يحكم النشر)،
@@ -1802,6 +1812,30 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           englishQuestionsAsked: interviewState.englishQuestionsAsked,
         }
       : undefined;
+
+    /**
+     * التسجيل يُختم ويُرفع هنا — في الجزء **المتزامن** من معالج الإغلاق.
+     *
+     * ⚠️ لا تُؤجَّل هذه الكتلة إلى ما بعد أيّ `await`. النسخة الأولى من إصلاح
+     * التسجيل (٢٠٢٦-٠٩-١٢) فعلت ذلك: كان الحمل يُجرى داخل الكتلة غير المتزامنة
+     * أدناه، فيجد المصفوفة فارغةً لأنّ الرفعَ المتزامن كان قد أفرغها — إصلاحٌ
+     * ميّت لم يكشفه اختبار. الآن: ختمٌ واحد، ولقطةٌ واحدة، يقرأها الرفعُ والحملُ.
+     *
+     * والحكم على كفاية الأدلّة نقيٌّ ومتزامن (`assessVoiceInterviewEvidence`)،
+     * فيُحسب هنا مرّةً: منه يُقرَّر مالكُ مؤشّر التسجيل (الجلسة القابلة للتقييم هي
+     * التي سيُحتسب تقييمها)، ومنه تُقرَّر بقيةُ المسار أدناه بلا إعادة حساب.
+     */
+    const durationSec = Math.ceil(Math.max(0, Date.now() - sessionStartedAt) / 1000);
+    const evidence = assessVoiceInterviewEvidence(historyCopy, durationSec);
+    const closedRecording = recordingBuffer.close();
+    if (recordingEnabled && closedRecording.segments.length > 0) {
+      void finalizeVoiceRecording(sessionId, candidateId, closedRecording.segments, {
+        applicationId: applicationIdParam,
+        campaignId: resolvedCampaignId,
+        scorable: evidence.ok,
+      });
+    }
+
     // ⚠️ التاريخ والحالة لا يُمحيان هنا بعد الآن. القرار «امحُ أو اركن» يُتّخذ
     // أدناه حيث يُعرف `evidence.ok`: إغلاقٌ من المرشّح بعد دليلٍ كافٍ يركن الجلسة
     // لنافذة الرجوع بدل محوها. المحو الفعليّ في الكتلة نفسها التي تقفل الرابط.
@@ -1841,14 +1875,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       });
     }
 
-    void (async () => {
+    (async () => {
+      // التسجيل رُفع أعلاه بلا شرطٍ على التاريخ؛ ما يلي يخصّ النصّ والتقييم والقفل.
       if (!historyCopy?.length) return;
-
-      const durationSec = Math.ceil(Math.max(0, Date.now() - sessionStartedAt) / 1000);
-      const { assessVoiceInterviewEvidence } = await import(
-        "../services/voiceInterviewEvidenceGate.js"
-      );
-      const evidence = assessVoiceInterviewEvidence(historyCopy, durationSec);
 
       /**
        * Whether the call was thick enough to score at all.
@@ -1907,6 +1936,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       const forgetSession = (sid: string) => {
         conversationHistory.delete(sid);
         removeInterviewState(sid);
+        dropCarriedRecording(sid);
       };
 
       if (linkEligible && completedByServer) {
@@ -1936,6 +1966,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           },
         });
         if (parked) {
+          // مقاطع هذا الاتصال تُركَن مع الجلسة، فيبدأ بها الاتصالُ المستأنَف
+          // فيرفع محادثةً كاملة. من اللقطة المختومة أعلاه، والمخزن ينسخها.
+          recordingBuffer.park();
           console.log(
             `[RESUME] ${sessionId.substring(0, 8)}... parked until ${new Date(parked.expiresAt).toISOString()} (key=${parkedKey})`
           );
@@ -1991,15 +2024,24 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       } catch (err: any) {
         console.warn(`[VOICE TRANSCRIPT] n8n send failed: ${err?.message || err}`);
       }
-    })();
-
-    if (recordingEnabled && recordingSegments.length > 0) {
-      const segments = recordingSegments.splice(0);
-      void finalizeVoiceRecording(sessionId, candidateId, segments, {
-        applicationId: applicationIdParam,
-        campaignId: resolvedCampaignId,
+    })().catch((err: any) => {
+      /**
+       * مسار الإغلاق لا يُسقط العملية — وكان قبل هذا المعالج يصل إلى
+       * `process.on('unhandledRejection')` في server.ts فيُكتب صفٌّ في
+       * `site_errors`. الإمساك به هنا كان سيُخفيه في سطرٍ عابر، فيُسجَّل صريحاً:
+       * هذا المسار هو الذي بُنيت المراقبة لأجله (ولا تقييم ولا قفل إن فشل).
+       */
+      const message = `voice close path failed: ${err?.message || err}`;
+      console.warn(`[SESSION END] ${sessionId.substring(0, 8)}... ${message}`);
+      recordSiteErrorAsync({
+        source: "backend",
+        severity: "error",
+        message,
+        stack: typeof err?.stack === "string" ? err.stack : undefined,
+        route: "ws:/voice-interview",
+        sessionId,
       });
-    }
+    });
 
     console.log(
       `[SESSION END] ${sessionId.substring(0, 8)}... endedBy=${completedByServer ? "server" : "client"} ` +

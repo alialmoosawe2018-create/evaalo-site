@@ -149,17 +149,126 @@ export function isVoiceRecordingEnabled(candidateId?: string): boolean {
   );
 }
 
+/** ما يُخزَّن على الطلب (أو الشخص) تحت `voiceRecording`. */
+export type StoredVoiceRecording = {
+  key?: string;
+  sessionId?: string;
+  durationSec?: number;
+  sizeBytes?: number;
+} | null | undefined;
+
 /**
- * دمج مقاطع المحادثة إلى MP3 ورفعها إلى R2 ثم حفظ المفتاح على المرشح.
- * تعمل بعد إغلاق الجلسة (لا تحجب الاتصال). الأخطاء تُسجَّل فقط.
+ * هل يحلّ التسجيلُ الجديد محلّ المخزون؟ — **التسجيل يتبع التقييم.**
+ *
+ * التقييم يتبع آخر نصٍّ **قابلٍ للتقييم** يصل (`mergeEval` يستبدل)، فالمؤشّر يتبع
+ * القاعدة نفسها بلا استثناء:
+ *
+ *   - الجلسة قابلة للتقييم (`evidence.ok`) ⇒ نعم، بلا شرط. هي التي سيُحتسب
+ *     تقييمها، فصوتُها هو الصوت الذي يجب أن يسمعه المُوظِّف.
+ *   - غير قابلةٍ للتقييم ⇒ لا تنتزع مؤشّراً من جلسةٍ أخرى؛ تكتب فقط إن لم يكن
+ *     هناك مؤشّر، أو كان لها هي (الإغلاق الثاني لجلسةٍ مستأنَفة يحمل المحادثة
+ *     كاملةً حتى لحظته فيستبدل ملفَّه الأقصر).
+ *
+ * ⚠️ مقيس في الإنتاج (٢٠٢٦-٠٩-١٢): تبويبٌ ثانٍ فُتح قبل إغلاق المقابلة الحقيقية،
+ * صفر إجابات، أُغلق بعدها بثلاث ثوانٍ — فاستبدل تسجيلَ 4929f056 بثماني ثوانٍ من
+ * التحيّة (93cee148، 63 KB، 08:10:26). كان المؤشّر «آخر كاتبٍ يفوز».
+ *
+ * ولماذا لا «الجلسة التي قفلت الرابط»: كان ذلك بابَ النسخة الأولى، وقفلُ الرابط
+ * **أوّلُ كاتبٍ يفوز**. فتبويبان مفتوحان معاً وكلاهما يجيب: الأوّل يملك القفل
+ * فيحتفظ بالصوت، والثاني يصل نصُّه لاحقاً فيملك التقييم — فيسمع المُوظِّف مقابلةً
+ * ويقرأ تقييمَ أخرى. وعلى مسار التراجع (الحملة تُملَك بالشخص) كان ختمُ الشخص
+ * يبقى لأوّل جلسةٍ قفلت رابطه فتُرفض تسجيلاتُ كلّ حملةٍ تالية.
  */
-export async function finalizeVoiceRecording(
+export function shouldReplaceVoiceRecording(
+  existing: StoredVoiceRecording,
+  incoming: { sessionId: string; scorable: boolean }
+): boolean {
+  if (incoming.scorable) return true;
+  if (!existing?.sessionId) return true;
+  return existing.sessionId === incoming.sessionId;
+}
+
+/**
+ * الشرط نفسه كمرشّح Mongo، يُلحق بشرط `_id` فتكون الكتابة ذرّية بلا قراءةٍ سابقة:
+ * قراءةٌ ثمّ كتابة كانت ستترك ثغرةً بين إغلاقين متقاربين. الجلسة القابلة للتقييم
+ * تكتب بلا شرط (مرشّحٌ فارغ).
+ */
+export function voiceRecordingReplaceGuard(incoming: {
+  sessionId: string;
+  scorable: boolean;
+}): Record<string, unknown> {
+  if (incoming.scorable) return {};
+  return {
+    $or: [
+      { 'voiceRecording.sessionId': { $exists: false } },
+      { 'voiceRecording.sessionId': incoming.sessionId },
+    ],
+  };
+}
+
+/**
+ * تسلسل المهامّ لكلّ مفتاح: مهمّةٌ لا تبدأ قبل أن تنتهي سابقتُها على المفتاح نفسه،
+ * ومفاتيح مختلفة لا تنتظر بعضها. فشلُ سابقةٍ لا يمنع اللاحقة.
+ *
+ * السبب: الجلسة المستأنَفة تُغلق مرّتين وترفع تحت المفتاح نفسه؛ لو تقارب الإغلاقان
+ * لثوانٍ لسبق رفعُ الثاني (الأكمل) رفعَ الأوّل فكتب الأوّلُ فوقه.
+ */
+const serialized = new Map<string, Promise<void>>();
+
+export function runSerialized(key: string, task: () => Promise<void>): Promise<void> {
+  const prev = serialized.get(key) ?? Promise.resolve();
+  const run = prev.catch(() => undefined).then(task);
+  serialized.set(key, run);
+  // التنظيف بمعالجَي نجاحٍ وفشل معاً: `finally` وحدها تُنتج فرعاً مرفوضاً بلا
+  // معالج حين تفشل المهمّة، فيقتل Node العمليةَ (unhandled rejection) ولو كان
+  // المتصل قد عالج `run` نفسه.
+  const release = () => {
+    if (serialized.get(key) === run) serialized.delete(key);
+  };
+  void run.then(release, release);
+  return run;
+}
+
+/** للفحص والاختبار. */
+export function serializedKeyCount(): number {
+  return serialized.size;
+}
+
+export type VoiceRecordingScope = {
+  applicationId?: string;
+  campaignId?: string;
+  /**
+   * هل هذه الجلسة قابلة للتقييم (`evidence.ok`)؟ يقرّر مَن يملك المؤشّر — انظر
+   * `shouldReplaceVoiceRecording`. الملفّ يُرفع في الحالتين تحت مفتاح جلسته.
+   */
+  scorable?: boolean;
+};
+
+/**
+ * دمج مقاطع المحادثة إلى MP3 ورفعها إلى R2 ثم حفظ المفتاح على الطلب (أو الشخص).
+ * تعمل بعد إغلاق الجلسة (لا تحجب الاتصال). الأخطاء تُسجَّل فقط.
+ *
+ * تُنفَّذ متسلسلةً لكلّ جلسة (انظر `runSerialized`)، ويُحسم المؤشّر بـ
+ * `voiceRecordingReplaceGuard` مُلحَقاً بالكتابة نفسها لا بقراءةٍ قبلها.
+ */
+export function finalizeVoiceRecording(
   sessionId: string,
   candidateId: string | undefined,
   segments: RecordingSegment[],
-  scope?: { applicationId?: string; campaignId?: string }
+  scope?: VoiceRecordingScope
 ): Promise<void> {
-  if (!candidateId || segments.length === 0) return;
+  if (!candidateId || segments.length === 0) return Promise.resolve();
+  return runSerialized(`voice-recording:${sessionId}`, () =>
+    finalizeVoiceRecordingNow(sessionId, candidateId, segments, scope)
+  );
+}
+
+async function finalizeVoiceRecordingNow(
+  sessionId: string,
+  candidateId: string,
+  segments: RecordingSegment[],
+  scope?: VoiceRecordingScope
+): Promise<void> {
   const short = sessionId.substring(0, 8);
   try {
     const result = await buildConversationMp3(segments);
@@ -188,7 +297,14 @@ export async function finalizeVoiceRecording(
     // application. Resolve first: the person is written only when there is no
     // application to hold it, otherwise the newest recording overwrites the
     // person's copy and every campaign appears to share one.
+    //
+    // The pointer moves only under `voiceRecordingReplaceGuard` (see
+    // `shouldReplaceVoiceRecording`): the file is uploaded regardless, so a
+    // recording that loses the pointer still exists under its own key.
+    const incoming = { sessionId, scorable: scope?.scorable === true };
+    const guard = voiceRecordingReplaceGuard(incoming);
     let storedOnApplication = false;
+    let pointerMoved = false;
     try {
       const { findApplicationForCallback } = await import('./candidateApplicationService.js');
       const app = await findApplicationForCallback({
@@ -197,16 +313,35 @@ export async function finalizeVoiceRecording(
         campaignId: scope?.campaignId,
       });
       if (app) {
-        await CandidateApplication.findByIdAndUpdate(app._id, { $set: { voiceRecording } });
-        storedOnApplication = true;
+        const updated = await CandidateApplication.findOneAndUpdate(
+          { _id: app._id, ...guard },
+          { $set: { voiceRecording } },
+          { new: true }
+        );
+        // ⚠️ `storedOnApplication` بعد نجاح الكتابة لا قبلها: كانت تُرفع قبلها،
+        // فكان فشلٌ عابر في Mongo يُسقط بديلَ الشخص أدناه (المشروط بها) ويطبع
+        // «المؤشّر لهذه الجلسة» بينما لا صفَّ يشير إلى الملفّ أصلاً.
+        storedOnApplication = Boolean(updated);
+        pointerMoved = Boolean(updated);
       }
-    } catch {
-      /* best-effort — the person write below is the fallback */
+    } catch (appErr: any) {
+      // best-effort — the person write below is the fallback
+      console.warn(`[VOICE RECORDING] ${short}... application pointer write failed: ${appErr?.message || appErr}`);
     }
     if (!storedOnApplication || !isApplicationOwnsCampaignStateEnabled()) {
-      await Candidate.findByIdAndUpdate(candidateId, { $set: { voiceRecording } });
+      const updated = await Candidate.findOneAndUpdate(
+        { _id: candidateId, ...guard },
+        { $set: { voiceRecording } },
+        { new: true }
+      );
+      pointerMoved = pointerMoved || Boolean(updated);
     }
-    console.log(`[VOICE RECORDING] ${short}... uploaded ${(result.sizeBytes / 1024).toFixed(0)}KB → ${key}`);
+    console.log(
+      `[VOICE RECORDING] ${short}... uploaded ${(result.sizeBytes / 1024).toFixed(0)}KB → ${key}` +
+        (pointerMoved
+          ? ' (pointer → this session)'
+          : ` (pointer unchanged — session not scorable${storedOnApplication ? '' : ', no row written'})`)
+    );
   } catch (err: any) {
     console.warn(`[VOICE RECORDING] ${short}... failed: ${err?.message || err}`);
   }
