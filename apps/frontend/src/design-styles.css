@@ -5556,10 +5556,16 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
 }
 
 /* Job ad toolbar (Edit / Translate) — same glass pill as Design page .question-item-btn */
+/* ⚠️ NO backdrop-filter here. A rule ~200 lines above already turns it off for this
+   button, with the reason written out: a nested blur inside .ni-modal-scroll samples
+   the modal's backdrop root rather than the scrolled content, so it does not move
+   with the scroll and it promotes the button to its own composited layer, which then
+   paints outside the card's rounded clip while scrolling. That earlier fix was DEAD:
+   same selector, same !important, and this block comes later in the file, so this one
+   won. (The light theme already sets none, which is why the artifact only showed in
+   the dark theme.) The button's own background is 80% opaque; nothing is lost. */
 .new-interview-modal .ni-job-ad-toolbar-btn {
     background: rgba(15, 23, 42, 0.8) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
     border: 1px solid rgba(34, 211, 238, 0.3) !important;
     color: rgba(255, 255, 255, 0.95) !important;
     padding: 8px !important;
@@ -5696,6 +5702,18 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     color: rgba(34, 211, 238, 1) !important;
     filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.6)) !important;
     transform: scale(1.08) !important;
+}
+
+/* The globe does not lift on hover.
+   `.ni-job-ad-toolbar-btn:hover` raises the button 2px over a 300ms transition. On
+   the other toolbar buttons that reads as a button. On this one it does not: the
+   globe sits in the middle of a long scrolling panel, so scrolling drags the cursor
+   across it and the icon rises and settles on its own — which reads as the icon
+   drifting with the mouse rather than as a hover state. Equal specificity to the
+   base rule, so this must stay AFTER it in the file. The glow and the icon's own
+   scale are kept; only the displacement goes. */
+.new-interview-modal .ni-ad-lang-picker__btn:hover:not(:disabled) {
+    transform: none !important;
 }
 
 /* Job ad language dropdown — opens below globe button */
