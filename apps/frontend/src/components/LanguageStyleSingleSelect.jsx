@@ -74,6 +74,15 @@ export default function LanguageStyleSingleSelect({
                 role="listbox"
                 hidden={!open}
             >
+                {/* The menu itself is `overflow: hidden` with a max-height (min(420px, 55vh),
+                    and only 50vh on the application form). Scrolling is delegated to this
+                    inner area — `position-suggest-dropdown-scroll` carries flex:1/min-height:0
+                    /overflow-y:auto. PositionSuggestCombobox always rendered it; this menu did
+                    not, so on a short viewport every option past the cap was clipped away with
+                    no way to reach it. On a phone that hid most of the Job Level list and the
+                    field read as frozen. `overscroll-behavior: contain` keeps a flick inside
+                    the list instead of scrolling the page behind it. */}
+                <div className="position-suggest-dropdown-scroll" style={{ overscrollBehavior: 'contain' }}>
                 {options.map((opt, i) => {
                     const group = opt.group || '';
                     const startsGroup = group && group !== (options[i - 1]?.group || '');
@@ -100,6 +109,7 @@ export default function LanguageStyleSingleSelect({
                         </React.Fragment>
                     );
                 })}
+                </div>
             </div>
         </div>
     );
