@@ -401,7 +401,7 @@ export const translations = {
         headHunterPageP1:
             "AI Head Hunter helps you find the best talent and candidates from LinkedIn faster, with greater accuracy and intelligence.",
         headHunterPageP2:
-            "Connect your account from Settings, specify the job title, location, and required experience level, then click Search. evaalo searches within your available network, analyzes professional profiles, and surfaces the best-matching candidates with a summary and analysis to help you evaluate them quickly.",
+            "Just specify the job title, location, and required experience level, then click Search. evaalo searches, analyzes professional profiles, and surfaces the best-matching candidates with a summary and analysis to help you evaluate them quickly.",
         headHunterPageP3:
             "It does not stop at search — you can also have evaalo reach out to candidates and assess them through video interviews with a single click.",
         headHunterPageP4:
@@ -2081,7 +2081,7 @@ export const translations = {
         headHunterPageP1:
             "يساعدك مستكشف المواهب (AI HeadHunter) على العثور على أفضل المواهب والمرشحين من LinkedIn بشكل أسرع، أدق، وأكثر ذكاءً.",
         headHunterPageP2:
-            "كل ما عليك هو ربط حسابك من الإعدادات، ثم تحديد المسمى الوظيفي، والموقع، ومستوى الخبرة المطلوب، وبعدها الضغط على زر البحث. سيقوم ایڤالو بالبحث داخل الشبكة المتاحة لك، وتحليل الملفات المهنية، وعرض أفضل المرشحين المطابقين لمتطلباتك مع ملخص وتحليل يساعدك على تقييمهم بسرعة.",
+            "كل ما عليك هو تحديد المسمى الوظيفي، والموقع، ومستوى الخبرة المطلوب، ثم الضغط على زر البحث. سيقوم ایڤالو بالبحث، وتحليل الملفات المهنية، وعرض أفضل المرشحين المطابقين لمتطلباتك مع ملخص وتحليل يساعدك على تقييمهم بسرعة.",
         headHunterPageP3:
             "ولا يتوقف الأمر عند البحث فقط، بل يمكنك أيضًا أن تدع ایڤالو يتواصل مع المرشحين ويقيّمهم من خلال مقابلات فيديو بضغطة زر واحدة.",
         headHunterPageP4:
@@ -3751,7 +3751,7 @@ export const translations = {
         headHunterPageP1:
             "گەڕان بە تواناکان (AI Head Hunter) یارمەتیت دەدات باشترین توانا و کاندیدەکان لە LinkedIn بە خێرایی، وردتر و زیرەکتر بدۆزیتەوە.",
         headHunterPageP2:
-            "تەنها پێویستە هەژمارەکەت لە ڕێکخستنەکان ببەستیتەوە، ناونیشانی کار، شوێن و ئاستی ئەزموونی پێویست دیاری بکەیت، دواتر دوگمەی گەڕان دابگرێت. evaalo لە تۆڕی بەردەستتدا دەگەڕێت، پرۆفایلە پیشەیییەکان شیدەکاتەوە، و باشترین کاندیدە گونجاوەکان لەگەڵ پوختە و شیکاری پیشان دەدات بۆ هەڵسەنگاندنی خێرا.",
+            "تەنها پێویستە ناونیشانی کار، شوێن و ئاستی ئەزموونی پێویست دیاری بکەیت، دواتر دوگمەی گەڕان دابگرێت. evaalo دەگەڕێت، پرۆفایلە پیشەیییەکان شیدەکاتەوە، و باشترین کاندیدە گونجاوەکان لەگەڵ پوختە و شیکاری پیشان دەدات بۆ هەڵسەنگاندنی خێرا.",
         headHunterPageP3:
             "تەنها گەڕان نییە — دەتوانیت evaalo ناردن بۆ کاندیدەکان و هەڵسەنگاندنیان لە ڕێگەی چاوپێکەوتنی ڤیدیۆیی بە یەک کلیک.",
         headHunterPageP4:
