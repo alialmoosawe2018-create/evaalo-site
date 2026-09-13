@@ -17,7 +17,14 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
 import { canonicalStageRecommendation, hasMeaningfulStageEvaluation } from '../utils/stageRecommendation.js';
 import { scriptTextProps } from '../utils/textScript.js';
-import { localizeRatingWord } from '../utils/ratingWords.js';
+import { CompetencyChipStrip, CompetencyDetailList } from '../components/screening/CompetencyChips.jsx';
+import {
+    buildLegacyStage2Rows,
+    buildStage2CompetencyRows,
+    isInsufficientStage2Evaluation,
+    isStage2CompetencyEvaluation,
+    stage2Coverage,
+} from '../utils/stage2CompetencyDisplay.js';
 import ScreeningCampaignList from '../components/screening/ScreeningCampaignList.jsx';
 import StageRefreshButton from '../components/screening/StageRefreshButton.jsx';
 import ScreeningAiComparePanel from '../components/screening/ScreeningAiComparePanel.jsx';
@@ -102,24 +109,9 @@ function normalizeVoiceBulletList(raw) {
     return [];
 }
 
-/** مهارة: رقم /10 أو نص (كلمات) */
-function formatVoiceSkill(v, naLabel, outOfTenTpl) {
-    if (v === undefined || v === null) return naLabel;
-    if (typeof v === 'number' && Number.isFinite(v)) return fillI18nTemplate(outOfTenTpl, { n: v });
-    return displayVoiceText(v, naLabel);
-}
-
 const VoiceInterview = () => {
     const { t, currentLang } = useLanguage();
     const na = t('stageEval_notApplicable');
-    const skillOutTen = t('stageEval_skillOutOfTen');
-    /**
-     * ترجمة كلمات التقدير الإنجليزية القادمة من n8n للعرض بلغة الواجهة.
-     * المفردات كاملة في utils/ratingWords.js — كانت هنا أربع كلمات فقط
-     * (excellent/good/intermediate/bad)، بينما يُخرج مقيّم المرحلة ٢ أيضاً
-     * High / Medium / Fluent / Basic فتبقى إنجليزية وسط صفٍّ عربي.
-     */
-    const localizeRating = (val) => localizeRatingWord(val, t);
 
     const translateRecLabel = (canonical) => {
         switch (canonical) {
@@ -810,46 +802,18 @@ const VoiceInterview = () => {
                                             minWidth: '250px',
                                             borderRight: '1px solid rgba(34, 211, 238, 0.3)'
                                         }}>{t('stageEval_colCandidate')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
+                                        {/* One heading over the whole competency strip. The five
+                                            skill columns it replaces named a subset of what this
+                                            stage measures — and the stage reads the candidate as a
+                                            person, so the heading says so. */}
+                                        <th colSpan={5} style={{
+                                            padding: '16px',
+                                            textAlign: 'center',
+                                            color: '#22d3ee',
+                                            fontWeight: 600,
                                             fontSize: '14px',
                                             borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('stageEval_colCommunicationSkills')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('stageEval_colEnglishFluency')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('stageEval_colConfidenceLevel')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('stageEval_colProblemSolving')}</th>
-                                        <th style={{ 
-                                            padding: '16px', 
-                                            textAlign: 'center', 
-                                            color: '#22d3ee', 
-                                            fontWeight: 600, 
-                                            fontSize: '14px',
-                                            borderRight: '1px solid rgba(34, 211, 238, 0.3)'
-                                        }}>{t('stageEval_colComputerSkills')}</th>
+                                        }}>{t('stageEval_sectionPersonalAspects')}</th>
                                         <th style={{ 
                                             padding: '16px 8px', 
                                             textAlign: 'center', 
@@ -921,6 +885,16 @@ const VoiceInterview = () => {
                                         const candidateId = candidate._id || candidate.id;
                                         const isExpanded = expandedRows.has(candidateId);
                                         const photoUrl = candidatePhotoUrl(candidate);
+                                        // One column for every row. The ten-competency scorer (2026-09-13)
+                                        // gives each competency a rating AND the verbatim quote it rests on;
+                                        // the 31 evaluations written before it carry only the five flat
+                                        // ratings, and those are shown as the same chips rather than dropped.
+                                        const isCompetencyEval = isStage2CompetencyEvaluation(evaluation);
+                                        const competencyChips = isCompetencyEval
+                                            ? buildStage2CompetencyRows(evaluation, t)
+                                            : buildLegacyStage2Rows(evaluation, t);
+                                        const coverage = stage2Coverage(evaluation);
+                                        const insufficientEval = isInsufficientStage2Evaluation(evaluation);
                                         
                                         const toggleRow = (e) => {
                                             // Don't expand if clicking on share button
@@ -1068,64 +1042,26 @@ const VoiceInterview = () => {
                                                     </div>
                                                 </td>
 
-                                                {/* Communication */}
-                                                <td style={{ 
-                                                    padding: '16px', 
-                                                    textAlign: 'center',
+                                                {/* جوانب الشخصيّة — عمودٌ واحد لكل صفّ، جديداً كان أو قديماً */}
+                                                <td colSpan={5} style={{
+                                                    padding: '14px 16px',
                                                     borderRight: '1px solid rgba(34, 211, 238, 0.3)',
-                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
+                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)',
+                                                    verticalAlign: 'middle'
                                                 }}>
-                                                    <div className="stage-eval-cell-value">
-                                                        {localizeRating(formatVoiceSkill(evaluation?.communication, na, skillOutTen))}
-                                                    </div>
-                                                </td>
-
-                                                {/* Language Fluency */}
-                                                <td style={{ 
-                                                    padding: '16px', 
-                                                    textAlign: 'center',
-                                                    borderRight: '1px solid rgba(34, 211, 238, 0.3)',
-                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
-                                                }}>
-                                                    <div className="stage-eval-cell-value">
-                                                        {localizeRating(displayVoiceText(evaluation?.language_fluency, na))}
-                                                    </div>
-                                                </td>
-
-                                                {/* Confidence */}
-                                                <td style={{ 
-                                                    padding: '16px', 
-                                                    textAlign: 'center',
-                                                    borderRight: '1px solid rgba(34, 211, 238, 0.3)',
-                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
-                                                }}>
-                                                    <div className="stage-eval-cell-value">
-                                                        {localizeRating(displayVoiceText(evaluation?.confidence, na))}
-                                                    </div>
-                                                </td>
-
-                                                {/* Problem Solving */}
-                                                <td style={{ 
-                                                    padding: '16px', 
-                                                    textAlign: 'center',
-                                                    borderRight: '1px solid rgba(34, 211, 238, 0.3)',
-                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
-                                                }}>
-                                                    <div className="stage-eval-cell-value">
-                                                        {localizeRating(formatVoiceSkill(evaluation?.problem_solving, na, skillOutTen))}
-                                                    </div>
-                                                </td>
-
-                                                {/* Digital Skills */}
-                                                <td style={{ 
-                                                    padding: '16px', 
-                                                    textAlign: 'center',
-                                                    borderRight: '1px solid rgba(34, 211, 238, 0.3)',
-                                                    borderLeft: '1px solid rgba(34, 211, 238, 0.1)'
-                                                }}>
-                                                    <div className="stage-eval-cell-value">
-                                                        {localizeRating(displayVoiceText(evaluation?.digital_skills, na))}
-                                                    </div>
+                                                    {/* The column heading already names the section; only the
+                                                        coverage needs saying here. */}
+                                                    {coverage != null ? (
+                                                        <div style={{ marginBottom: '8px' }}>
+                                                            <span className="stage-eval-competency-coverage">
+                                                                {fillI18nTemplate(t('stageEval_coverage'), { value: coverage })}
+                                                            </span>
+                                                        </div>
+                                                    ) : null}
+                                                    <CompetencyChipStrip
+                                                        rows={competencyChips}
+                                                        emptyLabel={t('stageEval_none')}
+                                                    />
                                                 </td>
 
                                                 {/* Score + Recommendation (مثل Stage 1) */}
@@ -1224,12 +1160,55 @@ const VoiceInterview = () => {
                                                             padding: '24px',
                                                             animation: 'slideDown 0.3s ease-out'
                                                         }}>
+                                                            {insufficientEval ? (
+                                                                <div role="alert" style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'flex-start',
+                                                                    gap: '12px',
+                                                                    padding: '14px 16px',
+                                                                    marginBottom: '20px',
+                                                                    borderRadius: '10px',
+                                                                    background: 'rgba(245, 158, 11, 0.10)',
+                                                                    border: '1px solid rgba(245, 158, 11, 0.45)'
+                                                                }}>
+                                                                    <span aria-hidden="true" style={{ fontSize: '18px', lineHeight: 1.2, color: '#F59E0B', flexShrink: 0 }}>⚠</span>
+                                                                    <div>
+                                                                        <div style={{ fontWeight: 700, color: '#F59E0B', marginBottom: '4px' }}>
+                                                                            {t('videoInterview_insufficientTitle')}
+                                                                        </div>
+                                                                        <div {...scriptTextProps(t('candidates_evalInsufficientData'))} style={{ color: '#CBD5E1', fontSize: '13px', lineHeight: 1.5 }}>
+                                                                            {t('candidates_evalInsufficientData')}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ) : null}
                                                             <div style={{
                                                                 display: 'grid',
                                                                 gridTemplateColumns: 'repeat(2, 1fr)',
                                                                 gap: '20px',
                                                                 marginBottom: '20px'
                                                             }}>
+                                                                {/* The ten fixed competencies, each with the quote it rests on —
+                                                                    full width. Only the new shape carries evidence; for an older
+                                                                    evaluation the row's own strip already shows everything there
+                                                                    is, so repeating it here would say nothing new. */}
+                                                                {isCompetencyEval ? (
+                                                                    <div className="stage-eval-detail-card" style={{ gridColumn: '1 / -1' }}>
+                                                                        <h4 className="stage-eval-detail-card__title">
+                                                                            {t('stageEval_sectionPersonalAspects')}
+                                                                            {coverage != null ? (
+                                                                                <span className="stage-eval-competency-coverage">
+                                                                                    {fillI18nTemplate(t('stageEval_coverage'), { value: coverage })}
+                                                                                </span>
+                                                                            ) : null}
+                                                                        </h4>
+                                                                        <CompetencyDetailList
+                                                                            rows={competencyChips}
+                                                                            emptyLabel={t('stageEval_none')}
+                                                                        />
+                                                                    </div>
+                                                                ) : null}
+
                                                                 {/* Summary */}
                                                                 <div className="stage-eval-detail-card">
                                                                     <h4 className="stage-eval-detail-card__title">

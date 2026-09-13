@@ -15200,6 +15200,23 @@ body.rtl-text .stage-eval-detail-card__muted {
     color: #94a3b8;
 }
 
+/* Share of the role's weight the interview actually covered — a quiet number
+   beside the section title, never competing with the competencies themselves. */
+.stage-eval-competency-coverage {
+    margin-inline-start: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    letter-spacing: 0.02em;
+}
+
+/* "Self-reported": the candidate claimed it, the interview could not observe it. */
+.stage-eval-competency-detail-item__note {
+    font-size: 11px;
+    color: #94a3b8;
+    font-style: italic;
+}
+
 .stage-eval-competency-chip__flag {
     color: #ef4444;
     flex-shrink: 0;
@@ -15427,6 +15444,11 @@ html[data-app-theme='light'] .stage-eval-competency-chip--miss .stage-eval-compe
 
 html[data-app-theme='light'] .stage-eval-competency-chip--na .stage-eval-competency-chip__symbol {
     color: #64748b;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-coverage,
+html[data-app-theme='light'] .stage-eval-competency-detail-item__note {
+    color: #475569;
 }
 
 html[data-app-theme='light'] .stage-eval-competency-detail__label {

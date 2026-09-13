@@ -30,10 +30,10 @@ import { getUserStorageKeySuffix, userScopedStorageKey } from './userStorageKey'
 // interview-link state — and now carry only what their own application holds.
 // A v2 snapshot would paint that inherited version for a beat on first open,
 // which is exactly the wrong thing to flash at a recruiter.
-const SNAPSHOT_KEY_BASE = 'evaalo-stage-board-v3';
+const SNAPSHOT_KEY_BASE = 'evaalo-stage-board-v4';
 
 /** Earlier key bases, cleared on write so an abandoned snapshot stops holding quota. */
-const SUPERSEDED_SNAPSHOT_KEY_BASES = ['evaalo-stage-board-v2'];
+const SUPERSEDED_SNAPSHOT_KEY_BASES = ['evaalo-stage-board-v2', 'evaalo-stage-board-v3'];
 
 /** Beyond this a snapshot would crowd the origin's quota; a board works without one. */
 const SNAPSHOT_MAX_CHARS = 1_500_000;

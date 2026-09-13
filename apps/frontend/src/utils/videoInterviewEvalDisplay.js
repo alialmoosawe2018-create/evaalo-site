@@ -304,6 +304,34 @@ export function humanizeCompetencyKey(key) {
     return words ? words.charAt(0).toUpperCase() + words.slice(1) : '';
 }
 
+/**
+ * Adapt blueprint rows to the shape `CompetencyChips` renders — the layout Stage 2
+ * now shares. Stage 3's mark is a verdict symbol, because a blueprint competency is
+ * read as met or not; Stage 2 puts its rating word in the same place.
+ */
+export function blueprintRowsToCompetencyChips(rows, t) {
+    return (rows || []).map((row) => {
+        // Not assessed is not a failure, so show a neutral dash, not a red ✗.
+        const tone = !row.assessed ? 'na' : row.met ? 'met' : 'miss';
+        const markLabel = !row.assessed
+            ? t('videoInterview_notAssessed')
+            : row.met
+              ? t('videoInterview_competencyMet')
+              : t('videoInterview_competencyNotMet');
+        return {
+            key: row.key,
+            label: row.label,
+            tone,
+            mark: !row.assessed ? '–' : row.met ? '✓' : '✗',
+            markLabel,
+            markTitle: row.assessed ? '' : markLabel,
+            evidence: row.evidence,
+            redFlags: row.redFlags,
+            note: '',
+        };
+    });
+}
+
 /** Normalize evaluation.competencyScores into display rows for the blueprint (v2) view. */
 export function buildBlueprintCompetencyRows(evaluation) {
     const comps = Array.isArray(evaluation?.competencyScores) ? evaluation.competencyScores : [];
