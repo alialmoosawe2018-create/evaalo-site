@@ -438,13 +438,18 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
         
         console.log('✅ Recruitment campaign saved:', campaignId);
 
-        // مقابلات الفيديو فقط: ولّد وثبّت Blueprint الحملة تلقائياً قبل إرسال الرابط (idempotent، fail-open).
-        // لا يمنع إنشاء الحملة عند الفشل — الوكيل يرجع لبنك JSON.
-        if (String(campaignData.interviewType || '').trim().toLowerCase() === 'video') {
-            ensureBlueprintForCampaign(campaignId).catch((err) => {
-                console.error(`⚠️ ensureBlueprintForCampaign (campaign create) failed for ${campaignId} (non-blocking):`, err?.message || err);
-            });
-        }
+        // Every campaign can reach the video stage — its link is shared from the
+        // board later, whatever `interviewType` it was created with — so the
+        // competency blueprint is generated for all of them here, in the background.
+        // The old `interviewType === 'video'` gate matched no real campaign (production
+        // ones are "audio" or unset), which left generation to the candidate's own
+        // /prepare, about a hundred seconds before they pressed Start, and the first
+        // interview of every campaign ran without competencies.
+        // idempotent, fail-open: a failure never blocks creation — the agent falls back
+        // to the JSON bank and /start retries with the fast model.
+        ensureBlueprintForCampaign(campaignId).catch((err) => {
+            console.error(`⚠️ ensureBlueprintForCampaign (campaign create) failed for ${campaignId} (non-blocking):`, err?.message || err);
+        });
 
         // إرجاع campaign ID للاستخدام في الرابط
         const shareLang =

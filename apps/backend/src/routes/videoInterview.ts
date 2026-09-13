@@ -35,12 +35,14 @@ import {
     INTERVIEW_LINK_ALREADY_USED,
 } from '../services/interviewLinkAccess.js';
 import {
+    blueprintStartFastModel,
     buildBlueprintSnapshot,
     ensureBlueprintForCampaign,
     getLockedBlueprintForCampaign,
     isBlueprintFeatureEnabled,
     type LockedBlueprintBundle,
 } from '../services/expertise/ensureBlueprint.js';
+import { claimOnce, withTimeout } from '../services/videoStartGuards.js';
 import {
     applyBlueprintMetadataToLiveKit,
     buildBlueprintMetadata,
@@ -325,37 +327,105 @@ async function loadBlueprintBundleSafe(campaignId?: string): Promise<LockedBluep
     }
 }
 
-/** أقصى انتظار عند بدء المقابلة لتوليد Blueprint جارٍ بالفعل (ms). */
+/**
+ * How long an interview that is starting NOW waits for a blueprint still being
+ * generated (ms). Measured 2026-09-13 on the deployed generator: gpt-5-mini takes
+ * ~100 s and gpt-4o-mini ~45 s for ten Arabic competencies, so the old 30 s wait
+ * almost never paid — it only kept the candidate on the "preparing" screen. A
+ * short wait catches a generation that is about to lock; the rest runs on in the
+ * background and locks for the next candidate.
+ */
 const BLUEPRINT_START_WAIT_MS = Math.max(
     0,
-    Number(process.env.BLUEPRINT_START_WAIT_MS ?? 30000) || 0
+    Number(process.env.BLUEPRINT_START_WAIT_MS ?? 8000) || 0
 );
-const BLUEPRINT_START_POLL_MS = 1000;
 
 /**
- * ينتظر Blueprint الحملة إن كان توليده ما زال جارياً.
+ * The blueprint for an interview that is starting NOW.
  *
- * `ensureBlueprintForCampaign` يُطلَق بلا انتظار عند إنشاء الحملة ويستغرق ~دقيقة.
- * مرشّح يفتح الرابط قبل أن يُقفَل يبدأ مقابلة بلا كفاءات — فيرجع الوكيل لبنك
- * الأسئلة ويصل نصّ المقابلة إلى المصحّح بلا أدلّة كفاءات.
+ * Locked → returned at once. Missing → generation is started here (deduped with
+ * any run already in flight) and awaited for BLUEPRINT_START_WAIT_MS; whatever
+ * has not locked by then keeps running in the background. Normally nothing is
+ * missing — campaign creation and every application trigger generation long
+ * before anyone interviews — so this is the safety net for campaigns that
+ * predate that, and the reason the interview that used to run competency-blind
+ * (and was then scored on ten competencies nobody asked about) no longer does
+ * for the next candidate.
+ *
+ * BLUEPRINT_START_FAST_MODEL (off by default) switches this path to a faster,
+ * weaker model whose blueprint is then locked for the whole campaign. Measured:
+ * it does not finish inside a start wait either, so speed buys nothing here.
  */
-async function awaitBlueprintBundle(campaignId?: string): Promise<LockedBlueprintBundle | null> {
+async function resolveBlueprintForStart(campaignId?: string): Promise<LockedBlueprintBundle | null> {
     const first = await loadBlueprintBundleSafe(campaignId);
-    if (first || !campaignId || BLUEPRINT_START_WAIT_MS <= 0) return first;
-
-    const deadline = Date.now() + BLUEPRINT_START_WAIT_MS;
-    while (Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, BLUEPRINT_START_POLL_MS));
-        const bundle = await loadBlueprintBundleSafe(campaignId);
-        if (bundle) {
-            console.log(`✅ awaitBlueprintBundle: blueprint landed for ${campaignId} before start`);
-            return bundle;
+    if (first || !campaignId || !isBlueprintFeatureEnabled()) return first;
+    const fastModel = blueprintStartFastModel();
+    const startedAt = Date.now();
+    const generation = ensureBlueprintForCampaign(campaignId, fastModel ? { fast: true } : {}).catch(
+        (err: any) => {
+            console.warn(
+                `⚠️ resolveBlueprintForStart: generation failed for ${campaignId}: ${err?.message || err}`
+            );
+            return null;
         }
-    }
-    console.warn(
-        `⚠️ awaitBlueprintBundle: no locked blueprint for ${campaignId} after ${BLUEPRINT_START_WAIT_MS}ms — starting without competencies`
     );
+    const bundle = await withTimeout(generation, BLUEPRINT_START_WAIT_MS);
+    const elapsed = Date.now() - startedAt;
+    console.log(
+        bundle
+            ? `✅ resolveBlueprintForStart: blueprint ready for ${campaignId} in ${elapsed}ms (${fastModel ? `fast:${fastModel}` : 'default model'})`
+            : `⚠️ resolveBlueprintForStart: no blueprint for ${campaignId} after ${elapsed}ms — starting without competencies (generation continues in the background)`
+    );
+    return bundle;
+}
+
+/**
+ * Candidates whose /start is running right now. /prepare consults it after its
+ * own blueprint step: if the candidate pressed Start while /prepare was still
+ * generating, a second dispatch would park an agent in a room nobody joins and
+ * overwrite the handoff, so /end would then delete the wrong room — exactly
+ * what happened on 2026-09-12 (prepare 103 s, start 31 s, two rooms).
+ */
+const startInProgress = new Set<string>();
+
+/** Sessions whose transcript already went to the Stage 3 scorer (see claimOnce). */
+const stage3Sent = new Map<string, number>();
+
+type RegisteredSession = { roomName: string; sessionId: string; campaignId?: string };
+
+/** A room this process registered for the candidate since `since` (by /start or a concurrent /prepare). */
+function registeredInMemorySince(candidateId: string, since: number): RegisteredSession | null {
+    const e = activeCandidateSessions.get(candidateId);
+    if (!e || e.createdAt < since) return null;
+    return { roomName: e.roomName, sessionId: e.sessionId, campaignId: e.campaignId };
+}
+
+/**
+ * Same question against the persisted handoff too (a restart, a second instance).
+ * Unlike resolvePreparedSessionReuseDurable this NEVER deletes anything: /prepare
+ * asks it after a multi-second blueprint step, and a room it finds may be a live
+ * interview — possibly for another of the candidate's campaigns.
+ */
+async function sessionRegisteredSince(candidateId: string, since: number): Promise<RegisteredSession | null> {
+    const inMemory = registeredInMemorySince(candidateId, since);
+    if (inMemory) return inMemory;
+    try {
+        const row = await VideoPrewarmSession.findOne({ candidateId }).lean().exec();
+        const created = row?.createdAt ? new Date(row.createdAt as unknown as string).getTime() : 0;
+        if (row?.roomName && row?.sessionId && created >= since) {
+            return { roomName: row.roomName, sessionId: row.sessionId, campaignId: row.campaignId || undefined };
+        }
+    } catch (err: any) {
+        console.warn(`⚠️ sessionRegisteredSince: handoff lookup failed for ${candidateId}:`, err?.message || err);
+    }
     return null;
+}
+
+/** Two campaign ids agree when either is unknown or both are the same. */
+function campaignsAgree(a?: string, b?: string): boolean {
+    const x = (a || '').trim();
+    const y = (b || '').trim();
+    return !x || !y || x === y;
 }
 
 /**
@@ -629,6 +699,9 @@ async function resolveLiveKitQuestionBankForStart(
  */
 router.post('/prepare', async (req, res) => {
     if (rejectIfStageCallbackSecurityMisconfigured(res)) return;
+    // Anything registered for this candidate after this instant was registered
+    // while we were working — by /start, which then owns the room.
+    const prepareStartedAt = Date.now();
     try {
         const {
             candidateId,
@@ -799,22 +872,65 @@ router.post('/prepare', async (req, res) => {
 
         // Blueprint المتخصص (إن وُجد مقفل للحملة) — fail-open: الغياب يعني رجوع لبنك JSON.
         // /start قد يعيد استخدام هذه الغرفة دون dispatch جديد، فلا بد أن تصل الكفاءات هنا.
-        let prepareBlueprintBundle = isTestMode
+        const prepareBlueprintBundle = isTestMode
             ? null
-            : await awaitBlueprintBundle(prepareCampaignId);
-        if (!isTestMode && !prepareBlueprintBundle && prepareCampaignId) {
-            try {
-                prepareBlueprintBundle = await ensureBlueprintForCampaign(prepareCampaignId);
-            } catch (ensureErr: any) {
-                console.warn(
-                    `⚠️ /prepare: ensureBlueprintForCampaign failed for ${prepareCampaignId}: ${ensureErr?.message || ensureErr}`
-                );
-            }
-        }
+            : await resolveBlueprintForStart(prepareCampaignId);
         const prepareBlueprintMeta = buildBlueprintMetadata(prepareBlueprintBundle);
+
+        // The blueprint step can take seconds. If the candidate pressed Start meanwhile,
+        // /start owns the room: dispatching a second agent here would park it in a room
+        // nobody joins and overwrite the handoff, so /end would delete the wrong room.
+        // Checked here, again right before the room is created, and once more before
+        // the handoff is written — /start can land inside any of the awaits between.
+        const candidateSummary = {
+            id: candidate._id,
+            full_name: candidate.full_name,
+            email: candidate.email,
+            position_applied_for: candidate.position_applied_for,
+            skills: candidate.skills,
+            years_of_experience: candidate.years_of_experience
+        };
+        const respondSkipped = (reason: string) => {
+            console.log(`ℹ️ /prepare: ${reason} for candidate ${candidateId} — leaving the room to /start`);
+            return res.status(200).json({
+                success: true,
+                sessionId: null,
+                candidate: candidateSummary,
+                livekit: null,
+                reused: false,
+                skipped: reason
+            });
+        };
+        const respondReused = async (existing: RegisteredSession) => {
+            console.log(
+                `ℹ️ /prepare: candidate ${candidateId} already has a session (${existing.roomName}) — not dispatching a second agent`
+            );
+            const token = await createUserToken(existing.roomName, `user-${candidateId}`);
+            return res.status(200).json({
+                success: true,
+                sessionId: existing.sessionId,
+                candidate: candidateSummary,
+                livekit: { roomName: existing.roomName, url: process.env.LIVEKIT_URL, token },
+                reused: true
+            });
+        };
+        /** Reuse when it is this campaign's room; never touch another campaign's live interview. */
+        const yieldToRegistered = (existing: RegisteredSession) =>
+            campaignsAgree(existing.campaignId, prepareCampaignId)
+                ? respondReused(existing)
+                : respondSkipped('other_campaign_started');
+
+        const startedMeanwhile = await sessionRegisteredSince(candidateId, prepareStartedAt);
+        if (startedMeanwhile) return await yieldToRegistered(startedMeanwhile);
+        if (startInProgress.has(candidateId)) return respondSkipped('start_in_progress');
 
         if (process.env.LIVEKIT_URL && process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET) {
             try {
+                {
+                    const lateStart = registeredInMemorySince(candidateId, prepareStartedAt);
+                    if (lateStart) return await yieldToRegistered(lateStart);
+                    if (startInProgress.has(candidateId)) return respondSkipped('start_in_progress');
+                }
                 livekitRoomName = await createLiveKitRoom(sessionId);
 
                 const metadata: Record<string, string> = {
@@ -882,6 +998,19 @@ router.post('/prepare', async (req, res) => {
                     throw new Error(`Failed to dispatch agent: ${agentError.message}`);
                 }
 
+                {
+                    // /start may have registered its own room while our dispatch was in
+                    // flight. Ours must not overwrite it — the agent we just parked in ours
+                    // goes down with the room.
+                    const lateStart = registeredInMemorySince(candidateId, prepareStartedAt);
+                    if (lateStart || startInProgress.has(candidateId)) {
+                        const orphan = livekitRoomName;
+                        deleteLiveKitRoom(orphan).catch(() => undefined);
+                        return lateStart
+                            ? await yieldToRegistered(lateStart)
+                            : respondSkipped('start_in_progress');
+                    }
+                }
                 activeCandidateSessions.set(candidateId, {
                     roomName: livekitRoomName,
                     token: livekitToken,
@@ -945,6 +1074,8 @@ router.post('/prepare', async (req, res) => {
  */
 router.post('/start', async (req, res) => {
     if (rejectIfStageCallbackSecurityMisconfigured(res)) return;
+    // Released in `finally` below — /prepare checks it before dispatching a second agent.
+    let lockedCandidateId: string | undefined;
     try {
         const {
             candidateId,
@@ -988,10 +1119,12 @@ router.post('/start', async (req, res) => {
                 message: 'candidateId is required'
             });
         }
+        lockedCandidateId = candidateId;
+        startInProgress.add(candidateId);
 
         // للاختبار: إذا كان candidateId يبدأ بـ "test-" نستخدم بيانات وهمية
         const isTestMode = candidateId.startsWith('test-') || candidateId === '507f1f77bcf86cd799439011';
-        
+
         let candidate;
         if (isTestMode) {
             // بيانات وهمية للاختبار
@@ -1221,7 +1354,7 @@ router.post('/start', async (req, res) => {
         }
 
         // Blueprint المتخصص (إن وُجد مقفل للحملة) — يُحقن في الوكيل ويُلتقط snapshot للثبات والتقييم.
-        const startBlueprintBundle = isTestMode ? null : await awaitBlueprintBundle(normalizedCampaignId);
+        const startBlueprintBundle = isTestMode ? null : await resolveBlueprintForStart(normalizedCampaignId);
         const startBlueprintMeta = buildBlueprintMetadata(startBlueprintBundle);
         const blueprintSnapshot = buildBlueprintSnapshot(startBlueprintBundle);
 
@@ -1488,6 +1621,8 @@ router.post('/start', async (req, res) => {
             message: 'Failed to start video interview',
             error: error.message
         });
+    } finally {
+        if (lockedCandidateId) startInProgress.delete(lockedCandidateId);
     }
 });
 
@@ -1925,29 +2060,50 @@ router.post('/end', async (req, res) => {
                         : `⚠️ /end: no locked blueprint competencies for campaign ${resolvedCampaignId} — ${sessionId} will score without competencies`
                 );
             }
-            sendVideoTranscriptToN8N({
-                sessionId,
-                candidateId: session?.candidateId?.toString?.() || candidateIdToRemove || undefined,
-                conversationHistory: effectiveTranscript,
-                // لغة رابط المشاركة (اختيار الموظف) ثم لغة الـ blueprint، وإلا 'auto' ليكتشفها n8n.
-                language:
-                    (session as any)?.language ||
-                    (session as any)?.blueprintSnapshot?.language ||
-                    'auto',
-                campaignId: resolvedCampaignId,
-                ...(jobCriteriaSnapshot ? { jobCriteria: jobCriteriaSnapshot } : {}),
-                ...(blueprintSnapshot ? { blueprintSnapshot } : {}),
-                ...(isPublicSession ? { mode: 'public' as const } : {}),
-            }).catch((n8nError: unknown) => {
-                if (n8nError instanceof StageCallbackConfigurationError) {
-                    console.log(
-                        '[stage_outbound] ingress=stage3 outcome=failed errorCategory=stage_callback_config_invalid'
-                    );
-                    return;
-                }
-                const message = n8nError instanceof Error ? n8nError.message : String(n8nError);
-                console.warn(`⚠️ Error sending video transcript to n8n (non-blocking): ${message}`);
-            });
+            // One scorer run per interview. /end arrives twice when a tab closes (the
+            // pagehide beacon and the room disconnect fire together, 100–300 ms
+            // apart) and both used to reach n8n with the same transcript — one
+            // session scored 9 and 17 for identical input. Billing already dedupes
+            // on `vi_end:<sessionId>`; the scorer call did not.
+            if (!claimOnce(stage3Sent, sessionId)) {
+                console.log(
+                    `ℹ️ /end: Stage 3 already dispatched for ${sessionId} — not sending the transcript twice`
+                );
+            } else {
+                sendVideoTranscriptToN8N({
+                    sessionId,
+                    candidateId: session?.candidateId?.toString?.() || candidateIdToRemove || undefined,
+                    conversationHistory: effectiveTranscript,
+                    // لغة رابط المشاركة (اختيار الموظف) ثم لغة الـ blueprint، وإلا 'auto' ليكتشفها n8n.
+                    language:
+                        (session as any)?.language ||
+                        (session as any)?.blueprintSnapshot?.language ||
+                        'auto',
+                    campaignId: resolvedCampaignId,
+                    ...(jobCriteriaSnapshot ? { jobCriteria: jobCriteriaSnapshot } : {}),
+                    ...(blueprintSnapshot ? { blueprintSnapshot } : {}),
+                    ...(isPublicSession ? { mode: 'public' as const } : {}),
+                }).then((sent) => {
+                    // The claim is for a send that went out. A skipped or refused send
+                    // (no webhook, n8n down) releases it, so a later /end can still score
+                    // the interview — the twin /end 100–300 ms behind stays suppressed
+                    // because this send is still in flight when it arrives.
+                    if (!sent) {
+                        stage3Sent.delete(sessionId);
+                        console.log(`ℹ️ /end: Stage 3 send did not go out for ${sessionId} — claim released`);
+                    }
+                }).catch((n8nError: unknown) => {
+                    stage3Sent.delete(sessionId);
+                    if (n8nError instanceof StageCallbackConfigurationError) {
+                        console.log(
+                            '[stage_outbound] ingress=stage3 outcome=failed errorCategory=stage_callback_config_invalid'
+                        );
+                        return;
+                    }
+                    const message = n8nError instanceof Error ? n8nError.message : String(n8nError);
+                    console.warn(`⚠️ Error sending video transcript to n8n (non-blocking): ${message}`);
+                });
+            }
         } else {
             console.log(`ℹ️ Skipping video transcript n8n send for ${sessionId}: no conversation history`);
         }

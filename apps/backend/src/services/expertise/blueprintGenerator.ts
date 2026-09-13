@@ -653,10 +653,22 @@ function sanitizeStringArray(v: unknown, max = 12): string[] {
  * يولّد Profile + Blueprint لحملة. يستنتج المجال، يطابق حزمة عميقة إن وُجدت،
  * ثم يطلب من LLM تخصيصاً كاملاً. عند الفشل يرجع لمحتوى الحزمة/التصنيف الخام.
  */
-export async function generateExpertiseAndBlueprint(campaign: {
-    criteria?: Record<string, any>;
-    jobAdvertisement?: string;
-}): Promise<GeneratedExpertise> {
+export interface GenerateBlueprintOptions {
+    /**
+     * Model for the LLM step only. The interview-start fast path sets it when a
+     * candidate is already waiting and the campaign has no blueprint yet; the
+     * default (BLUEPRINT_LLM_MODEL, gpt-5-mini) remains the offline choice.
+     */
+    model?: string;
+}
+
+export async function generateExpertiseAndBlueprint(
+    campaign: {
+        criteria?: Record<string, any>;
+        jobAdvertisement?: string;
+    },
+    options: GenerateBlueprintOptions = {}
+): Promise<GeneratedExpertise> {
     const criteria = (campaign.criteria && typeof campaign.criteria === 'object')
         ? campaign.criteria
         : {};
@@ -831,17 +843,27 @@ Rules:
         // max_completion_tokens; a large budget (BLUEPRINT_LLM_MAX_TOKENS, default
         // 16000) keeps reasoning tokens from starving the JSON output (at 2200 it
         // returns empty).
-        const genModel = (process.env.BLUEPRINT_LLM_MODEL || 'gpt-5-mini').trim() || 'gpt-5-mini';
+        const genModel =
+            (options.model || process.env.BLUEPRINT_LLM_MODEL || 'gpt-5-mini').trim() || 'gpt-5-mini';
         const genIsReasoning = /^(gpt-5|o1|o3|o4)/i.test(genModel);
+        const genStartedAt = Date.now();
         const response = await openai.chat.completions.create({
             model: genModel,
             messages: [
                 { role: 'system', content: sys },
                 { role: 'user', content: user },
             ],
+            // The same output budget for both families. 2200 fitted the original 4-6
+            // competency schema; ten Arabic competencies with five-band rubrics run to
+            // several thousand tokens, and a truncated JSON does not fail loudly — it
+            // falls through to the taxonomy fallback and is locked as the campaign's
+            // instrument. gpt-4o-mini's ceiling is 16384.
             ...(genIsReasoning
                 ? { max_completion_tokens: Number(process.env.BLUEPRINT_LLM_MAX_TOKENS) || 16000 }
-                : { temperature: 0.4, max_tokens: 2200 }),
+                : {
+                      temperature: 0.4,
+                      max_tokens: Math.min(Number(process.env.BLUEPRINT_LLM_MAX_TOKENS) || 16000, 16384),
+                  }),
             response_format: {
                 type: 'json_schema',
                 json_schema: {
@@ -852,6 +874,10 @@ Rules:
             },
         });
         const text = response.choices[0]?.message?.content?.trim() || '';
+        console.log(
+            `blueprintGenerator: LLM model=${genModel} took ${Date.now() - genStartedAt}ms ` +
+                `(title=${jobTitle || 'n/a'}, chars=${text.length})`
+        );
         if (!text) throw new Error('empty LLM response');
         const parsed = JSON.parse(text) as Record<string, any>;
 

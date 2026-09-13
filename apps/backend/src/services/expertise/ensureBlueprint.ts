@@ -91,22 +91,80 @@ export async function getLockedBlueprintForCampaign(
     return { blueprint, profile };
 }
 
+export interface EnsureBlueprintOptions {
+    /**
+     * Generate with BLUEPRINT_START_FAST_MODEL instead of the offline default.
+     * Opt-in only: measured 2026-09-13, gpt-4o-mini still needs ~45 s for ten
+     * Arabic competencies (and truncated them at the old 2200-token cap), so it
+     * cannot finish inside a start wait either — speed buys nothing, and the
+     * first blueprint to lock is the campaign's instrument for every candidate.
+     * Any other generation still in flight simply finds the lock and yields.
+     */
+    fast?: boolean;
+}
+
+/** Model for the opt-in fast path. Empty (the default) keeps the fast path off. */
+export function blueprintStartFastModel(): string {
+    return (process.env.BLUEPRINT_START_FAST_MODEL || '').trim();
+}
+
+/**
+ * One generation per campaign per process, however many callers ask meanwhile.
+ * Campaign creation, every application, /prepare and /start all ask for the same
+ * campaign within seconds of each other, and each used to pay a full LLM run.
+ */
+const inFlight = new Map<string, Promise<LockedBlueprintBundle | null>>();
+
+/** Shares an in-flight promise per key; the entry is released when it settles. */
+export function dedupeInFlight<T>(
+    registry: Map<string, Promise<T>>,
+    key: string,
+    start: () => Promise<T>
+): Promise<T> {
+    const running = registry.get(key);
+    if (running) return running;
+    const task: Promise<T> = start().finally(() => {
+        if (registry.get(key) === task) registry.delete(key);
+    });
+    registry.set(key, task);
+    return task;
+}
+
+/** How many campaign generations this process is running right now (diagnostics). */
+export function blueprintGenerationsInFlight(): number {
+    return inFlight.size;
+}
+
 /**
  * يضمن وجود Blueprint مقفل للحملة. idempotent: استدعاءان متتاليان ينتجان نسخة واحدة.
  * يرمي عند تعذّر إيجاد الحملة فقط؛ غير ذلك يُرجع الحزمة أو null (fail-open للمستدعي).
  */
 export async function ensureBlueprintForCampaign(
-    campaignId: string
+    campaignId: string,
+    options: EnsureBlueprintOptions = {}
 ): Promise<LockedBlueprintBundle | null> {
     const id = (campaignId || '').trim();
     if (!id) return null;
     if (!isBlueprintFeatureEnabled()) return null;
+    const fastModel = options.fast ? blueprintStartFastModel() : '';
+    // Fast path asked for but disabled by env: the caller falls back to waiting.
+    if (options.fast && !fastModel) return null;
+    return dedupeInFlight(inFlight, `${id}:${fastModel || 'default'}`, () =>
+        ensureBlueprintForCampaignUncached(id, fastModel || undefined)
+    );
+}
 
+async function ensureBlueprintForCampaignUncached(
+    id: string,
+    fastModel?: string
+): Promise<LockedBlueprintBundle | null> {
     // 1) موجود ومقفل → أعِده فوراً (لا توليد مكرر).
     const existing = await getLockedBlueprintForCampaign(id);
     if (existing) {
         const stale = (existing.blueprint.styleVersion || '') !== BLUEPRINT_STYLE_VERSION;
-        if (!stale) return existing;
+        // The start path never retires a blueprint: a candidate is waiting, and a
+        // stale-but-locked instrument beats none. The offline callers refresh it.
+        if (!stale || fastModel) return existing;
         // The phrasing rules moved on. Retire this one and fall through to generate a
         // replacement; sessions already recorded keep their own blueprintSnapshot, so
         // past evaluations are untouched.
@@ -138,12 +196,15 @@ export async function ensureBlueprintForCampaign(
     const createdByClerkUserId = campaign.createdByClerkUserId;
 
     // 3) ولّد Profile + Blueprint.
-    const generated = await generateExpertiseAndBlueprint({
-        criteria: (campaign.criteria && typeof campaign.criteria === 'object')
-            ? (campaign.criteria as Record<string, any>)
-            : {},
-        jobAdvertisement: campaign.jobAdvertisement,
-    });
+    const generated = await generateExpertiseAndBlueprint(
+        {
+            criteria: (campaign.criteria && typeof campaign.criteria === 'object')
+                ? (campaign.criteria as Record<string, any>)
+                : {},
+            jobAdvertisement: campaign.jobAdvertisement,
+        },
+        fastModel ? { model: fastModel } : {}
+    );
 
     const profileId = randomUUID();
     const blueprintId = randomUUID();
@@ -225,7 +286,8 @@ export async function ensureBlueprintForCampaign(
         // telemetry خفيف: مستوى العمق يكشف أي التخصصات تحتاج حزماً عميقة لاحقاً (aggregation على logs).
         console.log(
             `✅ ensureBlueprintForCampaign: locked blueprint for campaign ${id} ` +
-                `(domain=${generated.domain}, specialization=${generated.specialization || 'n/a'}, ` +
+                `(mode=${fastModel ? `fast:${fastModel}` : 'default'}, ` +
+                `domain=${generated.domain}, specialization=${generated.specialization || 'n/a'}, ` +
                 `pack=${generated.domainPackKey || 'none'}, source=${generated.generationSource}, ` +
                 `knowledgeDepth=${generated.knowledgeDepth}, contentVersion=${generated.blueprintContentVersion}, ` +
                 `packVersion=${generated.packVersion || 'n/a'}, packMatch=${generated.packMatchConfidence || 'n/a'}, ` +

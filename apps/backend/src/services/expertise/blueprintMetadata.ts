@@ -28,6 +28,30 @@ export interface BlueprintAgentMetadata {
 const MAX_TERMINOLOGY_TERMS = 18;
 const MAX_TERMINOLOGY_CHARS = 480;
 
+/**
+ * How many blueprint competencies the agent receives. The Stage 3 scorer weighs
+ * EVERY competency in the snapshot and an unasked one earns zero, so each one
+ * withheld here is a hole in every score. Ten is the generator's maximum; the
+ * whole payload is ~12 KB against LiveKit's 512 KiB dispatch-metadata limit
+ * (measured on a real blueprint, dispatched live).
+ */
+export const MAX_AGENT_COMPETENCIES = 10;
+
+const PRIORITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2 };
+
+/**
+ * Critical → high → medium, original order within a band. Whatever the cap, the
+ * competencies the scorer weighs most are never the ones left behind — the
+ * stored order is the LLM's, and it has put a "high" behind two "medium"s.
+ */
+export function orderCompetenciesForAgent<T extends { priority?: string }>(list: T[]): T[] {
+    const rank = (c: T): number => PRIORITY_RANK[String(c.priority || '').toLowerCase()] ?? 3;
+    return list
+        .map((c, i) => ({ c, i }))
+        .sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i)
+        .map((x) => x.c);
+}
+
 /** الحد الأقصى لطول نص داخل metadata (حفاظاً على حجم metadata في LiveKit). */
 export function trimMeta(s: unknown, max: number): string {
     const t = String(s || '').trim();
@@ -65,7 +89,9 @@ export function buildBlueprintMetadata(
     const compact: Record<string, unknown> = {
         language: blueprint.language,
         anchorQuestions: (blueprint.anchorQuestions || []).slice(0, 3).map((q) => trimMeta(q, 400)),
-        competencies: (blueprint.competencies || []).slice(0, 6).map((c) => ({
+        competencies: orderCompetenciesForAgent(blueprint.competencies || [])
+            .slice(0, MAX_AGENT_COMPETENCIES)
+            .map((c) => ({
             key: c.competencyKey,
             title: trimMeta(c.title, 120),
             objective: trimMeta(c.questionObjective, 300),

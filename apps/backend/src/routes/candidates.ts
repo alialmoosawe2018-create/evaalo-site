@@ -1371,9 +1371,14 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             console.log('📋 Campaign ID found:', campaignId);
         }
 
-        // مقابلات الفيديو فقط (مرشح Specific/Head Hunter): ولّد وثبّت Blueprint الحملة تلقائياً
-        // قبل إرسال رابط الفيديو (idempotent، fail-open). يتخطّى بأمان عند غياب campaignId.
-        if (campaignId && String(candidateDataForDB.entryStage || '').trim().toLowerCase() === 'video') {
+        // Make sure the campaign's competency blueprint exists before this applicant
+        // can be invited to a video interview. Campaigns created before generation
+        // moved to campaign creation have none, and an application is the last quiet
+        // moment before an interview. Idempotent and background: two reads when the
+        // blueprint is already locked, one generation per campaign per process
+        // otherwise. The old `entryStage === 'video'` gate never matched a real
+        // applicant (they enter at "audio"), so this never fired.
+        if (campaignId) {
             ensureBlueprintForCampaign(campaignId).catch((err) => {
                 console.error(`⚠️ ensureBlueprintForCampaign (candidate create) failed for ${campaignId} (non-blocking):`, err?.message || err);
             });
