@@ -61,17 +61,20 @@ function normalizeRating(rating) {
 }
 
 /**
- * Colour band for a rating word. The owner asked for Stage 3's three colours and
- * no fourth, so the middle band is read the way Stage 3 reads its own middle band:
- * `COMPETENCY_MET_MIN_SCORE = 3` of 5 counts as met, and Intermediate — which earns
- * 40% of the competency's weight, not zero — counts the same. The chip still spells
- * the rating out, so the reader sees "Intermediate", not just a colour.
+ * Colour band for a rating word.
+ *
+ * Since the chip no longer spells the rating out, the colour is the ONLY thing a
+ * reader sees — and with Excellent, Good and Intermediate all folded into one
+ * band, ten chips came out identically green and said nothing. Intermediate now
+ * gets its own band. It is NOT a fourth hue: `--partial` is the same green as
+ * `--met`, only lighter, so the owner's "no amber" still holds while "good" and
+ * "intermediate" stop looking the same.
  */
 export function stage2RatingTone(rating) {
     const r = normalizeRating(rating);
     if (r === 'excellent') return 'met';
     if (r === 'good') return 'met';
-    if (r === 'intermediate') return 'met';
+    if (r === 'intermediate') return 'partial';
     if (r === 'bad') return 'miss';
     return 'na';
 }
@@ -199,15 +202,19 @@ export function buildStage2CompetencyRows(evaluation, t) {
         const assessed = isAssessedRow(row);
         const tone = assessed ? stage2RatingTone(row?.rating) : 'na';
         const ratingText = normalizeStageEvalText(row?.rating);
-        const mark = assessed ? localizeRatingWord(ratingText, t) : '–';
+        const ratingWord = assessed ? localizeRatingWord(ratingText, t) : t('videoInterview_notAssessed');
         return {
             key: key || `competency-${index}`,
             label: normalizeStageEvalText(row?.title) || stage2CompetencyLabel(key, t),
             tone,
-            mark,
-            markLabel: assessed ? String(mark) : t('videoInterview_notAssessed'),
-            // The mark already spells the rating out; only the dash needs explaining.
-            markTitle: assessed ? '' : t('videoInterview_notAssessed'),
+            // The COLOUR carries the rating here, so the word is never printed — it
+            // stays in markLabel/markTitle, where a hover and a screen reader can
+            // still reach it. A not-assessed row keeps its dash: grey with nothing
+            // in it reads as an ordinary chip, and "–" is not one of the rating
+            // words ("جيد", "متوسط"…) the owner asked us to stop showing.
+            mark: assessed ? '' : '–',
+            markLabel: ratingWord,
+            markTitle: ratingWord,
             evidence: normalizeStageEvalStringList(row?.evidence),
             redFlags: [],
             note: row?.selfReported === true ? t('stageEval_selfReported') : '',

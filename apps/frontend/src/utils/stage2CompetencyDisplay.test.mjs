@@ -73,23 +73,35 @@ ok(
         .every((k) => rows.some((r) => r.key === k)),
 );
 
-// ── tones: Stage 3's three colours only — no fourth (owner's decision) ───────
+// ── tones: the colour is now the ONLY thing the chip says, so Intermediate
+//    gets its own band — a LIGHTER green (`partial`), never a new hue ──────────
 ok('Excellent and Good clear the bar', stage2RatingTone('Excellent') === 'met' && stage2RatingTone('Good') === 'met');
-ok("Intermediate reads as met, like Stage 3's middle band — never a red miss", stage2RatingTone('Intermediate') === 'met');
+ok('Intermediate has its own band, so it cannot be mistaken for Good', stage2RatingTone('Intermediate') === 'partial');
 ok('Bad is a miss', stage2RatingTone('Bad') === 'miss');
 ok(
-    "only Stage 3's three tones are ever produced — no amber fourth",
-    ['Excellent', 'Good', 'Intermediate', 'Bad', 'Not Assessed', 'junk', null].every((r) => ['met', 'miss', 'na'].includes(stage2RatingTone(r))),
+    'no tone outside the four bands is ever produced',
+    ['Excellent', 'Good', 'Intermediate', 'Bad', 'Not Assessed', 'junk', null].every((r) => ['met', 'partial', 'miss', 'na'].includes(stage2RatingTone(r))),
+);
+ok(
+    'Good and Intermediate never collapse onto one colour',
+    stage2RatingTone('Good') !== stage2RatingTone('Intermediate'),
 );
 ok('Not Assessed / unknown / empty is na', ['Not Assessed', 'not_assessed', '', null, undefined, 'nonsense'].every((r) => stage2RatingTone(r) === 'na'));
-ok('the tone reading is case- and separator-insensitive', stage2RatingTone('  INTERMEDIATE ') === 'met' && stage2RatingTone('not-assessed') === 'na');
+ok('the tone reading is case- and separator-insensitive', stage2RatingTone('  INTERMEDIATE ') === 'partial' && stage2RatingTone('not-assessed') === 'na');
 const byKey = Object.fromEntries(rows.map((r) => [r.key, r]));
-ok('English Intermediate renders met on the real record', byKey.english_fluency.tone === 'met');
+ok('English Intermediate renders partial on the real record', byKey.english_fluency.tone === 'partial');
 ok('Teamwork Good renders met on the real record', byKey.teamwork_and_collaboration.tone === 'met');
+ok(
+    "ليث's real record no longer comes out as ten identical chips",
+    new Set(rows.map((r) => r.tone)).size > 1,
+    [...new Set(rows.map((r) => r.tone))].join(','),
+);
 
-// ── the mark is the rating WORD (Stage 3 uses a symbol in the same place) ────
-ok('an assessed mark is the localized rating word', byKey.communication_skills.mark === 'stageEval_rateGood', byKey.communication_skills.mark);
-ok('an assessed mark needs no hover text', byKey.communication_skills.markTitle === '');
+// ── the rating WORD is never printed; the colour carries it ─────────────────
+ok('an assessed chip prints no rating word', byKey.communication_skills.mark === '', byKey.communication_skills.mark);
+ok('every assessed chip in the real record is markless', rows.filter((r) => r.tone !== 'na').every((r) => r.mark === ''));
+ok('but the word stays reachable on hover', byKey.communication_skills.markTitle === 'stageEval_rateGood', byKey.communication_skills.markTitle);
+ok('and to a screen reader', byKey.communication_skills.markLabel === 'stageEval_rateGood');
 ok('self-reported carries its note', byKey.computer_skills.note === 'stageEval_selfReported');
 ok('an observed competency carries none', byKey.communication_skills.note === '');
 ok('Stage 2 never shows a red flag (the scorer emits none)', rows.every((r) => r.redFlags.length === 0));
@@ -161,7 +173,11 @@ ok('each carries its old column label', legacyRows[0].label === 'stageEval_colCo
 ok('the mark is the localized rating word', legacyRows[0].mark === 'stageEval_rateIntermediate', legacyRows[0].mark);
 ok('Bad reads as a miss here too', legacyRows[1].tone === 'miss');
 ok('legacy chips carry no evidence and no note', legacyRows.every((r) => r.evidence.length === 0 && r.note === ''));
-ok('only the three tones appear', legacyRows.every((r) => ['met', 'miss', 'na'].includes(r.tone)));
+ok('no tone outside the four bands appears', legacyRows.every((r) => ['met', 'partial', 'miss', 'na'].includes(r.tone)));
+// A legacy row has NO evidence to open, so its rating word is the only thing it can
+// ever say. It keeps the word even though the ten-competency rows dropped theirs —
+// removing it would leave a bare coloured chip with nothing behind it.
+ok('a legacy chip keeps its word, having no evidence to fall back on', legacyRows.every((r) => r.mark !== ''));
 
 const legacyNa = buildLegacyStage2Rows({ communication: 'Good', language_fluency: 'Not Assessed', confidence: 'Good' }, t);
 ok('a missing field is skipped, not shown empty', legacyNa.length === 3, String(legacyNa.length));

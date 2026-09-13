@@ -23,7 +23,6 @@ import {
     buildStage2CompetencyRows,
     isInsufficientStage2Evaluation,
     isStage2CompetencyEvaluation,
-    stage2Coverage,
 } from '../utils/stage2CompetencyDisplay.js';
 import ScreeningCampaignList from '../components/screening/ScreeningCampaignList.jsx';
 import StageRefreshButton from '../components/screening/StageRefreshButton.jsx';
@@ -893,7 +892,6 @@ const VoiceInterview = () => {
                                         const competencyChips = isCompetencyEval
                                             ? buildStage2CompetencyRows(evaluation, t)
                                             : buildLegacyStage2Rows(evaluation, t);
-                                        const coverage = stage2Coverage(evaluation);
                                         const insufficientEval = isInsufficientStage2Evaluation(evaluation);
                                         
                                         const toggleRow = (e) => {
@@ -1049,15 +1047,9 @@ const VoiceInterview = () => {
                                                     borderLeft: '1px solid rgba(34, 211, 238, 0.1)',
                                                     verticalAlign: 'middle'
                                                 }}>
-                                                    {/* The column heading already names the section; only the
-                                                        coverage needs saying here. */}
-                                                    {coverage != null ? (
-                                                        <div style={{ marginBottom: '8px' }}>
-                                                            <span className="stage-eval-competency-coverage">
-                                                                {fillI18nTemplate(t('stageEval_coverage'), { value: coverage })}
-                                                            </span>
-                                                        </div>
-                                                    ) : null}
+                                                    {/* The column heading names the section; the chips say the
+                                                        rest. The coverage percentage used to sit here and was
+                                                        removed on the owner's instruction. */}
                                                     <CompetencyChipStrip
                                                         rows={competencyChips}
                                                         emptyLabel={t('stageEval_none')}
@@ -1196,11 +1188,6 @@ const VoiceInterview = () => {
                                                                     <div className="stage-eval-detail-card" style={{ gridColumn: '1 / -1' }}>
                                                                         <h4 className="stage-eval-detail-card__title">
                                                                             {t('stageEval_sectionPersonalAspects')}
-                                                                            {coverage != null ? (
-                                                                                <span className="stage-eval-competency-coverage">
-                                                                                    {fillI18nTemplate(t('stageEval_coverage'), { value: coverage })}
-                                                                                </span>
-                                                                            ) : null}
                                                                         </h4>
                                                                         <CompetencyDetailList
                                                                             rows={competencyChips}

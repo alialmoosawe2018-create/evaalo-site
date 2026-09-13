@@ -15166,6 +15166,14 @@ body.rtl-text .stage-eval-detail-card__muted {
     border-color: rgba(16, 185, 129, 0.5);
 }
 
+/* "Intermediate" (Stage 2 only). NOT a fourth hue — the same green as --met, just
+   lighter, so "good" and "intermediate" stop reading as the same chip now that the
+   rating word is no longer printed. */
+.stage-eval-competency-chip--partial {
+    background: rgba(16, 185, 129, 0.05);
+    border-color: rgba(16, 185, 129, 0.26);
+}
+
 .stage-eval-competency-chip--miss {
     background: rgba(239, 68, 68, 0.16);
     border-color: rgba(239, 68, 68, 0.5);
@@ -15408,6 +15416,11 @@ html[data-app-theme='light'] .stage-eval-competency-chip--met {
     border-color: rgba(5, 150, 105, 0.45);
 }
 
+html[data-app-theme='light'] .stage-eval-competency-chip--partial {
+    background: rgba(16, 185, 129, 0.04);
+    border-color: rgba(5, 150, 105, 0.24);
+}
+
 html[data-app-theme='light'] .stage-eval-competency-chip--miss {
     background: rgba(239, 68, 68, 0.12);
     border-color: rgba(185, 28, 28, 0.4);
@@ -15424,6 +15437,10 @@ html[data-app-theme='light'] .stage-eval-competency-chip__label {
 
 html[data-app-theme='light'] .stage-eval-competency-chip--met .stage-eval-competency-chip__label {
     color: #065f46 !important;
+}
+
+html[data-app-theme='light'] .stage-eval-competency-chip--partial .stage-eval-competency-chip__label {
+    color: #047857 !important;
 }
 
 html[data-app-theme='light'] .stage-eval-competency-chip--miss .stage-eval-competency-chip__label {

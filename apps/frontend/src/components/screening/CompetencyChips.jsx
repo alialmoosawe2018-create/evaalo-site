@@ -25,16 +25,29 @@ import { scriptTextProps } from '../../utils/textScript.js';
  */
 
 export function CompetencyChip({ row }) {
+    // Stage 2 asks the COLOUR to carry the rating, so its assessed chips arrive with
+    // an empty `mark`. The symbol span is then dropped entirely rather than rendered
+    // blank, and the rating word moves onto the chip as title/aria-label: it stops
+    // being printed without becoming unreachable to a screen reader or a hover.
+    // Stage 3 always sets a mark (✓ / ✗ / –), so its markup is untouched.
+    const hasMark = row.mark != null && row.mark !== '';
     return (
-        <span className={`stage-eval-competency-chip stage-eval-competency-chip--${row.tone}`}>
+        <span
+            className={`stage-eval-competency-chip stage-eval-competency-chip--${row.tone}`}
+            {...(hasMark
+                ? {}
+                : { title: row.markTitle || row.markLabel || '', 'aria-label': `${row.label} — ${row.markLabel}` })}
+        >
             <span {...scriptTextProps(row.label, 'stage-eval-competency-chip__label')}>{row.label}</span>
-            <span
-                className="stage-eval-competency-chip__symbol"
-                aria-label={row.markLabel}
-                title={row.markTitle || ''}
-            >
-                {row.mark}
-            </span>
+            {hasMark ? (
+                <span
+                    className="stage-eval-competency-chip__symbol"
+                    aria-label={row.markLabel}
+                    title={row.markTitle || ''}
+                >
+                    {row.mark}
+                </span>
+            ) : null}
             {row.redFlags?.length > 0 ? (
                 <span className="stage-eval-competency-chip__flag" title={row.redFlags.join(' • ')}>⚑</span>
             ) : null}
