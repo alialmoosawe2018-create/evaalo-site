@@ -177,7 +177,7 @@ export const translations = {
         // Dashboard page
         dashboardOurServices: "Our Services",
         dashboardRecentInterviews: "Recent Interviews",
-        dashboardSvc_newCampaign: "New Campaign",
+        dashboardSvc_newCampaign: "Create Job",
         dashboardSvc_headhunter: "AI HeadHunter",
         dashboardSvc_chart: "Chart",
         dashboardSvc_stage1: "Stage 1",
@@ -1861,7 +1861,7 @@ export const translations = {
         // Dashboard page
         dashboardOurServices: "خدماتنا",
         dashboardRecentInterviews: "أحدث المقابلات",
-        dashboardSvc_newCampaign: "حملة جديدة",
+        dashboardSvc_newCampaign: "إنشاء وظيفة",
         dashboardSvc_headhunter: "مستكشف المواهب",
         dashboardSvc_chart: "الهيكل التنظيمي",
         dashboardSvc_stage1: "المرحلة 1",
@@ -3529,7 +3529,7 @@ export const translations = {
         // Dashboard page
         dashboardOurServices: "خزمەتگوزاریەکانمان",
         dashboardRecentInterviews: "دواترین چاوپێکەوتنەکان",
-        dashboardSvc_newCampaign: "کەمپەینێکی نوێ",
+        dashboardSvc_newCampaign: "دروستکردنی کار",
         dashboardSvc_headhunter: "گەڕان بە تواناکان (AI)",
         dashboardSvc_chart: "نەخشەی ڕێکخراو",
         dashboardSvc_stage1: "قۆناغ ١",
