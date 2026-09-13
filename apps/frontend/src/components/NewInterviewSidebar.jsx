@@ -48,21 +48,28 @@ import apiClient, { ApiError } from '../services/apiClient';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
 import '../design-styles.css';
 
-/** Stable reference — avoids recreating the list on every render; UI strings from `newCampaign_jc_*` via localizeScreeningCriterion */
+/**
+ * Stable reference — avoids recreating the list on every render; UI strings from
+ * `newCampaign_jc_*` via localizeScreeningCriterion.
+ *
+ * ⚠️ THIS ARRAY'S ORDER IS THE ORDER OF THE "Job criteria" GRID (three per row,
+ * with `salaryMax` folded into the salary-range card rather than shown on its own).
+ * The owner placed these deliberately — do not re-sort alphabetically or by group.
+ */
 const AVAILABLE_CRITERIA = [
     { id: 'position', label: 'Position', placeholder: 'Type or pick from list (▼)', type: 'text' },
     { id: 'location', label: 'Location', placeholder: 'Pick Iraqi governorate or type location (▼)', type: 'text' },
     { id: 'job', label: 'Job Level', placeholder: 'Enter job level', type: 'text' },
-    { id: 'company', label: 'Company', placeholder: "If you're looking for candidates from a specific company", type: 'text' },
+    { id: 'experienceYears', label: 'Experience Years', placeholder: 'Pick range or type (▼)', type: 'text' },
     { id: 'industryType', label: 'Industry Type', placeholder: 'Pick a sector or type your own (▼)', type: 'text' },
     { id: 'age', label: 'Age Range', placeholder: 'Pick range or type (e.g. 25-35) (▼)', type: 'text' },
     { id: 'gender', label: 'Gender', placeholder: 'MALE or FEMALE (▼)', type: 'text' },
     { id: 'educationLevel', label: 'Education Level', placeholder: 'Pick level or type (▼)', type: 'text' },
-    { id: 'experienceYears', label: 'Experience Years', placeholder: 'Pick range or type (▼)', type: 'text' },
+    { id: 'availability', label: 'Availability', placeholder: 'Pick availability or type (▼)', type: 'text' },
     { id: 'salaryMin', label: 'Salary Min', placeholder: 'Enter minimum salary', type: 'text' },
     { id: 'salaryMax', label: 'Salary Max', placeholder: 'Enter maximum salary', type: 'text' },
     { id: 'salaryCurrency', label: 'Salary Currency', placeholder: 'USD or IQD only', type: 'text' },
-    { id: 'availability', label: 'Availability', placeholder: 'Pick availability or type (▼)', type: 'text' },
+    { id: 'company', label: 'Company', placeholder: "If you're looking for candidates from a specific company", type: 'text' },
     { id: 'skills', label: 'Required Skills', placeholder: 'Pick a skill or type your own (▼)', type: 'text' },
     { id: 'languages', label: 'Required Languages', placeholder: 'Pick languages or type (comma-separated) (▼)', type: 'text' },
     { id: 'certifications', label: 'Certifications', placeholder: 'Enter required certifications', type: 'text' }
