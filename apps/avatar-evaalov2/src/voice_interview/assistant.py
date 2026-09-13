@@ -686,11 +686,36 @@ def tts_router_aligned_with_stream(r: TtsRouteContext) -> bool:
 
 _REFRAME_INSTRUCTION = (
     "You rewrite ONE interview question so the candidate never has to ask what it "
-    "means. Keep the SAME intent and the SAME language as the input. Open with ONE "
-    "short sentence naming the concrete subject, then ask exactly ONE question about "
-    "it. Two or three short sentences, under ~60 words. No preamble, no thanks, no "
-    "lists, no second question. Output only the rewritten question."
+    "means. Keep the SAME intent as the input. Open with ONE short statement that "
+    "names the concrete subject in everyday words — which part of the job, what kind "
+    "of situation — as context, not as a second request. Then ask exactly ONE "
+    "question about ONE thing: no chains joined with 'and', no list of sub-questions, "
+    "no second question mark. Use simple, common words; a technical or English term "
+    "is allowed only with a short plain gloss. Never assume the candidate has done the "
+    "thing — ask about their experience with it, and let them say it never came up. "
+    "Two or three short sentences, under ~45 words. No preamble, no thanks, no lists. "
+    "Output only the rewritten question."
 )
+
+# ⚠️ 2026-09-12: this call used to say "the SAME language as the input" with an
+# EMPTY context — no session language, no dialect, no conversation. The bank
+# anchors it rewrites are English one-liners, so 5 of 5 rewrites in one Arabic
+# interview came out in Modern Standard Arabic or English, and the candidate
+# asked «Can you speak in Arabic?». The locked interview language now decides.
+_REFRAME_LANGUAGE_RULES: dict[str, str] = {
+    "ar": (
+        "Write it in spoken IRAQI Arabic, the way an interviewer says it aloud "
+        "(شنو، شلون، اذكرلي، وياه، بخصوص، إذا مرّ عليك). Never Modern Standard Arabic "
+        "— no «تحدث عن», «ما هي», «كيف قمت», «التي» — and never English, even when "
+        "the input is English: carry its meaning over. Keep well-known job terms "
+        "(HR, Excel, payroll) as single English words."
+    ),
+    "en": (
+        "Write it in plain spoken English, even when the input is Arabic: carry its "
+        "meaning over."
+    ),
+}
+_REFRAME_LANGUAGE_UNLOCKED = "Keep the SAME language as the input."
 
 class InterviewAssistant(Agent):
     """Routes ElevenLabs voice by agent reply text before TTS (not only user transcript)."""
@@ -762,6 +787,10 @@ class InterviewAssistant(Agent):
         # evaluation scores.
         self._reframe_turn: int = -1
         self._reframe_text: str | None = None
+        # Set by the reply guard when it swaps the model's question for a raw bank
+        # anchor: that anchor is a context-free one-liner (usually English) and must
+        # be reframed before it is spoken — question mark or not.
+        self._reframe_forced_turn: int = -1
         self._conclude_after_reply: bool = False
         # Hold a reference to the fire-and-forget conclude task so it is not
         # garbage-collected before it tears the room down.
@@ -1567,6 +1596,10 @@ class InterviewAssistant(Agent):
                 is_hybrid,
                 is_presupposing,
             )
+            # The anchor never met the framing instruction and may not be in the
+            # interview's language ("Describe a time you improved a process…" was
+            # spoken raw to an Arabic candidate). Make the reframe unconditional.
+            self._reframe_forced_turn = turn
             return enforce_single_question_response(anchor, self._turn_plan)
         # No fresh question is left, so a replacement would just recycle a covered
         # one. Offer a single graceful wrap-up instead of repeating; the closing
@@ -1580,6 +1613,34 @@ class InterviewAssistant(Agent):
             return _WRAP_UP_PROMPT_AR
         return text
 
+    def _build_reframe_messages(self, bare: str) -> list[tuple[str, str]]:
+        """The rewrite prompt: clarity rules + the locked language/dialect + the role.
+
+        Pure, so tests can assert what the model is told. The candidate's answers
+        are deliberately NOT included: the presupposition guard has already run on
+        this turn, and a rewrite fed their words would be free to invent «اللي
+        سويته» all over again.
+        """
+        rules = [_REFRAME_INSTRUCTION]
+        rules.append(_REFRAME_LANGUAGE_RULES.get(self._locked_lang or "", _REFRAME_LANGUAGE_UNLOCKED))
+        if self._position:
+            rules.append(
+                f"The candidate is interviewing for: {self._position}. The opening "
+                "statement may name this role, or the part of it the question is about."
+            )
+        return [("system", "\n".join(rules)), ("user", bare)]
+
+    def reply_language_mismatch(self, text: str) -> bool:
+        """True when the interview language is locked and `text` is unmistakably
+        the other one. Arabic with English loanwords is Arabic to the detector;
+        short or ambiguous text never counts. An unlocked session is never policed.
+        """
+        lock = self._locked_lang
+        if lock not in ("ar", "en"):
+            return False
+        detected = detect_lang_from_text(text)
+        return detected is not None and detected != lock
+
     async def _regenerate_framed_question(self, bare: str) -> str:
         """Ask the model to rewrite one bare question with its framing sentence.
 
@@ -1591,8 +1652,8 @@ class InterviewAssistant(Agent):
         if model is None:
             return ""
         ctx = ChatContext.empty()
-        ctx.add_message(role="system", content=_REFRAME_INSTRUCTION)
-        ctx.add_message(role="user", content=bare)
+        for role, content in self._build_reframe_messages(bare):
+            ctx.add_message(role=role, content=content)
         parts: list[str] = []
         stream = model.chat(chat_ctx=ctx)
         try:
@@ -1619,14 +1680,28 @@ class InterviewAssistant(Agent):
         Never touches clarify/follow-up: those intentionally echo the active
         question. A failed or empty rewrite keeps the original — a dead model
         must not take the interview down with it.
+
+        Three things send a question here (2026-09-12): it is bare; the reply
+        guard swapped in a raw bank anchor (forced, question mark or not); or it
+        is in the wrong language for a locked interview. The deterministic
+        wind-down lines are never rewritten.
         """
-        mode = self._turn_plan.response_mode if self._turn_plan else MODE_ASK
-        if mode in (MODE_WAIT, MODE_ACKNOWLEDGE, MODE_CLARIFY, MODE_FOLLOW_UP):
-            return text
         turn = self._memory.turn_index
+        if self._winddown_turn == turn and self._winddown_line is not None:
+            return text
+        forced = self._reframe_forced_turn == turn
+        mode = self._turn_plan.response_mode if self._turn_plan else MODE_ASK
+        if not forced and mode in (MODE_WAIT, MODE_ACKNOWLEDGE, MODE_CLARIFY, MODE_FOLLOW_UP):
+            return text
         if self._reframe_turn == turn:
             return self._reframe_text if self._reframe_text is not None else text
-        if not needs_framing(text):
+        if forced:
+            reason = "bank_anchor"
+        elif self.reply_language_mismatch(text):
+            reason = "language"
+        elif needs_framing(text):
+            reason = "bare"
+        else:
             return text
         # Claim the turn BEFORE awaiting, so the second guard pass cannot open a
         # second request while this one is still in flight.
@@ -1644,7 +1719,7 @@ class InterviewAssistant(Agent):
             return text
         out = enforce_single_question_response(rewritten, self._turn_plan)
         self._reframe_text = out
-        logger.info("[framing-guard] bare question reframed (mode=%s)", mode)
+        logger.info("[framing-guard] question reframed (mode=%s reason=%s)", mode, reason)
         return out
 
     def _update_experience_track(self, text: str) -> None:

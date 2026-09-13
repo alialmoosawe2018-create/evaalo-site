@@ -290,7 +290,10 @@ def _format_blueprint_block(
     competencies = bp.get("competencies") or []
     if isinstance(competencies, list) and competencies:
         lines.extend(["", "COMPETENCIES TO ASSESS (drive your follow-ups from these):"])
-        for c in competencies[:6]:
+        # The backend now sends every competency the scorer will weigh (up to 10,
+        # critical/high first); listing only six here left four that could never
+        # be asked yet always counted against the score.
+        for c in competencies[:10]:
             if not isinstance(c, dict):
                 continue
             title = str(c.get("title") or c.get("key") or "").strip()

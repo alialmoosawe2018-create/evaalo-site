@@ -278,19 +278,27 @@ def env_preemptive_generation() -> bool:
     When ``PREEMPTIVE_GENERATION=false``, the pipeline waits longer before LLM/TTS work — the UI
     often stays in *thinking* noticeably longer. Prefer ``true`` with ``INTERVIEW_PROFILE=latency``.
 
-    If ``PREEMPTIVE_GENERATION`` is set, it wins. Otherwise with interview defaults:
-    * ``AVATAR_STABILITY_MODE`` defaults preemptive **off** (fewer LLM/TTS overlaps → calmer avatar).
-    * Snappy profile (stability off): preemptive **on** unless disabled.
-    ``INTERVIEW_FORCE_PREEMPTIVE_GENERATION=true`` forces on.
+    If ``PREEMPTIVE_GENERATION`` is set, it wins. Otherwise with interview defaults it
+    is **off**, and ``INTERVIEW_FORCE_PREEMPTIVE_GENERATION=true`` forces it on.
+
+    ⚠️ Measured 2026-09-12 (session …1789254551115, 15 turns): ``on_user_turn_completed``
+    rewrites the chat context with the decision frame on EVERY turn, so LiveKit
+    discarded the preemptive result 15 times out of 15 ("chat context or tools have
+    changed") — no latency was ever gained — and once synthesised a 9 s reply
+    mid-answer while the candidate was still talking. Off until the decision frame
+    stops mutating the context.
     """
     raw = os.getenv("PREEMPTIVE_GENERATION")
     if raw is not None and str(raw).strip() != "":
         return str(raw).strip().lower() == "true"
     if not interview_defaults_enabled():
         return True
-    if os.getenv("INTERVIEW_FORCE_PREEMPTIVE_GENERATION", "false").lower() in ("1", "true", "yes"):
-        return True
-    return not avatar_stability_mode()
+    # Off for interviews unless forced (see the measurement in the docstring).
+    return os.getenv("INTERVIEW_FORCE_PREEMPTIVE_GENERATION", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 
 def interview_turn_detector_v2() -> bool:

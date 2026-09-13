@@ -156,6 +156,27 @@ def test_guard_replaces_resume_duplicate_with_fresh_anchor():
     assert "قنوات الاستقطاب" in out  # replaced with the fresh bank anchor
 
 
+def test_guard_anchor_swap_marks_the_turn_for_reframing():
+    """A swapped-in anchor is a context-free bank line (often English): it must be
+    reframed before it is spoken, question mark or not (2026-09-12)."""
+    agent = _assistant(["Describe a time you improved a process or business outcome."])
+    dup = "شنو المؤشر الأهم اللي تتابعه بعملية التوظيف؟"
+    agent._memory.asked_questions.append(dup)
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_ASK)
+    assert agent._reframe_forced_turn != agent._memory.turn_index
+    out = agent._guard_repetition_and_language(dup)
+    assert "improved a process" in out
+    assert agent._reframe_forced_turn == agent._memory.turn_index
+
+
+def test_guard_without_swap_leaves_the_turn_unmarked():
+    agent = _assistant(["شنو قنوات الاستقطاب اللي تعتمد عليها؟"])
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_ASK)
+    fresh = "شنو خبرتك بقنوات الاستقطاب؟"
+    assert agent._guard_repetition_and_language(fresh) == fresh
+    assert agent._reframe_forced_turn == -1
+
+
 def test_guard_keeps_followup_even_if_similar_to_recent():
     agent = _assistant(["شنو قنوات الاستقطاب اللي تعتمد عليها؟"])
     active = "شنو المؤشر الأهم اللي تتابعه بعملية التوظيف؟"
