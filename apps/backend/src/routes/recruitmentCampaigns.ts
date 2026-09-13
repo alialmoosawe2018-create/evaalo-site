@@ -445,8 +445,9 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
         // ones are "audio" or unset), which left generation to the candidate's own
         // /prepare, about a hundred seconds before they pressed Start, and the first
         // interview of every campaign ran without competencies.
-        // idempotent, fail-open: a failure never blocks creation — the agent falls back
-        // to the JSON bank and /start retries with the fast model.
+        // idempotent, fail-open: a failure never blocks creation — /prepare and /start
+        // start the generation again (deduped) and the agent falls back to the JSON
+        // bank only if it has still not locked by then.
         ensureBlueprintForCampaign(campaignId).catch((err) => {
             console.error(`⚠️ ensureBlueprintForCampaign (campaign create) failed for ${campaignId} (non-blocking):`, err?.message || err);
         });
