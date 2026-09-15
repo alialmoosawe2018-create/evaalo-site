@@ -1,5 +1,5 @@
 import type { FormFieldDef } from './types.js';
-import { CERTIFICATES_MAX_FILES } from './types.js';
+import { CERTIFICATES_MAX_FILES, CV_ACCEPTED_MIME_TYPES } from './types.js';
 
 /** Canonical field definitions for template-remote (matches current Form.jsx). */
 export const FORM_FIELD_REGISTRY: Record<string, FormFieldDef> = {
@@ -180,7 +180,7 @@ export const FORM_FIELD_REGISTRY: Record<string, FormFieldDef> = {
         labelKey: 'form.cv',
         sectionId: 'files',
         validation: {
-            mimeTypes: ['application/pdf'],
+            mimeTypes: [...CV_ACCEPTED_MIME_TYPES],
             maxBytes: 5 * 1024 * 1024,
         },
     },

@@ -650,9 +650,13 @@ export default function DynamicApplicationForm({ pubToken }) {
         }
 
         if (field.type === 'file') {
+            // Every CV type the platform can actually read — must stay in step with
+            // CV_ACCEPTED_MIME_TYPES in apps/backend/src/shared/formTemplates/types.js.
+            // PDF-only used to turn a DOCX CV away at the picker, which is the most
+            // common thing people upload here.
             const accept =
                 field.id === 'cv'
-                    ? '.pdf,application/pdf'
+                    ? '.pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain'
                     : 'image/jpeg,image/jpg,image/png,image/gif,image/webp';
             return (
                 <DynamicFormFileUpload

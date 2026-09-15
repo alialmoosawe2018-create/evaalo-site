@@ -177,4 +177,24 @@ export const FILE_FIELD_MAP: Record<string, string> = {
  * apps/frontend/src/constants/certificateUpload.js. */
 export const CERTIFICATES_MAX_FILES = 20;
 
+/**
+ * CV file types the platform can actually read, and therefore accepts.
+ *
+ * The single source of truth for the CV upload: `fieldRegistry.cv` publishes it to
+ * new form snapshots, and `validateSingleFile` applies it to the `cv` field even
+ * when an OLDER snapshot names a narrower list — see the note there.
+ *
+ * It is bounded by what `cvTextExtractor` can parse (pdf-parse for PDF, mammoth
+ * for DOCX, plain read for TXT). Widening this list without teaching the extractor
+ * the format means the file uploads and then yields no text.
+ *
+ * MUST stay in sync with the frontend `accept` for the cv field in
+ * apps/frontend/src/components/form/DynamicApplicationForm.jsx.
+ */
+export const CV_ACCEPTED_MIME_TYPES = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+];
+
 export const DEFAULT_FORM_TEMPLATE_ID = 'template-remote';

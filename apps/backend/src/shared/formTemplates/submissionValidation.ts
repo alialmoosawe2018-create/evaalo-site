@@ -1,5 +1,5 @@
 import type { FormFieldDef, FormTemplateSnapshot } from './types.js';
-import { SUBMIT_META_FIELDS } from './types.js';
+import { SUBMIT_META_FIELDS, CV_ACCEPTED_MIME_TYPES } from './types.js';
 import { getAllowedFieldIds } from './snapshot.js';
 
 export interface FileUploadMeta {
@@ -102,7 +102,21 @@ function validateSingleFile(
         return null;
     }
     const mime = (fileMeta.mimeType || '').toLowerCase();
-    const allowed = field.validation?.mimeTypes?.map((m) => m.toLowerCase()) ?? [];
+    /**
+     * The CV field reads the LIVE accepted list, not the one frozen in the
+     * campaign's snapshot.
+     *
+     * A snapshot exists so a submission is judged against the form the candidate
+     * was actually shown — which is why it is otherwise honoured to the letter.
+     * But every campaign created before the platform could read DOCX carries
+     * `['application/pdf']`, and those are the campaigns real people are applying
+     * to right now: their CV was refused before it was ever read. Since this list
+     * only ever WIDENS what is accepted, applying it cannot turn a submission that
+     * was valid into one that is rejected — the direction immutability protects.
+     */
+    const allowedSource =
+        field.id === 'cv' ? CV_ACCEPTED_MIME_TYPES : field.validation?.mimeTypes;
+    const allowed = allowedSource?.map((m) => m.toLowerCase()) ?? [];
     if (allowed.length && mime && !allowed.some((m) => mime.includes(m.replace('application/', '')) || mime === m)) {
         if (!allowed.includes(mime)) {
             const ok = allowed.some((m) => mime.includes(m.split('/')[1] || m));

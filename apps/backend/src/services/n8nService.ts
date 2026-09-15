@@ -30,6 +30,7 @@ import {
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
 import { extractTextFromCv, CvExtractionError } from './cvTextExtractor.js';
+import { CV_ACCEPTED_MIME_TYPES } from '../shared/formTemplates/types.js';
 import { deriveCertificateTitle } from './certificateTitle.js';
 import {
     readCertificateWithVision,
@@ -212,7 +213,15 @@ function pickCvFileForN8n(files: CandidateData['files']) {
     const byKind = files.find((f) => attachmentKind(f) === 'cv');
     if (byKind) return byKind;
     // Untagged legacy records fall back to mime sniffing — a certificate PDF is not the CV.
-    return files.find((f) => attachmentKind(f) !== 'certificate' && f.mimeType === 'application/pdf') || null;
+    // Sniffs every CV type the platform reads, not just PDF: an untagged DOCX CV
+    // used to be invisible here and the application went out with no CV at all.
+    return (
+        files.find(
+            (f) =>
+                attachmentKind(f) !== 'certificate' &&
+                CV_ACCEPTED_MIME_TYPES.includes(String(f.mimeType || ''))
+        ) || null
+    );
 }
 
 /**
@@ -616,6 +625,40 @@ const sendToN8NImpl = async (candidateData: CandidateData, campaignId?: string):
                 '⚠️ certificate text extraction failed (non-fatal):',
                 (err as Error)?.message
             );
+        }
+
+        /**
+         * Read the CV here rather than in n8n.
+         *
+         * n8n's "Extract from File" node runs `operation: pdf`, so the whole
+         * pipeline only ever accepted PDF — a DOCX CV was refused at the door and
+         * the candidate never reached the board. The backend already owns an
+         * extractor that reads PDF, DOCX and TXT (`cvTextExtractor`, the same one
+         * the certificates use), so the format constraint was never a real one.
+         *
+         * Sent as `cvText`; the workflow prefers it and keeps its own PDF
+         * extraction as the fallback, so an older backend and a newer workflow
+         * (or the reverse) both still work.
+         *
+         * Best-effort by design: a CV we cannot parse must not block the
+         * evaluation — the assessor is told to judge on the form fields alone.
+         */
+        if (hasCvBinary && cvDiskPath) {
+            try {
+                const cvBuf = await readFile(cvDiskPath);
+                const cvText = await extractTextFromCv(
+                    cvBuf,
+                    cvFileMeta?.mimeType || '',
+                    cvFileMeta?.originalName || cvFileMeta?.filename
+                );
+                if (cvText.trim()) {
+                    payload.cvText = cvText;
+                    console.log(`📄 n8n stage1: cvText extracted | chars=${cvText.length} mime=${cvFileMeta?.mimeType || 'unknown'}`);
+                }
+            } catch (err) {
+                const code = err instanceof CvExtractionError ? err.code : 'PARSE_FAILED';
+                console.warn(`⚠️ n8n stage1: CV text extraction failed (${code}) — falling back to the workflow's own PDF read`);
+            }
         }
 
         if (campaignDoc) {
