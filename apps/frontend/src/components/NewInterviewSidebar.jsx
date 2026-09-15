@@ -670,6 +670,45 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
     /** Screening فقط: المعايير المختارة بالترتيب + المعايير المخصّصة + حالة قائمة الإضافة */
     const [addedOrder, setAddedOrder] = useState([]);
     const [customCriteria, setCustomCriteria] = useState([]);
+    /** Preset criteria marked as must-haves, keyed by criterion id. Only keys that
+     *  are also SELECTED are sent — see buildScreeningCampaignCreateBody. */
+    const [essentialCriteria, setEssentialCriteria] = useState({});
+    const toggleEssentialCriterion = (id) =>
+        setEssentialCriteria((prev) => ({ ...prev, [id]: !prev[id] }));
+    const toggleCustomEssential = (id) =>
+        setCustomCriteria((prev) => prev.map((c) => (c.id === id ? { ...c, essential: !c.essential } : c)));
+    /** The must-have pill shown beside a selected criterion. One component for
+     *  preset and custom cards so the two can never drift apart visually. */
+    const renderEssentialToggle = (on, onToggle, label) => (
+        <button
+            type="button"
+            className={`ni-essential-toggle${on ? ' ni-essential-toggle--on' : ''}`}
+            aria-pressed={Boolean(on)}
+            title={t('newCampaign_essentialToggleTitle')}
+            aria-label={`${t('newCampaign_essentialToggle')} — ${label}`}
+            onClick={onToggle}
+            style={{
+                flexShrink: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '3px 9px',
+                borderRadius: '999px',
+                fontSize: '11px',
+                fontWeight: 600,
+                letterSpacing: '0.01em',
+                cursor: 'pointer',
+                lineHeight: 1.4,
+                border: on ? '1px solid #22d3ee' : '1px solid rgba(148, 163, 184, 0.45)',
+                background: on ? 'rgba(34, 211, 238, 0.14)' : 'transparent',
+                color: on ? '#22d3ee' : 'rgba(148, 163, 184, 0.9)',
+                transition: 'all 0.2s ease',
+            }}
+        >
+            <span aria-hidden style={{ fontSize: '12px', lineHeight: 1 }}>{on ? '★' : '☆'}</span>
+            {t('newCampaign_essentialToggle')}
+        </button>
+    );
     const [addMenuOpen, setAddMenuOpen] = useState(false);
     const [addMenuCustomMode, setAddMenuCustomMode] = useState(false);
     const [customLabelDraft, setCustomLabelDraft] = useState('');
@@ -1122,6 +1161,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         setCurrentTemplateType('process');
         setAddedOrder([]);
         setCustomCriteria([]);
+        setEssentialCriteria({});
         setAddMenuOpen(false);
         setAddMenuCustomMode(false);
         setCustomLabelDraft('');
@@ -1860,6 +1900,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         setAiCompareEmailRows(['']);
         setAddedOrder([]);
         setCustomCriteria([]);
+        setEssentialCriteria({});
         setJobAdvertisement('');
         setErrors({});
         setGeneralPosition('');
@@ -1929,6 +1970,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         setAiCompareEmailRows(['']);
         setAddedOrder([]);
         setCustomCriteria([]);
+        setEssentialCriteria({});
         setJobAdvertisement('');
         setErrors({});
         setGeneralPosition('');
@@ -1961,6 +2003,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                           languageRows,
                           aiCompareEmailRows,
                           customCriteria,
+                          essentialCriteria,
                           formTemplateId: selectedTemplate?.id || DEFAULT_SCREENING_FORM_TEMPLATE_ID,
                           jobAdvertisement,
                           language: currentLang,
@@ -2145,6 +2188,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
             setErrors({});
             setAddedOrder([]);
             setCustomCriteria([]);
+            setEssentialCriteria({});
             setAddMenuOpen(false);
             setAddMenuCustomMode(false);
             setCustomLabelDraft('');
@@ -2614,6 +2658,13 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                                     {criterionCardLabel(criterion, t)}
                                                 </span>
                                             </label>
+                                            {isScreeningFlow && isSelected && criterion.id !== 'aiCompareTop'
+                                                ? renderEssentialToggle(
+                                                      essentialCriteria[criterion.id],
+                                                      () => toggleEssentialCriterion(criterion.id),
+                                                      criterionCardLabel(criterion, t)
+                                                  )
+                                                : null}
                             </div>
 
                                         {/* Input Field - Shows when selected */}
@@ -3225,6 +3276,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                                                         {t('newCampaign_customCriterionBadge')}
                                                     </span>
                                                 </span>
+                                                {renderEssentialToggle(c.essential, () => toggleCustomEssential(c.id), c.label)}
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRemoveCustomCriterion(c.id)}

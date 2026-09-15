@@ -42,17 +42,39 @@ function assignRubricId(draft: RubricDraftItem, index: number): string {
     return `custom__${slug || 'item'}__${suffix}`;
 }
 
-export function parseCustomRubricInput(raw: unknown): Array<{ label: string; expectation: string }> {
+export function parseCustomRubricInput(
+    raw: unknown
+): Array<{ label: string; expectation: string; essential?: boolean }> {
     if (!Array.isArray(raw)) return [];
-    const out: Array<{ label: string; expectation: string }> = [];
+    const out: Array<{ label: string; expectation: string; essential?: boolean }> = [];
     for (const item of raw) {
         if (!item || typeof item !== 'object') continue;
         const o = item as Record<string, unknown>;
         const label = sanitizeRubricText(String(o.label ?? ''), RUBRIC_LABEL_MAX);
         const expectation = sanitizeRubricText(String(o.expectation ?? o.value ?? ''), RUBRIC_EXPECTATION_MAX);
-        if (label && expectation) out.push({ label, expectation });
+        if (label && expectation) {
+            out.push(o.essential === true ? { label, expectation, essential: true } : { label, expectation });
+        }
     }
     return out;
+}
+
+/**
+ * The preset keys the recruiter marked as must-haves. Accepts the array the UI
+ * sends and, defensively, a JSON string of it — the same tolerance the rest of
+ * the body already gets. Unknown keys are dropped rather than trusted.
+ */
+export function parseEssentialCriteriaInput(raw: unknown): Set<string> {
+    let arr: unknown = raw;
+    if (typeof arr === 'string') {
+        try { arr = JSON.parse(arr); } catch { arr = []; }
+    }
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(
+        arr
+            .map((k) => String(k ?? '').trim())
+            .filter((k) => k && PRESET_RUBRIC_KEYS.has(k))
+    );
 }
 
 export function buildEvaluationRubricFromCampaignBody(body: Record<string, unknown>): {
@@ -62,14 +84,16 @@ export function buildEvaluationRubricFromCampaignBody(body: Record<string, unkno
 } {
     const customRaw = body.customRubricItems ?? body.customCriteria;
     const customItems = parseCustomRubricInput(customRaw);
+    const essentialKeys = parseEssentialCriteriaInput(body.essentialCriteria);
 
     const flatForPresets = { ...body };
     delete flatForPresets.customRubricItems;
     delete flatForPresets.customCriteria;
     delete flatForPresets.evaluationRubric;
     delete flatForPresets.formTemplateId;
+    delete flatForPresets.essentialCriteria;
 
-    const drafts = buildRubricDraftsFromCampaignInput(flatForPresets, customItems);
+    const drafts = buildRubricDraftsFromCampaignInput(flatForPresets, customItems, essentialKeys);
     const validationErrors = validateRubricDraftList(drafts);
     if (validationErrors.length > 0) {
         throw new RubricValidationError(
@@ -98,6 +122,9 @@ export function stripRubricAndTemplateKeysFromCriteria(body: Record<string, unkn
         'evaluationRubric',
         'customRubricItems',
         'customCriteria',
+        // A list of keys, not a requirement — left in `criteria` it would be
+        // derived into a bogus custom criterion the candidate can never meet.
+        'essentialCriteria',
         'formTemplateId',
         'jobAdvertisement',
         'interviewType',

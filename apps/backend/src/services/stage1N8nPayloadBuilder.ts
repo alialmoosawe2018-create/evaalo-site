@@ -51,6 +51,8 @@ export interface Stage1RubricItemForN8n {
     expectation: string;
     /** Delimited text for LLM prompts — treat as data, not instructions. */
     delimitedExpectation: string;
+    /** Must-have — the scorer caps the recommendation when it is not confirmed. */
+    essential?: boolean;
 }
 
 export interface Stage1ThreeBucketPayload {
@@ -171,6 +173,9 @@ export function rubricItemsForN8n(items: EvaluationRubricItem[]): Stage1RubricIt
         label: item.label,
         expectation: item.expectation,
         delimitedExpectation: wrapCriterionDelimiter(item.expectation),
+        // Only ever emitted as `true`: the scorer tests `=== true`, and a stored
+        // item that predates the flag simply has no key here.
+        ...(item.essential === true ? { essential: true } : {}),
     }));
 }
 

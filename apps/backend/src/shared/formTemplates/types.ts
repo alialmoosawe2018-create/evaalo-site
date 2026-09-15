@@ -71,6 +71,16 @@ export interface EvaluationRubricItem {
     key: string;
     label: string;
     expectation: string;
+    /**
+     * A must-have. A real recruiter screens in two passes — drop whoever misses
+     * the essentials, then rank the rest — and until this flag existed the scorer
+     * had only the second pass, so a candidate who failed the role outright could
+     * still reach "Hire" on the strength of everything else. The Stage 1 scorer
+     * caps the recommendation when an essential criterion is not confirmed.
+     * Absent means false, so every campaign created before the flag keeps its
+     * exact behaviour and its exact snapshot hash.
+     */
+    essential?: boolean;
 }
 
 export type RubricResultValue =
@@ -99,6 +109,7 @@ export interface RubricDraftItem {
     key?: string;
     label: string;
     expectation: string;
+    essential?: boolean;
 }
 
 export const RUBRIC_LABEL_MAX = 80;

@@ -38,9 +38,11 @@ export function buildPresetCriteriaPayload({
 
 export function buildCustomRubricItems(customCriteria) {
     return (customCriteria || [])
-        .map(({ label, expectation }) => ({
+        .map(({ label, expectation, essential }) => ({
             label: String(label || '').trim(),
             expectation: String(expectation || '').trim(),
+            // Only ever sent as `true`; the backend tests `=== true`.
+            ...(essential === true ? { essential: true } : {}),
         }))
         .filter((item) => item.label && item.expectation);
 }
@@ -60,6 +62,7 @@ export function buildScreeningCampaignCreateBody({
     languageRows,
     aiCompareEmailRows,
     customCriteria,
+    essentialCriteria,
     formTemplateId,
     jobAdvertisement,
     language,
@@ -79,6 +82,15 @@ export function buildScreeningCampaignCreateBody({
     const customItems = buildCustomRubricItems(customCriteria);
     if (customItems.length > 0) {
         payload.customCriteria = customItems;
+    }
+    // Must-have preset criteria, sent as a list of keys. Only keys the recruiter
+    // both selected AND flagged count — a flag left behind on a deselected card
+    // must not mark a criterion the campaign does not even have.
+    const essentialKeys = Object.keys(essentialCriteria || {}).filter(
+        (k) => essentialCriteria[k] && selectedCriteria?.[k]
+    );
+    if (essentialKeys.length > 0) {
+        payload.essentialCriteria = essentialKeys;
     }
     if (jobAdvertisement?.trim()) {
         payload.jobAdvertisement = jobAdvertisement.trim();
