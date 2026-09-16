@@ -1695,6 +1695,22 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
             }
         });
 
+        /* A mid-or-higher career level with a 0–1 year band is a contradiction the
+           scorer cannot resolve: "minimum 0" makes the experience criterion
+           unfalsifiable, so a candidate with zero relevant months earns its full
+           weight. The level defaults to 'mid' silently, which is exactly how the
+           HR Assistant campaign of 2026-09-16 shipped with both. Entry-type
+           levels are the only ones where 0–1 years is coherent. The backend
+           enforces the same rule; this only tells the recruiter which box to fix. */
+        if (selectedCriteria.experienceYears) {
+            const level = String(jobDetails.careerLevel || '').trim();
+            const years = String(jobDetails.experienceYears || '').trim().replace(/[–—]/g, '-');
+            const entryLevels = new Set(['intern', 'junior', 'graduate']);
+            if (years === '0-1' && level && !entryLevels.has(level)) {
+                newErrors.experienceYears = t('newCampaign_jc_experience_errLevelConflict');
+            }
+        }
+
         if (selectedCriteria.certifications) {
             const hasCert = certificationRows.some((s) => s && String(s).trim());
             if (!hasCert) {

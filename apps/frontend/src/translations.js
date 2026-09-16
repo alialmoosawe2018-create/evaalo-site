@@ -1590,6 +1590,8 @@ export const translations = {
         newCampaign_jc_skills_rowPh: "Skill",
         newCampaign_jc_skills_removeRowAria: "Remove skill row",
         newCampaign_jc_skills_errRequired: "At least one skill is required",
+        newCampaign_jc_experience_errLevelConflict:
+            "0–1 years fits an entry-level role only (intern, junior or graduate). Lower the career level or raise the experience range.",
         newCampaign_jc_languages_label: "Required Languages",
         newCampaign_jc_languages_ph: "Pick languages or type (comma-separated) (▼)",
         newCampaign_jc_languages_add: "Add language",
@@ -3260,6 +3262,8 @@ export const translations = {
         newCampaign_jc_skills_rowPh: "مهارة",
         newCampaign_jc_skills_removeRowAria: "إزالة صف المهارة",
         newCampaign_jc_skills_errRequired: "مطلوب مهارة واحدة على الأقل",
+        newCampaign_jc_experience_errLevelConflict:
+            "نطاق ٠–١ سنة يناسب المستوى المبتدئ فقط (متدرّب، مبتدئ، خرّيج). اخفض المستوى الوظيفي أو ارفع نطاق الخبرة.",
         newCampaign_jc_languages_label: "اللغات المطلوبة",
         newCampaign_jc_languages_ph: "اختر لغات أو اكتب مفصولاً بفواصل (▼)",
         newCampaign_jc_languages_add: "إضافة لغة",
@@ -4939,6 +4943,8 @@ export const translations = {
         newCampaign_jc_skills_rowPh: "کارامەیی",
         newCampaign_jc_skills_removeRowAria: "لابردنی ڕیزی کارامەیی",
         newCampaign_jc_skills_errRequired: "لانیکەم یەک کارامەیی پێویستە",
+        newCampaign_jc_experience_errLevelConflict:
+            "مەودای ٠–١ ساڵ تەنها بۆ ئاستی دەستپێک دەگونجێت (ڕاهێنەر، نوێکار، دەرچوو). ئاستی پیشەیی نزم بکەرەوە یان مەودای ئەزموون بەرز بکەرەوە.",
         newCampaign_jc_languages_label: "زمانە پێویستەکان",
         newCampaign_jc_languages_ph: "زمان هەڵبژێرە یان بە کۆما جیا بنووسە (▼)",
         newCampaign_jc_languages_add: "زیادکردنی زمان",

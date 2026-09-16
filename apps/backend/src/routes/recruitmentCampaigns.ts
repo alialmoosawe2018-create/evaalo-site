@@ -361,6 +361,30 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
             });
         }
 
+        /* Mirror of the form's check, because the API is reachable without it.
+           A career level above entry combined with a 0–1 year band makes the
+           experience criterion unfalsifiable in the Stage-1 scorer: "minimum 0"
+           is met by zero relevant months, so the heaviest criterion in the table
+           (25 of 100) stops discriminating while still being paid in full.
+           `careerLevel` defaults to 'mid' when the recruiter never touches it —
+           the exact shape of the HR Assistant campaign of 2026-09-16, where a
+           medical student with no HR experience reached Hire on those points. */
+        {
+            const careerLevel = String(criteria.careerLevel || '').trim();
+            const experienceYears = String(criteria.experienceYears || '')
+                .trim()
+                .replace(/[–—]/g, '-');
+            const ENTRY_LEVELS = new Set(['intern', 'junior', 'graduate']);
+            if (careerLevel && !ENTRY_LEVELS.has(careerLevel) && experienceYears === '0-1') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'career_level_experience_conflict',
+                    message:
+                        'A 0–1 year experience range only fits an entry-level role (intern, junior or graduate). Lower the career level or raise the experience range — as set, the experience criterion cannot tell candidates apart.',
+                });
+            }
+        }
+
         let formBinding;
         let evaluationRubric;
         let rubricVersion = 1;
