@@ -22,11 +22,15 @@
  *
  * Run: npm run test:application-org-invariant
  */
+/*
+ * Deliberately on the RAW driver, not the Mongoose models. This audit has to read
+ * EVERY tenant at once, and `tenantGuard` rightly refuses an unscoped model query
+ * ("Cross-tenant scan risk"). Bypassing the guard with a flag would teach the
+ * wrong habit; a read-only auditor that never touches the app's query path is the
+ * honest way to look across tenants.
+ */
 import 'dotenv/config';
 import mongoose from 'mongoose';
-import CandidateApplication from '../models/CandidateApplication.js';
-import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
-import Candidate from '../models/Candidate.js';
 
 interface Violation {
     kind: 'application' | 'person';
@@ -43,10 +47,15 @@ async function main(): Promise<void> {
     await mongoose.connect(uri);
     console.log(`\nconnected to ${mongoose.connection.db?.databaseName}`);
 
+    const db = mongoose.connection.db;
+    if (!db) throw new Error('no database handle');
+
     const campaignOrgById = new Map<string, string>();
-    for (const c of await RecruitmentCampaign.find({})
-        .select('campaignId organizationId')
-        .lean()) {
+    for (const c of await db
+        .collection('recruitmentcampaigns')
+        .find({})
+        .project({ campaignId: 1, organizationId: 1 })
+        .toArray()) {
         if (c.campaignId) campaignOrgById.set(String(c.campaignId), String(c.organizationId ?? ''));
     }
     console.log(`campaigns: ${campaignOrgById.size}`);
@@ -55,9 +64,16 @@ async function main(): Promise<void> {
     let checkedApps = 0;
     let orphanApps = 0;
 
-    const apps = await CandidateApplication.find({ campaignId: { $exists: true, $ne: null } })
-        .select('campaignId organizationId candidateId applicationSnapshot.full_name')
-        .lean();
+    const apps = await db
+        .collection('candidate_applications')
+        .find({ campaignId: { $exists: true, $ne: null } })
+        .project({
+            campaignId: 1,
+            organizationId: 1,
+            candidateId: 1,
+            'applicationSnapshot.full_name': 1,
+        })
+        .toArray();
 
     for (const a of apps) {
         const campaignId = String(a.campaignId ?? '');
@@ -89,9 +105,12 @@ async function main(): Promise<void> {
     for (const v of violations.filter((x) => x.kind === 'application')) {
         const app = apps.find((a) => String(a._id) === v.id);
         if (!app?.candidateId) continue;
-        const person = await Candidate.findById(app.candidateId)
-            .select('organizationId full_name')
-            .lean();
+        const person = await db
+            .collection('candidates')
+            .findOne(
+                { _id: app.candidateId },
+                { projection: { organizationId: 1, full_name: 1 } }
+            );
         if (person && String(person.organizationId ?? '') !== v.campaignOrg) {
             violations.push({
                 kind: 'person',
