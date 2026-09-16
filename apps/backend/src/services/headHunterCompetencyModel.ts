@@ -42,6 +42,21 @@ import {
     type PackMatchResult,
 } from './expertise/domainPacks.js';
 import { resolveJobRoleFromCriteria } from '../shared/jobCatalog/resolveJobRole.js';
+import mongoose from 'mongoose';
+import HeadHunterCompetencyCache from '../models/HeadHunterCompetencyCache.js';
+
+/**
+ * Only touch Mongo when the connection is actually up.
+ *
+ * Without this, a disconnected or flapping Mongo does not fail fast: Mongoose
+ * BUFFERS the query and rejects ~10s later, and this cache sits on the search
+ * request path — the one path whose entire design promise is that it never
+ * blocks. The fallback (pack, then null) is already correct, so an unavailable
+ * cache must cost nothing rather than ten seconds.
+ */
+function mongoReady(): boolean {
+    return mongoose.connection?.readyState === 1;
+}
 
 /** One competency, trimmed to what a profile-ranking prompt can actually use. */
 export interface HeadHunterCompetency {
@@ -166,6 +181,9 @@ function rememberModel(key: string, model: HeadHunterCompetencyModel): void {
         if (oldest !== undefined) modelCache.delete(oldest);
     }
     modelCache.set(key, { model, expiresAt: Date.now() + CACHE_TTL_MS });
+    // Through to Mongo as well, or the next deploy resets this role to a cold
+    // first search — which is exactly the regression this cache exists to stop.
+    void persistModel(key, model);
 }
 
 function readCache(key: string): HeadHunterCompetencyModel | null {
@@ -176,6 +194,63 @@ function readCache(key: string): HeadHunterCompetencyModel | null {
         return null;
     }
     return hit.model;
+}
+
+/**
+ * Write the model through to Mongo so it survives a restart, a deploy, and a
+ * second instance. Fire-and-forget: the in-memory copy is already set, and a
+ * cache that cannot be written is still a cache that works for this process.
+ */
+async function persistModel(key: string, model: HeadHunterCompetencyModel): Promise<void> {
+    if (!mongoReady()) return;
+    try {
+        await HeadHunterCompetencyCache.updateOne(
+            { cacheKey: key },
+            {
+                $set: {
+                    // `snapshot`, not `model`: a Mongoose Document already owns
+                    // a `model` member, and the collision is a type error.
+                    snapshot: model as unknown as Record<string, unknown>,
+                    competencyCount: model.competencies.length,
+                    expiresAt: new Date(Date.now() + CACHE_TTL_MS),
+                },
+            },
+            { upsert: true }
+        );
+    } catch (err) {
+        console.warn(
+            '[head-hunter] competency model persist failed:',
+            err instanceof Error ? err.message : err
+        );
+    }
+}
+
+/**
+ * The stored model for this role, or null. A miss, a malformed row and a Mongo
+ * outage are the same answer — the caller falls through to the pack exactly as
+ * it did when this cache was memory-only, so the search never depends on Mongo.
+ *
+ * The TTL index does the expiring, but `expiresAt` is re-checked here: TTL
+ * removal runs on a background sweep, so an expired row can still be read.
+ */
+async function readPersisted(key: string): Promise<HeadHunterCompetencyModel | null> {
+    if (!mongoReady()) return null;
+    try {
+        const row = await HeadHunterCompetencyCache.findOne({ cacheKey: key }).lean();
+        if (!row?.snapshot) return null;
+        if (row.expiresAt && new Date(row.expiresAt).getTime() <= Date.now()) return null;
+        const model = row.snapshot as unknown as HeadHunterCompetencyModel;
+        // An empty model would tell n8n to rank against nothing while looking
+        // like a real instruction — the same rule startUpgrade enforces on write.
+        if (!Array.isArray(model.competencies) || model.competencies.length === 0) return null;
+        return model;
+    } catch (err) {
+        console.warn(
+            '[head-hunter] competency model read failed:',
+            err instanceof Error ? err.message : err
+        );
+        return null;
+    }
 }
 
 /** Shrink the full generated expertise down to what n8n needs to rank profiles. */
@@ -343,12 +418,59 @@ export async function buildHeadHunterCompetencyModel(
     const cached = readCache(key);
     if (cached) return cached;
 
-    // Nothing cached: warm it for next time, and answer now from the pack.
+    // Then the stored copy, which outlives this process. Without this step every
+    // deploy sent the next search of every role back to the pack (or to nothing),
+    // so the same role ranked differently before and after a release.
+    const stored = await readPersisted(key);
+    if (stored) {
+        modelCache.set(key, { model: stored, expiresAt: Date.now() + CACHE_TTL_MS });
+        return stored;
+    }
+
+    // Genuinely unknown role: warm it for next time, and answer now from the pack.
     startUpgrade(key, input);
     return packModel(input);
 }
 
-/** Test/ops hook — drops every cached model. */
+/** Test/ops hook — drops every in-memory cached model. Leaves Mongo alone. */
 export function clearHeadHunterCompetencyCache(): void {
     modelCache.clear();
+}
+
+/**
+ * Test hook — write a model straight to the stored cache, with no LLM call.
+ *
+ * Needed because the lifecycle this collection exists for cannot be exercised
+ * otherwise: the only production writer is the background upgrade, which costs
+ * 76-110 seconds and a real LLM call.
+ */
+export async function __seedPersistedCompetencyModelForTests(
+    input: HeadHunterCompetencyInput,
+    model: HeadHunterCompetencyModel
+): Promise<void> {
+    await persistModel(cacheKeyFor(input), model);
+}
+
+/** Test hook — read the stored model back, with no LLM call and no memory cache. */
+export async function __readPersistedCompetencyModelForTests(
+    input: HeadHunterCompetencyInput
+): Promise<HeadHunterCompetencyModel | null> {
+    return readPersisted(cacheKeyFor(input));
+}
+
+/** Test hook — the cache key, so a test can write a malformed row deliberately. */
+export function __competencyCacheKeyForTests(input: HeadHunterCompetencyInput): string {
+    return cacheKeyFor(input);
+}
+
+/** Test hook — remove one stored model, so a test leaves nothing behind. */
+export async function __clearPersistedCompetencyModelForTests(
+    input: HeadHunterCompetencyInput
+): Promise<void> {
+    if (!mongoReady()) return;
+    try {
+        await HeadHunterCompetencyCache.deleteOne({ cacheKey: cacheKeyFor(input) });
+    } catch {
+        /* a cache that cannot be cleaned is not a test failure */
+    }
 }
