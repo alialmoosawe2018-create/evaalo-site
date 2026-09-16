@@ -3,7 +3,6 @@ import {
     composeRoleResolution,
     fromJobLevelUiValue,
     getRepresentativeEntry,
-    isRecommendedLevelForRole,
     toJobLevelUiValue,
 } from '@evaalo/job-catalog';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -62,9 +61,6 @@ export default function JobRoleFields({
     }, [roleKey, showSectionHint, t]);
 
     const showResearchDomain = showResearchDomainField || roleKey === 'researcher';
-
-    const showUncommonLevelHint =
-        showLevelField && !!roleKey && !isRecommendedLevelForRole(roleKey, careerLevel);
 
     const emitResolution = useCallback(
         (resolution) => {
@@ -172,11 +168,12 @@ export default function JobRoleFields({
                 onFocus={levelOnFocus}
                 onBlur={levelOnBlur}
             />
-            {showUncommonLevelHint ? (
-                <span className="job-role-level-hint" role="status">
-                    {t('jobRole_level_uncommon')}
-                </span>
-            ) : null}
+            {/* The amber "this level is uncommon for this role" note was removed on
+                2026-09-16 at the owner's instruction: the employer advertises the
+                level they want, and being second-guessed for choosing "intern" on a
+                junior role reads as an error when nothing is wrong. The dropdown
+                still groups levels under "Recommended for this role" and "Other
+                levels", which guides without contradicting the choice. */}
         </div>
     ) : null;
 
