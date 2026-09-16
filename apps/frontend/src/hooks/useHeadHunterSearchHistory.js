@@ -53,6 +53,16 @@ export function newHeadHunterCampaignId() {
  * @property {unknown} payload
  */
 
+function isHistoryRow(row) {
+    return (
+        row &&
+        typeof row === 'object' &&
+        typeof row.id === 'string' &&
+        typeof row.receivedAt === 'string' &&
+        typeof row.position === 'string'
+    );
+}
+
 /** @returns {HeadHunterCampaignRecord[]} */
 export function readHeadHunterCampaignHistory() {
     if (typeof localStorage === 'undefined') return [];
@@ -61,17 +71,41 @@ export function readHeadHunterCampaignHistory() {
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed)) return [];
-        return parsed.filter(
-            (row) =>
-                row &&
-                typeof row === 'object' &&
-                typeof row.id === 'string' &&
-                typeof row.receivedAt === 'string' &&
-                typeof row.position === 'string',
-        );
+        return parsed.filter(isHistoryRow);
     } catch (_) {
         return [];
     }
+}
+
+/**
+ * Every history this browser holds, under ANY identity suffix.
+ *
+ * The cache key ends in a user id, and `getUserStorageKeySuffix` falls back to
+ * 'anonymous' when it is read before the session hydrates — so a search can be
+ * WRITTEN under one suffix and looked for under another and simply vanish. The
+ * same happens to anyone who signs in with a second account: their earlier
+ * searches are still in this browser, under the first account's key, unreachable.
+ *
+ * So the lift scans every suffix rather than only the current one. That is safe
+ * because it decides nothing: the SERVER refuses any row whose searchId its own
+ * audit log does not show this organization running, so sweeping broadly here
+ * cannot move one tenant's results into another's account.
+ */
+function readStrandedHistories() {
+    if (typeof localStorage === 'undefined') return [];
+    const prefix = `${STORAGE_KEY_BASE}:`;
+    const out = [];
+    try {
+        for (let i = 0; i < localStorage.length; i += 1) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith(prefix)) continue;
+            const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+            if (Array.isArray(parsed)) out.push(...parsed.filter(isHistoryRow));
+        }
+    } catch (_) {
+        /* a blocked or corrupt store simply yields nothing to lift */
+    }
+    return out;
 }
 
 /** @param {string} receivedAt */
@@ -212,22 +246,38 @@ export async function syncHeadHunterHistoryWithServer() {
         return false; // offline or unauthorised: the cache stands on its own
     }
 
-    const local = readHeadHunterCampaignHistory();
     const serverIds = new Set(serverRows.map((r) => r.id));
-    const localOnly = local.filter((r) => !serverIds.has(r.id));
 
-    const merged = [...serverRows, ...localOnly].sort((a, b) =>
-        String(b.receivedAt || '').localeCompare(String(a.receivedAt || ''))
-    );
-    writeCache(merged);
+    // The cache under THIS identity is what the page shows; every other suffix in
+    // this browser is swept too, because a search written under a stale or
+    // 'anonymous' key is invisible yet recoverable. Deduplicated by row id.
+    const byId = new Map();
+    for (const r of [...readHeadHunterCampaignHistory(), ...readStrandedHistories()]) {
+        if (!serverIds.has(r.id) && !byId.has(r.id)) byId.set(r.id, r);
+    }
+    const localOnly = [...byId.values()];
 
     if (localOnly.length > 0) {
         try {
+            // The server attributes each row by its own audit log and refuses the
+            // ones this organization never searched, so the answer tells us which
+            // of the swept rows actually belong here.
             await apiClient.post(`${HISTORY_ENDPOINT}/import`, { entries: localOnly });
+            const after = await apiClient.get(HISTORY_ENDPOINT);
+            if (Array.isArray(after?.history)) serverRows = after.history;
         } catch (_) {
             /* they stay in the cache and go up on the next sync */
         }
     }
+
+    // Only rows the CURRENT identity already had are kept alongside the server's;
+    // a swept row from another account is not shown until the server accepts it.
+    const acceptedIds = new Set(serverRows.map((r) => r.id));
+    const ownCacheOnly = readHeadHunterCampaignHistory().filter((r) => !acceptedIds.has(r.id));
+    const merged = [...serverRows, ...ownCacheOnly].sort((a, b) =>
+        String(b.receivedAt || '').localeCompare(String(a.receivedAt || ''))
+    );
+    writeCache(merged);
     return true;
 }
 

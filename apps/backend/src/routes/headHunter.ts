@@ -7,6 +7,7 @@ import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
 import { getOrgId, getClerkUserId, getAuthContext } from '../middleware/auth.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
 import HeadHunterSearchHistory from '../models/HeadHunterSearchHistory.js';
+import AuditLog from '../models/AuditLog.js';
 import { checkCredits, consumeCredits } from '../services/billingRuntimeService.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import {
@@ -1670,6 +1671,23 @@ function toHistoryRecord(row: Record<string, unknown>): Record<string, unknown> 
     return out;
 }
 
+/**
+ * May this organization take ownership of an imported history row?
+ *
+ * Exported and pure so the rule can be proven without booting Express. The
+ * browser's legacy rows carry no organization — that concept never existed in
+ * localStorage — and one person can belong to several orgs, so "import into
+ * whichever org is open" would publish one tenant's candidate list to another
+ * tenant's staff. The only trustworthy attribution is this org's own audit log,
+ * written by /search itself and unforgeable from the browser.
+ *
+ * A row with no searchId cannot be attributed to anyone and is refused.
+ */
+export function historyImportAllowed(searchId: unknown, ownedSearchIds: Set<string>): boolean {
+    const sid = typeof searchId === 'string' ? searchId.trim() : '';
+    return sid.length > 0 && ownedSearchIds.has(sid);
+}
+
 /** Keep the newest MAX_HISTORY_PER_ORG rows. Best effort — never fails a write. */
 async function pruneHistory(orgId: string): Promise<void> {
     try {
@@ -1774,12 +1792,43 @@ router.post(
                 : [];
             if (raw.length === 0) return res.json({ ok: true, imported: 0, skipped: 0 });
 
+            /* WHOSE SEARCH IS IT? The browser's old rows carry no organization —
+               that concept never existed in localStorage — and one person can
+               belong to several. Importing "into whichever org is open" would
+               publish one tenant's candidate list to another tenant's staff.
+               So the server does not take the client's word: a row is imported
+               only when THIS organization's audit log shows it actually ran that
+               searchId. A row with no searchId cannot be attributed at all and is
+               refused. The audit entry is written by /search itself, so it is the
+               one record the browser could not have forged. */
+            const ownedSearchIds = new Set<string>();
+            try {
+                const audits = await AuditLog.find({
+                    organizationId: orgId,
+                    action: 'headhunter.search',
+                })
+                    .select('metadata.searchId')
+                    .lean();
+                for (const a of audits) {
+                    const sid = (a as { metadata?: { searchId?: unknown } }).metadata?.searchId;
+                    if (typeof sid === 'string' && sid.trim()) ownedSearchIds.add(sid.trim());
+                }
+            } catch (err) {
+                console.warn('[head-hunter] history import could not read the audit log');
+                return res.status(503).json({ ok: false, error: 'attribution_unavailable' });
+            }
+
             let imported = 0;
             let skipped = 0;
+            let refused = 0;
             for (const item of raw.slice(0, MAX_HISTORY_PER_ORG)) {
                 const doc = normalizeHistoryEntry(item, orgId, clerkUserId);
                 if (!doc) {
                     skipped++;
+                    continue;
+                }
+                if (!historyImportAllowed(doc.searchId, ownedSearchIds)) {
+                    refused++;
                     continue;
                 }
                 const exists = await HeadHunterSearchHistory.findOne({
@@ -1799,15 +1848,18 @@ router.post(
                 imported++;
             }
             void pruneHistory(orgId);
-            if (imported > 0) {
+            if (imported > 0 || refused > 0) {
                 logAudit(req, {
                     action: 'headhunter.history_imported',
                     targetType: 'organization',
                     targetId: orgId,
-                    metadata: { imported, skipped },
+                    // `refused` is the tenancy counter: rows this browser held that
+                    // this organization never searched. A number above zero is not
+                    // an error — it is the guard doing its job.
+                    metadata: { imported, skipped, refused },
                 });
             }
-            return res.json({ ok: true, imported, skipped });
+            return res.json({ ok: true, imported, skipped, refused });
         } catch (err) {
             console.error('[head-hunter] history import error');
             return res.status(500).json({ ok: false, error: 'Internal server error' });

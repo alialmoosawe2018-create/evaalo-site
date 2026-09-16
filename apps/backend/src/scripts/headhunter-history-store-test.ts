@@ -25,6 +25,7 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import HeadHunterSearchHistory from '../models/HeadHunterSearchHistory.js';
+import { historyImportAllowed } from '../routes/headHunter.js';
 
 const ORG_A = 'org_test_hh_history_A';
 const ORG_B = 'org_test_hh_history_B';
@@ -123,6 +124,30 @@ async function main(): Promise<void> {
     );
     const afterUpdate = await HeadHunterSearchHistory.countDocuments({ organizationId: ORG_A });
     check('org A still holds three rows, not four', afterUpdate === 3);
+
+    console.log('\n=== 6. IMPORT ATTRIBUTION: only what this org actually searched ===');
+    // The rule that decides whether a browser's orphan row may become this org's.
+    const owned = new Set(['headhunter_aaa', 'headhunter_bbb']);
+    check('a search this org ran is accepted', historyImportAllowed('headhunter_aaa', owned));
+    check(
+        'ANOTHER ORG\'S search is refused',
+        !historyImportAllowed('headhunter_from_other_org', owned)
+    );
+    check('a row with no searchId is refused', !historyImportAllowed(undefined, owned));
+    check('an empty searchId is refused', !historyImportAllowed('   ', owned));
+    check('a non-string searchId is refused', !historyImportAllowed({ evil: true }, owned));
+    check('whitespace around a real id still matches', historyImportAllowed(' headhunter_bbb ', owned));
+    check('nothing is accepted when the org has run no searches', !historyImportAllowed('headhunter_aaa', new Set()));
+
+    // Mutation proof: the pre-fix rule imported whatever the browser sent. If the
+    // guard were inert the two would agree everywhere.
+    const oldRule = (sid: unknown) => typeof sid === 'string';
+    const probes: unknown[] = ['headhunter_aaa', 'headhunter_from_other_org', '   ', undefined, { evil: true }];
+    const diverged = probes.filter((p) => oldRule(p) !== historyImportAllowed(p, owned));
+    check(
+        'the guard changes the answer for exactly the two unowned string ids',
+        diverged.length === 2
+    );
 
     await cleanup();
     const leftOver = await HeadHunterSearchHistory.countDocuments({
