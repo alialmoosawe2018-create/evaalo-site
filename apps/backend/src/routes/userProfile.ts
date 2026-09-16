@@ -26,6 +26,7 @@ import { normalizeClerkRole } from '../config/rbacRoles.js';
 import User from '../models/User.js';
 import OrgPlanState from '../models/OrgPlanState.js';
 import DomainEventOutbox from '../models/DomainEventOutbox.js';
+import type { SubscriptionStatus } from '../types/billing.js';
 import type { DomainEventType } from '../services/domainEventService.js';
 
 const router = express.Router();
@@ -263,6 +264,45 @@ router.delete(
     }
 );
 
+/**
+ * Does live billing block an owner from deleting their account?
+ *
+ * Exported and pure so the rule can be proven without booting Express — the
+ * route asks this and nothing else decides the 409.
+ *
+ * `cancelAtPeriodEnd` is the whole point. Stripe keeps a cancelled subscription
+ * at status 'active' until the paid period runs out, so a guard that read the
+ * status alone could not see the cancellation the owner had just performed and
+ * returned the same "cancel your subscription first" 409 forever — deletion
+ * only became possible when the period expired on its own, up to a month later.
+ * Measured in production 2026-09-16 on org_3IsSo…: cancelAtPeriodEnd true,
+ * subscriptionStatus 'active', blocked until 2026-10-04.
+ *
+ * Stripe is deliberately NOT cancelled outright on this path: the schedule the
+ * owner already set stops every future charge, while cancelling now would
+ * silently forfeit days they have paid for. That is an owner's business call,
+ * not this guard's.
+ *
+ * A row with no `cancelAtPeriodEnd` field at all (written before the flag
+ * existed) reads as undefined and still blocks — unknown is not cancelled.
+ */
+export function ownerDeleteBlockedByBilling(
+    plan:
+        | {
+              stripeSubscriptionId?: string | null;
+              subscriptionStatus?: SubscriptionStatus | null;
+              cancelAtPeriodEnd?: boolean | null;
+          }
+        | null
+        | undefined,
+    liveMode: boolean,
+): boolean {
+    if (!liveMode) return false;
+    if (!plan?.stripeSubscriptionId) return false;
+    if (!isBillingActive(plan.subscriptionStatus)) return false;
+    return plan.cancelAtPeriodEnd !== true;
+}
+
 // ============================================
 // DELETE /me — حذف نهائي للحساب وبياناته
 // ============================================
@@ -289,11 +329,7 @@ router.delete('/me', conditionalRequireAuth(), async (req: Request, res: Respons
 
         if (isOwner) {
             const plan = await OrgPlanState.findOne({ organizationId: orgId }).lean();
-            if (
-                plan?.stripeSubscriptionId &&
-                isBillingActive(plan.subscriptionStatus) &&
-                isStripeLiveMode()
-            ) {
+            if (ownerDeleteBlockedByBilling(plan, isStripeLiveMode())) {
                 return res.status(409).json({
                     success: false,
                     code: 'ACTIVE_SUBSCRIPTION',

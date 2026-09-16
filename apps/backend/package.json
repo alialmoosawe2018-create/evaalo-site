@@ -22,6 +22,7 @@
     "test:certificate-title": "tsx src/scripts/certificate-title-test.ts",
     "test:compare-report-photo": "tsx src/scripts/compare-report-photo-test.ts",
     "test:returning-applicant": "tsx src/scripts/returning-applicant-eval-test.ts",
+    "test:owner-delete-guard": "tsx src/scripts/owner-delete-billing-guard-test.ts",
     "verify:application-ownership": "tsx src/scripts/verifyApplicationOwnership.ts",
     "verify:stage1-victims": "tsx src/scripts/verify-stage1-victims.ts",
     "verify:n8n-baselines": "tsx src/scripts/verify-n8n-baselines.ts",
