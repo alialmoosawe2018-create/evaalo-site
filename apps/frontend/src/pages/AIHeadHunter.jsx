@@ -180,22 +180,30 @@ export default function AIHeadHunter() {
     }, [position, location, query, optionalFilters]);
 
     /**
-     * The values that were Arabic **at the moment Search was pressed**.
+     * The Arabic/Kurdish values that stopped the last Search press.
      *
-     * Deliberately NOT derived live from `arabicSearchInputs`: the warning used to
-     * appear as the recruiter typed, and they asked for it to appear on submit
-     * only. Writing it here also freezes the echo to what was actually searched,
-     * so editing a box afterwards cannot rewrite the notice under it. Every
-     * submit overwrites it, so fixing the input and searching again clears it.
+     * The notice is a GATE, not a passive banner: pressing Search with Arabic or
+     * Kurdish text does not run the search, it asks for confirmation. Approving
+     * then pressing Search again runs it. Frozen at press time on purpose, so the
+     * echoed text is what was actually submitted.
      */
     const [submittedArabicInputs, setSubmittedArabicInputs] = useState([]);
+
+    /**
+     * The exact value set the recruiter has approved, joined. Comparing the whole
+     * set — not a boolean — means editing a box after approving re-opens the gate
+     * instead of letting new unreviewed Arabic text through on the old approval.
+     */
+    const [arabicConfirmedSignature, setArabicConfirmedSignature] = useState('');
+
+    const arabicAwaitingConfirm =
+        submittedArabicInputs.length > 0 &&
+        submittedArabicInputs.join('|') !== arabicConfirmedSignature;
 
     /**
      * Scrolling has to wait for the render: the banner is mounted only once
      * `submittedArabicInputs` is non-empty, so at the moment Search is pressed the
      * ref is still null. Hence an effect rather than a call inside handleSubmit.
-     * It never blocks the search — Arabic input is a warning about result quality,
-     * not an error.
      */
     const arabicWarningRef = useRef(null);
 
@@ -415,12 +423,19 @@ export default function AIHeadHunter() {
             return;
         }
         const optionalFiltersPayload = buildOptionalFiltersPayload(optionalFilters);
-        // Raise the notice here and nowhere else — this is the only moment the
-        // recruiter has committed to searching with Arabic or Kurdish text.
-        // A fresh array every time on purpose: `arabicSearchInputs` is memoised, so
-        // re-submitting the same text would hand React an identical reference, it
-        // would skip the re-render, and the scroll effect would not fire again.
-        setSubmittedArabicInputs([...arabicSearchInputs]);
+
+        // The confirmation gate. Unapproved Arabic or Kurdish text stops here: the
+        // search does NOT run, the notice asks for approval, and the next press
+        // goes through. A fresh array every time because `arabicSearchInputs` is
+        // memoised — re-pressing with identical text would hand React the same
+        // reference, skip the re-render, and never re-fire the scroll effect.
+        const arabicSignature = arabicSearchInputs.join('|');
+        if (arabicSignature && arabicSignature !== arabicConfirmedSignature) {
+            setSubmittedArabicInputs([...arabicSearchInputs]);
+            return;
+        }
+        // Approved (or nothing to approve): clear the notice and run the search.
+        setSubmittedArabicInputs([]);
         setLoading(true);
         stopPollForNewResult();
         setSearchId(null);
@@ -879,6 +894,29 @@ export default function AIHeadHunter() {
                                                     {submittedArabicInputs.length > 3
                                                         ? ` +${submittedArabicInputs.length - 3}`
                                                         : null}
+                                                </span>
+                                                <span className="head-hunter-feedback__detail">
+                                                    {arabicAwaitingConfirm ? (
+                                                        // type="button" is essential: inside the
+                                                        // form a default button would submit it and
+                                                        // approve-and-search in one click, which is
+                                                        // not the two-step flow that was asked for.
+                                                        <button
+                                                            type="button"
+                                                            className="head-hunter-feedback__confirm"
+                                                            onClick={() =>
+                                                                setArabicConfirmedSignature(
+                                                                    submittedArabicInputs.join('|')
+                                                                )
+                                                            }
+                                                        >
+                                                            {t('aiHeadHunterArabicInputConfirm')}
+                                                        </button>
+                                                    ) : (
+                                                        <strong>
+                                                            {t('aiHeadHunterArabicInputConfirmed')}
+                                                        </strong>
+                                                    )}
                                                 </span>
                                             </span>
                                         </p>

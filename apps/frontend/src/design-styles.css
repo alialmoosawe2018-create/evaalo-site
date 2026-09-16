@@ -2018,6 +2018,23 @@ body.rtl-text .ai-head-hunter-page .head-hunter-checkbox-group .checkbox-label:h
     font-size: 13px;
 }
 
+/* Approves the script warning; the search still needs a second Search press. */
+.ai-head-hunter-page .head-hunter-feedback__confirm {
+    margin-top: 2px;
+    padding: 5px 12px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.ai-head-hunter-page .head-hunter-feedback__confirm:hover {
+    background: rgba(251, 191, 36, 0.16);
+}
+
 html[data-app-theme='light'] .dashboard-page--evaalo-visual.ai-head-hunter-page .head-hunter-feedback--ok {
     color: #059669;
 }

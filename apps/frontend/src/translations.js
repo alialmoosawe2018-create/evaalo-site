@@ -671,6 +671,8 @@ export const translations = {
         aiHeadHunterArabicInputWarning:
             "LinkedIn accounts are written in English, so Arabic and Kurdish words match far fewer people and the ranking gets weaker. Type the job title and the city in English for the most accurate search.",
         aiHeadHunterArabicInputWarningFields: "Text you entered",
+        aiHeadHunterArabicInputConfirm: "I understand — search anyway",
+        aiHeadHunterArabicInputConfirmed: "Approved. Press Search again to run it.",
         aiHeadHunterPositionPh: "e.g. HR Generalist",
         aiHeadHunterLocationPh: "e.g. Baghdad, Iraq",
         aiHeadHunterYearsPh: "e.g. 3–5 years",
@@ -2355,6 +2357,8 @@ export const translations = {
         aiHeadHunterArabicInputWarning:
             "حسابات LinkedIn مكتوبة بالإنجليزية، فالكلمات العربية والكردية تطابق عدداً أقل بكثير من الأشخاص ويصير الترتيب أضعف. اكتب المسمّى الوظيفي والمدينة بالإنجليزية للحصول على أدق بحث.",
         aiHeadHunterArabicInputWarningFields: "النصّ الذي أدخلته",
+        aiHeadHunterArabicInputConfirm: "أوافق، ابحث على أي حال",
+        aiHeadHunterArabicInputConfirmed: "تمّت الموافقة. اضغط «بحث» مرّة أخرى للتنفيذ.",
         aiHeadHunterPositionPh: "مثال: أخصائي موارد بشرية",
         aiHeadHunterLocationPh: "مثال: بغداد، العراق",
         aiHeadHunterYearsPh: "مثال: 3–5 سنوات",
@@ -4029,6 +4033,8 @@ export const translations = {
         aiHeadHunterArabicInputWarning:
             "هەژمارەکانی لینکدئین بە ئینگلیزی نووسراون، بۆیە وشە عەرەبی و کوردییەکان کەسانێکی زۆر کەمتر دەگرنەوە و ڕیزبەندییەکە لاوازتر دەبێت. ناوی پۆست و شار بە ئینگلیزی بنووسە بۆ وردترین گەڕان.",
         aiHeadHunterArabicInputWarningFields: "ئەوەی نووسیوتە",
+        aiHeadHunterArabicInputConfirm: "تێدەگەم — بەهەر حاڵ بگەڕێ",
+        aiHeadHunterArabicInputConfirmed: "پەسەند کرا. دووبارە «گەڕان» دابگرە بۆ جێبەجێکردن.",
         aiHeadHunterPositionPh: "نموونە: ڕاوێژکاری کارمەندی مرۆیی",
         aiHeadHunterLocationPh: "نموونە: بەغدا، عێراق",
         aiHeadHunterYearsPh: "نموونە: 3–5 ساڵ",
