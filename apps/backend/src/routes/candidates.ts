@@ -1051,23 +1051,34 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
 
         // Many-to-Many: البريد مكرر على مستوى المنظمة مسموح عبر حملات مختلفة.
         // الرفض فقط عند تقديم مسبق لنفس الحملة (أو شخص موجود بدون حملة جديدة ويُطلب نفس الحملة).
-        let existingPerson = emailNorm
-            ? await Candidate.findOne(
-                  orgScopedQuery(
-                      req,
-                      campaignOrganizationId
-                          ? { email: emailNorm, organizationId: campaignOrganizationId }
-                          : { email: emailNorm }
-                  )
-              )
-            : null;
-        // orgScopedQuery قد يتجاهل organizationId الممرّر إن كان من الحملة — أعد البحث المباشر عند الحاجة
-        if (!existingPerson && emailNorm && campaignOrganizationId) {
-            existingPerson = await Candidate.findOne({
-                email: emailNorm,
-                organizationId: campaignOrganizationId,
-            });
-        }
+        /* CROSS-TENANT LEAK — fixed 2026-09-16, caught in production.
+         *
+         * `orgScopedQuery` returns `{ ...baseQuery, organizationId: getOrgId(req) }`.
+         * The session org is spread LAST, so the `organizationId` handed in here was
+         * silently overwritten and this lookup ran in the SUBMITTER'S org instead of
+         * the campaign's. When the applicant's e-mail already existed in that org, an
+         * existing person matched, `createdNewPerson` came out false, and the whole
+         * application — and its evaluation — was filed under the wrong organization.
+         *
+         * Measured: application 6aaadce5 at 18:16 on 2026-09-16. The campaign belongs
+         * to org_3IsSo…; the row was written to org_3GmTS… because the applicant was
+         * signed into his own Evaalo account while applying from his phone. The two
+         * submissions minutes later were filed correctly — their e-mails did not exist
+         * in the session org, so the miss fell through to the repair branch.
+         *
+         * That repair branch could never fire for the leaking case: it was guarded on
+         * `!existingPerson`, and existingPerson was already wrongly truthy. A fallback
+         * that only runs when the bug did not happen is not a fallback. It is gone.
+         *
+         * The rule, with no second path: when the campaign names an organization, that
+         * organization is the ONLY one we may search. The session is never a fallback.
+         * `orgScopedQuery` now rejects an `organizationId` argument at compile time so
+         * this cannot be reintroduced. Session scope is used only with no campaign, and
+         * there `campaignId` has already been deleted from the payload above. */
+        const existingPersonQuery = campaignOrganizationId
+            ? { email: emailNorm, organizationId: campaignOrganizationId }
+            : orgScopedQuery(req, { email: emailNorm });
+        let existingPerson = emailNorm ? await Candidate.findOne(existingPersonQuery) : null;
 
         /**
          * وبالهاتف أيضاً، لا بالبريد وحده.

@@ -361,29 +361,20 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
             });
         }
 
-        /* Mirror of the form's check, because the API is reachable without it.
-           A career level above entry combined with a 0–1 year band makes the
-           experience criterion unfalsifiable in the Stage-1 scorer: "minimum 0"
-           is met by zero relevant months, so the heaviest criterion in the table
-           (25 of 100) stops discriminating while still being paid in full.
-           `careerLevel` defaults to 'mid' when the recruiter never touches it —
-           the exact shape of the HR Assistant campaign of 2026-09-16, where a
-           medical student with no HR experience reached Hire on those points. */
-        {
-            const careerLevel = String(criteria.careerLevel || '').trim();
-            const experienceYears = String(criteria.experienceYears || '')
-                .trim()
-                .replace(/[–—]/g, '-');
-            const ENTRY_LEVELS = new Set(['intern', 'junior', 'graduate']);
-            if (careerLevel && !ENTRY_LEVELS.has(careerLevel) && experienceYears === '0-1') {
-                return res.status(400).json({
-                    success: false,
-                    error: 'career_level_experience_conflict',
-                    message:
-                        'A 0–1 year experience range only fits an entry-level role (intern, junior or graduate). Lower the career level or raise the experience range — as set, the experience criterion cannot tell candidates apart.',
-                });
-            }
-        }
+        /* `career_level_experience_conflict` REMOVED 2026-09-16, by the owner: the
+           employer advertises what they want, and the API must not refuse a level +
+           experience pairing the recruiter chose on purpose.
+
+           It was added hours earlier to stop a 0-minimum band making the experience
+           criterion unfalsifiable in the Stage-1 scorer. That hole is now closed
+           where it belonged — at the scorer: credit is months-based for a 0-minimum
+           band, and capped at the position fraction when the role match is only
+           partial. Zero relevant months earns zero instead of the full 25. The
+           pairing is priced correctly now, so forbidding it is redundant, and the
+           form's copy of this rule was worse than redundant — it read the level
+           resolved from the role catalog, not the Job Level the recruiter had just
+           picked, and refused "intern" on a campaign the recruiter had set to
+           intern. Do not reinstate either side without re-reading that scorer. */
 
         let formBinding;
         let evaluationRubric;

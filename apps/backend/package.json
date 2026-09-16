@@ -24,6 +24,7 @@
     "test:returning-applicant": "tsx src/scripts/returning-applicant-eval-test.ts",
     "test:owner-delete-guard": "tsx src/scripts/owner-delete-billing-guard-test.ts",
     "test:headhunter-persistence": "tsx src/scripts/headhunter-competency-persistence-test.ts",
+    "test:application-org-invariant": "tsx src/scripts/application-org-invariant-test.ts",
     "verify:application-ownership": "tsx src/scripts/verifyApplicationOwnership.ts",
     "verify:stage1-victims": "tsx src/scripts/verify-stage1-victims.ts",
     "verify:n8n-baselines": "tsx src/scripts/verify-n8n-baselines.ts",
