@@ -1,9 +1,28 @@
-import { useCallback, useMemo, useState } from 'react';
+/**
+ * Head-hunter search history.
+ *
+ * The server is the record of truth since 2026-09-16; localStorage stays as a
+ * per-browser CACHE so every existing synchronous reader keeps working and the
+ * list is on screen before the network answers.
+ *
+ * It used to be localStorage ALONE, keyed by user id — the only paid artefact in
+ * the product with no database row. Clearing site data, opening from a second
+ * device, or signing in with a second account each erased the lot; that is how
+ * three searches disappeared for the owner. Now the cache can be wiped freely
+ * and the next sync restores it from the organization's rows.
+ *
+ * Reads stay synchronous against the cache. Writes go to the cache immediately
+ * (so the UI never waits) and to the server best-effort. A failed call is never
+ * fatal: the row survives locally and the next sync pushes it up.
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserStorageKeySuffix, userScopedStorageKey } from '../utils/userStorageKey';
+import { apiClient } from '../services/apiClient';
 
 const STORAGE_KEY_BASE = 'evaalo-headhunter-campaign-history-v1';
 const MAX_CAMPAIGNS = 25;
+const HISTORY_ENDPOINT = '/api/head-hunter/history';
 
 function storageKey() {
     return userScopedStorageKey(STORAGE_KEY_BASE);
@@ -153,6 +172,65 @@ export function removeHeadHunterCampaign(id) {
     }
 }
 
+/** Write the merged list straight to the cache, bypassing the per-row helpers. */
+function writeCache(rows) {
+    if (typeof localStorage === 'undefined') return;
+    try {
+        localStorage.setItem(storageKey(), JSON.stringify(rows.slice(0, MAX_CAMPAIGNS)));
+    } catch (_) {
+        /* a full or blocked store is not worth breaking the page over */
+    }
+}
+
+/** Send one row up. Best effort — the cache already has it. */
+export async function pushHeadHunterCampaignToServer(row) {
+    if (!row?.id || !row?.position || !row?.receivedAt) return false;
+    try {
+        await apiClient.put(HISTORY_ENDPOINT, row);
+        return true;
+    } catch (_) {
+        return false;
+    }
+}
+
+/**
+ * Reconcile cache and server, in that order of safety.
+ *
+ * The server list wins on rows both sides know, because it is the one that
+ * survives this browser. Rows only this browser has are KEPT and pushed up —
+ * overwriting the cache with the server's answer would throw away a search
+ * written while the network was down, which is the very loss this move fixes.
+ * The import endpoint skips anything already stored, so running this on a second
+ * device cannot roll results backwards.
+ */
+export async function syncHeadHunterHistoryWithServer() {
+    let serverRows = [];
+    try {
+        const res = await apiClient.get(HISTORY_ENDPOINT);
+        serverRows = Array.isArray(res?.history) ? res.history : [];
+    } catch (_) {
+        return false; // offline or unauthorised: the cache stands on its own
+    }
+
+    const local = readHeadHunterCampaignHistory();
+    const serverIds = new Set(serverRows.map((r) => r.id));
+    const localOnly = local.filter((r) => !serverIds.has(r.id));
+
+    const merged = [...serverRows, ...localOnly].sort((a, b) =>
+        String(b.receivedAt || '').localeCompare(String(a.receivedAt || ''))
+    );
+    writeCache(merged);
+
+    if (localOnly.length > 0) {
+        try {
+            await apiClient.post(`${HISTORY_ENDPOINT}/import`, { entries: localOnly });
+        } catch (_) {
+            /* they stay in the cache and go up on the next sync */
+        }
+    }
+    return true;
+}
+
 /** @returns {{ list: HeadHunterCampaignRecord[], prepend: (e: Omit<HeadHunterCampaignRecord, 'id'> & { id?: string }) => HeadHunterCampaignRecord | null, remove: (id: string) => boolean, getById: (id: string) => HeadHunterCampaignRecord | null, refresh: () => void }} */
 export function useHeadHunterSearchHistory() {
     const { user } = useAuth();
@@ -160,15 +238,33 @@ export function useHeadHunterSearchHistory() {
     const [version, setVersion] = useState(0);
     const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
+    // One reconciliation per mount, per identity. Three pages use this hook; each
+    // gets its own sync, which is cheap (one GET) and idempotent by construction.
+    useEffect(() => {
+        let alive = true;
+        syncHeadHunterHistoryWithServer().then((changed) => {
+            if (alive && changed) refresh();
+        });
+        return () => {
+            alive = false;
+        };
+    }, [userKey, refresh]);
+
     const list = useMemo(() => {
         void userKey;
         return readHeadHunterCampaignHistory();
     }, [version, userKey]);
 
+    // Cache first so the list paints at once, then the server. A failed push is
+    // not an error the recruiter should see: the row is already on screen and in
+    // the cache, and the next sync carries it up.
     const prepend = useCallback(
         (entry) => {
             const row = prependHeadHunterCampaign(entry);
-            if (row) refresh();
+            if (row) {
+                refresh();
+                void pushHeadHunterCampaignToServer(row);
+            }
             return row;
         },
         [refresh],
@@ -177,7 +273,10 @@ export function useHeadHunterSearchHistory() {
     const upsertBySearchId = useCallback(
         (entry) => {
             const row = upsertHeadHunterCampaignBySearchId(entry);
-            if (row) refresh();
+            if (row) {
+                refresh();
+                void pushHeadHunterCampaignToServer(row);
+            }
             return row;
         },
         [refresh],
@@ -191,10 +290,17 @@ export function useHeadHunterSearchHistory() {
         [version],
     );
 
+    // Deleting only the cache would bring the row back on the next sync, so the
+    // server is told too. Scoped to the org there, never by raw id alone.
     const remove = useCallback(
         (id) => {
             const ok = removeHeadHunterCampaign(id);
             if (ok) refresh();
+            if (id) {
+                apiClient
+                    .delete(`${HISTORY_ENDPOINT}/${encodeURIComponent(id)}`)
+                    .catch(() => {});
+            }
             return ok;
         },
         [refresh],

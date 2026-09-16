@@ -6,6 +6,7 @@ import { logAudit } from '../services/auditService.js';
 import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
 import { getOrgId, getClerkUserId, getAuthContext } from '../middleware/auth.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
+import HeadHunterSearchHistory from '../models/HeadHunterSearchHistory.js';
 import { checkCredits, consumeCredits } from '../services/billingRuntimeService.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import {
@@ -1504,6 +1505,268 @@ router.get(
             });
         } catch (err) {
             console.error('[head-hunter] sourcing-context read error');
+            return res.status(500).json({ ok: false, error: 'Internal server error' });
+        }
+    }
+);
+
+// ============================================================================
+// SEARCH HISTORY — the durable replacement for a browser's localStorage
+// ============================================================================
+//
+// Every search here cost credits. Keeping the only copy in one browser meant a
+// cleared cache, a second device or a second account silently erased paid work;
+// that is how three searches vanished for the owner on 2026-09-16. Scope is the
+// ORGANIZATION, matching every other tenant-owned record — the originating user
+// is stored for attribution, never used to filter.
+
+/** Newest rows kept per organization. Older ones are pruned on write. */
+const MAX_HISTORY_PER_ORG = 50;
+/** A payload larger than this is a bug, not a result set. Mongo's own ceiling is 16MB. */
+const MAX_HISTORY_PAYLOAD_BYTES = 2 * 1024 * 1024;
+
+type HistoryInput = Record<string, unknown>;
+
+function str(v: unknown, max = 400): string {
+    return String(v ?? '').trim().slice(0, max);
+}
+
+/**
+ * Shape one row from client input. Returns null when the row cannot be trusted:
+ * a history entry with no position or no timestamp cannot be listed or ordered,
+ * and an oversized payload is refused rather than silently truncated.
+ */
+function normalizeHistoryEntry(
+    raw: HistoryInput,
+    orgId: string,
+    clerkUserId: string
+): Record<string, unknown> | null {
+    const position = str(raw.position, 200);
+    const entryId = str(raw.id ?? raw.entryId, 100);
+    const receivedAtRaw = str(raw.receivedAt, 60);
+    if (!position || !entryId || !receivedAtRaw) return null;
+    const receivedAt = new Date(receivedAtRaw);
+    if (Number.isNaN(receivedAt.getTime())) return null;
+
+    if (raw.payload !== undefined && raw.payload !== null) {
+        try {
+            if (JSON.stringify(raw.payload).length > MAX_HISTORY_PAYLOAD_BYTES) return null;
+        } catch {
+            return null; // circular or unserialisable — not a result set
+        }
+    }
+
+    const minCandidateCount = Number(raw.minCandidateCount);
+    return {
+        organizationId: orgId,
+        entryId,
+        ...(str(raw.searchId, 120) ? { searchId: str(raw.searchId, 120) } : {}),
+        position,
+        location: str(raw.location, 200),
+        ...(str(raw.yearsExperience, 40) ? { yearsExperience: str(raw.yearsExperience, 40) } : {}),
+        ...(str(raw.ageRange, 40) ? { ageRange: str(raw.ageRange, 40) } : {}),
+        ...(str(raw.query, 2000) ? { query: str(raw.query, 2000) } : {}),
+        ...(Number.isFinite(minCandidateCount) && minCandidateCount > 0
+            ? { minCandidateCount }
+            : {}),
+        ...(raw.aiCompareTop ? { aiCompareTop: true } : {}),
+        ...(raw.availableEmployeesOnly ? { availableEmployeesOnly: true } : {}),
+        ...(raw.arabicTranslation ? { arabicTranslation: true } : {}),
+        receivedAt,
+        ...(raw.payload !== undefined ? { payload: raw.payload } : {}),
+        ...(clerkUserId ? { createdByClerkUserId: clerkUserId } : {}),
+    };
+}
+
+/** The wire shape the page already expects, so the hook's records are unchanged. */
+function toHistoryRecord(row: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {
+        id: row.entryId,
+        position: row.position,
+        location: row.location ?? '',
+        receivedAt:
+            row.receivedAt instanceof Date
+                ? row.receivedAt.toISOString()
+                : String(row.receivedAt ?? ''),
+        payload: row.payload ?? null,
+    };
+    for (const k of [
+        'searchId',
+        'yearsExperience',
+        'ageRange',
+        'query',
+        'minCandidateCount',
+        'aiCompareTop',
+        'availableEmployeesOnly',
+        'arabicTranslation',
+    ]) {
+        if (row[k] !== undefined && row[k] !== null) out[k] = row[k];
+    }
+    return out;
+}
+
+/** Keep the newest MAX_HISTORY_PER_ORG rows. Best effort — never fails a write. */
+async function pruneHistory(orgId: string): Promise<void> {
+    try {
+        const stale = await HeadHunterSearchHistory.find({ organizationId: orgId })
+            .sort({ receivedAt: -1 })
+            .skip(MAX_HISTORY_PER_ORG)
+            .select('_id')
+            .lean();
+        if (stale.length) {
+            await HeadHunterSearchHistory.deleteMany({ _id: { $in: stale.map((r) => r._id) } });
+        }
+    } catch (err) {
+        console.warn('[head-hunter] history prune failed:', err instanceof Error ? err.message : err);
+    }
+}
+
+/** GET /api/head-hunter/history — this organization's searches, newest first. */
+router.get(
+    '/history',
+    conditionalRequireAuth(),
+    requirePermission('headhunter.search'),
+    async (req: Request, res: Response) => {
+        try {
+            const orgId = getOrgId(req);
+            const limitRaw = Number(req.query.limit);
+            const limit =
+                Number.isFinite(limitRaw) && limitRaw > 0
+                    ? Math.min(Math.floor(limitRaw), MAX_HISTORY_PER_ORG)
+                    : MAX_HISTORY_PER_ORG;
+            const rows = await HeadHunterSearchHistory.find({ organizationId: orgId })
+                .sort({ receivedAt: -1 })
+                .limit(limit)
+                .lean();
+            return res.json({ ok: true, history: rows.map(toHistoryRecord) });
+        } catch (err) {
+            console.error('[head-hunter] history list error');
+            return res.status(500).json({ ok: false, error: 'Internal server error' });
+        }
+    }
+);
+
+/**
+ * PUT /api/head-hunter/history — create or update one row.
+ *
+ * Keyed by `searchId` when there is one, because the page upserts the same
+ * search repeatedly while results stream in from n8n; otherwise by `entryId`.
+ * Both are scoped to the organization, so one tenant can never address another's
+ * row even by guessing an id.
+ */
+router.put(
+    '/history',
+    conditionalRequireAuth(),
+    requirePermission('headhunter.search'),
+    async (req: Request, res: Response) => {
+        try {
+            const orgId = getOrgId(req);
+            const doc = normalizeHistoryEntry(
+                (req.body ?? {}) as HistoryInput,
+                orgId,
+                getClerkUserId(req)
+            );
+            if (!doc) {
+                return res.status(400).json({ ok: false, error: 'invalid_history_entry' });
+            }
+            const filter = doc.searchId
+                ? { organizationId: orgId, searchId: doc.searchId as string }
+                : { organizationId: orgId, entryId: doc.entryId as string };
+            // `entryId` is immutable once the row exists: the page holds it as the
+            // record's identity, and changing it under an open list would orphan it.
+            const { entryId, ...mutable } = doc;
+            const saved = await HeadHunterSearchHistory.findOneAndUpdate(
+                filter,
+                { $set: mutable, $setOnInsert: { entryId } },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            ).lean();
+            void pruneHistory(orgId);
+            return res.json({ ok: true, entry: saved ? toHistoryRecord(saved) : null });
+        } catch (err) {
+            console.error('[head-hunter] history upsert error');
+            return res.status(500).json({ ok: false, error: 'Internal server error' });
+        }
+    }
+);
+
+/**
+ * POST /api/head-hunter/history/import — one-way lift of a browser's old history.
+ *
+ * Runs once per browser after the move to the server. Existing rows win: an entry
+ * already on the server is never overwritten by a stale local copy, so importing
+ * from a second device cannot roll results backwards.
+ */
+router.post(
+    '/history/import',
+    conditionalRequireAuth(),
+    requirePermission('headhunter.search'),
+    async (req: Request, res: Response) => {
+        try {
+            const orgId = getOrgId(req);
+            const clerkUserId = getClerkUserId(req);
+            const raw = Array.isArray((req.body as { entries?: unknown })?.entries)
+                ? ((req.body as { entries: HistoryInput[] }).entries as HistoryInput[])
+                : [];
+            if (raw.length === 0) return res.json({ ok: true, imported: 0, skipped: 0 });
+
+            let imported = 0;
+            let skipped = 0;
+            for (const item of raw.slice(0, MAX_HISTORY_PER_ORG)) {
+                const doc = normalizeHistoryEntry(item, orgId, clerkUserId);
+                if (!doc) {
+                    skipped++;
+                    continue;
+                }
+                const exists = await HeadHunterSearchHistory.findOne({
+                    organizationId: orgId,
+                    $or: [
+                        { entryId: doc.entryId as string },
+                        ...(doc.searchId ? [{ searchId: doc.searchId as string }] : []),
+                    ],
+                })
+                    .select('_id')
+                    .lean();
+                if (exists) {
+                    skipped++;
+                    continue;
+                }
+                await HeadHunterSearchHistory.create(doc);
+                imported++;
+            }
+            void pruneHistory(orgId);
+            if (imported > 0) {
+                logAudit(req, {
+                    action: 'headhunter.history_imported',
+                    targetType: 'organization',
+                    targetId: orgId,
+                    metadata: { imported, skipped },
+                });
+            }
+            return res.json({ ok: true, imported, skipped });
+        } catch (err) {
+            console.error('[head-hunter] history import error');
+            return res.status(500).json({ ok: false, error: 'Internal server error' });
+        }
+    }
+);
+
+/** DELETE /api/head-hunter/history/:entryId — remove one row from this org. */
+router.delete(
+    '/history/:entryId',
+    conditionalRequireAuth(),
+    requirePermission('headhunter.search'),
+    async (req: Request, res: Response) => {
+        try {
+            const orgId = getOrgId(req);
+            const entryId = str(req.params.entryId, 100);
+            if (!entryId) return res.status(400).json({ ok: false, error: 'invalid_id' });
+            const r = await HeadHunterSearchHistory.deleteOne({
+                organizationId: orgId,
+                entryId,
+            });
+            return res.json({ ok: true, removed: r.deletedCount > 0 });
+        } catch (err) {
+            console.error('[head-hunter] history delete error');
             return res.status(500).json({ ok: false, error: 'Internal server error' });
         }
     }
