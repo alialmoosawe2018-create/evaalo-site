@@ -9,11 +9,24 @@
 import {
     buildHeadHunterCompetencyModel,
     clearHeadHunterCompetencyCache,
-    languageFor,
 } from '../services/headHunterCompetencyModel.js';
 
 function assert(cond: boolean, msg: string): void {
     if (!cond) throw new Error(msg);
+}
+
+const ARABIC_SCRIPT = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/;
+
+/** The recruiter-facing panel reads as one English list — no Arabic may leak in. */
+function assertEnglishTitles(
+    model: { competencies: Array<{ title: string }> },
+    tier: string
+): void {
+    const leaked = model.competencies.filter((c) => ARABIC_SCRIPT.test(c.title));
+    assert(
+        leaked.length === 0,
+        `${tier}: Arabic leaked into the competency titles: ${leaked.map((c) => c.title).join(' | ')}`
+    );
 }
 
 const WITH_UPGRADE = process.argv.includes('--with-upgrade');
@@ -100,29 +113,34 @@ async function main(): Promise<void> {
             }
         }
         assert(upgraded !== null, 'the background upgrade never reached the cache');
+        // This is the assertion that actually proves the language override: the
+        // LLM tier is the only place that could have answered in Arabic, and it
+        // did so for every search until 2026-09-16.
+        assertEnglishTitles(upgraded!, 'LLM upgrade tier');
         console.log(
             `  upgraded: source=${upgraded!.source} competencies=${upgraded!.competencies.length} ` +
                 `skills=${upgraded!.requiredSkills.length} tools=${upgraded!.toolsAndSystems.length}`
         );
     }
 
-    // The competency panel must follow what the recruiter TYPED. This exists
-    // because the first attempt used the shared utils detector, whose Arabic
-    // regex is missing a `g` flag — it scored a fully Arabic search as English
-    // and silently forced every panel to English. Every case below was run
-    // against the shipped function; an all-English suite would not have caught it.
-    assert(languageFor({ position: 'Sales Manager', location: 'Baghdad, Iraq' }) === 'en',
-        'an English search must stay English');
-    assert(languageFor({ position: 'مدير مبيعات', location: 'بغداد، العراق' }) === 'ar',
-        'an Arabic search must produce an Arabic competency model');
-    assert(languageFor({ position: 'مهندس' }) === 'ar',
-        'a one-word Arabic title must still read as Arabic');
-    assert(languageFor({ position: 'Sales Manager', location: 'Baghdad', query: 'FMCG modern trade بغداد' }) === 'en',
-        'a stray Arabic word beside an English search must not flip it');
-    assert(languageFor({ position: 'مدير مبيعات', query: 'خبرة في FMCG' }) === 'ar',
-        'an English loanword inside an Arabic search must not flip it');
-    assert(languageFor({ position: '' }) === 'en', 'empty input defaults to English');
-    console.log('  language: en/ar detection follows the typed script (6 cases)');
+    // 6) The panel is pinned to English even when the recruiter types Arabic.
+    //
+    // Be honest about the reach of this check: it exercises the INSTANT pack
+    // tier, and the curated packs are English by construction, so it guards the
+    // contract rather than proving the generator honours the override. The real
+    // proof is the same assertion inside the --with-upgrade block below, which
+    // runs against the LLM tier.
+    const arabicTyped = await buildHeadHunterCompetencyModel({
+        position: 'Petroleum Engineer',
+        location: 'بغداد، العراق',
+        criteria: { yearsOfExperience: '5-10', industryType: 'Oil & Gas' },
+        query: 'يفضّل خبرة في حقول الجنوب والتعامل مع الفرق الميدانية',
+    });
+    assert(arabicTyped !== null, 'Arabic side-text must not stop the model being built');
+    assertEnglishTitles(arabicTyped!, 'instant pack tier');
+    console.log(
+        `  language: Arabic-typed search returned ${arabicTyped!.competencies.length} English title(s)`
+    );
 
     console.log('✅ headhunter-competency-model-test: all passed');
 }

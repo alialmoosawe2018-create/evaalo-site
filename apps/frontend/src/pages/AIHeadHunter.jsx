@@ -181,6 +181,14 @@ export default function AIHeadHunter() {
 
     const hasArabicSearchInput = arabicSearchInputs.length > 0;
 
+    /**
+     * The banner renders live as the recruiter types, so it is already on screen
+     * before they submit — but the form is long enough to have scrolled it out of
+     * sight. Pressing Search brings it back into view. It never blocks the search:
+     * Arabic input is a warning about result quality, not an error.
+     */
+    const arabicWarningRef = useRef(null);
+
     const optionalFilterSuggestionOptions = useMemo(
         () => buildOptionalFilterSuggestionOptions(t, currentLang),
         [t, currentLang]
@@ -391,6 +399,9 @@ export default function AIHeadHunter() {
             return;
         }
         const optionalFiltersPayload = buildOptionalFiltersPayload(optionalFilters);
+        if (hasArabicSearchInput && arabicWarningRef.current) {
+            arabicWarningRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
         setLoading(true);
         stopPollForNewResult();
         setSearchId(null);
@@ -801,6 +812,7 @@ export default function AIHeadHunter() {
 
                                     {hasArabicSearchInput ? (
                                         <p
+                                            ref={arabicWarningRef}
                                             role="status"
                                             aria-live="polite"
                                             className="head-hunter-feedback head-hunter-feedback--warn"

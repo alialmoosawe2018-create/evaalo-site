@@ -129,39 +129,25 @@ function list(value: unknown, limit: number, max = 160): string[] {
 const ROLE_SHAPING_KEYS = ['yearsOfExperience', 'industryType', 'jobLevel', 'educationLevel'];
 
 /**
- * The language the recruiter is SEARCHING in — not the language of the UI.
+ * The competency panel is ALWAYS English, whatever the recruiter typed.
  *
- * `blueprintGenerator` has its own detector that returns `'ar'` for every input
- * (both branches of its ternary), which is right for interview blueprints and
- * wrong here: a recruiter who types "Sales Manager" / "Baghdad, Iraq" was being
- * handed an Arabic competency panel. The typed text decides instead, so Arabic
- * input still produces Arabic competencies.
+ * Product decision (2026-09-16, after seeing both versions side by side): the
+ * whole panel reads as one list, and everything around these titles is already
+ * English — the recruiter's own criteria keys, the curated domain packs, the
+ * LinkedIn profiles being ranked, and the n8n `AI Analyze Candidate` rubric. An
+ * Arabic search used to produce Arabic titles sitting next to English criteria,
+ * and the instant pack tier could only ever answer in English anyway, so the
+ * first search of a role disagreed with the second. Pinning the language removes
+ * both the mixed panel and that disagreement.
  *
- * ⚠️ Counted here rather than through `utils/languageDetection.ts` on purpose.
- * That shared helper builds its Arabic count with a regex that has **no `g`
- * flag**, so `String.match` returns at most one hit and the ratio can only clear
- * its 0.3 gate for words of three letters or fewer — measured: "مدير مبيعات"
- * and "مهندس" both come back `'en'`, only "مدر" comes back `'ar'`. Adding the
- * flag there would silently flip `ttsService`'s voice selection on live voice
- * interviews, so the shared helper is left exactly as it is.
+ * This is why the language is a literal and not detected: a detector here would
+ * be dead code that a later reader might "repair" into a regression. It is also
+ * why `utils/languageDetection.ts` is still untouched — its Arabic count uses a
+ * regex with no `g` flag (a fully Arabic string scores as English), and its only
+ * other importer is `ttsService`, which picks the ElevenLabs voice for live
+ * interviews. Fixing it there would change what candidates hear.
  */
-export function languageFor(input: HeadHunterCompetencyInput): 'ar' | 'en' {
-    const typed = [
-        text(input.position, 160),
-        text(input.location, 120),
-        text(input.query, 400),
-        ...Object.values(input.criteria || {}).map((value) => text(value, 240)),
-    ]
-        .filter(Boolean)
-        .join(' ');
-    // Fresh literals each call: a module-level /g/ regex carries lastIndex state.
-    const arabic = (typed.match(/[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/g) || []).length;
-    if (arabic === 0) return 'en';
-    const latin = (typed.match(/[A-Za-z]/g) || []).length;
-    // A stray Arabic note beside an English title stays English; a genuinely
-    // Arabic search wins. Ties go to Arabic — the script the recruiter typed.
-    return arabic >= latin ? 'ar' : 'en';
-}
+const HEAD_HUNTER_MODEL_LANGUAGE = 'en' as const;
 
 function cacheKeyFor(input: HeadHunterCompetencyInput): string {
     const parts = [text(input.position, 120).toLowerCase()];
@@ -169,8 +155,7 @@ function cacheKeyFor(input: HeadHunterCompetencyInput): string {
         const value = text(input.criteria?.[key], 80).toLowerCase();
         if (value) parts.push(`${key}=${value}`);
     }
-    // Same role searched in two languages must not share one cached model.
-    parts.push(`lang=${languageFor(input)}`);
+    // No language segment: one model per role, since the language never varies.
     return parts.join('|');
 }
 
@@ -318,8 +303,8 @@ function startUpgrade(key: string, input: HeadHunterCompetencyInput): void {
             // The free-text query is the closest thing a search has to a job ad.
             jobAdvertisement: text(input.query, 1500) || undefined,
         },
-        // Follow what the recruiter typed, not the generator's Arabic-only default.
-        { language: languageFor(input) }
+        // Override the generator's Arabic-only default — see the comment above.
+        { language: HEAD_HUNTER_MODEL_LANGUAGE }
     )
         .then((expertise) => {
             const snapshot = toSnapshot(expertise);
