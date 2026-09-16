@@ -660,6 +660,18 @@ export interface GenerateBlueprintOptions {
      * default (BLUEPRINT_LLM_MODEL, gpt-5-mini) remains the offline choice.
      */
     model?: string;
+    /**
+     * Force the output language of the human-readable fields (titles, questions,
+     * evidence, red flags) instead of deriving it from the criteria.
+     *
+     * Only the head-hunter path sets this, and deliberately so: the local
+     * `detectLanguage` below returns `'ar'` for every input, so interview
+     * blueprints are Arabic by design. A recruiter searching in English wants
+     * an English competency panel, and that must not change what Stage 2/3
+     * campaigns generate — hence an opt-in override rather than a fix to the
+     * detector.
+     */
+    language?: 'ar' | 'en';
 }
 
 export async function generateExpertiseAndBlueprint(
@@ -741,7 +753,7 @@ export async function generateExpertiseAndBlueprint(
         ? pack.specialization
         : inferSpecialization(taxonomy, inferenceText);
     const domainGuidance = buildDomainGuidance(pack, taxonomy, specialization);
-    const language = detectLanguage(inferenceText);
+    const language = options.language || detectLanguage(inferenceText);
 
     const openai = getOpenAIClient();
     if (!openai) {

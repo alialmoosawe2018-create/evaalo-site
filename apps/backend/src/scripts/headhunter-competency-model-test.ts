@@ -9,6 +9,7 @@
 import {
     buildHeadHunterCompetencyModel,
     clearHeadHunterCompetencyCache,
+    languageFor,
 } from '../services/headHunterCompetencyModel.js';
 
 function assert(cond: boolean, msg: string): void {
@@ -104,6 +105,24 @@ async function main(): Promise<void> {
                 `skills=${upgraded!.requiredSkills.length} tools=${upgraded!.toolsAndSystems.length}`
         );
     }
+
+    // The competency panel must follow what the recruiter TYPED. This exists
+    // because the first attempt used the shared utils detector, whose Arabic
+    // regex is missing a `g` flag — it scored a fully Arabic search as English
+    // and silently forced every panel to English. Every case below was run
+    // against the shipped function; an all-English suite would not have caught it.
+    assert(languageFor({ position: 'Sales Manager', location: 'Baghdad, Iraq' }) === 'en',
+        'an English search must stay English');
+    assert(languageFor({ position: 'مدير مبيعات', location: 'بغداد، العراق' }) === 'ar',
+        'an Arabic search must produce an Arabic competency model');
+    assert(languageFor({ position: 'مهندس' }) === 'ar',
+        'a one-word Arabic title must still read as Arabic');
+    assert(languageFor({ position: 'Sales Manager', location: 'Baghdad', query: 'FMCG modern trade بغداد' }) === 'en',
+        'a stray Arabic word beside an English search must not flip it');
+    assert(languageFor({ position: 'مدير مبيعات', query: 'خبرة في FMCG' }) === 'ar',
+        'an English loanword inside an Arabic search must not flip it');
+    assert(languageFor({ position: '' }) === 'en', 'empty input defaults to English');
+    console.log('  language: en/ar detection follows the typed script (6 cases)');
 
     console.log('✅ headhunter-competency-model-test: all passed');
 }

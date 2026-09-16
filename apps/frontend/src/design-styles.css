@@ -2010,6 +2010,14 @@ body.rtl-text .ai-head-hunter-page .head-hunter-checkbox-group .checkbox-label:h
     margin-top: 2px;
 }
 
+/* The Arabic values echoed back to the recruiter, on their own line. */
+.ai-head-hunter-page .head-hunter-feedback__detail {
+    display: block;
+    margin-top: 4px;
+    opacity: 0.85;
+    font-size: 13px;
+}
+
 html[data-app-theme='light'] .dashboard-page--evaalo-visual.ai-head-hunter-page .head-hunter-feedback--ok {
     color: #059669;
 }

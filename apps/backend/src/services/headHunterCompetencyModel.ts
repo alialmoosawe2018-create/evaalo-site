@@ -128,12 +128,49 @@ function list(value: unknown, limit: number, max = 160): string[] {
  */
 const ROLE_SHAPING_KEYS = ['yearsOfExperience', 'industryType', 'jobLevel', 'educationLevel'];
 
+/**
+ * The language the recruiter is SEARCHING in — not the language of the UI.
+ *
+ * `blueprintGenerator` has its own detector that returns `'ar'` for every input
+ * (both branches of its ternary), which is right for interview blueprints and
+ * wrong here: a recruiter who types "Sales Manager" / "Baghdad, Iraq" was being
+ * handed an Arabic competency panel. The typed text decides instead, so Arabic
+ * input still produces Arabic competencies.
+ *
+ * ⚠️ Counted here rather than through `utils/languageDetection.ts` on purpose.
+ * That shared helper builds its Arabic count with a regex that has **no `g`
+ * flag**, so `String.match` returns at most one hit and the ratio can only clear
+ * its 0.3 gate for words of three letters or fewer — measured: "مدير مبيعات"
+ * and "مهندس" both come back `'en'`, only "مدر" comes back `'ar'`. Adding the
+ * flag there would silently flip `ttsService`'s voice selection on live voice
+ * interviews, so the shared helper is left exactly as it is.
+ */
+export function languageFor(input: HeadHunterCompetencyInput): 'ar' | 'en' {
+    const typed = [
+        text(input.position, 160),
+        text(input.location, 120),
+        text(input.query, 400),
+        ...Object.values(input.criteria || {}).map((value) => text(value, 240)),
+    ]
+        .filter(Boolean)
+        .join(' ');
+    // Fresh literals each call: a module-level /g/ regex carries lastIndex state.
+    const arabic = (typed.match(/[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/g) || []).length;
+    if (arabic === 0) return 'en';
+    const latin = (typed.match(/[A-Za-z]/g) || []).length;
+    // A stray Arabic note beside an English title stays English; a genuinely
+    // Arabic search wins. Ties go to Arabic — the script the recruiter typed.
+    return arabic >= latin ? 'ar' : 'en';
+}
+
 function cacheKeyFor(input: HeadHunterCompetencyInput): string {
     const parts = [text(input.position, 120).toLowerCase()];
     for (const key of ROLE_SHAPING_KEYS) {
         const value = text(input.criteria?.[key], 80).toLowerCase();
         if (value) parts.push(`${key}=${value}`);
     }
+    // Same role searched in two languages must not share one cached model.
+    parts.push(`lang=${languageFor(input)}`);
     return parts.join('|');
 }
 
@@ -275,11 +312,15 @@ function startUpgrade(key: string, input: HeadHunterCompetencyInput): void {
     if (upgradesInFlight.has(key)) return;
     upgradesInFlight.add(key);
     const startedAt = Date.now();
-    void generateExpertiseAndBlueprint({
-        criteria: toGeneratorCriteria(input),
-        // The free-text query is the closest thing a search has to a job ad.
-        jobAdvertisement: text(input.query, 1500) || undefined,
-    })
+    void generateExpertiseAndBlueprint(
+        {
+            criteria: toGeneratorCriteria(input),
+            // The free-text query is the closest thing a search has to a job ad.
+            jobAdvertisement: text(input.query, 1500) || undefined,
+        },
+        // Follow what the recruiter typed, not the generator's Arabic-only default.
+        { language: languageFor(input) }
+    )
         .then((expertise) => {
             const snapshot = toSnapshot(expertise);
             // An empty model is worse than none: it would tell n8n to rank against

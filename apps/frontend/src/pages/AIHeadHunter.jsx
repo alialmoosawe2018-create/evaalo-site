@@ -155,15 +155,31 @@ export default function AIHeadHunter() {
      * Sourcing runs against LinkedIn profiles, which are overwhelmingly written in
      * English — Arabic free text narrows the match pool. Picking from the suggestion
      * lists stores the English value, so only hand-typed Arabic trips this.
+     *
+     * Kurdish is covered by the same check without extra code: Sorani is written in
+     * the Arabic script (ڕ ێ ۆ گ چ پ ژ ڵ all sit inside U+0600–U+06FF), so
+     * isArabicText matches it — which is why the warning names both languages.
      */
-    const hasArabicSearchInput = useMemo(() => {
+    const arabicSearchInputs = useMemo(() => {
         const typed = [position, location, query];
         for (const { key } of OPTIONAL_FILTER_FIELDS) {
             const row = optionalFilters[key];
             if (row?.enabled) typed.push(row.value);
         }
-        return typed.some(isArabicText);
+        // Echo the offending values back, not just a yes/no: the recruiter has to
+        // know WHICH box to retype, and a generic warning left them guessing.
+        return typed
+            .map((value) => String(value ?? '').trim())
+            .filter((value) => value && isArabicText(value))
+            // Spread first: slicing UTF-16 units can split a surrogate pair and
+            // leave a lone half rendering as "�".
+            .map((value) => {
+                const chars = [...value];
+                return chars.length > 28 ? `${chars.slice(0, 28).join('')}…` : value;
+            });
     }, [position, location, query, optionalFilters]);
+
+    const hasArabicSearchInput = arabicSearchInputs.length > 0;
 
     const optionalFilterSuggestionOptions = useMemo(
         () => buildOptionalFilterSuggestionOptions(t, currentLang),
@@ -806,7 +822,40 @@ export default function AIHeadHunter() {
                                                 />
                                                 <circle cx="12" cy="16.25" r="1.15" fill="currentColor" />
                                             </svg>
-                                            <span>{t('aiHeadHunterArabicInputWarning')}</span>
+                                            <span>
+                                                <strong>
+                                                    {t('aiHeadHunterArabicInputWarningTitle')}
+                                                </strong>{' '}
+                                                {t('aiHeadHunterArabicInputWarning')}
+                                                <span
+                                                    className="head-hunter-feedback__detail"
+                                                    // The banner is role="status" (implicitly
+                                                    // atomic), so echoing the value the user is
+                                                    // typing would re-announce the whole paragraph
+                                                    // on every keystroke. The advice above is what
+                                                    // matters to a screen reader; the echo is a
+                                                    // visual aid.
+                                                    aria-live="off"
+                                                >
+                                                    {t('aiHeadHunterArabicInputWarningFields')}:{' '}
+                                                    {/* Each value in its own <bdi>: joining RTL runs
+                                                        with a neutral separator inside an LTR
+                                                        paragraph makes the bidi algorithm lay the
+                                                        whole group out right-to-left, so an English
+                                                        UI showed the values in reverse order. */}
+                                                    {arabicSearchInputs
+                                                        .slice(0, 3)
+                                                        .map((value, index) => (
+                                                            <React.Fragment key={`${index}-${value}`}>
+                                                                {index > 0 ? ' · ' : null}
+                                                                <bdi>{value}</bdi>
+                                                            </React.Fragment>
+                                                        ))}
+                                                    {arabicSearchInputs.length > 3
+                                                        ? ` +${arabicSearchInputs.length - 3}`
+                                                        : null}
+                                                </span>
+                                            </span>
                                         </p>
                                     ) : null}
 
