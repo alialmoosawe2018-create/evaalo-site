@@ -213,6 +213,52 @@ export default function AIHeadHunter() {
         }
     }, [submittedArabicInputs]);
 
+    /**
+     * Start the role's competency model while the recruiter is still filling the
+     * form, not when they press Search.
+     *
+     * The model needs 76-110 seconds of LLM time and can never sit on the search
+     * request, so a role with no curated pack used to ship its FIRST search with
+     * no competencies at all — ranked loosely — while the same search minutes
+     * later ranked strictly against eight. Same role, two answers, decided by
+     * timing. The recruiter normally picks the role well before they search, and
+     * that gap is enough.
+     *
+     * Debounced, because the fields change on every keystroke. Cheap to repeat:
+     * the server dedupes an upgrade already running and otherwise answers from
+     * the stored model. Entirely best effort — a failure is never shown and the
+     * search behaves exactly as before without it.
+     */
+    useEffect(() => {
+        if (!canSearchHeadHunter) return undefined;
+        const pos = String(position || '').trim();
+        if (!pos && !roleCatalog?.roleKey) return undefined;
+
+        const timer = setTimeout(() => {
+            apiClient
+                .post('/api/head-hunter/competency-model/warm', {
+                    position: pos,
+                    location: String(location || '').trim(),
+                    ...roleResolutionCriteriaFields(roleCatalog),
+                    ...(yearsExperience ? { yearsOfExperience: yearsExperience } : {}),
+                    ...(ageRange ? { ageRange } : {}),
+                    ...(String(query || '').trim() ? { query: String(query).trim() } : {}),
+                    ...buildOptionalFiltersPayload(optionalFilters),
+                })
+                .catch(() => {});
+        }, 1500);
+        return () => clearTimeout(timer);
+    }, [
+        canSearchHeadHunter,
+        position,
+        location,
+        roleCatalog,
+        yearsExperience,
+        ageRange,
+        query,
+        optionalFilters,
+    ]);
+
     const optionalFilterSuggestionOptions = useMemo(
         () => buildOptionalFilterSuggestionOptions(t, currentLang),
         [t, currentLang]

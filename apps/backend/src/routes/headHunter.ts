@@ -1510,6 +1510,71 @@ router.get(
     }
 );
 
+/**
+ * POST /api/head-hunter/competency-model/warm — start the role model early.
+ *
+ * The model takes 76-110 seconds of LLM time, which can never sit on the search
+ * request. Built only when Search is pressed, the FIRST search of a role that
+ * matches no curated pack therefore shipped with no competencies at all and was
+ * ranked loosely, while the same search minutes later ranked strictly — the same
+ * role scoring two different ways depending on timing alone.
+ *
+ * The recruiter picks the role 30-90 seconds before they press Search. Starting
+ * the generation at that moment usually closes the gap, and because the model is
+ * now persisted this costs one LLM call per role rather than one per search.
+ *
+ * Deliberately best effort: it never 400s on a filter it cannot parse (unlike
+ * /search, which must), never waits for the upgrade, and never reports failure
+ * to the page. Warming is an optimisation; nothing may depend on it.
+ */
+router.post(
+    '/competency-model/warm',
+    conditionalRequireAuth(),
+    requirePermission('headhunter.search'),
+    async (req: Request, res: Response) => {
+        try {
+            const body = (req.body ?? {}) as Record<string, unknown>;
+            const position = str(body.position, 200);
+            if (!position) return res.json({ ok: true, ready: false });
+
+            // The same derivation /search uses, minus its rejections — the cache
+            // key must match exactly or the warm-up heats the wrong entry.
+            const criteria: Record<string, string> = {};
+            for (const key of OPTIONAL_CRITERION_KEYS) {
+                try {
+                    const parsed = parseOptionalCriterion(body, key);
+                    if (parsed) criteria[key] = parsed;
+                } catch {
+                    /* an unparseable filter is simply not part of the warm key */
+                }
+            }
+            const experience = resolveSearchExperienceFilters({
+                yearsOfExperience: body.yearsOfExperience,
+                ageRange: body.ageRange,
+            });
+            if (experience.ok) {
+                for (const [k, v] of Object.entries(experience.filters.optionalCriteriaExtras)) {
+                    criteria[k] = v;
+                }
+            }
+
+            const model = await buildHeadHunterCompetencyModel({
+                position,
+                location: str(body.location, 200),
+                query: str(body.query, 2000),
+                criteria,
+            });
+            return res.json({
+                ok: true,
+                ready: Array.isArray(model?.competencies) && model.competencies.length > 0,
+            });
+        } catch {
+            // Never surface a warm-up failure: the search still works without it.
+            return res.json({ ok: true, ready: false });
+        }
+    }
+);
+
 // ============================================================================
 // SEARCH HISTORY — the durable replacement for a browser's localStorage
 // ============================================================================
