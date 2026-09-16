@@ -670,8 +670,7 @@ export const translations = {
             "Searching in Arabic or Kurdish gives less accurate results.",
         aiHeadHunterArabicInputWarning:
             "LinkedIn accounts are written in English, so Arabic and Kurdish words match far fewer people and the ranking gets weaker. Type the job title and the city in English for the most accurate search.",
-        aiHeadHunterArabicInputWarningFields: "Text you entered",
-        aiHeadHunterArabicInputWarningResolved: "This search will use",
+        aiHeadHunterArabicInputWarningFields: "Text you entered",
         aiHeadHunterPositionPh: "e.g. HR Generalist",
         aiHeadHunterLocationPh: "e.g. Baghdad, Iraq",
         aiHeadHunterYearsPh: "e.g. 3–5 years",
@@ -2355,8 +2354,7 @@ export const translations = {
         aiHeadHunterArabicInputWarningTitle: "البحث بالعربية والكردية يعطي نتائج غير دقيقة.",
         aiHeadHunterArabicInputWarning:
             "حسابات LinkedIn مكتوبة بالإنجليزية، فالكلمات العربية والكردية تطابق عدداً أقل بكثير من الأشخاص ويصير الترتيب أضعف. اكتب المسمّى الوظيفي والمدينة بالإنجليزية للحصول على أدق بحث.",
-        aiHeadHunterArabicInputWarningFields: "النصّ الذي أدخلته",
-        aiHeadHunterArabicInputWarningResolved: "سيُبحَث بالمسمّى",
+        aiHeadHunterArabicInputWarningFields: "النصّ الذي أدخلته",
         aiHeadHunterPositionPh: "مثال: أخصائي موارد بشرية",
         aiHeadHunterLocationPh: "مثال: بغداد، العراق",
         aiHeadHunterYearsPh: "مثال: 3–5 سنوات",
@@ -4030,8 +4028,7 @@ export const translations = {
             "گەڕان بە عەرەبی یان کوردی ئەنجامی ناوردتر دەداتەوە.",
         aiHeadHunterArabicInputWarning:
             "هەژمارەکانی لینکدئین بە ئینگلیزی نووسراون، بۆیە وشە عەرەبی و کوردییەکان کەسانێکی زۆر کەمتر دەگرنەوە و ڕیزبەندییەکە لاوازتر دەبێت. ناوی پۆست و شار بە ئینگلیزی بنووسە بۆ وردترین گەڕان.",
-        aiHeadHunterArabicInputWarningFields: "ئەوەی نووسیوتە",
-        aiHeadHunterArabicInputWarningResolved: "ئەم گەڕانە بەم ناوە دەکرێت",
+        aiHeadHunterArabicInputWarningFields: "ئەوەی نووسیوتە",
         aiHeadHunterPositionPh: "نموونە: ڕاوێژکاری کارمەندی مرۆیی",
         aiHeadHunterLocationPh: "نموونە: بەغدا، عێراق",
         aiHeadHunterYearsPh: "نموونە: 3–5 ساڵ",

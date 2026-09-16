@@ -179,35 +179,31 @@ export default function AIHeadHunter() {
             });
     }, [position, location, query, optionalFilters]);
 
-    const hasArabicSearchInput = arabicSearchInputs.length > 0;
-
     /**
-     * A role picked from the catalog while the UI is Arabic or Kurdish.
+     * The values that were Arabic **at the moment Search was pressed**.
      *
-     * Picking stores the catalog's canonical ENGLISH title, so this search is NOT
-     * degraded — but the recruiter saw an Arabic label and asked to be told in
-     * this case too. So the banner fires here as well, and instead of claiming
-     * the results will suffer it names the title that will actually be searched.
-     * Returns that title, or '' when there is nothing to say.
+     * Deliberately NOT derived live from `arabicSearchInputs`: the warning used to
+     * appear as the recruiter typed, and they asked for it to appear on submit
+     * only. Writing it here also freezes the echo to what was actually searched,
+     * so editing a box afterwards cannot rewrite the notice under it. Every
+     * submit overwrites it, so fixing the input and searching again clears it.
      */
-    const localizedRolePick = useMemo(() => {
-        if (currentLang === 'en') return '';
-        if (!roleCatalog?.roleKey) return '';
-        const resolved = String(position ?? '').trim();
-        // Hand-typed Arabic is the other case and already has its own line.
-        if (!resolved || isArabicText(resolved)) return '';
-        return resolved;
-    }, [currentLang, roleCatalog, position]);
-
-    const showScriptNotice = hasArabicSearchInput || Boolean(localizedRolePick);
+    const [submittedArabicInputs, setSubmittedArabicInputs] = useState([]);
 
     /**
-     * The banner renders live as the recruiter types, so it is already on screen
-     * before they submit — but the form is long enough to have scrolled it out of
-     * sight. Pressing Search brings it back into view. It never blocks the search:
-     * Arabic input is a warning about result quality, not an error.
+     * Scrolling has to wait for the render: the banner is mounted only once
+     * `submittedArabicInputs` is non-empty, so at the moment Search is pressed the
+     * ref is still null. Hence an effect rather than a call inside handleSubmit.
+     * It never blocks the search — Arabic input is a warning about result quality,
+     * not an error.
      */
     const arabicWarningRef = useRef(null);
+
+    useEffect(() => {
+        if (submittedArabicInputs.length > 0 && arabicWarningRef.current) {
+            arabicWarningRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [submittedArabicInputs]);
 
     const optionalFilterSuggestionOptions = useMemo(
         () => buildOptionalFilterSuggestionOptions(t, currentLang),
@@ -419,9 +415,12 @@ export default function AIHeadHunter() {
             return;
         }
         const optionalFiltersPayload = buildOptionalFiltersPayload(optionalFilters);
-        if (showScriptNotice && arabicWarningRef.current) {
-            arabicWarningRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        // Raise the notice here and nowhere else — this is the only moment the
+        // recruiter has committed to searching with Arabic or Kurdish text.
+        // A fresh array every time on purpose: `arabicSearchInputs` is memoised, so
+        // re-submitting the same text would hand React an identical reference, it
+        // would skip the re-render, and the scroll effect would not fire again.
+        setSubmittedArabicInputs([...arabicSearchInputs]);
         setLoading(true);
         stopPollForNewResult();
         setSearchId(null);
@@ -830,7 +829,7 @@ export default function AIHeadHunter() {
                                         </div>
                                     </div>
 
-                                    {showScriptNotice ? (
+                                    {submittedArabicInputs.length > 0 ? (
                                         <p
                                             ref={arabicWarningRef}
                                             role="status"
@@ -859,48 +858,28 @@ export default function AIHeadHunter() {
                                                     {t('aiHeadHunterArabicInputWarningTitle')}
                                                 </strong>{' '}
                                                 {t('aiHeadHunterArabicInputWarning')}
-                                                {hasArabicSearchInput ? (
-                                                    <span
-                                                        className="head-hunter-feedback__detail"
-                                                        // The banner is role="status" (implicitly
-                                                        // atomic), so echoing the value the user is
-                                                        // typing would re-announce the whole
-                                                        // paragraph on every keystroke. The advice
-                                                        // above is what matters to a screen reader;
-                                                        // the echo is a visual aid.
-                                                        aria-live="off"
-                                                    >
-                                                        {t('aiHeadHunterArabicInputWarningFields')}:{' '}
-                                                        {/* Each value in its own <bdi>: joining RTL
-                                                            runs with a neutral separator inside an
-                                                            LTR paragraph makes the bidi algorithm
-                                                            lay the whole group out right-to-left,
-                                                            so an English UI showed the values in
-                                                            reverse order. */}
-                                                        {arabicSearchInputs
-                                                            .slice(0, 3)
-                                                            .map((value, index) => (
-                                                                <React.Fragment
-                                                                    key={`${index}-${value}`}
-                                                                >
-                                                                    {index > 0 ? ' · ' : null}
-                                                                    <bdi>{value}</bdi>
-                                                                </React.Fragment>
-                                                            ))}
-                                                        {arabicSearchInputs.length > 3
-                                                            ? ` +${arabicSearchInputs.length - 3}`
-                                                            : null}
-                                                    </span>
-                                                ) : null}
-                                                {localizedRolePick ? (
-                                                    <span
-                                                        className="head-hunter-feedback__detail"
-                                                        aria-live="off"
-                                                    >
-                                                        {t('aiHeadHunterArabicInputWarningResolved')}
-                                                        : <bdi>{localizedRolePick}</bdi>
-                                                    </span>
-                                                ) : null}
+                                                <span
+                                                    className="head-hunter-feedback__detail"
+                                                    aria-live="off"
+                                                >
+                                                    {t('aiHeadHunterArabicInputWarningFields')}:{' '}
+                                                    {/* Each value in its own <bdi>: joining RTL runs
+                                                        with a neutral separator inside an LTR
+                                                        paragraph makes the bidi algorithm lay the
+                                                        whole group out right-to-left, so an English
+                                                        UI showed the values in reverse order. */}
+                                                    {submittedArabicInputs
+                                                        .slice(0, 3)
+                                                        .map((value, index) => (
+                                                            <React.Fragment key={`${index}-${value}`}>
+                                                                {index > 0 ? ' · ' : null}
+                                                                <bdi>{value}</bdi>
+                                                            </React.Fragment>
+                                                        ))}
+                                                    {submittedArabicInputs.length > 3
+                                                        ? ` +${submittedArabicInputs.length - 3}`
+                                                        : null}
+                                                </span>
                                             </span>
                                         </p>
                                     ) : null}
