@@ -2123,7 +2123,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                     console.warn('⚠️ Failed to create campaign:', result);
                     setErrors((prev) => ({
                         ...prev,
-                        general: formatCampaignCreateError(result),
+                        general: formatCampaignCreateError(result, undefined, t),
                     }));
                 }
             } catch (error) {
@@ -2134,7 +2134,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
                         error instanceof ApiError ? error.data : null,
                         error instanceof ApiError
                             ? error.data?.message || error.message
-                            : 'Error creating campaign. Please try again.'
+                            : 'Error creating campaign. Please try again.',
+                        t
                     ),
                 }));
             } finally {

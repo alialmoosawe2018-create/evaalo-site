@@ -152,8 +152,43 @@ export function resolvePublicFormUrlFromCampaignResponse(result, absoluteAppUrl,
     return appendFormShareLanguage(absoluteAppUrl(path), options.language);
 }
 
-export function formatCampaignCreateError(result, fallback = 'Failed to create campaign. Please try again.') {
+/**
+ * Server refusals the UI already has its own translated wording for.
+ *
+ * The API answers a validation refusal with an English `message`, and this
+ * formatter used to show it verbatim — so an Arabic user got an English
+ * paragraph. The frontend runs the same rubric check itself and localizes it,
+ * but only when `selectedInterviewType === 'form'`, while the server checks
+ * anything that is not audio/video. Any screening flow outside that one type
+ * reaches the server and came back in English.
+ *
+ * Mapping the CODE (not the message text) keeps the two independent: the server
+ * can reword its message freely without silently breaking the translation.
+ */
+const SERVER_ERROR_TRANSLATION_KEYS = {
+    rubric_required: 'newCampaign_rubricNeedsScoring',
+};
+
+/**
+ * @param {object|null} result           the API error body
+ * @param {string} [fallback]
+ * @param {(key: string) => string} [translate]  pass `t` to localize known codes
+ */
+export function formatCampaignCreateError(
+    result,
+    fallback = 'Failed to create campaign. Please try again.',
+    translate
+) {
     if (!result) return fallback;
+
+    const key = SERVER_ERROR_TRANSLATION_KEYS[result.error];
+    if (key && typeof translate === 'function') {
+        const localized = translate(key);
+        // A missing key returns the key itself in this i18n helper; that would
+        // be worse than the server's English sentence, so only take a real hit.
+        if (localized && localized !== key) return localized;
+    }
+
     if (Array.isArray(result.details) && result.details.length > 0) {
         const first = result.details[0];
         return first.message || first.code || result.message || result.error || fallback;
