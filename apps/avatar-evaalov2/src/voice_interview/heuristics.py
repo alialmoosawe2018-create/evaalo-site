@@ -781,9 +781,16 @@ def _is_incomplete_turn(norm: str, raw: str) -> bool:
     raw_stripped = (raw or "").rstrip()
     if raw_stripped.endswith("…") or raw_stripped.endswith("..."):
         return True
+    # WHOLE WORD, not a character suffix. `_INCOMPLETE_TRAILING_AR` contains
+    # «فـ», which normalize_text reduces to the bare letter «ف» — so a plain
+    # `endswith` flagged every turn ending in a word that ends with ف as "still
+    # talking": «ما أعرف», «الملف», «الهدف», «الموقف», and in an HR interview
+    # «التوظيف». The agent then withheld its reply. Same defect family as the
+    # substring clause removed on 2026-09-17; this loop survived that fix.
+    stripped = norm.rstrip()
     for ending in _INCOMPLETE_TRAILING_AR:
         e = normalize_text(ending)
-        if e and (norm.endswith(e) or norm.rstrip().endswith(e)):
+        if e and (stripped == e or stripped.endswith(" " + e)):
             return True
     return _ends_with_function_word(norm)
 
@@ -1030,6 +1037,36 @@ def _is_ambiguous_clarify(
     return False
 
 
+# An OUTCOME was stated — not merely that something happened. Deliberately
+# strict: a miss only costs one extra «وشصار بالآخر؟», while a false hit skips
+# the result question on an answer that never gave one, and the Stage-3 scorer
+# caps any competency without a result at 4. So «صار» alone is NOT here — it
+# opens half of all Iraqi answers («صار عندي موقف…»).
+_RESULT_MARKERS_AR: tuple[str, ...] = (
+    "بالنتيجة", "النتيجة", "النتايج", "بالاخير", "بالآخر", "طلعت النتيجة",
+    "تحسن", "تحسنت", "انخفض", "انخفضت", "ارتفع", "ارتفعت", "زاد", "زادت",
+    "قلت", "وفرنا", "وفرت", "نجح", "نجحت", "انحل", "انحلت", "وافقوا",
+    "اعتمدوا", "اعتمد المدير", "تم اعتماد", "خلصت الحالة", "صار عندنا توثيق",
+)
+_RESULT_MARKERS_EN: tuple[str, ...] = (
+    "as a result", "the result", "outcome", "improved", "reduced", "increased",
+    "dropped", "saved us", "approved it", "resolved",
+)
+_RESULT_NUMBER_RE = re.compile(
+    r"\d+\s*(?:%|بالمية|بالمئة|percent|يوم|أيام|ايام|شهر|أشهر|اشهر|ساعة|ساعات|دينار|dollar|day|days|month|hour)"
+)
+
+
+def mentions_result(text: str) -> bool:
+    """True when the answer already states an outcome, so asking for one is noise."""
+    norm = normalize_text(text or "")
+    if not norm:
+        return False
+    if _matches_any(norm, _RESULT_MARKERS_AR) or _matches_any(norm, _RESULT_MARKERS_EN):
+        return True
+    return bool(_RESULT_NUMBER_RE.search(text or ""))
+
+
 def analyze_user_answer(
     text: str,
     lang: str = "auto",
@@ -1162,6 +1199,7 @@ def analyze_user_answer(
 
     return {
         "length": length,
+        "mentions_result": mentions_result(text or ""),
         "is_shallow": is_shallow,
         "is_incomplete_turn": is_incomplete,
         "is_unsure": is_unsure,

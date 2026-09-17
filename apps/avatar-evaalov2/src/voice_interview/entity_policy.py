@@ -237,6 +237,65 @@ ENTITY_QUALITY_POOL: tuple[str, ...] = (
 )
 
 # Role-neutral "what made this hard" difficulty probe (replaces the HR-only one).
+# The ONE budgeted follow-up per competency, spent on the thing the Stage-3
+# scorer requires for any score above 4 and that nothing in the interview ever
+# asked for: the outcome. Spoken, three words, not «وشنو كانت النتيجة القابلة
+# للقياس؟» — the scorer reads meaning, the candidate hears sound.
+RESULT_FOLLOWUP_POOL: tuple[str, ...] = (
+    "وشصار بالآخر؟",
+    "وشنو طلع منها؟",
+    "وشلون انتهت؟",
+    "طيب وشنو كانت النتيجة؟",
+)
+
+
+# English terms an Iraqi candidate does not reliably parse mid-Arabic. The
+# runtime prompt already tells the model to gloss jargon, but the recommendation
+# handed to it carried the raw term, so a rushed rephrase left it in the spoken
+# question («اذكرلي حالة HR case … من intake للنهاية؟» — heard verbatim).
+_SPOKEN_GLOSS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bHR\s+case\b", re.IGNORECASE), "حالة موظف"),
+    (re.compile(r"\bintake\b", re.IGNORECASE), "أول ما توصلك"),
+    (re.compile(r"\bend[\s-]?to[\s-]?end\b", re.IGNORECASE), "من أولها لآخرها"),
+    (re.compile(r"\bpayroll\b", re.IGNORECASE), "الرواتب"),
+)
+
+# Nobody speaks brackets. The blueprint writes its examples parenthetically
+# because it was authored to be READ by the scorer.
+_PAREN_ASIDE_RE = re.compile(r"\s*\(([^()]{1,90})\)")
+
+# «…، شنو كانت الحالة، شنو سويت تحديداً؟» is three asks under one question mark.
+# collapse_to_single_question only cuts at a conjunction («، وشنو…»), so a
+# comma-stacked ask survived it.
+_STACKED_ASK_RE = re.compile(r"[،,]\s*(?:شنو|شلون|كيف|وين|متى|ليش|شكد)\s")
+
+_DOUBLED_WORD_RE = re.compile(r"(?<!\S)(\S+)\s+\1(?!\S)")
+
+
+def naturalize_spoken_question(text: str) -> str:
+    """Strip the written-form tells from a question before it is spoken.
+
+    Mechanical only — glossing, brackets, stacked asks. Turning «موقف تطلب
+    تفسير وتطبيق سياسة مكتوبة» into «موقف اضطريت ترجع بيه للسياسة المكتوبة» is a
+    rewrite, not string surgery, and belongs to the model (see the STYLE
+    EXAMPLES block in assistant.py). This function's job is to stop handing the
+    model noise it then faithfully reproduces.
+    """
+    out = (text or "").strip()
+    if not out:
+        return ""
+    for pattern, replacement in _SPOKEN_GLOSS:
+        out = pattern.sub(replacement, out)
+    # Glossing can stutter: «اذكرلي حالة HR case» → «اذكرلي حالة حالة موظف».
+    out = _DOUBLED_WORD_RE.sub(r"\1", out)
+    out = _PAREN_ASIDE_RE.sub(lambda m: f" — {m.group(1).strip()}", out)
+    marks = list(_STACKED_ASK_RE.finditer(out))
+    if len(marks) >= 2:
+        mark = "؟" if "؟" in out else "?"
+        out = out[: marks[1].start()].rstrip("،, ").rstrip("؟?").rstrip() + mark
+    return collapse_to_single_question(re.sub(r"\s{2,}", " ", out).strip())
+
+
 DIFFICULTY_FOLLOWUP_POOL: tuple[str, ...] = (
     "شنو أصعب جزء واجهته بهالشغلة؟",
     "احچيلي عن موقف كان تحدي حقيقي إلك بهالدور؟",

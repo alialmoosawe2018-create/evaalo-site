@@ -43,6 +43,7 @@ from voice_interview.entity_policy import (
     DIFFICULTY_FOLLOWUP_POOL,
     ENTITY_APPLY_POOL,
     ENTITY_QUALITY_POOL,
+    RESULT_FOLLOWUP_POOL,
     CandidateCorrection,
     RoleGlossaryEntry,
     clarify_challenge_reply,
@@ -51,6 +52,7 @@ from voice_interview.entity_policy import (
     detect_tool_correction,
     extract_candidate_entities,
     extract_speech_hooks,
+    naturalize_spoken_question,
     pick_hook_followup,
     pick_varied,
     simplify_clarify_for_pack,
@@ -308,6 +310,9 @@ class InterviewMemory:
     # Capped by ``_max_followups_per_competency`` so the interview keeps moving
     # instead of circling one theme for a third of its questions.
     competency_followup_counts: dict[str, int] = field(default_factory=dict)
+    # Competencies whose outcome has already been probed — the result question
+    # is asked at most once each, however the conversation loops.
+    result_probed_competency_keys: set[str] = field(default_factory=set)
     # Fixed anchor questions already sent. The competency engine stays quiet
     # until the shared backbone is done.
     anchor_questions_sent: int = 0
@@ -2118,6 +2123,10 @@ class InterviewAssistant(Agent):
         # the competency engine below moves on. Without this cap the follow-up
         # branches keep re-probing whatever the candidate happened to mention,
         # which is how a single competency ate six of twenty-five questions.
+        result_follow = self._pick_result_followup(diag, mem)
+        if result_follow is not None:
+            return result_follow
+
         depth_left = self._competency_followup_budget_left(mem)
 
         if depth_left and (diag.get("is_rich_answer") or diag.get("suggest_followup")):
@@ -2261,11 +2270,40 @@ class InterviewAssistant(Agent):
             mem.current_competency_key = ckey
             mem.pending_competency_key = ckey
             return self._set_turn_recommendation(
-                collapse_to_single_question(question),
+                naturalize_spoken_question(question),
                 source="competency_engine",
                 competency_key=ckey,
             )
         return None
+
+    def _pick_result_followup(
+        self, diag: dict[str, Any], mem: InterviewMemory
+    ) -> str | None:
+        """Spend the competency's one follow-up on the outcome, when it is missing.
+
+        The Stage-3 rubric caps any competency without a concrete result at 4,
+        and the single-question rule trims «وشنو صار بالنتيجة؟» off most opening
+        questions — so the interview asked for a situation and an action, then
+        scored the candidate on a result it never requested. Fires only when the
+        candidate actually answered and did not already state an outcome, and
+        once per competency.
+        """
+        ckey = (mem.current_competency_key or "").strip()
+        if not ckey or ckey in mem.result_probed_competency_keys:
+            return None
+        if not diag.get("is_substantive_answer") or diag.get("mentions_result"):
+            return None
+        if not self._competency_followup_budget_left(mem):
+            return None
+        mem.result_probed_competency_keys.add(ckey)
+        return self._set_turn_recommendation(
+            pick_varied(RESULT_FOLLOWUP_POOL, mem),
+            source="result_followup",
+            response_mode=MODE_FOLLOW_UP,
+            parent_question_id=mem.sent_question_id or None,
+            followup_type="result",
+            competency_key=ckey,
+        )
 
     def _wrap_decision_frame(
         self,
@@ -2299,6 +2337,21 @@ class InterviewAssistant(Agent):
                 "(\"احچيلي عن موقف…\"/\"اعطني مثال محدد…\") instead of a generic \"شنو تسوي عادة\"; if it is a "
                 "short follow-up, keep it short. A brief warm lead-in (\"زين،\"/\"تمام،\") is welcome, but never "
                 "a second question.\n"
+                # The recommendation is written to be READ by a scorer; these show the
+                # register it must be SPOKEN in. Approved by the product owner
+                # 2026-09-17 after his own interview read like a form being filled.
+                "STYLE EXAMPLES — same meaning, spoken register. Match the right-hand column:\n"
+                "  given: «اذكرلي مثال عن موقف تطلب تفسير وتطبيق سياسة مكتوبة — مثلاً سياسة إجازات أو حضور، "
+                "شنو كانت الحالة؟»\n"
+                "  say:   «صار وياك موقف اضطريت ترجع بيه للسياسة المكتوبة حتى تقرر؟»\n"
+                "  given: «اذكرلي حالة حالة موظف مثل شكوى تظلم أو تحقق غيابات طويلة، شنو كانت الخطوات اللي "
+                "اتبعتها من أول ما توصلك للنهاية؟»\n"
+                "  say:   «حچيلي عن شكوى أو غياب طويل وصلك — شلون تعاملت وياها؟»\n"
+                "  given: «اذكرلي مثال سويت فيه تقرير HR — مثل معدلات غياب أو زمن التوظيف، شنو البيانات اللي "
+                "استخدمتها؟»\n"
+                "  say:   «طلّعت تقرير للإدارة عن الغيابات أو مدة شغل الوظائف — شلون طلّعت الأرقام؟»\n"
+                "Keep every concrete anchor (the policy, the complaint, the report) — shorten the wrapping, "
+                "never the subject. Do not open two questions in a row the same way.\n"
                 f'Recommended question (rephrase into natural language per the rules; ONE question only): "{single[:300]}"'
             )
         elif diag.get("meta_request") == "ask_interviewer":
