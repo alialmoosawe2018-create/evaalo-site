@@ -671,6 +671,8 @@ export const translations = {
         aiHeadHunterArabicInputWarning:
             "LinkedIn accounts are written in English, so Arabic and Kurdish words match far fewer people and the ranking gets weaker. Type the job title and the city in English for the most accurate search.",
         aiHeadHunterArabicInputWarningFields: "Text you entered",
+        aiHeadHunterShortResult:
+            "The search widened itself automatically and still found only {count} matching candidate(s) of the {target} you asked for — there are no further matches for this title in this location.",
         aiHeadHunterArabicInputConfirm: "I understand — search anyway",
         aiHeadHunterArabicInputConfirmed: "Approved. Press Search again to run it.",
         aiHeadHunterPositionPh: "e.g. HR Generalist",
@@ -2359,6 +2361,8 @@ export const translations = {
         aiHeadHunterArabicInputWarning:
             "حسابات LinkedIn مكتوبة بالإنجليزية، فالكلمات العربية والكردية تطابق عدداً أقل بكثير من الأشخاص ويصير الترتيب أضعف. اكتب المسمّى الوظيفي والمدينة بالإنجليزية للحصول على أدق بحث.",
         aiHeadHunterArabicInputWarningFields: "النصّ الذي أدخلته",
+        aiHeadHunterShortResult:
+            "وسّعنا البحث تلقائياً ومع ذلك وجدنا {count} مرشّحاً مطابقاً فقط من أصل {target} طلبتها — لا مزيد من المطابقين لهذا المسمّى في هذا الموقع.",
         aiHeadHunterArabicInputConfirm: "أوافق، ابحث على أي حال",
         aiHeadHunterArabicInputConfirmed: "تمّت الموافقة. اضغط «بحث» مرّة أخرى للتنفيذ.",
         aiHeadHunterPositionPh: "مثال: أخصائي موارد بشرية",
@@ -4037,6 +4041,8 @@ export const translations = {
         aiHeadHunterArabicInputWarning:
             "هەژمارەکانی لینکدئین بە ئینگلیزی نووسراون، بۆیە وشە عەرەبی و کوردییەکان کەسانێکی زۆر کەمتر دەگرنەوە و ڕیزبەندییەکە لاوازتر دەبێت. ناوی پۆست و شار بە ئینگلیزی بنووسە بۆ وردترین گەڕان.",
         aiHeadHunterArabicInputWarningFields: "ئەوەی نووسیوتە",
+        aiHeadHunterShortResult:
+            "گەڕانەکە خۆکارانە فراوان کرا و لەگەڵ ئەوەشدا تەنها {count} کەسی گونجاو دۆزرایەوە لە {target} ی داواکراو — زیاتر نییە بۆ ئەم ناونیشانە لەم شوێنە.",
         aiHeadHunterArabicInputConfirm: "تێدەگەم — بەهەر حاڵ بگەڕێ",
         aiHeadHunterArabicInputConfirmed: "پەسەند کرا. دووبارە «گەڕان» دابگرە بۆ جێبەجێکردن.",
         aiHeadHunterPositionPh: "نموونە: ڕاوێژکاری کارمەندی مرۆیی",

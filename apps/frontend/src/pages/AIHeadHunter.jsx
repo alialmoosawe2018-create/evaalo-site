@@ -373,6 +373,22 @@ export default function AIHeadHunter() {
                     }
                     if (res.status === 'completed' || attempts >= POLL_MAX_ATTEMPTS) {
                         clearPollTimerOnly();
+                        /* A short search now widens itself automatically and can STILL
+                           come back under target — the workflow says exactly that, but
+                           its sentence was read only when ZERO candidates arrived. A
+                           partial result therefore reached the recruiter as a bare
+                           number with no reason for it. Say it from the two figures we
+                           already hold, in their own language, rather than forwarding
+                           the workflow's English line. */
+                        const wanted = Number(criteria?.minCandidateCount) || 0;
+                        if (res.status === 'completed' && wanted > 0 && nCandidates < wanted) {
+                            setFeedback({
+                                type: 'warn',
+                                text: t('aiHeadHunterShortResult')
+                                    .replace('{count}', String(nCandidates))
+                                    .replace('{target}', String(wanted)),
+                            });
+                        }
                     }
                     return;
                 }
@@ -974,7 +990,9 @@ export default function AIHeadHunter() {
                                             className={`head-hunter-feedback ${
                                                 feedback.type === 'ok'
                                                     ? 'head-hunter-feedback--ok'
-                                                    : 'head-hunter-feedback--err'
+                                                    : feedback.type === 'warn'
+                                                      ? 'head-hunter-feedback--warn'
+                                                      : 'head-hunter-feedback--err'
                                             }`}
                                         >
                                             {feedback.text}
