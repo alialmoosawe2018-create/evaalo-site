@@ -965,6 +965,25 @@ def create_speechmatics_stt():
     if domain:
         stt_kw["domain"] = domain
 
+    # Speechmatics writes a full stop at hesitations, and the semantic turn detector
+    # reads that as a finished sentence — a candidate who pauses to think mid-answer
+    # looks "done" and gets spoken over («…أقرب لخبرتي.», «…حاول.» on 2026-09-17,
+    # both content words, both cut at the fast path). Lower sensitivity keeps
+    # hesitation periods out of the text the detector sees. Interview-only default;
+    # SPEECHMATICS_PUNCTUATION_SENSITIVITY=0 keeps the plugin default (no override).
+    punct_raw = (
+        os.getenv("SPEECHMATICS_PUNCTUATION_SENSITIVITY") or ("0.3" if interview_boost else "")
+    ).strip()
+    if punct_raw:
+        try:
+            _sens = float(punct_raw)
+        except ValueError:
+            _sens = -1.0
+            logger.warning("Ignoring invalid SPEECHMATICS_PUNCTUATION_SENSITIVITY=%r", punct_raw)
+        if 0.0 < _sens <= 1.0:
+            stt_kw["punctuation_overrides"] = {"sensitivity": _sens}
+            logger.info("Speechmatics punctuation sensitivity override: %.2f", _sens)
+
     stt = speechmatics.STT(**stt_kw)
     logger.info(
         "Speechmatics STT | lang=%s op=%s max_delay=%.2f eou_silence=%.2f eou_mode=%s partials=%s "

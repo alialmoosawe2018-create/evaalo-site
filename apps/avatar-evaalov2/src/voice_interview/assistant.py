@@ -32,6 +32,7 @@ from voice_interview.config import (
     interview_end_delete_room,
     interview_end_playout_grace_ms,
     interview_wait_nudge_enabled,
+    interview_wait_timeout_ms,
     tts_reply_prefetch_max_chars,
 )
 from voice_interview.cross_domain_guard import validate_cross_domain_output
@@ -892,6 +893,81 @@ class InterviewAssistant(Agent):
             logger.info("[reply-guard] final closing → agent-initiated conclude scheduled")
         except Exception as ex:
             logger.warning("[reply-guard] schedule conclude failed: %s", ex)
+
+    # ---- bounded silent wait -------------------------------------------------
+    # The silent wait (no continuation nudge) is right: speaking over a pause is an
+    # interruption. But it had no end. A turn judged "unfinished" raised StopResponse
+    # and the agent then waited for the candidate to speak again — forever, if they
+    # had in fact finished. Every mis-classified short answer became a hang. The
+    # timer below turns that into a bounded pause: if nothing new arrives in
+    # INTERVIEW_WAIT_TIMEOUT_MS, the agent replies to what it has. A fresh user turn
+    # cancels it, so a candidate who really is mid-thought pays nothing.
+
+    def _session_for_wait(self):  # type: ignore[no-untyped-def]  # tests replace this with a stub
+        try:
+            return self.session
+        except Exception:
+            return None
+
+    def _cancel_wait_timeout(self) -> None:
+        task = getattr(self, "_wait_timeout_task", None)
+        if task is not None and not task.done():
+            task.cancel()
+        self._wait_timeout_task = None
+
+    def _arm_wait_timeout(self, armed_turn: int) -> None:
+        delay_ms = interview_wait_timeout_ms()
+        if delay_ms <= 0 or interview_wait_nudge_enabled():
+            return
+        self._cancel_wait_timeout()
+        try:
+            self._wait_timeout_task = asyncio.create_task(
+                self._fire_wait_timeout(armed_turn, delay_ms)
+            )
+        except Exception as ex:  # no running loop (tests without one) — never fatal
+            logger.debug("wait timeout not armed: %s", ex)
+
+    def _wait_timeout_instructions(self) -> str:
+        rec = (getattr(self, "_turn_recommended", None) or "").strip()
+        base = (
+            "The candidate paused after a short answer and has not continued. Do not wait "
+            "further. Reply now in the candidate's language, briefly: at most one short "
+            "acknowledging phrase, then ONE short concrete follow-up on what they just said. "
+            "Exactly one question mark. Never restate their answer back to them."
+        )
+        if rec:
+            base += (
+                " If there is nothing worth following up, ask the recommended question "
+                f'instead (ONE question only): "{rec[:300]}"'
+            )
+        return base
+
+    async def _fire_wait_timeout(self, armed_turn: int, delay_ms: int) -> None:
+        """Speak after a bounded silence unless the candidate resumed or is speaking."""
+        try:
+            # Re-arm a few times while the candidate is audibly speaking: the wait is
+            # exactly for them, and the transcript can lag the audio.
+            for _ in range(4):
+                await asyncio.sleep(delay_ms / 1000.0)
+                mem = self._memory
+                if mem.turn_index != armed_turn or mem.final_closing_sent:
+                    return  # a newer turn took over, or the interview is closing
+                sess = self._session_for_wait()
+                if sess is None:
+                    return
+                if str(getattr(sess, "user_state", "")) == "speaking":
+                    continue
+                sess.generate_reply(instructions=self._wait_timeout_instructions())
+                logger.info(
+                    "wait_for_completion timed out after %dms → replying to what was said",
+                    delay_ms,
+                )
+                return
+            logger.info("wait timeout: candidate still speaking after re-arms; not interrupting")
+        except asyncio.CancelledError:
+            raise
+        except Exception as ex:
+            logger.warning("wait timeout reply failed: %s", ex)
 
     async def _conclude_interview(self, ctx: RunContext | None = None) -> None:
         """Wait for the closing remark to finish, then close the session from the agent side.
@@ -2287,10 +2363,24 @@ class InterviewAssistant(Agent):
         pack = self._domain_pack_key or "default"
         for i, q in enumerate(self._bank_questions):
             key = normalize_text(q)
-            if not key or key in used:
+            if not key:
                 continue
-            bank_id = make_bank_question_id(pack, key[:80])
-            if bank_id in mem.closed_question_ids or bank_id in mem.sent_question_guard:
+            # What is SENT is the collapsed form, and the collapsed form is the key
+            # every "used" structure records. An anchor whose text changes under
+            # collapse_to_single_question («…، وشنو كان دورك بيه؟» → «…؟») was
+            # therefore never recognised as used: picked again next turn, caught by
+            # the verbatim re-ask guard, and rephrased into a clarify template — a
+            # repeat followed by a wrong clarification. Recognise it by both keys.
+            collapsed = collapse_to_single_question(q.strip())
+            ckey = normalize_text(collapsed)
+            if key in used or (ckey and ckey in used):
+                continue
+            bank_ids = {make_bank_question_id(pack, key[:80])}
+            if ckey:
+                bank_ids.add(make_bank_question_id(pack, ckey[:80]))
+            if any(
+                b in mem.closed_question_ids or b in mem.sent_question_guard for b in bank_ids
+            ):
                 continue
             # Skip a bank question that is a near-duplicate of a recent one —
             # lexically OR by HR topic — since the bank clusters several
@@ -2301,7 +2391,7 @@ class InterviewAssistant(Agent):
             ):
                 continue
             mem.bank_cursor = i
-            return collapse_to_single_question(q.strip())
+            return collapsed
         return None
 
     def record_agent_reply(self, text: str) -> None:
@@ -2804,6 +2894,8 @@ class InterviewAssistant(Agent):
         """
         if self._heuristics_disabled:
             return
+        # The candidate spoke again: whatever silent wait was pending is over.
+        self._cancel_wait_timeout()
         try:
             text = ""
             tc = getattr(new_message, "text_content", None)
@@ -2902,6 +2994,8 @@ class InterviewAssistant(Agent):
             ) and not interview_wait_nudge_enabled():
                 self._update_memory_post_decision(diag, action)
                 logger.info("wait_for_completion → staying silent (continuation nudge suppressed)")
+                # Silent, but not forever: see _fire_wait_timeout.
+                self._arm_wait_timeout(mem.turn_index)
                 raise StopResponse()
 
             if frame:

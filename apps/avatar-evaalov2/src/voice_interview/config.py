@@ -112,6 +112,25 @@ def interview_defaults_enabled() -> bool:
     return os.getenv("SPEECHMATICS_INTERVIEW_DEFAULTS", "true").lower() in ("1", "true", "yes")
 
 
+def interview_wait_timeout_ms() -> int:
+    """How long a silent wait may last before the agent replies anyway.
+
+    The silent wait (interview_wait_nudge_enabled=false) had NO end: when a turn was
+    judged unfinished the agent raised StopResponse and then waited for the candidate
+    to speak again — indefinitely. For a candidate who had actually finished, that is
+    a hang: the founder's 2026-09-17 interview went quiet after «العملي، أقرب لخبرتي».
+    This bounds it. 0 disables the timeout (restores the unbounded wait).
+    """
+    raw = (os.getenv("INTERVIEW_WAIT_TIMEOUT_MS") or "").strip()
+    if not raw:
+        return 3000
+    try:
+        v = int(float(raw))
+    except ValueError:
+        return 3000
+    return max(0, min(15000, v))
+
+
 def interview_wait_nudge_enabled() -> bool:
     """Speak a continuation nudge ("take your time, go on…") when the candidate's
     turn looks unfinished.

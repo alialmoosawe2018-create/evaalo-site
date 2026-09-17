@@ -741,6 +741,35 @@ _ASK_EXAMPLE_PATTERNS_EN = (
     "for example how",
 )
 
+# A turn that ENDS on one of these is a sentence still being built: no Arabic or
+# English utterance finishes on a preposition, a conjunction or a particle. Real
+# cuts seen on 2026-09-15 ended on «في.» / «و.» and were not in the phrase list
+# above, so the agent spoke over the candidate. Matched as WHOLE words only —
+# `endswith("في")` would also fire on «كافي». Words that can legitimately close a
+# sentence (هذا، كان، بس، بعد، قبل) are deliberately absent. This list is only
+# safe because a silent wait is now bounded (see interview_wait_timeout_ms): a
+# false positive costs a ~3s pause, not a hang.
+_INCOMPLETE_TRAILING_FUNCTION_WORDS_AR = (
+    "في", "من", "على", "الى", "إلى", "و", "أو", "او", "مع", "عن", "إن", "ان",
+    "لأن", "لان", "حتى", "اللي", "لو", "إذا", "اذا", "ثم", "لما", "مثل", "عند",
+    "بخصوص", "يعني", "فـ",
+)
+_INCOMPLETE_TRAILING_FUNCTION_WORDS_EN = (
+    "in", "on", "at", "to", "of", "the", "a", "an", "and", "or", "but", "with",
+    "for", "from", "so", "because", "then", "when", "if", "my", "i", "we", "about",
+)
+
+
+def _ends_with_function_word(norm: str) -> bool:
+    n = (norm or "").rstrip()
+    if not n:
+        return False
+    for w in (*_INCOMPLETE_TRAILING_FUNCTION_WORDS_AR, *_INCOMPLETE_TRAILING_FUNCTION_WORDS_EN):
+        if n == w or n.endswith(" " + w):
+            return True
+    return False
+
+
 def _is_incomplete_turn(norm: str, raw: str) -> bool:
     """Detect interrupted / unfinished candidate speech (distinct from shallow)."""
     if not norm:
@@ -756,7 +785,7 @@ def _is_incomplete_turn(norm: str, raw: str) -> bool:
         e = normalize_text(ending)
         if e and (norm.endswith(e) or norm.rstrip().endswith(e)):
             return True
-    return False
+    return _ends_with_function_word(norm)
 
 
 def _detect_clarify_challenge(norm: str) -> bool:
@@ -1099,15 +1128,16 @@ def analyze_user_answer(
         length=length,
         is_substantive=is_substantive,
     )
-    is_answer_in_progress = False if is_topic_change else (
-        is_incomplete
-        or (
-            is_shallow
-            and is_substantive
-            and not is_greeting
-            and (_has_experience_markers(norm) or _matches_any(norm, _INCOMPLETE_TRAILING_AR))
-        )
-    )
+    # "In progress" needs an actual sign of unfinished speech. It used to be enough
+    # for a SHORT answer to mention experience («العملي، أقرب لخبرتي» — 22 chars,
+    # contains «خبرتي»), which made the agent go silent after the most natural
+    # short answers a candidate gives: the founder's own 2026-09-17 interview hit
+    # exactly this. A short answer that names experience is an answer.
+    # A trailing phrase found ANYWHERE in a short answer used to count too — and
+    # after normalisation «فـ» is the single letter «ف», present in most Arabic
+    # sentences. "Still talking" now means exactly one thing: the turn ends on an
+    # unfinished construction (see _is_incomplete_turn).
+    is_answer_in_progress = False if is_topic_change else is_incomplete
     is_story_starter = (
         is_shallow
         and not is_topic_change

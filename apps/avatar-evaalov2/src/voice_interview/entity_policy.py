@@ -373,9 +373,17 @@ _PACK_CLARIFY_CHALLENGE: dict[str, str] = {
 def _classify_clarify_branch(norm: str) -> str:
     if any(k in norm for k in ("مؤشرات", "metrics", "kpi", "مؤشر")):
         return "metrics"
+    # Only an EXPLICIT academic cue selects the academic-vs-practical explanation.
+    # «مشروع» and "field" used to be triggers, so a clarify request on «اذكرلي قرار
+    # أو مشروع قدته في HR» was answered with «أقصد بالأكاديمي دراسة أو مشروع تخرج…»
+    # — an explanation of a question nobody asked (2026-09-17). «ميداني»/"field"
+    # alone ("in the HR field") are equally ambiguous and fall to the default now.
     if any(
         k in norm
-        for k in ("أكاديمي", "ميداني", "جامعة", "تخرج", "academic", "field", "مشروع")
+        for k in (
+            "أكاديمي", "اكاديمي", "جامعة", "جامعه", "تخرج", "دراستك",
+            "academic", "university", "graduation",
+        )
     ):
         return "academic_field"
     if any(k in norm for k in ("استراتيجيات", "قنوات", "استقطاب", "sourcing", "channel")):
@@ -590,6 +598,11 @@ def build_role_glossary(
     return build_glossary_entries(terms)
 
 
+# «، وشنو …» / «وشلون …» / «وليش …» inside a single-mark question = a second ask.
+_TRAILING_CONJ_QUESTION_RE = re.compile(
+    r"[،,]?\s+و(?:شنو|شلون|كيف|ليش|وين|متى|هل|شو|ايش|إيش)\s"
+)
+
 _COMPOUND_QUESTION_SPLITTERS = (
     "، وكيف",
     "، وشلون",
@@ -613,6 +626,13 @@ def collapse_to_single_question(text: str) -> str:
         if mark in q:
             idx = q.index(mark)
             head = q[: idx + 1].strip()
+            # A second question can hide BEFORE the first «؟»: «اذكرلي قرار قدته في
+            # HR، وشنو كان تأثيره على الفريق؟» carries one mark but two asks, so the
+            # first-mark cut kept both and the candidate was asked a double-barrelled
+            # opener (2026-09-17). Cut at a conjunction that starts a new question.
+            m = _TRAILING_CONJ_QUESTION_RE.search(head)
+            if m and m.start() >= 10:
+                head = head[: m.start()].rstrip("،, ") + mark
             return head if head else q
     for sep in _COMPOUND_QUESTION_SPLITTERS:
         if sep in q:
