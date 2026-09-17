@@ -385,6 +385,55 @@ def _elevenlabs_apply_text_normalization() -> Literal["auto", "off", "on"] | Non
     return "off"
 
 
+# Every format the plugin accepts. Validated here so a typo falls back loudly
+# instead of reaching ElevenLabs as an invalid ``output_format`` query param.
+_ELEVENLABS_OUTPUT_FORMATS = frozenset(
+    {
+        "mp3_22050_32", "mp3_24000_48", "mp3_44100", "mp3_44100_32", "mp3_44100_64",
+        "mp3_44100_96", "mp3_44100_128", "mp3_44100_192",
+        "opus_48000_32", "opus_48000_64", "opus_48000_96", "opus_48000_128", "opus_48000_192",
+        "pcm_8000", "pcm_16000", "pcm_22050", "pcm_24000", "pcm_32000", "pcm_44100", "pcm_48000",
+        "ulaw_8000", "alaw_8000",
+    }
+)
+
+_ELEVENLABS_DEFAULT_OUTPUT_FORMAT = "pcm_24000"
+
+
+def _elevenlabs_output_format() -> str:
+    """Default ``pcm_24000`` — the plugin's own default is the WORST format offered.
+
+    Unset, the plugin uses ``mp3_22050_32``: 32 kbps MP3 with a ~11 kHz ceiling. The
+    owner heard it as «صوت الوكيل منخفض», and a band-limited signal does read as
+    quieter at the same dBFS.
+
+    ⚠️ The compression buys us nothing. The agent→avatar hop is ``DataStreamAudioOutput``,
+    which writes RAW int16 PCM at the format's sample rate — the plugin has already
+    decoded the MP3 by then. So the 32 kbps ceiling is paid on quality the whole way
+    while saving bandwidth on the ElevenLabs→agent leg alone:
+
+        mp3_22050_32 → 352.8 kbps on that hop   (~11 kHz audio)
+        pcm_24000    → 384.0 kbps on that hop   (12 kHz audio, +9%)
+        pcm_44100    → 705.6 kbps on that hop   (22 kHz audio, +100%)
+
+    24 kHz is the deliberate stop: it clears speech bandwidth entirely, drops the MP3
+    decode step, and does not double the hop for content Beyond Presence almost
+    certainly discards when it re-encodes the avatar track. ``pcm_44100`` is one env
+    var away if a listening test wants it.
+    """
+    raw = (os.getenv("ELEVENLABS_OUTPUT_FORMAT") or "").strip().lower()
+    if not raw:
+        return _ELEVENLABS_DEFAULT_OUTPUT_FORMAT
+    if raw in _ELEVENLABS_OUTPUT_FORMATS:
+        return raw
+    logger.warning(
+        "Invalid ELEVENLABS_OUTPUT_FORMAT=%r — falling back to %s",
+        raw,
+        _ELEVENLABS_DEFAULT_OUTPUT_FORMAT,
+    )
+    return _ELEVENLABS_DEFAULT_OUTPUT_FORMAT
+
+
 def _env_bool(key: str, default: bool) -> bool:
     raw = (os.getenv(key) or "").strip().lower()
     if raw == "":
@@ -533,12 +582,14 @@ def create_elevenlabs_tts(voice_id_override: str | None = None):
             "TTS model %s ignores ELEVENLABS_TTS_LANGUAGE (no turbo language override)",
             tts_model,
         )
+    output_format = _elevenlabs_output_format()
     kwargs: dict[str, Any] = {
         "api_key": eleven_api_key,
         "voice_id": voice_id,
         "model": tts_model,
         "inactivity_timeout": eleven_inactivity,
         "auto_mode": tts_auto_mode,
+        "encoding": output_format,
     }
     vsettings = _optional_elevenlabs_voice_settings()
     if vsettings is not None:
@@ -567,6 +618,14 @@ def create_elevenlabs_tts(voice_id_override: str | None = None):
         tts_auto_mode,
         lat if lat is not None else "default",
         len(chunks) if chunks else "default",
+    )
+    # The one line that proves which audio format production is actually running.
+    # ``tts.sample_rate`` is read back off the built plugin, not off our intent.
+    logger.info(
+        "ElevenLabs output_format=%s sample_rate=%dHz source=%s",
+        output_format,
+        tts.sample_rate,
+        "env" if (os.getenv("ELEVENLABS_OUTPUT_FORMAT") or "").strip() else "default",
     )
     logger.debug(
         "ElevenLabs voice=%s model=%s auto_mode=%s lang=%s override=%s text_norm=%s",
