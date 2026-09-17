@@ -1710,7 +1710,7 @@ class InterviewAssistant(Agent):
         if (
             mem.wrap_up_offered
             and not mem.final_closing_sent
-            and mode not in (MODE_CLARIFY, MODE_FOLLOW_UP)
+            and not self._turn_is_tied_to_active_question(mode)
         ):
             mem.final_closing_sent = True
             # The guard replaced the LLM's turn, so the model never calls
@@ -1793,6 +1793,30 @@ class InterviewAssistant(Agent):
             # carries exactly one «؟».
             return bridge
         return text
+
+    def _turn_is_tied_to_active_question(self, mode: str) -> bool:
+        """After the wrap-up, only a turn PROVABLY about the active question may pass.
+
+        The exemption used to be the mode alone — «any CLARIFY or FOLLOW_UP» —
+        and that is how a brand-new competency question was spoken after the
+        candidate had already been asked «أكو شي تحب تضيفه؟» and answered «لا»
+        (2026-09-17 22:05 interview). A follow-up is only a follow-up if it
+        follows something: the link must be in the plan, not inferred from the
+        mode, and never from the question's length.
+        """
+        if mode not in (MODE_CLARIFY, MODE_FOLLOW_UP):
+            return False
+        plan = self._turn_plan
+        if plan is None:
+            return False
+        mem = self._memory
+        active_qid = (mem.sent_question_id or "").strip()
+        if active_qid:
+            for qid in (plan.parent_question_id, plan.question_id):
+                if (qid or "").strip() == active_qid:
+                    return True
+        active_ckey = (mem.current_competency_key or "").strip()
+        return bool(active_ckey) and (plan.competency_key or "").strip() == active_ckey
 
     def _build_reframe_messages(self, bare: str) -> list[tuple[str, str]]:
         """The rewrite prompt: clarity rules + the locked language/dialect + the role.

@@ -290,10 +290,19 @@ def test_guard_final_closing_delivered_only_once():
 
 
 def test_guard_followup_after_wrapup_still_passes():
-    # A follow-up lets the candidate finish their last thought after the wrap-up.
+    """A follow-up lets the candidate finish their last thought after the wrap-up —
+    but only one PROVABLY about the active question.
+
+    Updated 2026-09-17: the link used to be the mode alone, and a FOLLOW_UP
+    carrying a different competency opened a whole new subject after «أكو شي تحب
+    تضيفه؟» had already been answered «لا». The plan must now carry the link.
+    """
     agent = _assistant(["q"])
     agent._memory.wrap_up_offered = True
-    agent._turn_plan = TurnPlan(question="", response_mode=MODE_FOLLOW_UP)
+    agent._memory.sent_question_id = "q-active"
+    agent._turn_plan = TurnPlan(
+        question="", response_mode=MODE_FOLLOW_UP, parent_question_id="q-active"
+    )
     out = agent._guard_repetition_and_language("شنو صار بالضبط؟")
     assert out == "شنو صار بالضبط؟"
     assert agent._memory.final_closing_sent is False
@@ -629,10 +638,14 @@ def test_guard_guidance_after_wrapup_closes():
 
 
 def test_guard_clarify_after_wrapup_still_passes():
-    """التوضيح يبقى مسموحاً: المرشح لم يفهم سؤال الختام نفسه."""
+    """التوضيح يبقى مسموحاً: المرشح لم يفهم السؤال النشط — بشرط أن يكون الارتباط
+    مثبتاً في الخطة (`question_id`)، لا مستنتَجاً من الوضع وحده."""
     agent = _assistant(["q"])
     agent._memory.wrap_up_offered = True
-    agent._turn_plan = TurnPlan(question="", response_mode=MODE_CLARIFY)
+    agent._memory.sent_question_id = "q-active"
+    agent._turn_plan = TurnPlan(
+        question="", response_mode=MODE_CLARIFY, question_id="q-active"
+    )
     out = agent._guard_repetition_and_language("أقصد أكو شي تحب تضيفه؟")
     assert out == "أقصد أكو شي تحب تضيفه؟"
     assert agent._memory.final_closing_sent is False
@@ -657,3 +670,75 @@ def test_guard_never_speaks_the_real_repeated_ats_question():
     assert out != again
     assert "ATS" not in out
     assert out.count("؟") == 1
+
+
+# --- after the wrap-up, only a turn PROVABLY tied to the active question passes ---
+def _wrapped_up_agent() -> InterviewAssistant:
+    agent = _assistant(["شنو قنوات الاستقطاب اللي تعتمد عليها؟"])
+    agent._memory.wrap_up_offered = True
+    agent._memory.sent_question_id = "q-active"
+    agent._memory.current_competency_key = "hr_case_management"
+    agent._memory.turn_index = 7
+    return agent
+
+
+def test_post_wrapup_new_competency_followup_is_closed_not_asked():
+    """Verbatim shape from the 2026-09-17 22:05 interview: after «أكو شي تحب
+    تضيفه؟» and the candidate's «لا لا شكرا جزيلا», a FOLLOW_UP carrying a
+    DIFFERENT competency opened a whole new subject. Mode alone must not exempt."""
+    agent = _wrapped_up_agent()
+    agent._turn_plan = TurnPlan(
+        question="", response_mode=MODE_FOLLOW_UP, competency_key="employee_lifecycle"
+    )
+    out = agent._guard_repetition_and_language(
+        "خلّينا نحچي عن موقف حقيقي يبيّن إدارة قضايا الموارد البشرية، مثل شكوى أو تحقيق؟"
+    )
+    assert "يراجع إجاباتك" in out  # the final closing
+    assert agent._memory.final_closing_sent is True
+
+
+def test_post_wrapup_untied_clarify_is_also_closed():
+    agent = _wrapped_up_agent()
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_CLARIFY)  # no link at all
+    out = agent._guard_repetition_and_language("خلّيني أبسّطها، حچيلي عن موضوع ثاني؟")
+    assert "يراجع إجاباتك" in out
+
+
+def test_post_wrapup_clarify_of_the_active_question_still_passes():
+    """The candidate must still be able to finish the thought they were on."""
+    agent = _wrapped_up_agent()
+    agent._turn_plan = TurnPlan(
+        question="", response_mode=MODE_CLARIFY, parent_question_id="q-active"
+    )
+    text = "خلّيني أبسّطها، شنو صار وياك بهالموقف؟"
+    assert agent._guard_repetition_and_language(text) == text
+    assert agent._memory.final_closing_sent is False
+
+
+def test_post_wrapup_followup_on_the_same_competency_still_passes():
+    agent = _wrapped_up_agent()
+    agent._turn_plan = TurnPlan(
+        question="", response_mode=MODE_FOLLOW_UP, competency_key="hr_case_management"
+    )
+    text = "وشصار بالآخر؟"
+    assert agent._guard_repetition_and_language(text) == text
+
+
+def test_post_wrapup_length_is_not_a_criterion():
+    """A SHORT question on a new subject must close; a LONG clarify tied to the
+    active question must pass. Length carries no authority here."""
+    short_new = _wrapped_up_agent()
+    short_new._turn_plan = TurnPlan(
+        question="", response_mode=MODE_FOLLOW_UP, competency_key="other_key"
+    )
+    assert "يراجع إجاباتك" in short_new._guard_repetition_and_language("وشنو عن الرواتب؟")
+
+    long_tied = _wrapped_up_agent()
+    long_tied._turn_plan = TurnPlan(
+        question="", response_mode=MODE_CLARIFY, parent_question_id="q-active"
+    )
+    long = (
+        "خلّيني أبسّطها، أقصد موقف صار وياك بالشغل وكان لازم ترجع فيه لسياسة مكتوبة "
+        "مثل سياسة الحضور أو الإجازات، وشنو سويت بيه بالضبط؟"
+    )
+    assert long_tied._guard_repetition_and_language(long) == long
