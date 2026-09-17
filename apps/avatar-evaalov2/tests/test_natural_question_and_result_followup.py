@@ -150,6 +150,13 @@ def test_spelling_variants_are_recognised():
         assert out.startswith("خلّينا نحچي عن التقارير."), (variant, out)
 
 
+def test_the_swap_does_not_stutter_on_a_shared_particle():
+    # «أريد أعرف عن خبرتك» + target «حچيلي عن» used to give «حچيلي عن عن خبرتك».
+    out = rotate_framing_opener("أريد أعرف عن خبرتك بالتقارير." + BODY, 3)
+    assert out.startswith("حچيلي عن خبرتك بالتقارير.")
+    assert "عن عن" not in out
+
+
 def test_an_unrecognised_opening_is_left_alone():
     original = "صار وياك موقف رجعت بيه للسياسة؟"
     assert rotate_framing_opener(original, 1) == original
@@ -162,6 +169,30 @@ def test_rotation_runs_on_the_production_guard_path():
     agent._memory.turn_index = 1  # → «أريد أفهم»
     out = agent._apply_guard_to_agent_text("خلّينا نحچي عن قضايا الموظفين." + BODY)
     assert out.startswith("أريد أفهم قضايا الموظفين.")
+
+
+# ── 1c. a question always carries a question mark ────────────────────────────
+
+
+def test_a_statement_ending_ask_gets_its_question_mark():
+    """2 of 20 questions in the five-role run ended on a statement, so the TTS
+    read them flat AND record_agent_reply never registered them as asked (it
+    keys on count_question_marks >= 1)."""
+    agent = _agent()
+    agent._pick_next_competency_question(agent._memory)  # ASK turn plan
+    flat = "خلّينا نحچي عن قضايا الموظفين. وياريت توضحلي شنو كانت الخطوات اللي اتبعتها."
+    out = agent._apply_guard_to_agent_text(flat)
+    assert out.endswith("؟")
+    assert out.count("؟") == 1
+    assert "شنو كانت الخطوات اللي اتبعتها" in out  # the model's wording is kept
+
+
+def test_a_wait_turn_is_not_given_a_question_mark():
+    agent = _agent()
+    agent._pick_next_competency_question(agent._memory)
+    agent._turn_plan.response_mode = "wait"
+    out = agent._apply_guard_to_agent_text("أكيد، خذ راحتك وكمل فكرتك.")
+    assert "؟" not in out
 
 
 # ── 2. the result question ───────────────────────────────────────────────────

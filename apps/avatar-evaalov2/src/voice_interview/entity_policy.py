@@ -323,7 +323,9 @@ def rotate_framing_opener(text: str, turn_index: int) -> str:
     target = _FRAMING_OPENERS[max(0, int(turn_index or 0)) % len(_FRAMING_OPENERS)]
     if target == matched:
         return text
-    return target + raw[len(matched) :]
+    # The swap can stutter when both phrases carry «عن»: «أريد أعرف عن خبرتك»
+    # → «حچيلي عن عن خبرتك». Seen once in the five-role run.
+    return _DOUBLED_WORD_RE.sub(r"\1", target + raw[len(matched) :])
 
 
 def naturalize_spoken_question(text: str) -> str:

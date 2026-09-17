@@ -156,6 +156,19 @@ def enforce_single_question_response(text: str, plan: TurnPlan | None) -> str:
     planned = _planned_single_question(plan)
     n = count_question_marks(raw)
 
+    # ZERO question marks on an ASK/FOLLOW_UP turn. The guard only ever policed
+    # "too many", so a turn that ended on a statement — «…وياريت توضحلي شنو كانت
+    # الخطوات اللي اتبعتها.» — went out as a statement: the TTS reads it flat,
+    # and `record_agent_reply` keys the opener stem and last_sent_question on
+    # `count_question_marks >= 1`, so it never registered as asked and the
+    # anti-repeat bookkeeping could hand it back. Seen in 2 of 20 questions in
+    # the five-role end-to-end run (2026-09-17), both on competencies whose
+    # objective is phrased as an instruction. Keep the model's wording and turn
+    # the final terminator into a question mark.
+    if n == 0 and mode in (MODE_ASK, MODE_FOLLOW_UP):
+        body = raw.rstrip().rstrip(".!،,").rstrip()
+        return f"{body}؟" if body else raw
+
     if n <= 1 and not _MULTI_Q_CONNECTOR_RE.search(raw):
         return raw
 
