@@ -1169,38 +1169,21 @@ const WrittenInterview = () => {
                                                                     <h4 className="stage-eval-detail-card__title">
                                                                         {t('stageEval_weaknesses')}
                                                                     </h4>
-                                                                    {(() => {
-                                                                        const weak = normalizeStageEvalStringList(evaluation?.weaknesses);
-                                                                        /* An integrity flag used to be a FALLBACK here: it rendered only
-                                                                           when the weaknesses list was empty, so the one case that
-                                                                           matters — a candidate carrying both — hid it completely. It
-                                                                           now follows the weaknesses under the same heading, in red. */
-                                                                        const flags = normalizeStageEvalStringList(evaluation?.red_flags);
-                                                                        if (weak.length === 0 && flags.length === 0) {
-                                                                            return <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>;
-                                                                        }
-                                                                        return (
-                                                                            <>
-                                                                                {weak.length > 0 ? (
-                                                                                    <ul {...scriptTextProps(weak.join(' '), 'stage-eval-detail-card__list')}>
-                                                                                        {weak.map((weakness, i) => (
-                                                                                            <li key={i} style={{ marginBottom: '6px' }} {...scriptTextProps(weakness)}>{weakness}</li>
-                                                                                        ))}
-                                                                                    </ul>
-                                                                                ) : null}
-                                                                                {flags.length > 0 ? (
-                                                                                    <ul
-                                                                                        style={{ marginTop: weak.length > 0 ? '10px' : 0 }}
-                                                                                        {...scriptTextProps(flags.join(' '), 'stage-eval-detail-card__list stage-eval-detail-card__list--flag')}
-                                                                                    >
-                                                                                        {flags.map((flag, i) => (
-                                                                                            <li key={i} style={{ marginBottom: '6px' }} {...scriptTextProps(flag)}>{flag}</li>
-                                                                                        ))}
-                                                                                    </ul>
-                                                                                ) : null}
-                                                                            </>
-                                                                        );
-                                                                    })()}
+                                                                    {normalizeStageEvalStringList(evaluation?.weaknesses).length > 0 ? (
+                                                                        <ul {...scriptTextProps(normalizeStageEvalStringList(evaluation?.weaknesses).join(' '), 'stage-eval-detail-card__list')}>
+                                                                            {normalizeStageEvalStringList(evaluation?.weaknesses).map((weakness, i) => (
+                                                                                <li key={i} style={{ marginBottom: '6px' }} {...scriptTextProps(weakness)}>{weakness}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    ) : evaluation?.red_flags && evaluation.red_flags.length > 0 ? (
+                                                                        <ul {...scriptTextProps(evaluation.red_flags.join(' '), 'stage-eval-detail-card__list')}>
+                                                                            {evaluation.red_flags.map((flag, i) => (
+                                                                                <li key={i} style={{ marginBottom: '6px' }} {...scriptTextProps(flag)}>{flag}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    ) : (
+                                                                        <span className="stage-eval-detail-card__muted">{t('stageEval_none')}</span>
+                                                                    )}
                                                                 </div>
 
                                                                 {/* Strengths */}

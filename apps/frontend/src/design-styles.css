@@ -15436,18 +15436,6 @@ html[data-app-theme='light'] .stage-eval-detail-card__muted {
     color: var(--app-text-muted) !important;
 }
 
-/* An integrity flag shares the weaknesses card by the owner's choice, so colour
-   is the only thing separating "is weak at X" from "this record contradicts
-   itself". Declared after the base rules so it wins on equal specificity; the
-   light variant needs !important because the base light rule above carries it. */
-.stage-eval-detail-card__list--flag {
-    color: #f87171;
-}
-
-html[data-app-theme='light'] .stage-eval-detail-card__list--flag {
-    color: #b91c1c !important;
-}
-
 html[data-app-theme='light'] .stage-eval-competency-chip--met {
     background: rgba(16, 185, 129, 0.14);
     border-color: rgba(5, 150, 105, 0.45);
