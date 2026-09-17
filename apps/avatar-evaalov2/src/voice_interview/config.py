@@ -275,12 +275,29 @@ def env_allow_interruption() -> bool:
     the agent. Opt back into barge-in with ``INTERVIEW_ALLOW_BARGE_IN=true``. The legacy
     ``INTERVIEW_FORCE_ALLOW_INTERRUPTION`` is intentionally ignored on the interview path.
     """
-    # Interview = half-duplex unless explicitly opted into barge-in. Decided here so it
-    # holds regardless of any legacy ALLOW/FORCE secrets still set in LiveKit Cloud.
+    # BARGE-IN IS NOW THE DEFAULT, on the owner's decision 2026-09-17, because
+    # half-duplex does not merely talk over the candidate — LiveKit DISCARDS the
+    # turn they spoke. His own interview logged it four times, with his words
+    # attached, including «نغير السؤال» (a request to change the question, simply
+    # dropped). He experienced it as «قاطعني كثيراً», and the longer questions
+    # shipped the same day widened the window it happens in.
+    #
+    # The key is NEW: `INTERVIEW_ALLOW_BARGE_IN` may already sit in the 71 secrets
+    # set in July, and those cannot be read back or edited in place — a default
+    # flip alone could be silently overridden, exactly as SKIP_INITIAL_GREETING
+    # silenced the greeting. `INTERVIEW_BARGE_IN_V2` is absent from that set, so
+    # it decides; set it to false as a NEW secret to go back to half-duplex.
+    # The guard against a cough is already configured and only takes effect now:
+    # min_interruption_duration ~0.52s.
     if interview_defaults_enabled():
-        allow = os.getenv("INTERVIEW_ALLOW_BARGE_IN", "false").lower() in ("1", "true", "yes")
+        v2 = os.getenv("INTERVIEW_BARGE_IN_V2")
+        # The legacy key is NOT consulted when v2 is absent. Reading it would put
+        # a possible stale `INTERVIEW_ALLOW_BARGE_IN=false` back in charge, which
+        # is the whole failure this indirection exists to prevent.
+        allow = True if v2 is None else v2.strip().lower() in ("1", "true", "yes")
         logger.info(
-            "interview interruption: allow_interruptions=%s (half-duplex default; set INTERVIEW_ALLOW_BARGE_IN=true to allow barge-in)",
+            "interview interruption: allow_interruptions=%s (barge-in default since 2026-09-17; "
+            "set INTERVIEW_BARGE_IN_V2=false for half-duplex)",
             allow,
         )
         return allow

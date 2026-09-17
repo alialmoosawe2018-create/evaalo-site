@@ -26,20 +26,30 @@ def _clear_env(monkeypatch):
         monkeypatch.delenv(k, raising=False)
 
 
-def test_interview_default_is_half_duplex(monkeypatch):
-    # interview defaults on by default → no barge-in.
-    assert env_allow_interruption() is False
+def test_interview_default_is_barge_in(monkeypatch):
+    """DELIBERATELY INVERTED 2026-09-17 on the owner's decision — do not restore
+    the half-duplex assertion.
 
-
-def test_interview_barge_in_opt_in(monkeypatch):
-    monkeypatch.setenv("INTERVIEW_ALLOW_BARGE_IN", "true")
+    Half-duplex did not merely keep the candidate from overlapping the agent:
+    LiveKit DISCARDED the turn they spoke. The founder's own interview logged
+    «skipping reply to user input, current speech generation cannot be
+    interrupted» four times, with his words attached, including «نغير السؤال».
+    """
     assert env_allow_interruption() is True
 
 
+def test_interview_half_duplex_opt_out(monkeypatch):
+    monkeypatch.setenv("INTERVIEW_BARGE_IN_V2", "false")
+    assert env_allow_interruption() is False
+
+
 def test_interview_ignores_legacy_force(monkeypatch):
-    # The old force-on flag must NOT re-enable barge-in on the interview path.
+    # The legacy force/allow flags are still not the control on the interview
+    # path; INTERVIEW_BARGE_IN_V2 is. Barge-in is on here because it is the
+    # default now, not because the legacy force flag was honoured.
     monkeypatch.setenv("INTERVIEW_FORCE_ALLOW_INTERRUPTION", "true")
     monkeypatch.setenv("ALLOW_INTERRUPTION", "true")
+    monkeypatch.setenv("INTERVIEW_BARGE_IN_V2", "false")
     assert env_allow_interruption() is False
 
 
