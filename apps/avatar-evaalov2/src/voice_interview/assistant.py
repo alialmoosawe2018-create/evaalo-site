@@ -1552,7 +1552,9 @@ class InterviewAssistant(Agent):
         if not same:
             return None
         if meta == "clarify_challenge":
-            text, src = clarify_challenge_reply(self._domain_pack_key)
+            text, src = clarify_challenge_reply(
+                self._domain_pack_key, last_question=self._memory.active_question_text or ""
+            )
             return self._set_turn_recommendation(
                 collapse_to_single_question(text),
                 source="clarify_challenge",
@@ -2069,7 +2071,9 @@ class InterviewAssistant(Agent):
             return None
 
         if meta == "clarify_challenge":
-            text, src = clarify_challenge_reply(self._domain_pack_key)
+            text, src = clarify_challenge_reply(
+                self._domain_pack_key, last_question=self._memory.active_question_text or ""
+            )
             return self._set_turn_recommendation(
                 collapse_to_single_question(text),
                 source="clarify_challenge",

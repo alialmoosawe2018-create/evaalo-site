@@ -312,10 +312,12 @@ _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
             "أقصد قبل ما تبدي بمهمة، شلون تعرف المطلوب منك بالضبط — مثلاً من مديرك "
             "أو من مستند؟"
         ),
-        "default": (
-            "أقصد أي موقف من شغلك أنت بهالخصوص — مثال واحد من تجربتك بالدور اللي "
-            "تشتغل بيه، وإذا ما مرّ عليك قلّي ونمشي لغيره؟"
-        ),
+        # Used only when no question text is available; with one, the default
+        # branch restates the ACTUAL question in simpler words (see
+        # _restate_question_simply) instead of this — the owner removed the old
+        # «أي موقف من شغلك… مثال واحد من تجربتك… قلّي ونمشي لغيره» filler on
+        # 2026-09-17: it explained nothing and every unmatched clarify landed on it.
+        "default": "أقصد موقف صار وياك فعلاً بهالخصوص — مثال واحد يكفي، شنو سويت بيه؟",
     },
     "petroleum_engineer": {
         "metrics": (
@@ -332,7 +334,7 @@ _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
         "requirements": "مثلاً قبل قرار تشغيلي — شنو البيانات أو التقارير اللي راجعتها؟",
         "default": (
             "أقصد أي موقف من خبرتك البترولية بهالخصوص — مثلاً قراءة بيانات إنتاج أو "
-            "متابعة ضغط أو نتيجة محاكاة. أي واحد أقرب لك، وإذا ما مرّ عليك قلّي ونمشي لغيره؟"
+            "متابعة ضغط أو نتيجة محاكاة. أي واحد أقرب لك؟"
         ),
     },
     "hr_recruiter": {
@@ -349,15 +351,34 @@ _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
         # and had no way to say it.
         "default": (
             "أقصد أي موقف من شغلك بهالخصوص — مثلاً تنسيق موعد أو متابعة مرشّح أو "
-            "ترتيب مستند. أي واحد أقرب لخبرتك، وإذا ما مرّ عليك قلّي ونمشي لغيره؟"
+            "ترتيب مستند. أي واحد أقرب لخبرتك؟"
         ),
     },
 }
 
+
+def _restate_question_simply(last_question: str) -> str:
+    """Clarify by restating the question actually asked, in simpler words.
+
+    The LLM receives this as the recommended question with a rephrase
+    instruction, so it simplifies THIS question rather than reciting a generic
+    "give me any example from your work" line.
+    """
+    q = collapse_to_single_question(last_question or "").strip().rstrip("؟?").strip()
+    if not q:
+        return _PACK_CLARIFY_BRANCHES["generic"]["default"]
+    # «مثال واحد يكفي» is the QA-scorecard contract (a clarify must still ask
+    # for ONE concrete example) — three words, then the question itself.
+    return f"خلّيني أبسّطها، مثال واحد يكفي: {q}؟"
+
+
 _PACK_CLARIFY_CHALLENGE: dict[str, str] = {
+    # Fallback only; with the real question available, clarify_challenge_reply
+    # restates it instead (owner request 2026-09-17: no canned "example from your
+    # experience" line).
     "generic": (
-        "أعتذر إذا كان السؤال غامض. أقصد موقف من شغلك أنت بالضبط — اذكرلي مثال "
-        "عملي بسيط من تجربتك؟"
+        "أعتذر إذا كان السؤال غامض. أقصد موقف صار وياك فعلاً بهالخصوص — مثال واحد يكفي، "
+        "شنو سويت بيه؟"
     ),
     "petroleum_engineer": (
         "أعتذر، المثال السابق ما كان متعلق بهندسة النفط. أقصد مؤشرات مثل معدل الإنتاج "
@@ -365,7 +386,7 @@ _PACK_CLARIFY_CHALLENGE: dict[str, str] = {
     ),
     "hr_recruiter": (
         "أعتذر إذا كان السؤال غامض. أقصد مؤشرات توظيف مثل Time to Fill أو Offer Acceptance. "
-        "اذكرلي مثال عملي من تجربتك؟"
+        "عندك مثال على وحدة منها؟"
     ),
 }
 
@@ -412,13 +433,28 @@ def simplify_clarify_for_pack(
     pack = (domain_pack_key or "").strip().lower() or "generic"
     branches = _PACK_CLARIFY_BRANCHES.get(pack) or _PACK_CLARIFY_BRANCHES["generic"]
     branch = _classify_clarify_branch(n)
-    question = branches.get(branch) or branches["default"]
     source = pack if pack in _PACK_CLARIFY_BRANCHES else "generic"
+    # No specific branch and no pack examples: restate the real question. A role
+    # without its own pack must not be "clarified" with a sentence that never
+    # mentions what was asked.
+    if branch == "default" and source == "generic" and (last_question or "").strip():
+        return _restate_question_simply(last_question), source
+    question = branches.get(branch) or branches["default"]
     return question, source
 
 
-def clarify_challenge_reply(domain_pack_key: str = "") -> tuple[str, str]:
+def clarify_challenge_reply(
+    domain_pack_key: str = "", *, last_question: str = ""
+) -> tuple[str, str]:
     """Short self-correction when candidate rejects a wrong clarify example."""
+    pack = (domain_pack_key or "").strip().lower() or "generic"
+    if pack not in _PACK_CLARIFY_CHALLENGE and (last_question or "").strip():
+        q = collapse_to_single_question(last_question).strip().rstrip("؟?").strip()
+        if q:
+            return (
+                f"أعتذر إذا كان السؤال غامض. خلّيني أبسّطها، مثال واحد يكفي: {q}؟",
+                "generic_challenge",
+            )
     # نفس المبدأ: الاعتذار لا يجوز أن يجرّ أمثلة من مهنة غير مهنة المرشح.
     pack = (domain_pack_key or "").strip().lower() or "generic"
     text = _PACK_CLARIFY_CHALLENGE.get(pack) or _PACK_CLARIFY_CHALLENGE["generic"]
