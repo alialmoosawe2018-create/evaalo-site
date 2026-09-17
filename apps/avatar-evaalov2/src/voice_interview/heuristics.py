@@ -525,6 +525,11 @@ def _content_tokens(text: str) -> list[str]:
     ]
 
 
+def content_tokens(text: str) -> list[str]:
+    """Public wrapper — the subject ledger keys a subject on these tokens."""
+    return _content_tokens(text)
+
+
 def is_semantic_duplicate_question(
     text: str, recent: list[str], threshold: float = 0.72
 ) -> bool:
@@ -718,6 +723,65 @@ _EXPLICIT_REJECT_PATTERNS_EN = (
     "asked me that before",
     "already asked me",
 )
+
+# «جاوبتك» / «سألتيني» / «ذكرت لك» — the candidate is telling us this subject is
+# already covered. It is NOT a refusal and NOT a resume: the right response is to
+# look the subject up in the ledger and, if an answer is on record, move on
+# WITHOUT arguing. normalize_text does not fold hamza, so both spellings ship.
+_ALREADY_ANSWERED_PATTERNS_AR = (
+    "جاوبتك",
+    "جاوبتج",
+    "جاوبته",
+    "جاوبت عليه",
+    "جاوبت على سؤالك",
+    "جاوبت على سوالك",
+    "سألتيني",
+    "سالتيني",
+    "سألتني",
+    "سالتني",
+    "سبق وسألت",
+    "سبق وسالت",
+    "نفس السؤال",
+    "نفس السوال",
+    "ذكرت لك",
+    "ذكرتلك",
+    "ذكرتله",
+    "قلت لك",
+    "قلتلك",
+    "گلتلك",
+    "كلتلك",
+    "حچيتلك",
+    "حجيتلك",
+)
+
+_ALREADY_ANSWERED_PATTERNS_EN = (
+    "i already answered",
+    "i answered that",
+    "already asked me",
+    "asked me that before",
+    "i told you",
+    "as i said",
+    "same question",
+)
+
+# «ما سألتني» / «مو نفس السؤال» mean the OPPOSITE. A bare substring test reads
+# them as a claim and would skip a subject the candidate never covered.
+_ALREADY_ANSWERED_NEGATIONS = ("ما ", "مو ", "ماكو ", "لا ", "not ", "never ", "didn t ", "didnt ")
+
+
+def _claims_already_answered(norm: str) -> bool:
+    """True when the candidate says this subject was already covered."""
+    if not norm:
+        return False
+    for pat in _ALREADY_ANSWERED_PATTERNS_AR + _ALREADY_ANSWERED_PATTERNS_EN:
+        idx = norm.find(pat)
+        while idx != -1:
+            before = norm[max(0, idx - 12) : idx]
+            if not any(before.endswith(neg) for neg in _ALREADY_ANSWERED_NEGATIONS):
+                return True
+            idx = norm.find(pat, idx + 1)
+    return False
+
 
 _STORY_STARTER_PATTERNS_AR = (
     "كان ذو صفات",
@@ -1005,6 +1069,15 @@ def _has_experience_markers(norm: str) -> bool:
     )
 
 
+def has_experience_markers(text: str) -> bool:
+    """Public wrapper: does this answer name real, lived experience?
+
+    The subject ledger needs it to tell ``evidence_obtained`` from a merely
+    long answer, and it must normalize first — callers hold raw speech.
+    """
+    return _has_experience_markers(normalize_text(text or ""))
+
+
 def _has_channel_hook_markers(norm: str) -> bool:
     return _matches_any(norm, _CHANNEL_HOOK_MARKERS)
 
@@ -1079,6 +1152,7 @@ def _empty_diag() -> dict:
         "is_story_starter": False,
         "candidate_intent": None,
         "is_ask_for_guidance": False,
+        "claims_already_answered": False,
         "disabled": True,
     }
 
@@ -1291,5 +1365,6 @@ def analyze_user_answer(
         "is_story_starter": is_story_starter,
         "candidate_intent": candidate_intent,
         "is_ask_for_guidance": is_ask_for_guidance,
+        "claims_already_answered": _claims_already_answered(norm),
         "disabled": False,
     }

@@ -111,6 +111,7 @@ from voice_interview.lang import (
     detect_lang_reply_fallback,
     detect_language_switch_intent,
 )
+from voice_interview.subject_coverage import SubjectCoverage
 
 logger = logging.getLogger("agent")
 
@@ -419,6 +420,9 @@ class InterviewMemory:
     # Consecutive MODE_WAIT ("go on…") nudges. Capped so a run of short answers
     # advances to a fresh question instead of nudging forever.
     consecutive_wait_count: int = 0
+    # The one ledger both question sources answer to: asked / insufficient /
+    # evidence_obtained per SUBJECT, not per bank. See ``subject_coverage``.
+    subject_coverage: SubjectCoverage = field(default_factory=SubjectCoverage)
 
     def record_opener_stem(self, stem: str, *, keep: int = 3) -> None:
         s = (stem or "").strip()
@@ -474,6 +478,7 @@ class InterviewMemory:
             "active_question_status": self.active_question_status or STATUS_IDLE,
             "sent_question_id": self.sent_question_id or "",
             "closed_question_ids_count": len(self.closed_question_ids),
+            "subject_coverage": self.subject_coverage.snapshot(),
         }
 
 _BASE_INTERVIEW_INSTRUCTIONS = """You are conducting a structured, role-specific job interview for a candidate applying for a particular position.
@@ -1430,6 +1435,50 @@ class InterviewAssistant(Agent):
             if mem.cluster_evidence_counts.get(mem.pending_cluster_key, 0) >= 1:
                 mem.covered_cluster_keys.add(mem.pending_cluster_key)
         mem.active_question_status = STATUS_ANSWERED
+
+    def _record_subject_answer(self, text: str, diag: dict[str, Any]) -> None:
+        """Grade the candidate's turn against its subject, and honour «جاوبتك».
+
+        Two jobs, both on the shared ledger:
+
+        1. an answer moves its subject to ``evidence_obtained`` only when it
+           carries lived detail or an outcome — otherwise ``insufficient``;
+        2. when the candidate says the subject was already covered AND the
+           ledger agrees, the subject is closed and the turn advances. We do not
+           argue with them, and we do not re-ask. A claim with nothing on record
+           changes nothing, so the subject cannot be skipped by assertion.
+        """
+        mem = self._memory
+        cov = mem.subject_coverage
+        # An unplanned question never reaches ``active_question_text``, so fall
+        # back to the last thing actually asked — otherwise its subject is asked
+        # and then never graded, which leaves it open to both banks forever.
+        question = mem.active_question_text or (
+            mem.asked_questions[-1] if mem.asked_questions else ""
+        )
+        ckey = mem.current_competency_key or ""
+        if diag.get("is_substantive_answer") and (ckey or question):
+            cov.record_answer(
+                text,
+                question=question,
+                competency_key=ckey,
+                is_rich=bool(diag.get("is_rich_answer")),
+            )
+        if not diag.get("claims_already_answered"):
+            return
+        if not cov.close_on_candidate_claim(question, competency_key=ckey):
+            return
+        diag["subject_already_covered"] = True
+        # «هذا السؤال جاوبته» also matches the resume family, which would leave the
+        # agent silently waiting for an answer that has already been given.
+        diag["resume_active"] = False
+        mem.active_question_status = STATUS_ANSWERED
+        mem.deferred_question_id = ""
+        logger.info(
+            "subject_already_covered | competency=%r prior=%r",
+            ckey,
+            cov.prior_answer(question, competency_key=ckey)[:80],
+        )
 
     def _apply_active_question_user_signals(
         self, mem: InterviewMemory, diag: dict[str, Any]
@@ -2396,6 +2445,10 @@ class InterviewAssistant(Agent):
             question = self._competency_question_text(comp)
             if not question:
                 continue
+            # Shared ledger: a competency whose subject the role bank already
+            # evidenced is done, even though its own key was never asked.
+            if mem.subject_coverage.should_skip(question, competency_key=ckey):
+                continue
             mem.current_competency_key = ckey
             mem.pending_competency_key = ckey
             return self._set_turn_recommendation(
@@ -2697,6 +2750,12 @@ class InterviewAssistant(Agent):
                 is_semantic_duplicate_question(q, recent) or is_topic_repeat(q, recent)
             ):
                 continue
+            # And skip it when its SUBJECT is closed — evidenced already, or
+            # asked twice and still thin. This is the cross-bank block: the
+            # subject may have been covered by a competency question, which
+            # leaves no trace in any of the bank's own "used" structures.
+            if mem.subject_coverage.should_skip(q):
+                continue
             mem.bank_cursor = i
             return collapsed
         return None
@@ -2708,11 +2767,25 @@ class InterviewAssistant(Agent):
         guarded = enforce_single_question_response(text, plan)
         mem.record_question(guarded)
 
+        mode = plan.response_mode if plan else MODE_ASK
+        question_text = extract_primary_question(guarded) or (
+            (plan.question if plan else "") or guarded
+        ).strip()
+
+        # One ledger for both banks. A competency question and a role-bank question
+        # about the same thing land on the SAME subject here, which is what stops
+        # the second being served as "fresh" after the first was evidenced.
+        # Keyed on what was actually SPOKEN, and recorded even when no turn plan
+        # exists — an unplanned question is still a question the candidate heard.
+        if count_question_marks(guarded) >= 1 and mode not in (MODE_FOLLOW_UP, MODE_CLARIFY):
+            mem.subject_coverage.record_asked(
+                question_text, competency_key=(plan.competency_key if plan else "")
+            )
+
         if not plan:
             return
 
         mode = plan.response_mode or MODE_ASK
-        question_text = extract_primary_question(guarded) or (plan.question or guarded).strip()
 
         # Consecutive "go on…" nudge counter: increments on WAIT, resets on any
         # other turn. Read by the wait cap so short answers don't loop forever.
@@ -3054,6 +3127,10 @@ class InterviewAssistant(Agent):
 
     def _infer_action_from_frame(self, diag: dict[str, Any]) -> str:
         mem = self._memory
+        # The candidate said this was already covered and the ledger agreed.
+        # Move on — arguing the point is exactly what the owner objected to.
+        if diag.get("subject_already_covered"):
+            return "advance"
         if diag.get("is_topic_change_request") or diag.get("explicit_question_reject"):
             if diag.get("honor_skip_content"):
                 return "honor_skip_content"
@@ -3280,6 +3357,11 @@ class InterviewAssistant(Agent):
                 mem.last_candidate_snippet = text.strip()[:400]
             elif diag.get("is_greeting_or_ready"):
                 mem.last_candidate_snippet = ""
+
+            # Grade this turn against its SUBJECT before the next question is
+            # picked, so a subject that just earned evidence is already closed to
+            # both banks. Length alone is not evidence — see evidence_state_for.
+            self._record_subject_answer(text, diag)
 
             # يُسجَّل كل كلامٍ للمرشّح، لا الجوهريّ وحده: «ما مر علي» و«ما عندي
             # خبرة» ليستا إجابتين جوهريّتين، وهما بالضبط ما يجب أن يمنع سؤالاً
