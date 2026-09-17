@@ -96,7 +96,27 @@ def test_the_prompt_carries_the_approved_style_examples():
     )
     assert "STYLE EXAMPLES" in frame
     assert "صار وياك موقف اضطريت ترجع بيه للسياسة المكتوبة حتى تقرر؟" in frame
-    assert "Do not open two questions in a row the same way." in frame
+    # Naming «زين،» as a welcome lead-in made the model open all ten questions
+    # with it. No lead-in may be offered as an example any more.
+    assert 'lead-in (\\"زين،\\"' not in frame
+    assert "no lead-in word" in frame
+
+
+def test_the_opening_words_are_assigned_and_rotate():
+    """Telling the model to "vary the opener" failed end-to-end (10/10 identical),
+    so the opener is assigned per turn and rotates."""
+    agent = _agent()
+    mem = agent._memory
+    seen = []
+    for turn in range(6):
+        mem.turn_index = turn
+        frame = agent._wrap_decision_frame(
+            "body", analyze_user_answer("تمام."), mem, {}, "اذكرلي حالة؟"
+        )
+        assert "OPENING WORDS for THIS question" in frame
+        line = next(ln for ln in frame.splitlines() if "OPENING WORDS" in ln)
+        seen.append(line)
+    assert len(set(seen)) == 6, seen  # a different opener every turn in the cycle
 
 
 # ── 2. the result question ───────────────────────────────────────────────────

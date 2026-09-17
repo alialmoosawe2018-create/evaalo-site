@@ -203,6 +203,63 @@ def _anchor_intro_count() -> int:
     return max(0, min(6, n))
 
 
+# The recommendation is authored to be READ by the scorer; these show the register
+# it must be SPOKEN in. Approved by the product owner 2026-09-17 after his own
+# interview read like a form being filled. Each pair opens differently ON PURPOSE.
+_STYLE_EXAMPLES: tuple[tuple[str, str], ...] = (
+    (
+        "اذكرلي مثال عن موقف تطلب تفسير وتطبيق سياسة مكتوبة — مثلاً سياسة إجازات أو حضور، شنو كانت الحالة؟",
+        "صار وياك موقف اضطريت ترجع بيه للسياسة المكتوبة حتى تقرر؟",
+    ),
+    (
+        "اذكرلي حالة موظف مثل شكوى تظلم أو تحقق غيابات طويلة، شنو كانت الخطوات اللي اتبعتها من أول ما توصلك للنهاية؟",
+        "حچيلي عن شكوى أو غياب طويل وصلك — شلون تعاملت وياها؟",
+    ),
+    (
+        "اذكرلي مثال سويت فيه تقرير HR — مثل معدلات غياب أو زمن التوظيف، شنو البيانات اللي استخدمتها؟",
+        "طلّعت تقرير للإدارة عن الغيابات أو مدة شغل الوظائف — شلون طلّعت الأرقام؟",
+    ),
+    (
+        "اذكرلي مثال عن عملية نقل/ترقية أو خروج موظف واحد اشتغلت عليها، شنو كانت مسؤولياتك بالخطوات؟",
+        "خذني بموظف نقلته أو ترقّى أو ترك الشغل — شنو كان دورك؟",
+    ),
+)
+
+
+# Assigned one per turn, in order. Every one opens a story request and fits any
+# competency, so the rotation never fights the subject.
+_QUESTION_OPENERS: tuple[str, ...] = (
+    "صار وياك",
+    "حچيلي عن",
+    "خذني بـ",
+    "مرّت عليك",
+    "عطني مثال عن",
+    "اذكرلي",
+)
+
+
+def _style_examples_block(turn_index: int) -> str:
+    """The examples, ROTATED so a different one leads each turn.
+
+    A fixed order made every question copy the FIRST example's opener: an
+    end-to-end run over ten competencies produced «زين، احچيلي عن…» ten times,
+    and after removing that lead-in, «صار وياك موقف…» ten times. Telling the
+    model to vary did not work — it copies what it is shown, so what it is shown
+    has to change.
+    """
+    n = len(_STYLE_EXAMPLES)
+    start = max(0, int(turn_index or 0)) % n
+    lines = [
+        "STYLE EXAMPLES — same meaning, spoken register. Match the right-hand column; "
+        "note each one opens with a DIFFERENT word, and lead with the first example's shape:"
+    ]
+    for i in range(n):
+        given, say = _STYLE_EXAMPLES[(start + i) % n]
+        lines.append(f"  given: «{given}»")
+        lines.append(f"  say:   «{say}»")
+    return "\n".join(lines) + "\n"
+
+
 def _max_followups_per_competency() -> int:
     """Depth allowed inside one competency before moving to the next one.
 
@@ -2329,29 +2386,23 @@ class InterviewAssistant(Agent):
                 "Arabic and translate or gloss any English HR jargon instead of dropping it in raw "
                 "(source effectiveness → فعاليّة قنوات الاستقطاب، time-to-fill → مدة شغل الوظيفة، "
                 "intake meeting → اجتماع تحديد المتطلبات، scorecard → بطاقة تقييم، boolean search → بحث منطقي، "
-                "pipeline → مسار المرشّحين، ATS/HRIS → نظام التوظيف). Keep at most one English term, and only if "
+                "pipeline → مسار المرشّحين، ATS → نظام تتبّع المتقدّمين، HRIS → نظام معلومات الموارد البشرية). "
+                "Keep at most one English term, and only if "
                 "you add its Arabic meaning right after. Ask ONE concrete thing.\n"
                 "CLARITY RULE: keep it short and answerable in one breath — no throat-clearing, no compound "
                 "clauses, no restating the whole competency. If the recommended question probes a skill, ask for "
                 "ONE specific real situation from the candidate's own experience "
                 "(\"احچيلي عن موقف…\"/\"اعطني مثال محدد…\") instead of a generic \"شنو تسوي عادة\"; if it is a "
-                "short follow-up, keep it short. A brief warm lead-in (\"زين،\"/\"تمام،\") is welcome, but never "
-                "a second question.\n"
-                # The recommendation is written to be READ by a scorer; these show the
-                # register it must be SPOKEN in. Approved by the product owner
-                # 2026-09-17 after his own interview read like a form being filled.
-                "STYLE EXAMPLES — same meaning, spoken register. Match the right-hand column:\n"
-                "  given: «اذكرلي مثال عن موقف تطلب تفسير وتطبيق سياسة مكتوبة — مثلاً سياسة إجازات أو حضور، "
-                "شنو كانت الحالة؟»\n"
-                "  say:   «صار وياك موقف اضطريت ترجع بيه للسياسة المكتوبة حتى تقرر؟»\n"
-                "  given: «اذكرلي حالة حالة موظف مثل شكوى تظلم أو تحقق غيابات طويلة، شنو كانت الخطوات اللي "
-                "اتبعتها من أول ما توصلك للنهاية؟»\n"
-                "  say:   «حچيلي عن شكوى أو غياب طويل وصلك — شلون تعاملت وياها؟»\n"
-                "  given: «اذكرلي مثال سويت فيه تقرير HR — مثل معدلات غياب أو زمن التوظيف، شنو البيانات اللي "
-                "استخدمتها؟»\n"
-                "  say:   «طلّعت تقرير للإدارة عن الغيابات أو مدة شغل الوظائف — شلون طلّعت الأرقام؟»\n"
+                "short follow-up, keep it short. Never a second question.\n"
+                # Naming a lead-in here made the model use THAT one every time: an
+                # end-to-end run over ten competencies opened all ten with «زين،
+                # احچيلي عن». Give no example to copy, and forbid the repeat.
+                "OPENING RULE: start with the question itself — no lead-in word like «زين،» or «تمام،».\n"
+                f"{self._opener_directive(mem)}"
+                f"{self._forbidden_openers_line(mem)}"
+                f"{_style_examples_block(mem.turn_index)}"
                 "Keep every concrete anchor (the policy, the complaint, the report) — shorten the wrapping, "
-                "never the subject. Do not open two questions in a row the same way.\n"
+                "never the subject.\n"
                 f'Recommended question (rephrase into natural language per the rules; ONE question only): "{single[:300]}"'
             )
         elif diag.get("meta_request") == "ask_interviewer":
@@ -2360,6 +2411,36 @@ class InterviewAssistant(Agent):
                 f'"{self._canned_identity_reply("")}"'
             )
         return "\n\n".join(parts)
+
+    def _opener_directive(self, mem: InterviewMemory) -> str:
+        """Assign THIS turn's opening words instead of asking for variety.
+
+        Measured twice end-to-end: told to vary, the model opened ten of ten
+        questions identically (first «زين، احچيلي عن…», then «صار وياك موقف…»),
+        even with the repeated heads listed back to it. Rotating the style
+        examples did not fix it either — it picks by meaning, not by order. So
+        the opener is now chosen here and named, which is the same bargain the
+        rest of this file makes: mechanics deterministic, language to the model.
+        """
+        n = len(_QUESTION_OPENERS)
+        opener = _QUESTION_OPENERS[max(0, int(mem.turn_index or 0)) % n]
+        return (
+            f"OPENING WORDS for THIS question (assigned, rotates every turn — use them, "
+            f"adapt the grammar around them): «{opener}».\n"
+        )
+
+    def _forbidden_openers_line(self, mem: InterviewMemory) -> str:
+        """Name the openers just used, so "vary it" is a constraint, not a wish.
+
+        An abstract "don't repeat yourself" was ignored — ten competencies in a
+        row came out as «زين، احچيلي عن…». ``recent_opener_stems`` already tracks
+        the heads for the varied-question picker; the model gets the same list.
+        """
+        stems = [s for s in (getattr(mem, "recent_opener_stems", None) or ()) if s]
+        if not stems:
+            return ""
+        recent = "، ".join(f"«{s}»" for s in list(stems)[-3:])
+        return f"Already used to open recent questions — pick a different head: {recent}.\n"
 
     def _apply_entity_policy(self, text: str, diag: dict[str, Any]) -> dict[str, Any]:
         mem = self._memory
