@@ -67,6 +67,8 @@ export interface ICandidate extends Document {
         final_hr_evaluation?: string;
         recommendation: 'Hire' | 'Consider' | 'Reject';
         summary: string; // professional 3-5 sentence evaluation
+        /** scored | insufficient_data | manual_review — why a high score can still read "Consider" */
+        status?: string;
         /** Per-rubric AI results — stored for audit; UI Phase 2 */
         rubricResults?: Array<{
             rubricItemId: string;
@@ -461,6 +463,10 @@ const CandidateSchema = new Schema<ICandidate>({
             enum: ['Hire', 'Consider', 'Reject']
         },
         summary: String,
+        // The APPLICATION model already had this; the person model did not, so a
+        // status picked in server.ts persisted on one and vanished from the other
+        // under Mongoose strict mode — the same split that bit the voice stage.
+        status: { type: String },
         rubricResults: [
             {
                 rubricItemId: { type: String, required: true, trim: true },

@@ -786,6 +786,17 @@ function buildStrictStage1WrittenPatch(data: Record<string, unknown>): Record<st
     const rubricResults = normalizeRubricResultsFromWebhook(data);
     if (rubricResults) patch.rubricResults = rubricResults;
 
+    // The scorer emits red_flags — an integrity conflict such as a stated
+    // application location contradicting the CV — and both schemas have carried
+    // the field all along. But the Stage 1 callback never sent it, so EVERY
+    // evaluation ever stored an empty array and the concern survived only as a
+    // sentence appended to the summary prose: readable by a human who reaches the
+    // end of the paragraph, invisible to any badge, filter or sort.
+    const flags = normalizeStringArrayForWebhook(
+        pickLooseFromSources(sources, ['red_flags', 'redFlags', 'Red Flags'])
+    );
+    if (flags !== undefined) patch.red_flags = flags;
+
     // Persist the scorer status (scored / insufficient_data / manual_review) so
     // the UI can honestly explain a downgraded recommendation instead of showing
     // a bare high score next to "Consider".
