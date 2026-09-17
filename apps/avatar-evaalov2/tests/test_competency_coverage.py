@@ -206,7 +206,12 @@ def test_question_falls_back_to_objective_when_rule_is_not_a_question() -> None:
     q = agent._pick_next_competency_question(agent._memory)
     assert q is not None
     assert "الدقة بالبيانات" in q
-    assert "خطوات المراجعة" in q
+    # DELIBERATELY INVERTED 2026-09-17 — the expectedEvidence used to be pasted
+    # into the spoken question («وياريت تذكر خطوات المراجعة»). That list is
+    # SCORER language, and a working HR professional stopped mid-interview to
+    # say «سؤالك اكو جزء بيه مفهوم وجزء غير مفهوم». The model still receives the
+    # evidence in its instructions; it is no longer read out as a checklist.
+    assert "خطوات المراجعة" not in q
     assert q.count("؟") == 1
 
 

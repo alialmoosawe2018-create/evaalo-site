@@ -258,6 +258,13 @@ _SPOKEN_GLOSS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bintake\b", re.IGNORECASE), "أول ما توصلك"),
     (re.compile(r"\bend[\s-]?to[\s-]?end\b", re.IGNORECASE), "من أولها لآخرها"),
     (re.compile(r"\bpayroll\b", re.IGNORECASE), "الرواتب"),
+    # Literal translations the blueprint generator produces that a working HR
+    # professional rejects. «سبب تجاري» for "business reason" was stopped in the
+    # interview: «كلمه التجاري هذه كلمه غير صحيحه».
+    (re.compile(r"سبب\s+تجاري"), "سبب إداري"),
+    (re.compile(r"السبب\s+التجاري"), "السبب الإداري"),
+    (re.compile(r"الموقف\s+التجاري"), "وضع العمل"),
+    (re.compile(r"مدة\s+شغل\s+الوظائف"), "الوقت اللي ياخذه ملء الشاغر"),
 )
 
 # Nobody speaks brackets. The blueprint writes its examples parenthetically

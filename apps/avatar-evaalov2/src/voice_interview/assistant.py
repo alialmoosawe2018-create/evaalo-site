@@ -2296,7 +2296,13 @@ class InterviewAssistant(Agent):
                 "",
             )
             if evidence:
-                return f"احچيلي عن موقف حقيقي يبيّن {subject}، وياريت تذكر {evidence}؟"
+                # The evidence list is SCORER language — «وياريت تذكر تحديد
+                # السياسة والمادة أو الشرط المطبّق» — and pasting it made the
+                # candidate say «سؤالك اكو جزء بيه مفهوم وجزء غير مفهوم». The
+                # model still has the full evidence in its instructions and can
+                # use it as a hint; it must not be read out as a checklist.
+                del evidence
+                return f"احچيلي عن موقف حقيقي يبيّن {subject}، شنو سويت وشنو كانت النتيجة؟"
             return f"احچيلي عن موقف حقيقي يبيّن {subject}، شنو سويت وشنو كانت النتيجة؟"
 
         for rule in comp.get("followUpRules") or comp.get("followUps") or []:
@@ -2399,7 +2405,11 @@ class InterviewAssistant(Agent):
                 "Do not add secondary questions with و/وشلون/وكيف.\n"
                 "PHRASING RULE: ask in the candidate's language. When it is Arabic, say it in natural spoken "
                 "Arabic and translate or gloss any English HR jargon instead of dropping it in raw "
-                "(source effectiveness → فعاليّة قنوات الاستقطاب، time-to-fill → مدة شغل الوظيفة، "
+                # «مدة شغل الوظائف» was MY gloss and a working Iraqi HR professional
+                # stopped the interview to ask what it meant: «مده شغل الوظائف شنو
+                # هذي؟ ممكن توضحيها». A gloss nobody says is not a gloss.
+                "(source effectiveness → فعاليّة قنوات الاستقطاب، "
+                "time-to-fill → الوقت اللي ياخذه ملء الشاغر، "
                 "intake meeting → اجتماع تحديد المتطلبات، scorecard → بطاقة تقييم، boolean search → بحث منطقي، "
                 "pipeline → مسار المرشّحين، ATS → نظام تتبّع المتقدّمين، HRIS → نظام معلومات الموارد البشرية). "
                 "Keep at most one English term, and only if "
@@ -2469,6 +2479,14 @@ class InterviewAssistant(Agent):
                 "for a general word. You may add at most one short lead-in sentence before it.",
                 "If they asked what a specific term means, define THAT term first in one plain "
                 "sentence a person outside the field would understand, then ask.",
+                # Measured: asked to clarify «شنو خبرتك بالـ HR…», the model produced
+                # «شنو خبرتك بحل قضايا employee relations مثل grievance ضمن بيئة
+                # Oil & Gas ومع نظام معلومات الموارد البشرية (HRIS) والـ policies؟»
+                # — MORE jargon than the question it was explaining, and the
+                # candidate answered «السؤال ما زال غير واضح».
+                "ZERO English in a clarification. Not one term, not even a glossed one: they "
+                "already failed to understand once, so every word here is everyday spoken Arabic. "
+                "Do not pull terminology out of the competency list to sound precise.",
             ]
             if previous:
                 lines.append(
