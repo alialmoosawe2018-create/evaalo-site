@@ -165,9 +165,21 @@ def enforce_single_question_response(text: str, plan: TurnPlan | None) -> str:
     # the five-role end-to-end run (2026-09-17), both on competencies whose
     # objective is phrased as an instruction. Keep the model's wording and turn
     # the final terminator into a question mark.
-    if n == 0 and mode in (MODE_ASK, MODE_FOLLOW_UP):
+    if n == 0 and mode in (MODE_ASK, MODE_FOLLOW_UP, MODE_CLARIFY):
         body = raw.rstrip().rstrip(".!،,").rstrip()
         return f"{body}؟" if body else raw
+
+    # CLARIFY keeps the model's OWN wording. Gluing the planned question onto it
+    # (via _brief_ack_before_question) produced a stutter in every clarify test:
+    # «خلّيني أبسّطها، إذا كان عندك موظف يطلب إجازة … شلون تتعامل وية السياسات
+    # المكتوبة خلّيني أبسّطها، مثال واحد يكفي: خلّينا نحچي عن شلون تتعامل وية
+    # السياسات المكتوبة …؟» — the clarification said twice, the second time in the
+    # very words the candidate had just failed to understand. The model's own
+    # first question is the simpler one; keep it and drop the rest.
+    if mode == MODE_CLARIFY:
+        first = extract_primary_question(raw)
+        if first and count_question_marks(first) == 1:
+            return first
 
     if n <= 1 and not _MULTI_Q_CONNECTOR_RE.search(raw):
         return raw

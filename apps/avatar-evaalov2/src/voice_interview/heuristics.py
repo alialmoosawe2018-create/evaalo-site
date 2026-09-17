@@ -277,6 +277,63 @@ _CLARIFY_PATTERNS_EN = (
     "explain what you mean",
 )
 
+# Measured 2026-09-17: none of these were detected, so a candidate saying them
+# got no clarification at all — the agent abandoned its question and moved to the
+# next competency, which reads as ignoring them. «مو واضح» and «أعيدي السؤال» are
+# the two commonest ways an Iraqi candidate asks, and the English ones matter
+# because English interviews are a supported path.
+#
+# ⚠️ GATED ON LENGTH, and the gate is the point — exactly like DONT_KNOW_PATTERNS.
+# «مو واضح» is a request when it IS the turn and a narrative detail inside one:
+# «اجانا موظف وكان الوضع مو واضح بالبداية بس رتبت الملف وخلصت القضية بيوم واحد»
+# is a complete answer, and matching it ungated turned that answer into a
+# clarification. Do not merge these into the lists above.
+_CLARIFY_SHORT_ONLY_AR = (
+    "مو واضح",
+    "مب واضح",
+    "مش واضح",
+    "غير واضح",
+    "مو مفهوم",
+    "مش مفهوم",
+    "غير مفهوم",
+    "اعيدي السؤال",
+    "اعيد السؤال",
+    "عيدي السؤال",
+    "تعيدين السؤال",
+    "تعيد السؤال",
+    "كرري السؤال",
+    "كرر السؤال",
+    "شلون يعني",
+    "شنو يعني",
+    "شگد يعني",
+)
+
+_CLARIFY_SHORT_ONLY_EN = (
+    "repeat the question",
+    "repeat that",
+    "say that again",
+    "come again",
+    "didn't understand",
+    "did not understand",
+    "don't understand the question",
+    "do not understand the question",
+    "not clear",
+    "unclear",
+    "rephrase",
+)
+
+# A clarification request is a short turn. Eight words is the same ceiling the
+# don't-know family uses.
+_CLARIFY_SHORT_MAX_WORDS = 8
+
+
+def _is_short_clarify_request(norm: str) -> bool:
+    if not norm or len(norm.split()) > _CLARIFY_SHORT_MAX_WORDS:
+        return False
+    return _matches_any(norm, _CLARIFY_SHORT_ONLY_AR) or _matches_any(
+        norm, _CLARIFY_SHORT_ONLY_EN
+    )
+
 _ROLE_OBJECTION_PATTERNS_AR = (
     "شنو دخل",
     "شنو علاقة",
@@ -774,6 +831,12 @@ def _is_incomplete_turn(norm: str, raw: str) -> bool:
     """Detect interrupted / unfinished candidate speech (distinct from shallow)."""
     if not norm:
         return False
+    # «شلون يعني؟» is a complete question that happens to end on a filler word,
+    # so the trailing-word rule read it as unfinished and the agent waited in
+    # silence instead of clarifying. The short-clarify family is length-gated and
+    # pattern-specific, so this cannot swallow a genuinely dangling «…يعني».
+    if _is_short_clarify_request(norm):
+        return False
     if _matches_any(norm, _INCOMPLETE_REQUEST_TIME_AR) or _matches_any(
         norm, _INCOMPLETE_REQUEST_TIME_EN
     ):
@@ -812,6 +875,10 @@ _CLARIFY_GUIDANCE_WORDS = ("اجراء", "إجراء", "انسب", "أنسب", "
 
 def _is_clarify_about_question(norm: str) -> bool:
     """True when the candidate asks what the interviewer meant — not for best practice."""
+    # A short "not clear" / "say it again" turn needs no further qualification —
+    # it carries none of the strong/weak markers below by design.
+    if _is_short_clarify_request(norm):
+        return True
     if not _matches_any(norm, _CLARIFY_PATTERNS_AR) and not _matches_any(
         norm, _CLARIFY_PATTERNS_EN
     ):
@@ -888,7 +955,11 @@ def _detect_meta_request(norm: str) -> str | None:
         return "role_objection"
     if _is_ask_interviewer_request(norm):
         return "ask_interviewer"
-    if _matches_any(norm, _CLARIFY_PATTERNS_AR) or _matches_any(norm, _CLARIFY_PATTERNS_EN):
+    if (
+        _matches_any(norm, _CLARIFY_PATTERNS_AR)
+        or _matches_any(norm, _CLARIFY_PATTERNS_EN)
+        or _is_short_clarify_request(norm)
+    ):
         return "clarify_term"
     if _matches_any(norm, _INTRO_SELF_PATTERNS_AR) or _matches_any(
         norm, _INTRO_SELF_PATTERNS_EN

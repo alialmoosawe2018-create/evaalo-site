@@ -2406,24 +2406,7 @@ class InterviewAssistant(Agent):
                 # rule. Measured end-to-end: 10-21 word questions the owner could
                 # not understand. Length is not the enemy of clarity here; it is
                 # the carrier of it.
-                "CLARITY RULE (obeys the Voice style rule above — do NOT compress): explain before you ask. "
-                "Two or three short sentences, roughly 35-70 words: (1) name plainly which part of the job you "
-                "are asking about, (2) give ONE concrete example of the kind of situation you mean so the "
-                "candidate knows which drawer to open, (3) then ask. The sentences before the question are "
-                "STATEMENTS. Exactly one «؟» and it comes at the END. Never a second question, and never a bare "
-                "abstract question — a candidate who has to ask «شنو تقصدين؟» was failed by the question, not by "
-                "his experience. If the recommended question probes a skill, anchor it in ONE specific real "
-                "situation from the candidate's own work rather than a generic «شنو تسوي عادة». A short follow-up "
-                "(like asking for the outcome) stays short.\n"
-                # Naming a lead-in here made the model use THAT one every time: an
-                # end-to-end run over ten competencies opened all ten with «زين،
-                # احچيلي عن». Give no example to copy, and forbid the repeat.
-                "OPENING RULE: start with the question itself — no lead-in word like «زين،» or «تمام،».\n"
-                f"{self._opener_directive(mem)}"
-                f"{self._forbidden_openers_line(mem)}"
-                f"{_style_examples_block(mem.turn_index)}"
-                "Keep every concrete anchor (the policy, the complaint, the report) — shorten the wrapping, "
-                "never the subject.\n"
+                f"{self._turn_shape_rules(mem, diag)}"
                 f'Recommended question (rephrase into natural language per the rules; ONE question only): "{single[:300]}"'
             )
         elif diag.get("meta_request") == "ask_interviewer":
@@ -2432,6 +2415,70 @@ class InterviewAssistant(Agent):
                 f'"{self._canned_identity_reply("")}"'
             )
         return "\n\n".join(parts)
+
+    def _turn_shape_rules(self, mem: InterviewMemory, diag: dict[str, Any]) -> str:
+        """How long this turn should be — which depends on WHAT KIND of turn it is.
+
+        One rule for every turn was wrong and it was measured: the explain-then-ask
+        rule (35-70 words, framing + example) is right for a NEW question and
+        destroys the other two kinds.
+
+        • A follow-up: the recommendation «وشصار بالآخر؟» was inflated back into a
+          whole new competency question, so the outcome was never actually asked.
+        • A clarification: the candidate says «ما فهمت», and re-running the same
+          framing-plus-example recipe reproduced the SAME sentence almost verbatim
+          — the one thing a clarification must never do.
+        """
+        mode = (self._turn_plan.response_mode if self._turn_plan else None) or MODE_ASK
+        previous = (mem.active_question_text or "").strip()
+
+        if mode == MODE_FOLLOW_UP:
+            return (
+                "SHORT FOLLOW-UP TURN — the opposite of a new question: you are pulling on the thread "
+                "they just gave you. Say the recommended line almost verbatim, ONE short sentence, "
+                "under 12 words. No framing sentence, no example, no restating the topic. Do NOT ask "
+                "a new competency question.\n"
+            )
+
+        if mode == MODE_CLARIFY:
+            lines = [
+                "CLARIFY TURN — the candidate did not understand you. The reply must be DIFFERENT "
+                "from what you just said: simpler words, shorter sentences, a concrete everyday "
+                "example. Under 35 words. Rephrasing with the same vocabulary is a failure.",
+                "If they asked what a specific term means, define THAT term first in one plain "
+                "sentence a person outside the field would understand, then ask.",
+            ]
+            if previous:
+                lines.append(
+                    f'You already said this and it did NOT land — do not reuse its wording: "{previous[:220]}"'
+                )
+            return "\n".join(lines) + "\n"
+
+        return (
+            # This block is the LAST thing the model reads, so it wins on recency.
+            # It used to say "keep it short, answerable in one breath", which
+            # CONTRADICTED the Voice style rule (framing + example, 2-3 sentences,
+            # ~105 words) — and the model obeyed the terser, later rule. Measured
+            # end-to-end: 10-21 word questions the owner could not understand.
+            # Length is not the enemy of clarity here; it is the carrier of it.
+            "CLARITY RULE (obeys the Voice style rule above — do NOT compress): explain before you ask. "
+            "Two or three short sentences, roughly 35-70 words: (1) name plainly which part of the job you "
+            "are asking about, (2) give ONE concrete example of the kind of situation you mean so the "
+            "candidate knows which drawer to open, (3) then ask. The sentences before the question are "
+            "STATEMENTS. Exactly one «؟» and it comes at the END. Never a second question, and never a bare "
+            "abstract question — a candidate who has to ask «شنو تقصدين؟» was failed by the question, not by "
+            "his experience. If the recommended question probes a skill, anchor it in ONE specific real "
+            "situation from the candidate's own work rather than a generic «شنو تسوي عادة».\n"
+            # Naming a lead-in here made the model use THAT one every time: an
+            # end-to-end run over ten competencies opened all ten with «زين،
+            # احچيلي عن». Give no example to copy, and forbid the repeat.
+            "OPENING RULE: start with the question itself — no lead-in word like «زين،» or «تمام،».\n"
+            f"{self._opener_directive(mem)}"
+            f"{self._forbidden_openers_line(mem)}"
+            f"{_style_examples_block(mem.turn_index)}"
+            "Keep every concrete anchor (the policy, the complaint, the report) — shorten the wrapping, "
+            "never the subject.\n"
+        )
 
     def _opener_directive(self, mem: InterviewMemory) -> str:
         """Assign THIS turn's opening words instead of asking for variety.
