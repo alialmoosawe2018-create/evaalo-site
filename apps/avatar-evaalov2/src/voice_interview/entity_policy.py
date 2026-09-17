@@ -53,7 +53,12 @@ _HOOK_FOLLOWUP_TEMPLATES: dict[str, str] = {
     "LinkedIn": "بخصوص LinkedIn، شنو نوع المرشحين اللي لقيتهم من هالقناة فعلياً؟",
     "Telegram": "بخصوص Telegram، شلون تتواصل وية المرشحين من هالقناة؟",
     "WhatsApp": "بخصوص WhatsApp، شلون استخدمته بمتابعة المرشحين؟",
-    "Referrals": "بخصوص الإحالات، شلون تحافظ على علاقة المرشّح بعد ما ينضم؟",
+    # NOT «الإحالات»: that is the literal rendering of "referrals" and in Iraqi
+    # usage an «إحالة» is a referral to an investigation or a transfer, not a
+    # colleague recommending someone for a job. The owner stopped on it:
+    # «ماذا يقصد بـ إحالات» (2026-09-18). «إحالة» stays in the DETECTION aliases —
+    # a candidate may well say it — but the agent never says it.
+    "Referrals": "بخصوص ترشيح الموظفين لمعارفهم، شلون تحافظ على علاقة المرشّح بعد ما ينضم؟",
     "Boolean search": "بخصوص البحث Boolean، اذكرلي مثال بسيط لاستعلام نجح ويةك؟",
     "Job boards": "بخصوص منصات التوظيف، أي منصة أعطتك مرشحين أقوى فعلياً؟",
     "ATS": "بخصوص نظام التتبع، شلون تنظم المرشحين من أول تواصل لحد التعيين؟",
@@ -265,6 +270,9 @@ _SPOKEN_GLOSS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"السبب\s+التجاري"), "السبب الإداري"),
     (re.compile(r"الموقف\s+التجاري"), "وضع العمل"),
     (re.compile(r"مدة\s+شغل\s+الوظائف"), "الوقت اللي ياخذه ملء الشاغر"),
+    # Blueprint-generated text uses the same literal rendering; catch it there too.
+    (re.compile(r"(?<!\S)الإحالات(?!\S)"), "ترشيح الموظفين لمعارفهم"),
+    (re.compile(r"(?<!\S)إحالات(?!\S)"), "ترشيح من الموظفين"),
 )
 
 # Nobody speaks brackets. The blueprint writes its examples parenthetically
@@ -461,7 +469,7 @@ _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
     },
     "hr_recruiter": {
         "metrics": "مثلاً Time to Fill أو Offer Acceptance — أي واحد من هذني تتابعه أكثر؟",
-        "sourcing": "مثلاً LinkedIn أو إحالات — أي قناة جربتها أكثر فعلياً؟",
+        "sourcing": "مثلاً LinkedIn أو ترشيح من الموظفين — أي قناة جربتها أكثر فعلياً؟",
         "sensitive": "مثلاً مرشّح رفض العرض أو مدير يبّدي مستعجل — اذكرلي موقف واحد بسيط من هالنوع؟",
         "challenge": "اذكرلي مثال عملي بسيط: شنو كان التحدي وشنو سويت؟",
         "requirements": "مثلاً وظيفة تقنية أو إدارية — شلون تاخذ متطلبات الدور من المدير قبل ما تبدي؟",
