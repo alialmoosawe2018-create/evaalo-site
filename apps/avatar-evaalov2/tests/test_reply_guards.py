@@ -249,14 +249,24 @@ def test_guard_wrapup_not_offered_twice_delivers_final_closing():
     assert agent._memory.final_closing_sent is True
 
 
-def test_guard_no_wrapup_too_early():
+def test_guard_no_wrapup_too_early_and_no_repeat_either():
+    """The no-early-wrap-up intent stands; `out == dup` did NOT.
+
+    That assertion pinned the fall-through that speaks a duplicate the guard has
+    already detected, and it fires exactly when the bank has no fresh anchor and
+    the interview is still young. Measured on the 2026-09-17 21:29 interview: the
+    ATS question was asked three times — twice after «نظام الاي تي اس سابقا ما
+    استخدمته» — and the metrics question twice. A bridge question is a poor
+    question; asking the same one a third time is a broken one.
+    """
     agent = _assistant([])
     dup = "شنو قنوات الاستقطاب اللي تعتمد عليها بالتوظيف؟"
     agent._memory.asked_questions.append(dup)  # only one question so far
     agent._turn_plan = TurnPlan(question="", response_mode=MODE_RESUME)
     out = agent._guard_repetition_and_language(dup)
-    assert out == dup  # too early to wrap up
-    assert agent._memory.wrap_up_offered is False
+    assert agent._memory.wrap_up_offered is False  # still too early to wrap up
+    assert out != dup  # …and it must not repeat itself either
+    assert out.count("؟") == 1
 
 
 # --- after wrap-up: conclude instead of resuming with a new question ----------
@@ -626,3 +636,24 @@ def test_guard_clarify_after_wrapup_still_passes():
     out = agent._guard_repetition_and_language("أقصد أكو شي تحب تضيفه؟")
     assert out == "أقصد أكو شي تحب تضيفه؟"
     assert agent._memory.final_closing_sent is False
+
+
+def test_guard_never_speaks_the_real_repeated_ats_question():
+    """Verbatim from the 2026-09-17 21:29 interview, where it was asked THREE
+    times — the second and third after the candidate had already said «نظام
+    الاي تي اس سابقا ما استخدمته»."""
+    first = (
+        "بخصوص شغل Talent Acquisition Specialist، اذكرلي شلون تستخدم ATS أو "
+        "pipeline مالتك حتى تقارن بين المرشحين بعد ما تسوي screening؟"
+    )
+    again = (
+        "بخصوص شغل Talent Acquisition Specialist، اذكرلي شلون تستخدم الـ ATS أو "
+        "pipeline مال المرشحين حتى تقارن بين المرشحين بشكل عادل بعد ما تسوي screening؟"
+    )
+    agent = _assistant([])
+    agent._memory.asked_questions.append(first)
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_ASK)
+    out = agent._guard_repetition_and_language(again)
+    assert out != again
+    assert "ATS" not in out
+    assert out.count("؟") == 1

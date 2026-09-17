@@ -1766,6 +1766,32 @@ class InterviewAssistant(Agent):
             self._winddown_line = _WRAP_UP_PROMPT_AR
             logger.info("[reply-guard] no fresh anchor for %s; offering wrap-up", mode)
             return _WRAP_UP_PROMPT_AR
+        # A DETECTED duplicate must never be spoken. This used to `return text`,
+        # and the fall-through fired whenever the bank had no fresh anchor AND
+        # fewer than _wrap_up_min_questions had been asked — early in an
+        # interview, exactly when giving up is least acceptable. Measured on the
+        # 2026-09-17 21:29 interview: the ATS question was asked THREE times
+        # (twice after «نظام الاي تي اس سابقا ما استخدمته») and the metrics
+        # question twice, «المقاييس» then «القياسات». The detector was right every
+        # time — is_semantic_duplicate_question returns True for all of them —
+        # the guard simply had nothing to put in their place.
+        #
+        # A role-neutral probe is a poor question but it is a NEW one, and it
+        # keeps the turn moving instead of asking a man for the third time about
+        # a system he has just said twice he has never used.
+        bridge = pick_varied(DIFFICULTY_FOLLOWUP_POOL, mem)
+        if bridge and not is_semantic_duplicate_question(bridge, recent):
+            logger.info(
+                "[reply-guard] duplicate %s with no fresh anchor; bridging instead of repeating",
+                mode,
+            )
+            self._reframe_forced_turn = turn
+            # Returned as-is, NOT through enforce_single_question_response: the
+            # plan may still say WAIT/ACKNOWLEDGE/RESUME from the turn we are
+            # overriding, and those modes STRIP question marks — which silently
+            # turned this bridge into a statement. Every pool entry already
+            # carries exactly one «؟».
+            return bridge
         return text
 
     def _build_reframe_messages(self, bare: str) -> list[tuple[str, str]]:
