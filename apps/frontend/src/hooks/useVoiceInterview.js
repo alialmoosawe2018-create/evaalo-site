@@ -297,6 +297,18 @@ export default function useVoiceInterview(options = {}) {
   const [serverState, setServerState] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [lastError, setLastError] = useState(null);
+  /**
+   * A stable machine code for the failures a candidate can actually act on.
+   *
+   * This hook is deliberately UI-agnostic (see the header), so it must not
+   * reach for a translator. It reports WHAT failed and lets the view decide
+   * how to say it — the same way every other string in VoiceInterviewStage is
+   * handed down as an already-translated prop.
+   *
+   * `lastError` keeps its English sentence so any consumer that only reads it
+   * behaves exactly as before.
+   */
+  const [lastErrorCode, setLastErrorCode] = useState(null);
   const [linkConsumed, setLinkConsumed] = useState(false);
   /** The server hung up because the interview finished — not a dropped call. */
   const [interviewComplete, setInterviewComplete] = useState(false);
@@ -539,16 +551,22 @@ export default function useVoiceInterview(options = {}) {
         if (cancelled) return;
         const name = err?.name || '';
         let msg;
+        let code;
         if (name === 'NotAllowedError' || name === 'SecurityError') {
+          code = 'mic_denied';
           msg = 'Microphone permission was denied. Allow the microphone and reload the page.';
         } else if (name === 'NotReadableError' || name === 'AbortError') {
+          code = 'mic_busy';
           msg =
             'Could not start the microphone — it may be in use by another app or browser tab. Close it and reload.';
         } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+          code = 'mic_not_found';
           msg = 'No usable microphone was found on this device.';
         } else {
+          code = 'mic_failed';
           msg = err?.message || 'Microphone access failed';
         }
+        setLastErrorCode(code);
         setLastError(msg);
       });
 
@@ -644,6 +662,7 @@ export default function useVoiceInterview(options = {}) {
     // moment iOS will hand out playback permission for the session.
     unlockAgentAudio();
     setConnectionStatus('connecting');
+    setLastErrorCode(null);
     setLastError(null);
     setAudioBlocked(false);
     setInterviewComplete(false);
@@ -724,11 +743,12 @@ export default function useVoiceInterview(options = {}) {
             startPlayback(
               audioEl,
               () => setAudioBlocked(true),
-              (err) => setLastError(err || 'Audio playback error'),
+              (err) => { setLastErrorCode(null); setLastError(err || 'Audio playback error'); },
             );
           }
         }
         if (msg.type === 'error') {
+          setLastErrorCode(null);
           setLastError(msg.message || 'Error');
           if (msg.code === 'INTERVIEW_LINK_ALREADY_USED') {
             setLinkConsumed(true);
@@ -760,7 +780,7 @@ export default function useVoiceInterview(options = {}) {
               activePlayerRef.current = null;
             }
             const player = createStreamingAudioPlayer(audioEl, {
-              onError: (err) => setLastError(err || 'Audio playback error'),
+              onError: (err) => { setLastErrorCode(null); setLastError(err || 'Audio playback error'); },
               onPlaybackEnded: notifyPlaybackEnded,
               onBlocked: () => setAudioBlocked(true),
             });
@@ -778,6 +798,7 @@ export default function useVoiceInterview(options = {}) {
           }
         }
       } catch {
+        setLastErrorCode(null);
         setLastError('Invalid message');
       }
     };
@@ -808,6 +829,7 @@ export default function useVoiceInterview(options = {}) {
 
     ws.onerror = () => {
       setConnectionStatus('error');
+      setLastErrorCode(null);
       setLastError('WebSocket error');
     };
   };
@@ -832,6 +854,7 @@ export default function useVoiceInterview(options = {}) {
     setConnectionStatus('idle');
     setServerState(null);
     setSessionId(null);
+    setLastErrorCode(null);
     setLastError(null);
     setMicActive(false);
     setIsListening(false);
@@ -848,6 +871,7 @@ export default function useVoiceInterview(options = {}) {
     serverState,
     sessionId,
     lastError,
+    lastErrorCode,
     linkConsumed,
     interviewComplete,
     micActive,

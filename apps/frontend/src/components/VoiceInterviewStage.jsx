@@ -129,12 +129,20 @@ const VoiceInterviewStage = ({
   endConfirmMessage = 'End the interview now? You cannot return to it, and your answers so far are what will be evaluated.',
   endConfirmAction = 'Yes, end it',
   endCancelAction = 'Keep going',
+  // A candidate who cannot start their microphone is the most common failure on
+  // an interview link, and it is the one moment they most need to understand
+  // what to do — so it must speak their language. The hook reports a code
+  // (mic_denied | mic_busy | mic_not_found | mic_failed); the page hands the
+  // sentences down already translated, like every other string here. Omitted,
+  // the hook's English fallback shows, so an older caller is unaffected.
+  micErrorMessages = null,
 }) => {
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
   const {
     connectionStatus,
     serverState,
     lastError,
+    lastErrorCode,
     interviewComplete,
     micActive,
     lastTranscript,
@@ -363,7 +371,9 @@ const VoiceInterviewStage = ({
         )}
 
         {lastError && (
-          <p style={{ textAlign: 'center', marginBottom: '12px', fontSize: '0.85rem', color: '#dc2626' }}>{lastError}</p>
+          <p style={{ textAlign: 'center', marginBottom: '12px', fontSize: '0.85rem', color: '#dc2626' }}>
+            {(lastErrorCode && micErrorMessages?.[lastErrorCode]) || lastError}
+          </p>
         )}
 
         {/* Start / End button — or the completion card once the server hangs up

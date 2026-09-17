@@ -44,6 +44,23 @@ const devLog = (...args) => {
 };
 
 /**
+ * Refusals that belong to the EMPLOYER's account, not to the candidate.
+ *
+ * POST /api/video-interview/start answers these when the employer is out of
+ * video minutes or credits, their plan excludes the feature, or the
+ * subscription lapsed (backend billingHttpStatus: 402 for the first two, 403
+ * for the rest). The candidate must not be shown any of it — they cannot act
+ * on it, and it discloses the employer's billing state to an outsider.
+ */
+const EMPLOYER_BILLING_REFUSALS = new Set([
+    'NO_VIDEO_MINUTES',
+    'INSUFFICIENT_CREDITS',
+    'FEATURE_DENIED',
+    'INACTIVE_SUBSCRIPTION',
+    'ORG_NOT_FOUND',
+]);
+
+/**
  * نافذة قصيرة: نهائيات STT مزدوجة لنفس المقطع (تصحيح/امتداد نصّي).
  */
 const USER_TRANSCRIPT_MERGE_GAP_MS = 2800;
@@ -2836,7 +2853,12 @@ const VideoInterviewCall = () => {
             }
 
             if (!startData.success) {
-                throw new Error(startData.message || 'Failed to start interview');
+                // Carry the server's CODE, not just its sentence: the catch below
+                // decides what a candidate may be told, and it cannot do that
+                // from an English message it would have to pattern-match.
+                const startError = new Error(startData.message || 'Failed to start interview');
+                startError.code = startData.code;
+                throw startError;
             }
 
             // حفظ session ID
@@ -2899,8 +2921,21 @@ const VideoInterviewCall = () => {
                 errorMessage += t('videoInterview_networkError');
             } else if (error.message?.includes('404')) {
                 errorMessage += t('videoInterview_candidateNotFound');
+            } else if (EMPLOYER_BILLING_REFUSALS.has(error.code)) {
+                /* The person reading this is the CANDIDATE, and the refusal is
+                   the employer's: out of video minutes, out of credits, plan
+                   does not include the feature, subscription lapsed. Echoing the
+                   server sentence told an outsider the employer's billing state
+                   — in English, glued onto an Arabic prefix. They are told the
+                   interview is unavailable and who to contact; the employer
+                   learns the real reason through their own billing screens. */
+                errorMessage += t('videoInterview_unavailableContactTeam');
             } else {
-                errorMessage += error.message || t('videoInterview_tryAgain');
+                /* Never `error.message` here. Everything reaching this branch is
+                   English — a server sentence or a JS internal like "Invalid
+                   LiveKit token from backend" — and none of it is actionable by
+                   a candidate. */
+                errorMessage += t('videoInterview_tryAgain');
             }
             
             alert(errorMessage);

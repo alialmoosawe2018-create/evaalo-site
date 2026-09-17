@@ -145,6 +145,12 @@ const Interview = () => {
       canStart={!!resolvedPersonId && !session.linkConsumed}
       startHint={!resolvedPersonId ? 'Add candidateId to the URL to start the interview' : null}
       recordingNotice={t('voiceInterview_recordingNotice')}
+      micErrorMessages={{
+        mic_denied: t('voiceMic_denied'),
+        mic_busy: t('voiceMic_busy'),
+        mic_not_found: t('voiceMic_notFound'),
+        mic_failed: t('voiceMic_failed'),
+      }}
       audioBlockedMessage={t('voiceInterview_audioBlocked')}
       audioBlockedAction={t('voiceInterview_audioBlockedAction')}
       completedTitle={t('voiceInterview_completedTitle')}
