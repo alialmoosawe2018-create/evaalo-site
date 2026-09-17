@@ -123,6 +123,120 @@ UNIVERSAL_OPENING_ANCHORS: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# A candidate STATING their status outranks the ambient vocabulary of the job.
+#
+# The defect these fix (16 of the 210 QA-scorecard scenarios, every one in the
+# `track` category, pre-dating this file's current shape): `score_track` counts
+# substring hits and the highest count wins, but a pack's "experienced" track
+# carries the role's own tool and domain words as detect signals. So a trainee
+# naming what they LEARNED scored as experienced — «فترة تدريب محلل بيانات تعلمت
+# SQL و dashboard basics» → experienced, «انا خريج حديث وأول مهمة QA اشتغلتها
+# على release تحت إشراف» → experienced. The tools are ambient; the status is
+# asserted, and it is the only thing in the sentence the candidate is telling us
+# about themselves. Hence the weight below rather than more keywords.
+_EXPLICIT_STATUS_SIGNALS: dict[str, tuple[str, ...]] = {
+    "career_switcher": (
+        "غيرت مجالي",
+        "غيرت مجال",
+        "غيرت تخصصي",
+        "انتقلت من مجال",
+        "حولت من",
+        "career change",
+        "career switch",
+        "switched from",
+        "changed field",
+    ),
+    "trainee": (
+        "فترة تدريب",
+        "فترة التدريب",
+        "متدرب",
+        "متدربة",
+        "تدريب صيفي",
+        "كورس تدريبي",
+        "internship",
+        "intern",
+        "trainee",
+        "co op",
+        "co-op",
+    ),
+    "entry_level": (
+        "خريج حديث",
+        "حديث تخرج",
+        "خريج جديد",
+        "اول مهمة",
+        "اول شغلة",
+        "اول وظيفة",
+        "اول مشروع",
+        "تحت اشراف",
+        "fresh graduate",
+        "recent graduate",
+        "first job",
+        "first task",
+        "entry level",
+        "ما عندي خبرة",
+        "no experience",
+    ),
+    "academic_only": (
+        "مشروع تخرج",
+        "ما عندي خبرة عملية",
+        "ما اشتغلت ميدان",
+        "كل شي بالجامعة",
+        "كل شيء بالجامعة",
+        "graduation project",
+        "thesis",
+        "simulation only",
+        "no field experience",
+    ),
+}
+
+# Ties between two asserted statuses go to the more specific claim. "Academic
+# only" is last because it is the weakest of the four — a candidate who mentions
+# a graduation project AND an internship is a trainee.
+_STATUS_PRECEDENCE: tuple[str, ...] = (
+    "career_switcher",
+    "trainee",
+    "entry_level",
+    "academic_only",
+)
+
+# One asserted status beats three ambient domain words; two beat six. Weighting
+# rather than short-circuiting keeps the existing threshold and stickiness — an
+# «اول مشروع» inside a ten-year veteran's story still loses to the rest of their
+# vocabulary instead of flipping the whole interview.
+_STATUS_WEIGHT = 3
+
+
+# normalize_text does NOT fold hamza or ta-marbuta, so a signal written with a
+# plain alef silently fails to match the spelling a candidate actually uses:
+# «وأول مهمة … تحت إشراف» never matched «اول مهمة» / «تحت اشراف». Same shape as
+# the `\b`-next-to-Arabic trap — a rule that reads correct and never fires. Folded
+# here, locally, rather than by changing normalize_text underneath everything.
+_ORTHOGRAPHY_FOLD = str.maketrans(
+    # The single letters ARE the point here; ruff reads them as lookalikes.
+    {"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ة": "ه", "ى": "ي", "ؤ": "و", "ئ": "ي"}  # noqa: RUF001
+)
+
+
+def _fold_orthography(s: str) -> str:
+    return s.translate(_ORTHOGRAPHY_FOLD)
+
+
+def explicit_status_hits(text: str, track_key: str) -> int:
+    """How many times the candidate ASSERTED the status this track represents.
+
+    Normalizes its own input, unlike ``score_track``: the signals are stored
+    already-normalized («اول مهمة»، «تحت اشراف»), so a caller handing over raw
+    speech — «وأول مهمة … تحت إشراف», with the hamzas the candidate actually
+    said — would silently score 0. normalize_text is idempotent, so the internal
+    caller passing an already-normalized string costs nothing.
+    """
+    signals = _EXPLICIT_STATUS_SIGNALS.get(track_key, ())
+    if not text or not signals:
+        return 0
+    norm = _fold_orthography(normalize_text(text))
+    return sum(1 for s in signals if _fold_orthography(normalize_text(s)) in norm)
+
+
 _TRACK_PRIORITY: tuple[str, ...] = (
     "academic_only",
     "career_switcher",
@@ -183,11 +297,22 @@ def detect_experience_track(
         key = str(track.get("trackKey") or "").strip()
         if not key:
             continue
-        scored.append((key, score_track(norm, track)))
+        status = explicit_status_hits(norm, key)
+        scored.append((key, score_track(norm, track) + _STATUS_WEIGHT * status))
+
+    asserted = {
+        key
+        for key, _ in scored
+        if explicit_status_hits(norm, key) and key in _STATUS_PRECEDENCE
+    }
 
     def _prio(key: str) -> int:
+        # Among tracks the candidate actually claimed, the more specific claim
+        # wins the tie; otherwise fall back to the catalogue order.
+        if asserted and key in asserted:
+            return _STATUS_PRECEDENCE.index(key)
         try:
-            return _TRACK_PRIORITY.index(key)
+            return len(_STATUS_PRECEDENCE) + _TRACK_PRIORITY.index(key)
         except ValueError:
             return 99
 
