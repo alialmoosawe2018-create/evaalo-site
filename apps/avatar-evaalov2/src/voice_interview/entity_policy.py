@@ -549,10 +549,15 @@ def simplify_clarify_for_pack(
     branches = _PACK_CLARIFY_BRANCHES.get(pack) or _PACK_CLARIFY_BRANCHES["generic"]
     branch = _classify_clarify_branch(n)
     source = pack if pack in _PACK_CLARIFY_BRANCHES else "generic"
-    # No specific branch and no pack examples: restate the real question. A role
-    # without its own pack must not be "clarified" with a sentence that never
-    # mentions what was asked.
-    if branch == "default" and source == "generic" and (last_question or "").strip():
+    # No branch matched. Restate the REAL question instead of the catch-all —
+    # for every pack, not just the neutral one. The named branches below (metrics,
+    # sourcing, requirements…) are concrete and stay; the `default` is a generic
+    # sentence that never mentions what was asked, so a candidate who said «السؤال
+    # مو واضح» about a question on ATS pipelines was answered with «أقصد أي موقف
+    # من شغلك بهالخصوص — مثلاً تنسيق موعد أو متابعة مرشّح أو ترتيب مستند»: vaguer
+    # than the question it was meant to explain. Measured on the recruiter
+    # transcript, 2026-09-17.
+    if branch == "default" and (last_question or "").strip():
         return _restate_question_simply(last_question), source
     question = branches.get(branch) or branches["default"]
     return question, source

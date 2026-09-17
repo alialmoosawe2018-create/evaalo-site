@@ -2445,6 +2445,23 @@ class InterviewAssistant(Agent):
                 "CLARIFY TURN — the candidate did not understand you. The reply must be DIFFERENT "
                 "from what you just said: simpler words, shorter sentences, a concrete everyday "
                 "example. Under 35 words. Rephrasing with the same vocabulary is a failure.",
+                # Measured: asked to simplify, the model simplified by GENERALISING —
+                # «استراتيجية الاستقطاب والقنوات» came back as «من وين تجيب المعلومات
+                # أو المواد اللي تشتغل عليها», and a question about recruiting metrics
+                # became «شي تقيسه أو تراقبه». The candidate asked what you meant and
+                # got something vaguer, which is the opposite of a clarification.
+                "SIMPLIFY THE WORDS, NEVER THE SUBJECT: keep the same competency and its concrete "
+                "anchor (the channel, the metric, the policy). Replace jargon with everyday words "
+                "and add a real-life example of it — do not retreat to a broader, vaguer question.",
+                # The recommended clarification is pack-authored and already plain
+                # spoken Iraqi. Left free to "simplify" it, the model deleted the
+                # very anchors that make it answerable: «مثلاً LinkedIn أو إحالات —
+                # أي قناة جربتها أكثر فعلياً؟» came back as «منين تجيب المعلومات أو
+                # المواد اللي تشتغل عليها؟».
+                "The recommended clarification below is ALREADY simple — say it almost verbatim. "
+                "Keep every named tool, metric, policy or system in it exactly as written "
+                "(LinkedIn, ATS, Excel, Time to Fill, سياسة الحضور …). Never swap a specific name "
+                "for a general word. You may add at most one short lead-in sentence before it.",
                 "If they asked what a specific term means, define THAT term first in one plain "
                 "sentence a person outside the field would understand, then ask.",
             ]
@@ -2639,8 +2656,13 @@ class InterviewAssistant(Agent):
             # Any question that is not a fresh competency ask spends depth on the
             # competency currently on the table, so the picker advances instead
             # of re-probing the same theme for a third of the interview.
+            # A clarification is not depth — it is the same question again, in
+            # plainer words, because the candidate could not act on the first
+            # version. Counting it against the competency's one follow-up meant a
+            # candidate who asked «ما فهمت» and then answered thinly got no
+            # follow-up at all: the budget was already spent on explaining.
             if (
-                mode != MODE_WAIT
+                mode not in (MODE_WAIT, MODE_CLARIFY)
                 and plan.source != "competency_engine"
                 and mem.current_competency_key
             ):
