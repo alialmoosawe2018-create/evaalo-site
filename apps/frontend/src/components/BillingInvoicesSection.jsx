@@ -196,11 +196,21 @@ export default function BillingInvoicesSection() {
                     ) : (
                         displayedInvoices.map((inv, i) => {
                             const dateLabel = formatDateSafe(inv.createdAt, locale);
-                            const amountLabel = formatCurrencyCents(
+                            /* A failed payment leaves a real Stripe invoice with status
+                               `open` and amountPaid 0. Showing `amountPaid || amountDue`
+                               rendered that attempt IDENTICALLY to a successful payment —
+                               a declined card looked like a receipt. Say which number this
+                               is: paid, or still owed. */
+                            const isUnpaid = inv.status !== 'paid' && !(inv.amountPaidCents > 0);
+                            const rawAmount = formatCurrencyCents(
                                 inv.amountPaidCents || inv.amountDueCents,
                                 inv.currency,
                                 locale,
                             );
+                            const amountLabel =
+                                rawAmount && isUnpaid
+                                    ? `${rawAmount} · ${t('billing_portal_invoice_amount_due_suffix')}`
+                                    : rawAmount;
                             const statusKey = INVOICE_STATUS_KEY[inv.status];
                             const description = buildInvoiceDescription(
                                 inv,
