@@ -263,6 +263,11 @@ _SPOKEN_GLOSS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bintake\b", re.IGNORECASE), "أول ما توصلك"),
     (re.compile(r"\bend[\s-]?to[\s-]?end\b", re.IGNORECASE), "من أولها لآخرها"),
     (re.compile(r"\bpayroll\b", re.IGNORECASE), "الرواتب"),
+    # Present in the model's PHRASING RULE but missing from the deterministic map,
+    # so a clarify hint lifted from expectedEvidence kept them raw — and a
+    # clarification is the one turn that must carry ZERO English.
+    (re.compile(r"\bHRIS\b"), "نظام معلومات الموارد البشرية"),
+    (re.compile(r"\bATS\b"), "نظام تتبّع المتقدّمين"),
     # Literal translations the blueprint generator produces that a working HR
     # professional rejects. «سبب تجاري» for "business reason" was stopped in the
     # interview: «كلمه التجاري هذه كلمه غير صحيحه».
@@ -498,6 +503,75 @@ _CLARIFY_LEAD_INS: tuple[str, ...] = (
 )
 
 
+# A clarification must change the EXAMPLE, not just the opening words. The
+# previous design prefixed a lead-in onto the original question, so «ممكن توضحي
+# لي السؤال» was answered with the same sentence minus three words — three times
+# in one interview (2026-09-17 22:05).
+#
+# Only evidence items that already carry «مثل/مثلاً» are used: what follows is a
+# description of the KIND OF SITUATION. The rest of the rubric («ذكر اسم السياسة
+# وبند محدد», «تسلسل قرار واضح») describes what a good ANSWER contains, and
+# speaking it would coach the candidate — which is the one thing a clarification
+# must never do.
+_EVIDENCE_EXAMPLE_RE = re.compile(r"(?:مثلاً|مثل)\s+(.{6,80})")
+
+
+def situation_hints_from_evidence(evidence: list[str] | tuple[str, ...] | None) -> list[str]:
+    """Situation fragments safe to speak — never the action, never the result."""
+    hints: list[str] = []
+    for item in evidence or []:
+        m = _EVIDENCE_EXAMPLE_RE.search(str(item or ""))
+        if not m:
+            continue
+        frag = re.split(r"[.،؛]", m.group(1))[0].strip(" .،؛()")
+        frag = _fold_spaces(_apply_spoken_gloss(frag))
+        if 6 <= len(frag) <= 80 and frag not in hints:
+            hints.append(frag)
+    return hints
+
+
+def _apply_spoken_gloss(text: str) -> str:
+    out = text or ""
+    for pattern, replacement in _SPOKEN_GLOSS:
+        out = pattern.sub(replacement, out)
+    return _DOUBLED_WORD_RE.sub(r"\1", out)
+
+
+def _fold_spaces(text: str) -> str:
+    return re.sub(r"\s{2,}", " ", text or "").strip()
+
+
+def _find_competency(
+    competencies: list[dict] | None, active_key: str, norm_question: str
+) -> dict | None:
+    """The competency this clarification is about: by key, else by title match."""
+    items = [c for c in (competencies or []) if isinstance(c, dict)]
+    if not items:
+        return None
+    key = (active_key or "").strip()
+    if key:
+        for c in items:
+            if str(c.get("key") or c.get("competencyKey") or "").strip() == key:
+                return c
+    for c in items:
+        title = normalize_text(str(c.get("title") or ""))
+        if title and len(title) > 6 and title in norm_question:
+            return c
+    return None
+
+
+def clarify_with_new_example(
+    evidence: list[str] | tuple[str, ...] | None, variant: int = 0
+) -> str:
+    """A clarification built on a DIFFERENT concrete situation, or "" if none."""
+    hints = situation_hints_from_evidence(evidence)
+    if not hints:
+        return ""
+    lead = _CLARIFY_LEAD_INS[max(0, int(variant or 0)) % len(_CLARIFY_LEAD_INS)]
+    hint = hints[max(0, int(variant or 0)) % len(hints)]
+    return f"{lead} أقصد موقف من هالنوع — مثلاً {hint}. شنو أقرب حالة مرّت عليك؟"
+
+
 def _restate_question_simply(last_question: str, variant: int = 0) -> str:
     """Clarify by restating the question actually asked, in simpler words.
 
@@ -567,6 +641,7 @@ def simplify_clarify_for_pack(
     domain_guidance: str = "",
     competencies: list[dict] | None = None,
     variant: int = 0,
+    active_competency_key: str = "",
 ) -> tuple[str, str]:
     """Pack-aware clarify re-ask. Returns (question, clarify_example_source).
 
@@ -574,7 +649,7 @@ def simplify_clarify_for_pack(
     counter so a candidate who asks for clarification four times does not hear
     the same opening four times.
     """
-    del domain_guidance, competencies  # reserved for evidence-based expansion
+    del domain_guidance
     n = normalize_text(last_question or "")
     # الاحتياطي محايد المجال، لا `hr_recruiter`: دورٌ بلا حزمة يجب أن يُوضَّح له
     # بلغة عامة، لا بأمثلة من مهنة أخرى.
@@ -590,8 +665,19 @@ def simplify_clarify_for_pack(
     # من شغلك بهالخصوص — مثلاً تنسيق موعد أو متابعة مرشّح أو ترتيب مستند»: vaguer
     # than the question it was meant to explain. Measured on the recruiter
     # transcript, 2026-09-17.
-    if branch == "default" and (last_question or "").strip():
-        return _restate_question_simply(last_question, variant), source
+    if branch == "default":
+        # Prefer a DIFFERENT concrete situation drawn from the competency's own
+        # expectedEvidence; restating the question is the last resort, because
+        # restating is what the candidate just told us did not work.
+        active = _find_competency(competencies, active_competency_key, n)
+        if active:
+            with_example = clarify_with_new_example(
+                active.get("evidence") or active.get("expectedEvidence"), variant
+            )
+            if with_example:
+                return with_example, source
+        if (last_question or "").strip():
+            return _restate_question_simply(last_question, variant), source
     question = branches.get(branch) or branches["default"]
     return question, source
 

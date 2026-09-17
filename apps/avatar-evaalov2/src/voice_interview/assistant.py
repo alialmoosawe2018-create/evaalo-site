@@ -1547,6 +1547,7 @@ class InterviewAssistant(Agent):
         return simplify_clarify_for_pack(
             last_question,
             variant=self._memory.clarify_count,
+            active_competency_key=self._memory.current_competency_key,
             domain_pack_key=self._domain_pack_key,
             domain_guidance=self._domain_guidance,
             competencies=self._blueprint_competencies,
