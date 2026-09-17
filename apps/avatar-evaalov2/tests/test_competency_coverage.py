@@ -172,10 +172,21 @@ def test_engine_covers_medium_priority_competencies_too() -> None:
 # ── Question construction ────────────────────────────────────────────────────
 
 
-def test_question_prefers_blueprint_follow_up_rule() -> None:
+def test_question_opens_with_a_situation_not_a_blueprint_follow_up_rule() -> None:
+    """DELIBERATELY INVERTED 2026-09-17 — do not "restore" the old assertion.
+
+    This used to assert the spoken question IS ``followUpRules[0]``
+    («شلون تبني قائمة مرشحين لدور صعب؟»). Replaying the founder's interview
+    showed that asking a follow-up cold, before the candidate has told any
+    story, is what made the questions unanswerable. ``sourcing`` here has a
+    title and no objective, so the opener is the behavioural probe.
+    """
     agent = _make_agent()
     q = agent._pick_next_competency_question(agent._memory)
-    assert q == "شلون تبني قائمة مرشحين لدور صعب؟"
+    assert q is not None
+    assert q.startswith("احچيلي عن موقف حقيقي يبيّن البحث عن المرشحين")
+    assert q != "شلون تبني قائمة مرشحين لدور صعب؟"
+    assert q.count("؟") == 1
 
 
 def test_question_falls_back_to_objective_when_rule_is_not_a_question() -> None:

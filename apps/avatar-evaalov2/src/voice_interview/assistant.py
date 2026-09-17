@@ -2183,36 +2183,46 @@ class InterviewAssistant(Agent):
         return [comp for _, _, comp in ranked]
 
     def _competency_question_text(self, comp: dict[str, Any]) -> str:
-        """One spoken question that will produce scoreable evidence.
+        """The OPENING question for a competency — never a cold follow-up.
 
-        The blueprint generator emits each ``followUpRules`` entry as a single
-        short question, so those are used as-is. Taxonomy fallbacks emit
-        instructions instead ("ask for a specific example…"), so those are turned
-        into a behavioural probe built from ``questionObjective``/``title`` and
-        grounded in the first ``expectedEvidence`` item.
+        Order matters, and it was inverted until 2026-09-17: ``followUpRules``
+        entries are follow-ups (the agent's own prompt labels them "Follow-up if
+        needed", worker.py), so asking one cold — «أي بند من السياسة اعتمدت عليه
+        بالتحديد؟» — probes a story the candidate has not told yet. That is what
+        made the questions unanswerable in the founder's interview, and what
+        pushed the LLM to bolt a situation opener onto the probe, producing the
+        double-barrelled questions.
+
+        ``questionObjective`` IS the designed opener whenever the blueprint
+        generator phrased it as a question. Domain-pack objectives are
+        measurement statements instead («قياس وعي المرشح بالسلامة…»), so those
+        fall through to the behavioural probe built from ``title`` + the first
+        ``expectedEvidence``. A follow-up is used only when nothing else yields
+        a question at all (legacy blueprints carrying followUps and no subject).
         """
+        objective = str(comp.get("questionObjective") or comp.get("objective") or "").strip()
+        if objective and ("؟" in objective or "?" in objective):
+            return objective
+
+        subject = str(comp.get("title") or "").strip() or objective
+        if subject:
+            evidence = next(
+                (
+                    str(item).strip()
+                    for item in (comp.get("expectedEvidence") or comp.get("evidence") or [])
+                    if str(item).strip()
+                ),
+                "",
+            )
+            if evidence:
+                return f"احچيلي عن موقف حقيقي يبيّن {subject}، وياريت تذكر {evidence}؟"
+            return f"احچيلي عن موقف حقيقي يبيّن {subject}، شنو سويت وشنو كانت النتيجة؟"
+
         for rule in comp.get("followUpRules") or comp.get("followUps") or []:
             text = str(rule).strip()
             if text and ("؟" in text or "?" in text):
                 return text
-
-        subject = (
-            str(comp.get("title") or "").strip()
-            or str(comp.get("questionObjective") or comp.get("objective") or "").strip()
-        )
-        if not subject:
-            return ""
-        evidence = next(
-            (
-                str(item).strip()
-                for item in (comp.get("expectedEvidence") or comp.get("evidence") or [])
-                if str(item).strip()
-            ),
-            "",
-        )
-        if evidence:
-            return f"احچيلي عن موقف حقيقي يبيّن {subject}، وياريت تذكر {evidence}؟"
-        return f"احچيلي عن موقف حقيقي يبيّن {subject}، شنو سويت وشنو كانت النتيجة؟"
+        return ""
 
     def _anchor_intro_pending(self, mem: InterviewMemory) -> bool:
         """True while the fixed anchor backbone is still being asked."""
