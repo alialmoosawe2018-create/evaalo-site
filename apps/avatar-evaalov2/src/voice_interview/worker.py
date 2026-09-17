@@ -1168,11 +1168,25 @@ async def my_agent(ctx: JobContext):
                 logger.debug("initial greeting: LLM path")
             else:
                 text = _canned_initial_greeting(meta).strip()
+                # INFO, not debug: the founder reported twice that no greeting was
+                # heard, the logs proved `greeting unblocked` and no failure, and
+                # every branch of _canned_initial_greeting returns a non-empty
+                # string — so the cause is NOT in the branch conditions and could
+                # not be settled from a rolled log. This line settles it on the
+                # next interview: it prints whether say() was reached and with
+                # what, and the completion line prints whether it returned.
+                logger.info(
+                    "initial greeting: canned path | chars=%d text=%r",
+                    len(text),
+                    text[:120],
+                )
                 if text:
                     await session.say(text, allow_interruptions=allow_interrupt)
-                    logger.debug("initial greeting: TTS-only (canned) path")
+                    logger.info("initial greeting: say() returned")
+                else:
+                    logger.warning("initial greeting: EMPTY text — nothing spoken")
         except Exception as e:
-            logger.warning("initial greeting failed: %s", e)
+            logger.warning("initial greeting failed: %s", e, exc_info=True)
 
     # ── Session safety cap (abandoned interviews) ────────────────────────────
     # The interview ends itself naturally via the agent's end-interview tool;
