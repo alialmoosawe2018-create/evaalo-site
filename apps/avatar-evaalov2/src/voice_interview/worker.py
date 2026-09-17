@@ -1137,7 +1137,23 @@ async def my_agent(ctx: JobContext):
     _cand_identity = f"user-{_cand_id}" if _cand_id else None
     _candidate_present = await _wait_for_candidate(ctx, _cand_identity, _session_tel)
 
-    if _candidate_present and os.getenv("SKIP_INITIAL_GREETING", "0") != "1":
+    # The greeting is gated on a NEW key, because the legacy one cannot be trusted.
+    # Measured on the founder's 2026-09-17 interview: the candidate joined at 8.90s
+    # (so `_candidate_present` was true) yet no greeting was heard and none appears
+    # in the transcript — while the morning's interview on the older build had one.
+    # The timings settle it: first_tts=14.20s and first_user_final=23.47s, which
+    # fits a ~9s question ending at 23.2s, not a ~3s greeting ending at 17.2s. The
+    # only remaining gate is `SKIP_INITIAL_GREETING`, one of the 71 secrets set in
+    # July that cannot be read back or edited in place (see interview_turn_floor_v2
+    # for the same trap). `INTERVIEW_GREETING_V2` is deliberately absent from that
+    # set, so it defaults ON and the stale secret can no longer silence the
+    # greeting; set it to false as a NEW secret to turn greetings off.
+    _greeting_on = os.getenv("INTERVIEW_GREETING_V2", "true").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    if _candidate_present and _greeting_on:
         try:
             use_llm = os.getenv("INITIAL_GREETING_USE_LLM", "false").lower() in (
                 "1",

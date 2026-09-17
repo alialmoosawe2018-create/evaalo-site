@@ -98,6 +98,33 @@ def test_a_short_clarify_is_not_read_as_unfinished_speech() -> None:
 # ── one rule per kind of turn ────────────────────────────────────────────────
 
 
+def test_the_clarify_lead_in_rotates() -> None:
+    """«خلّيني أبسّطها، مثال واحد يكفي:» was heard FOUR times verbatim in one
+    7-minute interview — the same tic the canned-phrase family was deleted for."""
+    from voice_interview.entity_policy import simplify_clarify_for_pack
+
+    leads = []
+    for variant in range(4):
+        text, _ = simplify_clarify_for_pack(
+            QUESTION, domain_pack_key="hr_generalist", variant=variant
+        )
+        leads.append(text.split(":")[0])
+        assert "السياسات المكتوبة" in text  # the question itself is still restated
+    assert len(set(leads)) == 4, leads
+    # and it cycles rather than running out
+    again, _ = simplify_clarify_for_pack(QUESTION, domain_pack_key="hr_generalist", variant=4)
+    assert again.split(":")[0] == leads[0]
+
+
+def test_delivering_a_clarification_advances_the_rotation() -> None:
+    agent = _agent()
+    agent._pick_next_competency_question(agent._memory)
+    before = agent._memory.clarify_count
+    agent._turn_plan.response_mode = MODE_CLARIFY
+    agent.record_agent_reply("خلّيني أبسّطها، مثال واحد يكفي: شنو سويت؟")
+    assert agent._memory.clarify_count == before + 1
+
+
 def _frame_for_mode(mode: str) -> str:
     agent = _agent()
     agent._pick_next_competency_question(agent._memory)

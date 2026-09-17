@@ -377,6 +377,10 @@ class InterviewMemory:
     # Competencies whose outcome has already been probed — the result question
     # is asked at most once each, however the conversation loops.
     result_probed_competency_keys: set[str] = field(default_factory=set)
+    # Clarifications delivered so far — rotates the restatement's lead-in, so a
+    # candidate who asks four times does not hear the same opening four times
+    # («خلّيني أبسّطها، مثال واحد يكفي:» was heard four times in one interview).
+    clarify_count: int = 0
     # Fixed anchor questions already sent. The competency engine stays quiet
     # until the shared backbone is done.
     anchor_questions_sent: int = 0
@@ -1542,6 +1546,7 @@ class InterviewAssistant(Agent):
     def _clarify_for_current_pack(self, last_question: str) -> tuple[str, str]:
         return simplify_clarify_for_pack(
             last_question,
+            variant=self._memory.clarify_count,
             domain_pack_key=self._domain_pack_key,
             domain_guidance=self._domain_guidance,
             competencies=self._blueprint_competencies,
@@ -2675,6 +2680,9 @@ class InterviewAssistant(Agent):
             if mem.active_question_status in (STATUS_ANSWERING, STATUS_CLARIFYING):
                 mem.active_question_status = STATUS_AWAITING_ANSWER
             return
+
+        if mode == MODE_CLARIFY:
+            mem.clarify_count += 1
 
         if mode in (MODE_CLARIFY, MODE_FOLLOW_UP, MODE_RESUME, MODE_GUIDANCE):
             if question_text:

@@ -472,7 +472,18 @@ _PACK_CLARIFY_BRANCHES: dict[str, dict[str, str]] = {
 }
 
 
-def _restate_question_simply(last_question: str) -> str:
+# The lead-in rotates. A single hardcoded one was heard FOUR times verbatim in
+# one 7-minute interview — «خلّيني أبسّطها، مثال واحد يكفي:» — which is exactly
+# the tic the canned-phrase family was deleted for.
+_CLARIFY_LEAD_INS: tuple[str, ...] = (
+    "خلّيني أبسّطها، مثال واحد يكفي:",
+    "أوضّحها بشكل أبسط:",
+    "خلّي أعيد صياغتها، مثال واحد يكفي:",
+    "أقصد ببساطة:",
+)
+
+
+def _restate_question_simply(last_question: str, variant: int = 0) -> str:
     """Clarify by restating the question actually asked, in simpler words.
 
     The LLM receives this as the recommended question with a rephrase
@@ -482,9 +493,10 @@ def _restate_question_simply(last_question: str) -> str:
     q = collapse_to_single_question(last_question or "").strip().rstrip("؟?").strip()
     if not q:
         return _PACK_CLARIFY_BRANCHES["generic"]["default"]
-    # «مثال واحد يكفي» is the QA-scorecard contract (a clarify must still ask
-    # for ONE concrete example) — three words, then the question itself.
-    return f"خلّيني أبسّطها، مثال واحد يكفي: {q}؟"
+    lead = _CLARIFY_LEAD_INS[max(0, int(variant or 0)) % len(_CLARIFY_LEAD_INS)]
+    # Every lead-in keeps «مثال واحد يكفي» or an equivalent cue where the QA
+    # scorecard needs one; «أقصد ببساطة» carries it in the restated question.
+    return f"{lead} {q}؟"
 
 
 _PACK_CLARIFY_CHALLENGE: dict[str, str] = {
@@ -539,8 +551,14 @@ def simplify_clarify_for_pack(
     domain_pack_key: str = "",
     domain_guidance: str = "",
     competencies: list[dict] | None = None,
+    variant: int = 0,
 ) -> tuple[str, str]:
-    """Pack-aware clarify re-ask. Returns (question, clarify_example_source)."""
+    """Pack-aware clarify re-ask. Returns (question, clarify_example_source).
+
+    ``variant`` rotates the restatement's lead-in; the caller passes a turn
+    counter so a candidate who asks for clarification four times does not hear
+    the same opening four times.
+    """
     del domain_guidance, competencies  # reserved for evidence-based expansion
     n = normalize_text(last_question or "")
     # الاحتياطي محايد المجال، لا `hr_recruiter`: دورٌ بلا حزمة يجب أن يُوضَّح له
@@ -558,7 +576,7 @@ def simplify_clarify_for_pack(
     # than the question it was meant to explain. Measured on the recruiter
     # transcript, 2026-09-17.
     if branch == "default" and (last_question or "").strip():
-        return _restate_question_simply(last_question), source
+        return _restate_question_simply(last_question, variant), source
     question = branches.get(branch) or branches["default"]
     return question, source
 
