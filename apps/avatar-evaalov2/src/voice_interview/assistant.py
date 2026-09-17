@@ -55,6 +55,7 @@ from voice_interview.entity_policy import (
     naturalize_spoken_question,
     pick_hook_followup,
     pick_varied,
+    rotate_framing_opener,
     simplify_clarify_for_pack,
     simplify_clarify_question,
 )
@@ -209,32 +210,38 @@ def _anchor_intro_count() -> int:
 _STYLE_EXAMPLES: tuple[tuple[str, str], ...] = (
     (
         "اذكرلي مثال عن موقف تطلب تفسير وتطبيق سياسة مكتوبة — مثلاً سياسة إجازات أو حضور، شنو كانت الحالة؟",
-        "صار وياك موقف اضطريت ترجع بيه للسياسة المكتوبة حتى تقرر؟",
+        "أريد أفهم شلون تتعامل وية السياسات المكتوبة بشغلك. أقصد مثلاً موظف يطلب إجازة مرضية طويلة، "
+        "أو حالة غياب تحتاج ترجع فيها للسياسة حتى تحسم القرار. صار وياك موقف من هذا النوع وشنو سويت بيه؟",
     ),
     (
         "اذكرلي حالة موظف مثل شكوى تظلم أو تحقق غيابات طويلة، شنو كانت الخطوات اللي اتبعتها من أول ما توصلك للنهاية؟",
-        "حچيلي عن شكوى أو غياب طويل وصلك — شلون تعاملت وياها؟",
+        "خلّينا نحچي عن قضايا الموظفين. أقصد شكوى أو تظلم أو تحقيق غياب طويل، تستلمها من أولها وتمشي بيها "
+        "خطوة خطوة حتى تغلقها. شنو أقرب حالة مرّت عليك وشلون تعاملت وياها؟",
     ),
     (
         "اذكرلي مثال سويت فيه تقرير HR — مثل معدلات غياب أو زمن التوظيف، شنو البيانات اللي استخدمتها؟",
-        "طلّعت تقرير للإدارة عن الغيابات أو مدة شغل الوظائف — شلون طلّعت الأرقام؟",
+        "يهمّني أعرف خبرتك بتقارير الموارد البشرية. أقصد تقرير طلّعته للإدارة، مثل معدلات الغياب أو مدة شغل "
+        "الوظائف، وتجمع بياناته وتحسب أرقامه بنفسك. شنو آخر تقرير سويته وشلون طلّعت أرقامه؟",
     ),
     (
         "اذكرلي مثال عن عملية نقل/ترقية أو خروج موظف واحد اشتغلت عليها، شنو كانت مسؤولياتك بالخطوات؟",
-        "خذني بموظف نقلته أو ترقّى أو ترك الشغل — شنو كان دورك؟",
+        "نجي لدورة حياة الموظف. أقصد نقل موظف لقسم ثاني، أو ترقية، أو خروج موظف وتصفية أموره. "
+        "خذني بحالة واحدة اشتغلت عليها وشنو كان دورك بالخطوات؟",
     ),
 )
 
 
 # Assigned one per turn, in order. Every one opens a story request and fits any
 # competency, so the rotation never fights the subject.
+# These fill the FRAMING slot ("name what you are asking about"), which is where
+# the turn now starts — not the story slot. Assigned one per turn, in order.
 _QUESTION_OPENERS: tuple[str, ...] = (
-    "صار وياك",
+    "أريد أفهم",
+    "خلّينا نحچي عن",
+    "يهمّني أعرف",
     "حچيلي عن",
+    "نجي لـ",
     "خذني بـ",
-    "مرّت عليك",
-    "عطني مثال عن",
-    "اذكرلي",
 )
 
 
@@ -1636,6 +1643,9 @@ class InterviewAssistant(Agent):
         )
 
     def _apply_guard_to_agent_text(self, agent_text: str) -> str:
+        mode = self._turn_plan.response_mode if self._turn_plan else MODE_ASK
+        if mode in (MODE_ASK, MODE_FOLLOW_UP):
+            agent_text = rotate_framing_opener(agent_text, self._memory.turn_index)
         single = enforce_single_question_response(agent_text, self._turn_plan)
         result = validate_cross_domain_output(
             single,
@@ -2389,11 +2399,22 @@ class InterviewAssistant(Agent):
                 "pipeline → مسار المرشّحين، ATS → نظام تتبّع المتقدّمين، HRIS → نظام معلومات الموارد البشرية). "
                 "Keep at most one English term, and only if "
                 "you add its Arabic meaning right after. Ask ONE concrete thing.\n"
-                "CLARITY RULE: keep it short and answerable in one breath — no throat-clearing, no compound "
-                "clauses, no restating the whole competency. If the recommended question probes a skill, ask for "
-                "ONE specific real situation from the candidate's own experience "
-                "(\"احچيلي عن موقف…\"/\"اعطني مثال محدد…\") instead of a generic \"شنو تسوي عادة\"; if it is a "
-                "short follow-up, keep it short. Never a second question.\n"
+                # This block is the LAST thing the model reads, so it wins on recency.
+                # It used to say "keep it short, answerable in one breath", which
+                # CONTRADICTED the Voice style rule above (framing + example, 2-3
+                # sentences, ~105 words) — and the model obeyed the terser, later
+                # rule. Measured end-to-end: 10-21 word questions the owner could
+                # not understand. Length is not the enemy of clarity here; it is
+                # the carrier of it.
+                "CLARITY RULE (obeys the Voice style rule above — do NOT compress): explain before you ask. "
+                "Two or three short sentences, roughly 35-70 words: (1) name plainly which part of the job you "
+                "are asking about, (2) give ONE concrete example of the kind of situation you mean so the "
+                "candidate knows which drawer to open, (3) then ask. The sentences before the question are "
+                "STATEMENTS. Exactly one «؟» and it comes at the END. Never a second question, and never a bare "
+                "abstract question — a candidate who has to ask «شنو تقصدين؟» was failed by the question, not by "
+                "his experience. If the recommended question probes a skill, anchor it in ONE specific real "
+                "situation from the candidate's own work rather than a generic «شنو تسوي عادة». A short follow-up "
+                "(like asking for the outcome) stays short.\n"
                 # Naming a lead-in here made the model use THAT one every time: an
                 # end-to-end run over ten competencies opened all ten with «زين،
                 # احچيلي عن». Give no example to copy, and forbid the repeat.

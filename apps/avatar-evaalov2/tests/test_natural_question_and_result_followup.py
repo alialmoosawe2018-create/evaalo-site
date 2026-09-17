@@ -15,6 +15,7 @@ from voice_interview.assistant import InterviewAssistant, TtsRouteContext
 from voice_interview.entity_policy import (
     RESULT_FOLLOWUP_POOL,
     naturalize_spoken_question,
+    rotate_framing_opener,
 )
 from voice_interview.heuristics import analyze_user_answer, mentions_result
 
@@ -95,7 +96,13 @@ def test_the_prompt_carries_the_approved_style_examples():
         "body", analyze_user_answer("تمام."), agent._memory, {}, "اذكرلي حالة؟"
     )
     assert "STYLE EXAMPLES" in frame
-    assert "صار وياك موقف اضطريت ترجع بيه للسياسة المكتوبة حتى تقرر؟" in frame
+    # The examples must teach EXPLAIN-then-ask. They used to teach brevity
+    # («صار وياك موقف اضطريت ترجع بيه للسياسة المكتوبة حتى تقرر؟», 10 words) and
+    # the owner could not understand the result: «مازالت الأسئلة غير مفهومة…
+    # دعه يتحدث بحرية ليطرح السؤال حتى يكون أوضح» (2026-09-17).
+    assert "أقصد مثلاً موظف يطلب إجازة مرضية طويلة" in frame
+    assert "do NOT compress" in frame
+    assert "35-70 words" in frame
     # Naming «زين،» as a welcome lead-in made the model open all ten questions
     # with it. No lead-in may be offered as an example any more.
     assert 'lead-in (\\"زين،\\"' not in frame
@@ -117,6 +124,44 @@ def test_the_opening_words_are_assigned_and_rotate():
         line = next(ln for ln in frame.splitlines() if "OPENING WORDS" in ln)
         seen.append(line)
     assert len(set(seen)) == 6, seen  # a different opener every turn in the cycle
+
+
+# ── 1b. the framing opener is rotated mechanically ───────────────────────────
+
+BODY = " أقصد مثلاً حالة غياب طويل. شنو صار وياك وشنو سويت؟"
+
+
+def test_framing_opener_rotates_across_turns():
+    """Prompt-level variety failed three times (told to vary, rotated examples,
+    assigned opener) — the model opened 9-10 of 10 questions identically each
+    time. The swap is therefore mechanical."""
+    heads = []
+    for turn in range(8):
+        out = rotate_framing_opener("خلّينا نحچي عن السياسات المكتوبة." + BODY, turn)
+        heads.append(out.split(" ")[0])
+        assert "السياسات المكتوبة." + BODY in out  # nothing after the opener moved
+    assert len(set(heads)) == 4, heads
+    assert heads[:4] == heads[4:]  # a stable cycle, not randomness
+
+
+def test_spelling_variants_are_recognised():
+    for variant in ("خلينا نحچي عن", "أريد أعرف", "يهمني اعرف", "احچيلي عن"):
+        out = rotate_framing_opener(f"{variant} التقارير." + BODY, 0)
+        assert out.startswith("خلّينا نحچي عن التقارير."), (variant, out)
+
+
+def test_an_unrecognised_opening_is_left_alone():
+    original = "صار وياك موقف رجعت بيه للسياسة؟"
+    assert rotate_framing_opener(original, 1) == original
+    assert rotate_framing_opener("", 1) == ""
+
+
+def test_rotation_runs_on_the_production_guard_path():
+    agent = _agent()
+    agent._pick_next_competency_question(agent._memory)  # sets an ASK turn plan
+    agent._memory.turn_index = 1  # → «أريد أفهم»
+    out = agent._apply_guard_to_agent_text("خلّينا نحچي عن قضايا الموظفين." + BODY)
+    assert out.startswith("أريد أفهم قضايا الموظفين.")
 
 
 # ── 2. the result question ───────────────────────────────────────────────────

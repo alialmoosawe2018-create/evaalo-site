@@ -272,6 +272,60 @@ _STACKED_ASK_RE = re.compile(r"[،,]\s*(?:شنو|شلون|كيف|وين|متى|�
 _DOUBLED_WORD_RE = re.compile(r"(?<!\S)(\S+)\s+\1(?!\S)")
 
 
+# Interchangeable framing openers: each takes a bare noun phrase, so one can be
+# swapped for another without touching the grammar after it («خلّينا نحچي عن
+# التوافق مع قانون العمل» → «يهمّني أعرف التوافق مع قانون العمل»). Openers that
+# need a merged preposition («نجي لـ») are deliberately NOT here.
+_FRAMING_OPENERS: tuple[str, ...] = (
+    "خلّينا نحچي عن",
+    "أريد أفهم",
+    "يهمّني أعرف",
+    "حچيلي عن",
+)
+# Spelling variants the model actually produces, mapped onto the canonical form.
+_FRAMING_ALIASES: tuple[str, ...] = (
+    "خلينا نحچي عن",
+    "خلّينا نحكي عن",
+    "خلينا نحكي عن",
+    "أريد أعرف",
+    "اريد افهم",
+    "اريد اعرف",
+    "يهمني أعرف",
+    "يهمني اعرف",
+    "احچيلي عن",
+)
+
+
+def rotate_framing_opener(text: str, turn_index: int) -> str:
+    """Swap the opening framing phrase for the one assigned to this turn.
+
+    Prompt-level variety failed three times end-to-end: told to vary, given
+    rotated examples, and finally handed an assigned opener, the model still
+    opened nine or ten of ten questions the same way — «زين، احچيلي عن…», then
+    «صار وياك موقف…», then «خلّينا نحچي عن…». It converges on whatever phrase it
+    finds comfortable. So the swap is mechanical, and only fires when the reply
+    starts with a phrase we recognise as interchangeable; anything else is left
+    exactly as the model wrote it.
+    """
+    raw = (text or "").lstrip()
+    if not raw:
+        return text
+    matched = next(
+        (
+            p
+            for p in sorted((*_FRAMING_OPENERS, *_FRAMING_ALIASES), key=len, reverse=True)
+            if raw.startswith(p)
+        ),
+        "",
+    )
+    if not matched:
+        return text
+    target = _FRAMING_OPENERS[max(0, int(turn_index or 0)) % len(_FRAMING_OPENERS)]
+    if target == matched:
+        return text
+    return target + raw[len(matched) :]
+
+
 def naturalize_spoken_question(text: str) -> str:
     """Strip the written-form tells from a question before it is spoken.
 

@@ -59,7 +59,14 @@ def build_openai_llm_kwargs() -> dict[str, Any]:
     # so this ceiling must be raised whenever the per-turn word limit in
     # assistant.py goes up, or the prompt asks for words the model cannot emit.
     # 240 covers the current ~105-word limit with headroom.
-    default_max = "512" if is_reasoning else "240"
+    #
+    # ⚠️ 2026-09-17: raised 240 → 400. The prompt asks for a framing sentence, a
+    # concrete example and then the question (2-3 sentences, 35-70 words) because
+    # terse questions were the owner's central complaint — «مازالت الأسئلة غير
+    # مفهومة… دعه يتحدث بحرية». Arabic runs 2-3 tokens a word, so 70 words is
+    # ~200 tokens and a 105-word turn is ~300. 240 left no margin. Whoever
+    # lowers the per-turn word limit again may lower this with it, not before.
+    default_max = "512" if is_reasoning else "400"
     raw_max = (os.getenv("OPENAI_MAX_COMPLETION_TOKENS", default_max) or "").strip()
     if raw_max and raw_max != "0":
         try:
