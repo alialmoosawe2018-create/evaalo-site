@@ -18,10 +18,27 @@ import { recordMetricAsync, SLOW_THRESHOLD_MS } from '../services/siteMetricServ
  * an hour for every path it tries.
  */
 
-const SKIP = new Set(['/health', '/health/ready', '/favicon.ico']);
+/**
+ * This middleware is mounted on the app, so `req.path` is the WHOLE path.
+ *
+ * The health router is mounted at `/api/health`, which makes its real paths
+ * `/api/health` and `/api/health/ready`. The list used to name `/health/ready`
+ * — a path no request has ever carried — while the two that do exist were never
+ * matched, so every probe wrote a row: 241 of them, 6% of `site_metrics`, for
+ * checks the list was written to exclude. `/health` (the separate liveness
+ * endpoint) was the only entry that ever worked.
+ *
+ * The prefix test covers a trailing slash and anything added to that router later.
+ */
+const SKIP = new Set(['/health', '/favicon.ico']);
+
+function isSkipped(path: string): boolean {
+    if (SKIP.has(path)) return true;
+    return path === '/api/health' || path.startsWith('/api/health/');
+}
 
 export function requestTiming(req: Request, res: Response, next: NextFunction): void {
-    if (SKIP.has(req.path)) return next();
+    if (isSkipped(req.path)) return next();
 
     const startedAt = process.hrtime.bigint();
 
