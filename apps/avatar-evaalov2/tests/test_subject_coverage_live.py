@@ -137,19 +137,60 @@ def test_already_answered_claim_advances_instead_of_arguing() -> None:
 
 
 def test_a_claim_with_nothing_on_record_changes_nothing() -> None:
-    """A subject cannot be skipped by asserting it was covered."""
+    """A subject cannot be skipped by asserting it was covered.
+
+    ⚠️ This used to assert the same thing with a SHORT claim («سألتيني هذا قبل»),
+    which `analyze_user_answer` does not call substantive — so it never reached
+    the write that caused the hole, and stayed green through a live failure.
+    The claim below is the verbatim one from the 2026-09-17 interview: 39
+    characters, substantive, and therefore the case that actually mattered.
+    """
     agent = _agent()
     q = agent._pick_next_competency_question(agent._memory)
     agent.record_agent_reply(q)
 
-    claim = "سألتيني هذا قبل"
+    claim = "سألتني هذا السؤال وجاوبتك. خلينا نغيره."
     diag = analyze_user_answer(claim)
     assert diag["claims_already_answered"] is True
+    assert diag["is_substantive_answer"] is True, "the case this test exists for"
     agent._record_subject_answer(claim, diag)
 
+    cov = agent._memory.subject_coverage
     assert diag.get("subject_already_covered") is not True
-    # and the subject stays on the table — the claim bought nothing
-    assert not agent._memory.subject_coverage.should_skip(BANK_SOURCING_Q)
+    # the claim is not filed as the subject's answer…
+    assert cov.prior_answer(BANK_SOURCING_Q) == ""
+    # …and the subject stays on the table — the claim bought nothing
+    assert not cov.should_skip(BANK_SOURCING_Q)
+    assert agent._pick_next_bank_anchor() is not None
+
+
+def test_a_claim_never_becomes_evidence() -> None:
+    """Even a long, confident claim must not raise the subject's state."""
+    agent = _agent()
+    q = agent._pick_next_competency_question(agent._memory)
+    agent.record_agent_reply(q)
+
+    claim = "سألتني هذا السؤال وجاوبتك. خلينا نغيره."
+    agent._record_subject_answer(claim, analyze_user_answer(claim))
+
+    cov = agent._memory.subject_coverage
+    assert cov.state(BANK_SOURCING_Q) == ASKED
+    assert not cov.is_evidenced(BANK_SOURCING_Q)
+
+
+def test_a_real_answer_then_the_same_claim_still_advances() -> None:
+    """The fix must not break the case it was built for."""
+    agent = _agent()
+    _ask_sourcing_then_answer(agent, THIN_ANSWER)
+
+    claim = "سألتني هذا السؤال وجاوبتك. خلينا نغيره."
+    diag = analyze_user_answer(claim)
+    agent._record_subject_answer(claim, diag)
+
+    assert diag["subject_already_covered"] is True
+    assert agent._infer_action_from_frame(diag) == "advance"
+    # and what is on record is the real answer, not the claim
+    assert THIN_ANSWER[:20] in agent._memory.subject_coverage.prior_answer(BANK_SOURCING_Q)
 
 
 def test_a_negated_claim_is_not_a_claim() -> None:
