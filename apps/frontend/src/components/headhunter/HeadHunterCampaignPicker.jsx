@@ -102,6 +102,19 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
     const base = showAll || !wantedRole ? rows || [] : roleMatched;
     const hiddenCount = (rows?.length || 0) - roleMatched.length;
 
+    /*
+     * 🔴 هل ستُستعمل وظيفةٌ قائمة أم ستُنشأ واحدة؟ يُحسب هنا **للعرض** بنفس
+     * قاعدة `createOrReuse` بالضبط.
+     *
+     * كان الزرّ يقول «لا توجد وظيفة لها بعد» حتّى حين توجد وتُعاد استعمالها —
+     * أي يَعِد بالإنشاء ثمّ لا يُنشئ. ومن يرى نصّاً لا يصف ما سيحدث يبحث عن
+     * زرٍّ آخر يصدّقه.
+     */
+    const matchedExisting = useMemo(
+        () => (wantedRole ? (rows || []).find((r) => normalizeRole(r.title) === wantedRole) || null : null),
+        [rows, wantedRole]
+    );
+
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
         if (!q) return base;
@@ -175,6 +188,19 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
     };
 
     const canCreateFromSearch = Boolean(wantedRole);
+    /*
+     * 🔴 **زرٌّ واحد يقول «أنشئ وظيفة»، لا اثنان.**
+     *
+     * كان أسفل المُنتقي رابطٌ نصّه «أنشئ وظيفة» يفتح شاشة الإنشاء الكاملة، بينما
+     * الزرّ الحقيقي أعلاه نصُّه جملةٌ طويلة. فالمستخدم الباحث عن زرٍّ بهذا الاسم
+     * يجد الرابط — ويُنقل إلى صفحةٍ أخرى بدل أن تُنشأ حملته. حدث ذلك مرّتين،
+     * والتشخيص جاء من المستخدم نفسه: «ربما لأنّ الاسم متطابق».
+     *
+     * فالمسار الكامل (بمعاييره وإعلان وظيفته) يبقى — لكن داخل اللوحة المطويّة
+     * وحدها، حيث الاختيار اليدوي أصلاً، وبنصٍّ لا يلتبس بالزرّ الرئيسي. وحين لا
+     * يوجد دور بحث فلا زرّ رئيسي أصلاً، فيظهر كالمخرج الوحيد.
+     */
+    const showAdvanced = !canCreateFromSearch || browsing;
 
     return (
         <div className="headhunter-campaign-picker">
@@ -197,7 +223,9 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                         <span className="headhunter-campaign-picker__create-hint">
                             {creating
                                 ? t('aiHeadHunterCampaignPickerCreating')
-                                : t('aiHeadHunterCampaignPickerCreateFromSearch')}
+                                : matchedExisting
+                                  ? t('aiHeadHunterCampaignPickerUseExisting')
+                                  : t('aiHeadHunterCampaignPickerCreateFromSearch')}
                         </span>
                     </button>
                     {createError ? (
@@ -274,17 +302,28 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
             )}
 
             <div className="headhunter-campaign-picker__foot">
-                <button
-                    type="button"
-                    className="btn btn-tertiary"
-                    onClick={load}
-                    disabled={refreshing}
-                    hidden={canCreateFromSearch && !browsing}
-                >
-                    {refreshing
-                        ? t('aiHeadHunterCampaignPickerLoading')
-                        : t('aiHeadHunterCampaignPickerRefresh')}
-                </button>
+                {/*
+                  * 🔴 عرضٌ شرطي، لا سِمة `hidden`.
+                  *
+                  * كان هذان الزرّان يحملان `hidden` — وهي **بلا أثر هنا**: قاعدة
+                  * `.headhunter-campaign-picker__foot .btn` تفرض
+                  * `display: inline-flex`، وأنماط المؤلِّف تغلب `[hidden]` في
+                  * صحيفة المتصفّح. فبقي «تحديث القائمة» ظاهراً في كلّ الحالات
+                  * رغم أنّ الشرط كان مكتوباً وصحيحاً. ما لا يُعرَض لا يُخفى
+                  * بسِمة، بل لا يُركَّب أصلاً.
+                  */}
+                {showAdvanced ? (
+                    <button
+                        type="button"
+                        className="btn btn-tertiary"
+                        onClick={load}
+                        disabled={refreshing}
+                    >
+                        {refreshing
+                            ? t('aiHeadHunterCampaignPickerLoading')
+                            : t('aiHeadHunterCampaignPickerRefresh')}
+                    </button>
+                ) : null}
                 {/*
                   * ⚠️ الوجهة `/dashboard?open=newCampaign` — رابطٌ عميق قائم يفتح
                   * NewInterviewSidebar (Dashboard.jsx:215). و**ليست `/?open=…`**:
@@ -302,18 +341,20 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                   * تعني معايير شبه فارغة، و`ensureBlueprintForCampaign` ينطلق
                   * عليها فوراً فيُنتج مخطّطة ضعيفة.
                   */}
-                <a
-                    className="btn btn-secondary"
-                    /* الدور يسافر مع الرابط، فتُفتح شاشة الإنشاء عليه مباشرة بدل
-                       أن يُعاد كتابته بيد الموظّف. */
-                    href={`/dashboard?open=newCampaign${
-                        searchRole ? `&position=${encodeURIComponent(String(searchRole).trim())}` : ''
-                    }`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    {t('aiHeadHunterCampaignPickerCreate')}
-                </a>
+                {showAdvanced ? (
+                    <a
+                        className="btn btn-secondary"
+                        /* الدور يسافر مع الرابط، فتُفتح شاشة الإنشاء عليه مباشرة بدل
+                           أن يُعاد كتابته بيد الموظّف. */
+                        href={`/dashboard?open=newCampaign${
+                            searchRole ? `&position=${encodeURIComponent(String(searchRole).trim())}` : ''
+                        }`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {t('aiHeadHunterCampaignPickerCreate')}
+                    </a>
+                ) : null}
                 <button type="button" className="btn btn-tertiary" onClick={onClose}>
                     {t('aiHeadHunterCampaignPickerCancel')}
                 </button>

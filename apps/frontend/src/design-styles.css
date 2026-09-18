@@ -24961,7 +24961,13 @@ body.rtl-text[lang='ku'] .hero-title {
     padding-bottom: 0.14em;
 }
 
-/* صفّ «أنشئ وظيفة البحث» — يظهر فقط حين لا يوجد مطابق. */
+/*
+ * صفّ «استعمل وظيفتك أو أنشئها» — الإجراء الرئيسي في المُنتقي.
+ *
+ * 🔴 كان بإطارٍ **منقّط** بينما رابط «أنشئ وظيفة» في الذيل يحمل خلفيةً ممتلئة،
+ * فبدا الثانوي رئيسيّاً. والمستخدم ضغط الذيل مرّتين ظنّاً أنّه الزرّ. فالرئيسي
+ * يُصمَّم رئيسيّاً: إطارٌ متّصل وخلفيةٌ أوضح.
+ */
 .headhunter-campaign-picker__create-row {
     display: flex;
     flex-direction: column;
@@ -24972,15 +24978,15 @@ body.rtl-text[lang='ku'] .hero-title {
     border-radius: 12px;
     cursor: pointer;
     font: inherit;
-    border: 1px dashed rgba(129, 140, 248, 0.55);
-    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(129, 140, 248, 0.75);
+    background: rgba(99, 102, 241, 0.26);
     color: #e2e8f0;
     transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .headhunter-campaign-picker__create-row:hover:not(:disabled) {
-    background: rgba(99, 102, 241, 0.2);
-    border-color: rgba(129, 140, 248, 0.85);
+    background: rgba(99, 102, 241, 0.36);
+    border-color: rgba(129, 140, 248, 0.95);
 }
 
 .headhunter-campaign-picker__create-row:disabled {
@@ -24999,8 +25005,8 @@ body.rtl-text[lang='ku'] .hero-title {
 }
 
 html[data-app-theme='light'] .headhunter-campaign-picker__create-row {
-    border-color: rgba(99, 102, 241, 0.5);
-    background: var(--app-accent-bg, rgba(99, 102, 241, 0.1));
+    border-color: rgba(99, 102, 241, 0.62);
+    background: rgba(99, 102, 241, 0.16);
     color: var(--app-text, #0f172a);
 }
 

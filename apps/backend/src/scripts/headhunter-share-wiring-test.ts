@@ -585,5 +585,137 @@ check('W8 🔴 the campaign binding is REQUIRED, never an optional prop', () => 
     }
 });
 
+/* ──────────────── one button says "create", not two ────────────────────── */
+
+check('W18 🔴 the default picker screen offers ONE create action, not two', () => {
+    const src = code(FRONTEND_SRC, 'components', 'headhunter', 'HeadHunterCampaignPicker.jsx');
+
+    /*
+     * 🔴 THE DEFECT. Two controls said "create a job": the one-click button at
+     * the top (whose label is a full sentence) and a footer link styled as a
+     * filled primary button reading exactly «أنشئ وظيفة» — which navigates to
+     * the full creation screen instead of creating anything.
+     *
+     * The user pressed the footer twice, reported "pressing create job still
+     * sends me to the create-job page", and diagnosed it himself: "probably
+     * because the name matches". Both halves were working as written; the screen
+     * was the bug.
+     *
+     * So the footer link is only mounted where the one-click button is not the
+     * path: inside the folded list, or when there is no search role at all.
+     */
+    const at = src.indexOf("aiHeadHunterCampaignPickerCreate')");
+    if (at < 0) throw new Error('the create-a-campaign action is gone from the picker');
+
+    /*
+     * ⚠️ Read what sits immediately before the ANCHOR ELEMENT, not before the
+     * label and not the whole file.
+     *
+     * The whole file is no good: the one-click button carries its own
+     * conditional, so a file-wide search for `showAdvanced` stays green with the
+     * footer link ungated — the exact defect. And a window measured back from
+     * the LABEL is arbitrary: the first version used 400 characters, the real
+     * distance is 419, and it failed on correct code. The element's own opening
+     * tag is the only stable landmark.
+     */
+    const anchorOpen = src.lastIndexOf('<a', at);
+    if (anchorOpen < 0) throw new Error('the create action is no longer a link — read this again');
+    const before = src.slice(Math.max(0, anchorOpen - 60), anchorOpen);
+    if (!/showAdvanced\s*\?/.test(before)) {
+        throw new Error(
+            'the "create a job" footer link is mounted unconditionally again. It then sits ' +
+                'beside the one-click button under a name the user reads as THE create ' +
+                'button — and it navigates away instead of creating.'
+        );
+    }
+
+    /*
+     * ⚠️ And not via the `hidden` attribute.
+     *
+     * Both footer controls carried `hidden={…}` with a correct condition, and it
+     * did nothing: `.headhunter-campaign-picker__foot .btn` sets
+     * `display: inline-flex`, and an author rule beats the browser's own
+     * `[hidden] { display: none }`. "Refresh list" was on screen in every state
+     * while the code said it was hidden.
+     */
+    const foot = bodyOf(src, 'headhunter-campaign-picker__foot', '</div>');
+    if (/hidden\s*=/.test(foot)) {
+        throw new Error(
+            'a picker footer control is hidden with the `hidden` attribute. That attribute ' +
+                'is overridden here by `display: inline-flex` in design-styles.css, so the ' +
+                'control stays visible. Do not mount it instead.'
+        );
+    }
+});
+
+check('W19 the one-click button does not promise to create when it will reuse', () => {
+    const src = code(FRONTEND_SRC, 'components', 'headhunter', 'HeadHunterCampaignPicker.jsx');
+
+    /*
+     * The button reuses a job whose role matches and creates one otherwise, but
+     * its label read "No job for this yet — create it and use it now" in BOTH
+     * cases. A control whose text does not describe what it is about to do sends
+     * the user looking for another control that does — which is how the footer
+     * link got pressed.
+     */
+    if (!src.includes('aiHeadHunterCampaignPickerUseExisting')) {
+        throw new Error(
+            'the button has one label again. It says "no job for this yet — create it" even ' +
+                'when a matching job exists and the click will reuse it.'
+        );
+    }
+    if (!/matchedExisting/.test(src)) {
+        throw new Error('nothing computes whether a matching job exists — the label cannot be honest');
+    }
+    /*
+     * ⚠️ The label must follow the SAME rule the click follows. A separate,
+     * looser test (`rows.length > 0`, say) would drift from `createOrReuse` and
+     * put the screen back to lying, just differently.
+     */
+    const decl = bodyOf(src, 'const matchedExisting', ');');
+    if (!/normalizeRole\(r\.title\)\s*===\s*wantedRole/.test(decl)) {
+        throw new Error(
+            'the label no longer asks the same question the click asks (exact normalized ' +
+                'role match). The two will drift and the button will mislabel itself again.'
+        );
+    }
+});
+
+check('W20 the two create labels cannot be read as the same button', () => {
+    const src = raw(FRONTEND_SRC, 'translations.js');
+    const pick = (key: string): string[] => {
+        const hits = [...src.matchAll(new RegExp(`${key}: "([^"]*)"`, 'g'))].map((m) => m[1]);
+        if (hits.length !== 3) {
+            throw new Error(`${key} is defined ${hits.length} times, expected 3 (en, ar, ku)`);
+        }
+        return hits;
+    };
+    /*
+     * They appear together inside the folded list, so distinct wording is the
+     * whole point: one creates in place, the other opens the full form.
+     */
+    const footer = pick('aiHeadHunterCampaignPickerCreate');
+    const primary = pick('aiHeadHunterCampaignPickerCreateFromSearch');
+    const reuse = pick('aiHeadHunterCampaignPickerUseExisting');
+    for (let i = 0; i < 3; i += 1) {
+        for (const other of [primary[i], reuse[i]]) {
+            if (footer[i] === other) {
+                throw new Error(`the footer link and the one-click button read identically: "${footer[i]}"`);
+            }
+        }
+        /*
+         * ⚠️ The footer label must SAY it opens the long form. "Create a job"
+         * was distinct from the button's sentence and still read as the create
+         * button — distinctness alone was never the requirement.
+         */
+        if (!footer[i].includes('…')) {
+            throw new Error(
+                `the footer create label "${footer[i]}" no longer marks itself as opening ` +
+                    `another screen (an ellipsis). It reads as the button that creates here.`
+            );
+        }
+    }
+});
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);
