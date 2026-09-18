@@ -812,10 +812,10 @@ export const translations = {
         aiHeadHunterSearchHistoryShowListView: "Show as list",
         aiHeadHunterSearchHistoryEmpty:
             "Saved searches will appear here after a workflow returns candidates for a new result.",
-        aiHeadHunterCampaignNotFoundTitle: "Campaign not found",
+        aiHeadHunterCampaignNotFoundTitle: "Search not found",
         aiHeadHunterCampaignNotFoundBody: "This saved search is missing or was removed from this browser.",
-        aiHeadHunterCampaignSavedTitle: "Saved campaign",
-        aiHeadHunterCampaignMetaRegion: "Campaign summary",
+        aiHeadHunterCampaignSavedTitle: "Saved search",
+        aiHeadHunterCampaignMetaRegion: "Search summary",
         aiHeadHunterCampaignSnapshotCountHeading: "Profiles",
         aiHeadHunterCampaignCandidatesCount: "{n} profiles",
         aiHeadHunterCampaignCandidatesCountShort: "{n} profiles",
@@ -2527,11 +2527,11 @@ export const translations = {
         aiHeadHunterSearchHistoryShowListView: "عرض كقائمة",
         aiHeadHunterSearchHistoryEmpty:
             "تظهر عمليات البحث المحفوظة هنا بعد أن يعيد سير العمل مرشحين لنتيجة جديدة في هذا المتصفح.",
-        aiHeadHunterCampaignNotFoundTitle: "الحملة غير موجودة",
+        aiHeadHunterCampaignNotFoundTitle: "البحث غير موجود",
         aiHeadHunterCampaignNotFoundBody:
             "بحثك المحفوظ غير موجود أو أزيل من هذا المتصفح.",
-        aiHeadHunterCampaignSavedTitle: "حملة محفوظة",
-        aiHeadHunterCampaignMetaRegion: "ملخص الحملة",
+        aiHeadHunterCampaignSavedTitle: "بحث محفوظ",
+        aiHeadHunterCampaignMetaRegion: "ملخّص البحث",
         aiHeadHunterCampaignSnapshotCountHeading: "الملفات",
         aiHeadHunterCampaignCandidatesCount: "{n} ملفاً",
         aiHeadHunterCampaignCandidatesCountShort: "{n} ملفاً",
@@ -4235,11 +4235,11 @@ export const translations = {
         aiHeadHunterSearchHistoryShowListView: "وشان بە لیست",
         aiHeadHunterSearchHistoryEmpty:
             "دوای ئەوەی کارپێکراوێک لەم وێبگرەوەدا نەتایجی نوێت لەگەڵ نامەزادانەوە دێت، لێرە دەخرێتە ڕیز.",
-        aiHeadHunterCampaignNotFoundTitle: "هەمبەرەکە نییە",
+        aiHeadHunterCampaignNotFoundTitle: "گەڕانەکە نییە",
         aiHeadHunterCampaignNotFoundBody:
             "گەڕانی پاشەکەوتکراو نییە یان لەم وێبگرەوە سڕدراوەتەوە.",
-        aiHeadHunterCampaignSavedTitle: "هەمبەری پاشەکەوتکراو",
-        aiHeadHunterCampaignMetaRegion: "پوختەی هەمبەر",
+        aiHeadHunterCampaignSavedTitle: "گەڕانی پاشەکەوتکراو",
+        aiHeadHunterCampaignMetaRegion: "پوختەی گەڕان",
         aiHeadHunterCampaignSnapshotCountHeading: "پڕۆفایل",
         aiHeadHunterCampaignCandidatesCount: "{n} پرۆفایل",
         aiHeadHunterCampaignCandidatesCountShort: "{n} پرۆفایل",

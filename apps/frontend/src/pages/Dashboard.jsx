@@ -211,11 +211,22 @@ const Dashboard = () => {
         return () => window.clearTimeout(timer);
     }, [user, hasPermission]);
 
+    /*
+     * الدور القادم من بحث الهيد هانتر عبر
+     * `/dashboard?open=newCampaign&position=…`.
+     *
+     * يُحتفظ به في الحالة لأنّ المُعاملين يُحذفان من العنوان فور القراءة (حتى لا
+     * تُعاد الشاشة عند أي تنقّل)، فلو قرأناه من `searchParams` عند العرض لاختفى.
+     */
+    const [seededPosition, setSeededPosition] = useState('');
+
     useEffect(() => {
         if (searchParams.get('open') !== 'newCampaign') return;
+        setSeededPosition((searchParams.get('position') || '').trim());
         setIsSidebarOpen(true);
         const next = new URLSearchParams(searchParams);
         next.delete('open');
+        next.delete('position');
         setSearchParams(next, { replace: true });
     }, [searchParams, setSearchParams]);
 
@@ -412,8 +423,12 @@ const Dashboard = () => {
             {/* New Campaign Sidebar */}
             <NewInterviewSidebar
                 isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
+                onClose={() => {
+                    setIsSidebarOpen(false);
+                    setSeededPosition('');
+                }}
                 onSelectOption={handleSidebarOption}
+                initialPosition={seededPosition}
             />
         </>
     );

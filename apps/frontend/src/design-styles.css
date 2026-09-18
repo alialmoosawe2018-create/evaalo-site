@@ -6290,6 +6290,9 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
 .voice-interview-prep {
     min-height: 100vh;
     min-height: 100dvh;
+    /* بطاقةٌ أطول من الشاشة كانت تُقصّ من أسفلها بسبب التوسيط الرأسي؛ التمرير
+       يجعلها تُقرأ كاملةً بدل أن يختفي الزرّ. */
+    overflow-y: auto;
     padding: 40px 20px;
     box-sizing: border-box;
     background: linear-gradient(160deg, #f5f3ff 0%, #eef2ff 40%, #f8fafc 100%);
@@ -6396,6 +6399,22 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     font-size: 1rem;
     line-height: 1.55;
     text-align: start;
+}
+
+/*
+ * 🔴 ملاحظة الجاهزية كانت بلا أي نمط.
+ *
+ * أُضيف العنصر مع بوّابة الجاهزية ولم يُنسَّق، فبقي `<p>` بهوامش المتصفّح
+ * الافتراضية ملاصقاً لزرّ «متابعة». وبالإنجليزية النصّ أطول فيلتفّ سطرين،
+ * والبطاقة `overflow: hidden` داخل حاوية `min-height: 100vh` بتوسيطٍ رأسي —
+ * فيُدفع الزرّ خارج الإطار ويبدو متداخلاً مع النصّ.
+ */
+.voice-interview-prep__status {
+    margin: 0 0 20px;
+    text-align: center;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #475569;
 }
 
 .voice-interview-prep__actions {
@@ -24721,7 +24740,17 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
 }
 
 /* ─── Head Hunter: الحملة التي تُنشأ تحتها روابط المقابلة ───────────────── */
-/* يُختار مرّة واحدة للبحث كلّه لا لكل بطاقة — انظر HeadHunterResultsWorkspace. */
+/*
+ * ⚠️ القيم الداكنة هي الأساس، والفاتح يتجاوزها تحت
+ * `html[data-app-theme='light']` — هذا اصطلاح التطبيق الفعلي: متغيّرات
+ * `--app-*` **غير معرّفة إطلاقاً في الوضع الداكن** (تحقّقت حيّاً: تُرجع
+ * undefined)، وتُعرَّف في كتلة الفاتح وحدها. وأوّل نسخة من هذه الأنماط
+ * استعملت `--surface` و`--surface-muted` وهما غير موجودتين أصلاً، فسقط
+ * كلّ شيء على ألوانٍ فاتحة ثابتة — ولهذا بدا المُنتقي خاطئاً في الداكن.
+ *
+ * ولا تُعاد هنا أنماط `.headhunter-campaign-history-row`: تلك مُقيَّدة بـ
+ * `.headhunter-campaign-history-page` فلا تصل المُنتقي، فيحمل صفوفه بنفسه.
+ */
 
 .headhunter-share-campaign-bar {
     display: flex;
@@ -24731,14 +24760,16 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
     flex-wrap: wrap;
     margin: 0 0 16px;
     padding: 10px 14px;
-    border: 1px solid var(--border-color, #e2e8f0);
-    border-radius: 10px;
-    background: var(--surface-muted, #f8fafc);
+    border-radius: 12px;
     font-size: 0.92rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: linear-gradient(165deg, rgba(30, 41, 59, 0.88) 0%, rgba(15, 23, 42, 0.92) 100%);
+    color: #e2e8f0;
 }
 
 .headhunter-share-campaign-bar strong {
     font-weight: 600;
+    color: #f1f5f9;
 }
 
 .headhunter-campaign-picker__backdrop {
@@ -24749,7 +24780,9 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
     align-items: center;
     justify-content: center;
     padding: 16px;
-    background: rgba(15, 23, 42, 0.45);
+    background: rgba(2, 6, 23, 0.62);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 }
 
 .headhunter-campaign-picker {
@@ -24759,29 +24792,38 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
     flex-direction: column;
     gap: 12px;
     padding: 20px;
-    border-radius: 14px;
-    background: var(--surface, #fff);
-    box-shadow: 0 20px 48px rgba(15, 23, 42, 0.22);
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: linear-gradient(165deg, #1e293b 0%, #0f172a 100%);
+    color: #e2e8f0;
+    box-shadow: 0 24px 56px rgba(0, 0, 0, 0.5);
 }
 
 .headhunter-campaign-picker__head h3 {
     margin: 0 0 4px;
     font-size: 1.05rem;
+    color: #f1f5f9;
 }
 
 .headhunter-campaign-picker__head p,
 .headhunter-campaign-picker__state {
     margin: 0;
     font-size: 0.88rem;
-    opacity: 0.75;
+    color: #94a3b8;
 }
 
 .headhunter-campaign-picker__search {
     width: 100%;
     padding: 9px 12px;
-    border: 1px solid var(--border-color, #e2e8f0);
-    border-radius: 8px;
+    border-radius: 10px;
     font: inherit;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(15, 23, 42, 0.6);
+    color: #e2e8f0;
+}
+
+.headhunter-campaign-picker__search::placeholder {
+    color: #64748b;
 }
 
 .headhunter-campaign-picker__list {
@@ -24796,9 +24838,36 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
     margin-top: 6px;
 }
 
+/* صفوف المُنتقي تحمل أنماطها بنفسها — انظر التعليق أعلاه. */
 .headhunter-campaign-picker__list .headhunter-campaign-history-row {
     width: 100%;
     text-align: start;
+    display: block;
+    padding: 12px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    font: inherit;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(30, 41, 59, 0.7);
+    color: #e2e8f0;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.headhunter-campaign-picker__list .headhunter-campaign-history-row:hover {
+    background: rgba(51, 65, 85, 0.85);
+    border-color: rgba(129, 140, 248, 0.5);
+}
+
+.headhunter-campaign-picker__toggle {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: underline;
+    color: #818cf8;
 }
 
 .headhunter-campaign-picker__foot {
@@ -24811,17 +24880,83 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
 .headhunter-card__video-popover-note {
     margin: 0 0 8px;
     font-size: 0.85rem;
-    opacity: 0.8;
+    color: #94a3b8;
 }
 
-.headhunter-campaign-picker__toggle {
-    align-self: flex-start;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--accent, #2563eb);
-    font: inherit;
-    font-size: 0.85rem;
-    cursor: pointer;
-    text-decoration: underline;
+/* ── الوضع الفاتح ─────────────────────────────────────────────────────── */
+
+html[data-app-theme='light'] .headhunter-share-campaign-bar {
+    border-color: var(--app-border, rgba(99, 102, 241, 0.22));
+    background: var(--app-surface, #ffffff);
+    color: var(--app-text, #0f172a);
+}
+
+html[data-app-theme='light'] .headhunter-share-campaign-bar strong {
+    color: var(--app-text, #0f172a);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__backdrop {
+    background: rgba(15, 23, 42, 0.35);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker {
+    border-color: var(--app-border, rgba(99, 102, 241, 0.22));
+    background: var(--app-surface, #ffffff);
+    color: var(--app-text, #0f172a);
+    box-shadow: 0 20px 48px rgba(99, 102, 241, 0.16);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__head h3 {
+    color: var(--app-text, #0f172a);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__head p,
+html[data-app-theme='light'] .headhunter-campaign-picker__state,
+html[data-app-theme='light'] .headhunter-card__video-popover-note {
+    color: var(--app-text-muted, #64748b);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__search {
+    border-color: var(--app-border, rgba(99, 102, 241, 0.22));
+    background: var(--app-surface-2, #faf3e8);
+    color: var(--app-text, #0f172a);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__search::placeholder {
+    color: var(--app-text-muted, #64748b);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__list .headhunter-campaign-history-row {
+    border-color: var(--app-border, rgba(99, 102, 241, 0.22));
+    background: var(--app-surface-2, #faf3e8);
+    color: var(--app-text, #0f172a);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__list .headhunter-campaign-history-row:hover {
+    background: var(--app-accent-bg, rgba(99, 102, 241, 0.1));
+    border-color: rgba(99, 102, 241, 0.45);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__toggle {
+    color: var(--app-accent-text, #3730a3);
+}
+
+/* ─── العنوان الرئيسي: نزلة «ع» كانت تُقصّ على سطح المكتب ──────────────── */
+/*
+ * `.hero-title` (في index.css) يجمع `line-height: 1.12` مع
+ * `-webkit-background-clip: text` + `-webkit-text-fill-color: transparent`.
+ * ومع هذا المزيج يُرسم الحرف داخل صندوق السطر، فالنزلات (ع، ج، ق) تقع تحته
+ * فتُقصّ. والقيمة 1.12 مضبوطة على Inter اللاتيني وهي ضيّقة على Cairo: الخط
+ * العربي يحتاج تعشيقاً أوسع أصلاً.
+ *
+ * ⚠️ ويعيش هنا لا في index.css عن قصد: ذلك الملفّ يحمل تعديلاتٍ غير مُلتزَمة
+ * ليست لي، فوضعُ قاعدةٍ فيه يعني التزامها معها. والتخصيص هنا أعلى من القاعدة
+ * (سمة + صنف مقابل صنف) فيفوز مهما كان ترتيب التحميل.
+ */
+html[lang='ar'] .hero-title,
+html[lang='ku'] .hero-title,
+body.rtl-text[lang='ar'] .hero-title,
+body.rtl-text[lang='ku'] .hero-title {
+    line-height: 1.32;
+    padding-bottom: 0.14em;
 }

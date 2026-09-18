@@ -581,7 +581,14 @@ const NEW_CAMPAIGN_EXP_OPT_KEY = {
     '10+': 'newCampaign_combo_exp_10_plus',
 };
 
-const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
+/**
+ * @param {string} [initialPosition] الدور الذي تُفتح عليه الشاشة — يأتي من بحث
+ *   الهيد هانتر عبر `/dashboard?open=newCampaign&position=…`.
+ *
+ *   بدونه كان الموظّف يبحث عن «Account Manager» ثمّ يُعيد كتابتها بيده هنا، فتبدو
+ *   الرحلة مقطوعة بين البحث والوظيفة — وهي الشكوى التي قادت إلى هذا.
+ */
+const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition = '' }) => {
     const navigate = useNavigate();
     const { t, currentLang } = useLanguage();
     const { theme } = useTheme();
@@ -1139,7 +1146,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         setVoiceInterviewLinkWithCandidate(null);
         setVideoInterviewLinkWithCandidate(null);
         setSelectedCriteria({});
-        setJobDetails({});
+        // يُبذَر الدور القادم من البحث بدل تصفيره — والتصفير يبقى هو الأصل.
+        const seeded = String(initialPosition || '').trim();
+        setJobDetails(seeded ? { position: seeded } : {});
+        setGeneralPosition(seeded);
         setCvParsing(false);
         setCvParseError('');
         setCvFilledCount(0);
@@ -1165,7 +1175,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption }) => {
         setAddMenuOpen(false);
         setAddMenuCustomMode(false);
         setCustomLabelDraft('');
-    }, [isOpen]);
+    }, [isOpen, initialPosition]);
 
     /** Lock page scroll while modal is open — prevents background rubber-band when hitting scroll edges. */
     useEffect(() => {

@@ -196,7 +196,11 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                   */}
                 <a
                     className="btn btn-secondary"
-                    href="/dashboard?open=newCampaign"
+                    /* الدور يسافر مع الرابط، فتُفتح شاشة الإنشاء عليه مباشرة بدل
+                       أن يُعاد كتابته بيد الموظّف. */
+                    href={`/dashboard?open=newCampaign${
+                        searchRole ? `&position=${encodeURIComponent(String(searchRole).trim())}` : ''
+                    }`}
                     target="_blank"
                     rel="noopener noreferrer"
                 >

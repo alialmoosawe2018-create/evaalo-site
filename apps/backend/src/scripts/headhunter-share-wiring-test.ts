@@ -319,7 +319,13 @@ check('W9 🔴 "create a job" goes where a job can actually be created', () => {
      * page, so the button landed on "Get Started Free". The effect that opens
      * the sidebar lives in Dashboard.jsx, mounted at `/dashboard`.
      */
-    if (!/href=["']\/dashboard\?open=newCampaign["']/.test(el)) {
+    /*
+     * ⚠️ Matches a quoted literal OR a template literal: the href became
+     * `{`/dashboard?open=newCampaign${…&position=…}`}` when the search role
+     * started travelling with it, and a check pinned to the quoted form failed
+     * on correct code. The requirement is the PATH, not the syntax.
+     */
+    if (!/href=(?:["']|\{`)\/dashboard\?open=newCampaign/.test(el)) {
         throw new Error(
             'the create action does not point at /dashboard?open=newCampaign. The deep ' +
                 'link only works on the Dashboard route — `/` is the marketing home page, ' +
@@ -414,6 +420,62 @@ check('W14 🔴 the picker offers the jobs of THIS search first', () => {
     const ws = code(FRONTEND_SRC, 'components', 'headhunter', 'HeadHunterResultsWorkspace.jsx');
     if (!/searchRole=\{searchContext\?\.position\}/.test(ws)) {
         throw new Error('the workspace no longer hands the search role to the picker');
+    }
+});
+
+check('W15 🔴 "create a job" carries the search role into the creation screen', () => {
+    /*
+     * Without this the recruiter searches for "Account Manager", lands on an
+     * empty criteria form, and retypes it — which is what made the journey feel
+     * broken. Measured the day it was reported: 12 campaigns in the org, all HR,
+     * and the newest search was "Account Manager" with no such job existing.
+     */
+    const picker = code(FRONTEND_SRC, 'components', 'headhunter', 'HeadHunterCampaignPicker.jsx');
+    if (!/position=\$\{encodeURIComponent/.test(picker)) {
+        throw new Error(
+            'the create-a-job link no longer carries the search role (and unencoded is not ' +
+                'acceptable either — roles contain spaces)'
+        );
+    }
+    const dash = code(FRONTEND_SRC, 'pages', 'Dashboard.jsx');
+    if (!dash.includes("searchParams.get('position')")) {
+        throw new Error('the dashboard no longer reads the seeded position out of the URL');
+    }
+    if (!dash.includes('initialPosition=')) {
+        throw new Error('the dashboard no longer hands the seeded position to the sidebar');
+    }
+    if (!dash.includes("next.delete('position')")) {
+        throw new Error(
+            'the position is left in the URL — the sidebar would reopen on every later ' +
+                'navigation, the same reason `open` is stripped'
+        );
+    }
+    const side = code(FRONTEND_SRC, 'components', 'NewInterviewSidebar.jsx');
+    if (!/initialPosition/.test(side)) {
+        throw new Error('the sidebar no longer accepts a seeded position');
+    }
+    if (!/setJobDetails\(seeded \? \{ position: seeded \} : \{\}\)/.test(side)) {
+        throw new Error(
+            'the open-reset no longer seeds the role; it clears the form as before and the ' +
+                'recruiter retypes what they just searched for'
+        );
+    }
+});
+
+check('W16 a saved Head Hunter search is not called a job', () => {
+    // The word is what caused the confusion: a search "campaign" is not a
+    // RecruitmentCampaign, and the two are different entities entirely.
+    const tr = raw(FRONTEND_SRC, 'translations.js');
+    for (const wrong of [
+        'aiHeadHunterCampaignSavedTitle: "Saved campaign"',
+        'aiHeadHunterCampaignSavedTitle: "حملة محفوظة"',
+    ]) {
+        if (tr.includes(wrong)) {
+            throw new Error(
+                `${wrong} — a saved SEARCH is labelled a campaign again, which is what led ` +
+                    `a recruiter to expect their search to be a job`
+            );
+        }
     }
 });
 
