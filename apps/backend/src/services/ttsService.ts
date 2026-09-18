@@ -160,8 +160,18 @@ export async function textToSpeechWithTimestamps(
 
     const voiceId = language === 'ar' ? ARABIC_VOICE_ID : ENGLISH_VOICE_ID;
 
+    // ⚠️ هذا هو المسار الحيّ للمقابلة الصوتية: voiceSessionCore يختار
+    // textToSpeechWithTimestamps حين voiceTiming.useTtsTimestamps، وهي مفعَّلة
+    // افتراضياً. وكان مثبَّتاً على mp3_22050_32 — ٣٢ kbps بسقف ~١١ kHz، أسوأ صيغة
+    // تقدّمها ElevenLabs — والمرشّح يسمعها كما هي: لا إعادة ترميز هنا كما في مسار
+    // الفيديو عبر بيوند. الحاوية تبقى MP3 عمداً لأنّ المتصفّح يشغّل القطع عبر
+    // MediaSource بنوع 'audio/mpeg' (useVoiceInterview.js)، فالترقية بلا أي تعديل
+    // في الواجهة الأمامية. بقيّة دوال هذا الملف لا تمرّر output_format أصلاً
+    // فتأخذ افتراضي ElevenLabs السليم — المسار المعطوب كان هذا وحده.
+    const outputFormat = (process.env.VOICE_TTS_OUTPUT_FORMAT || 'mp3_44100_128').trim();
+
     const response = await axios.post(
-        `${ELEVENLABS_API_URL}/${voiceId}/stream/with-timestamps?output_format=mp3_22050_32`,
+        `${ELEVENLABS_API_URL}/${voiceId}/stream/with-timestamps?output_format=${encodeURIComponent(outputFormat)}`,
         {
             text: text,
             model_id: TTS_MODEL,
