@@ -1,6 +1,16 @@
 /**
- * The role a Head Hunter interview invite is FOR: the search campaign's target
+ * The role a Head Hunter interview invite is FOR: the RecruitmentCampaign's own
  * role, and only that.
+ *
+ * ⚠️ THE ARGUMENT CHANGED MEANING on 2026-09-18, the contract did not. It used
+ * to be the Head Hunter SEARCH's target role — which is not what the campaign
+ * hires for, and a search is not a campaign. It is now the role of the
+ * RecruitmentCampaign the recruiter picked, read through `resolveTitleFromMeta`,
+ * the same function that names a campaign on every other screen.
+ *
+ * The server does not trust this value either: `/sourcing-context` reads the
+ * campaign itself and ignores whatever the client sends. This copy exists so the
+ * form the candidate sees says the same thing that gets recorded.
  *
  * ⚠️ The invite used to read `headHunterCandidatePosition(candidate) || campaignPosition`
  * — i.e. the job the candidate holds RIGHT NOW outranked the job the employer is
@@ -22,9 +32,9 @@
  * Lives in utils/ rather than beside its callers on purpose: the hook module
  * pulls in the API client, so a rule that belongs in a test cannot live there.
  *
- * @param {string} [campaignPosition] the campaign's own target role
+ * @param {string} [campaignRole] the RecruitmentCampaign's own role
  * @returns {string}
  */
-export function headHunterInviteRole(campaignPosition) {
-    return typeof campaignPosition === 'string' ? campaignPosition.trim() : '';
+export function headHunterInviteRole(campaignRole) {
+    return typeof campaignRole === 'string' ? campaignRole.trim() : '';
 }

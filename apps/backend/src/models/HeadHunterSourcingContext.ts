@@ -68,6 +68,14 @@ const HeadHunterSourcingContextSchema = new Schema<IHeadHunterSourcingContext>(
             type: Schema.Types.Mixed,
             default: undefined,
         },
+        /**
+         * The RecruitmentCampaign this invitation interviews for.
+         *
+         * Required at the route since 2026-09-18 (`/sourcing-context` refuses a
+         * context without one), but NOT required here: the three contexts that
+         * existed before the change carry none, and a schema-level `required`
+         * would make them unreadable rather than merely legacy.
+         */
         campaignId: {
             type: String,
             trim: true,
@@ -83,11 +91,24 @@ const HeadHunterSourcingContextSchema = new Schema<IHeadHunterSourcingContext>(
             trim: true,
             default: undefined,
         },
+        /**
+         * The organization that minted this invitation.
+         *
+         * ⚠️ `required` with NO default, deliberately. This value is one half of
+         * the cross-check in `assertSourcingContextMatchesCampaign`, which fails
+         * closed when it is absent — so a default would not be a convenience, it
+         * would be a way for an unattributable context to pass as attributable.
+         * That is exactly how `Candidate.organizationId` acquired
+         * `default: DEFAULT_ORG_ID`, a silent shared fallback.
+         *
+         * `required` validates writes only; the existing documents (3 in
+         * production, 3 of 3 populated) are untouched, so there is no migration.
+         */
         organizationId: {
             type: String,
+            required: true,
             trim: true,
             index: true,
-            default: undefined,
         },
         expiresAt: {
             type: Date,

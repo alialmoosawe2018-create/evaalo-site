@@ -53,11 +53,22 @@ function popoverStyleFromAnchor(rect) {
 /**
  * زر مشاركة / إرسال رابط مقابلة فيديو على بطاقة الهيد هانتر.
  */
+/**
+ * ⚠️ `shareCampaign` بلا أقواس اختيارية وبلا قيمة افتراضية، عن قصد.
+ *
+ * التوقيع النصّي للعطب الذي أُصلح كان `@param {string} [props.campaignId]` —
+ * prop اختياري يصير `undefined` بصمت فيخرج الرابط ناقصاً. كاشف المصدر يرفض
+ * إعادته إلى الاختيارية.
+ *
+ * @param {object} props
+ * @param {{campaignId: string, title: string}} props.shareCampaign `null` قبل الاختيار
+ * @param {() => void} props.onChooseShareCampaign
+ */
 export default function HeadHunterCardVideoInvite({
     candidate,
     contactStatus,
-    campaignId,
-    campaignPosition,
+    shareCampaign,
+    onChooseShareCampaign,
     searchContext,
     t,
     onActionClick,
@@ -105,7 +116,11 @@ export default function HeadHunterCardVideoInvite({
     // هذه الحقيقة أصلاً.
     //
     // وغياب الدور يعني ألّا يُرسَل `position` إطلاقاً، لا أن يُملأ بتخمين.
-    const position = headHunterInviteRole(campaignPosition);
+    // دور الحملة نفسها — لا وظيفة المرشّح الحالية، ولا عنوان بحث الهيد هانتر.
+    // (الخادم يتجاهل هذه القيمة عند توليد السياق ويقرأ الحملة بنفسه؛ هذه للعرض
+    // على الاستمارة، فتبقى متّسقة مع ما سيُسجَّل.)
+    const campaignId = shareCampaign?.campaignId || '';
+    const position = headHunterInviteRole(shareCampaign?.title);
 
     // ينشئ لقطة سياق المصدر مرة واحدة (يبدأ عند فتح الـ popover) ويعيد المعرّف.
     const ensureSourcingContext = useCallback(() => {
@@ -200,19 +215,38 @@ export default function HeadHunterCardVideoInvite({
 
     const handleCopyLink = async (e) => {
         stopBubble(e);
-        const id = await ensureSourcingContext();
-        const url = buildPublicVideoScreeningUrl({ campaignId, position, headHunterContextId: id, language: currentLang });
         try {
+            const id = await ensureSourcingContext();
+            const url = buildPublicVideoScreeningUrl({
+                campaignId,
+                position,
+                headHunterContextId: id,
+                language: currentLang,
+            });
             await navigator.clipboard.writeText(url);
             setLocalFeedback({ ok: true, text: t('aiHeadHunterLinkCopied') });
         } catch {
+            // يشمل رفض البانِي رابطاً بلا حملة، ورفض الحافظة.
             setLocalFeedback({ ok: false, text: t('aiHeadHunterLinkCopyFailed') });
         }
     };
 
     const openFreeShare = async (kind) => {
-        const id = await ensureSourcingContext();
-        const url = buildPublicVideoScreeningUrl({ campaignId, position, headHunterContextId: id, language: currentLang });
+        // ⚠️ كانت بلا catch: رمْيُ البانِي كان سيظهر كـunhandled rejection وحدها.
+        let id;
+        let url;
+        try {
+            id = await ensureSourcingContext();
+            url = buildPublicVideoScreeningUrl({
+                campaignId,
+                position,
+                headHunterContextId: id,
+                language: currentLang,
+            });
+        } catch {
+            setLocalFeedback({ ok: false, text: t('aiHeadHunterShareNeedsCampaign') });
+            return;
+        }
         if (kind === 'whatsapp') {
             const text = buildShareInviteText({ t, candidate, url });
             window.open(buildWhatsAppShareLink(phone, text), '_blank', 'noopener,noreferrer');
@@ -264,6 +298,30 @@ export default function HeadHunterCardVideoInvite({
         >
             <p className="headhunter-card__video-popover-title">{t('aiHeadHunterVideoInviteTitle')}</p>
 
+            {/*
+              * بلا حملة: زرّ الاختيار **وحده**، وكل أزرار النسخ/المشاركة/الإرسال
+              * غائبة لا معطّلة. زرٌّ معطّل يقول «لاحقاً»؛ والحقيقة أنّه لا يوجد
+              * رابطٌ صالح يمكن إنتاجه قبل اختيار الحملة.
+              */}
+            {!shareCampaign ? (
+                <>
+                    <p className="headhunter-card__video-popover-note">
+                        {t('aiHeadHunterShareNeedsCampaign')}
+                    </p>
+                    <button
+                        type="button"
+                        className="headhunter-card__video-popover-copy"
+                        onClick={(e) => {
+                            stopBubble(e);
+                            closePopover();
+                            onChooseShareCampaign?.();
+                        }}
+                    >
+                        {t('aiHeadHunterShareCampaignChoose')}
+                    </button>
+                </>
+            ) : (
+            <>
             {hasFreeShare ? (
                 <>
                     <p className="headhunter-card__video-popover-divider">{t('aiHeadHunterOrShareVia')}</p>
@@ -366,6 +424,8 @@ export default function HeadHunterCardVideoInvite({
             {!hasFreeShare && !canSend ? (
                 <p className="headhunter-card__video-popover-hint">{t('aiHeadHunterVideoInviteHint')}</p>
             ) : null}
+            </>
+            )}
 
             {displayFeedback ? (
                 <p

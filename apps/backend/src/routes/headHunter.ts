@@ -6,6 +6,9 @@ import { logAudit } from '../services/auditService.js';
 import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
 import { getOrgId, getClerkUserId, getAuthContext } from '../middleware/auth.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
+import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
+import { orgScopedQuery } from '../middleware/orgScope.js';
+import { campaignRoleFromCampaign } from '../services/campaignRole.js';
 import HeadHunterSearchHistory from '../models/HeadHunterSearchHistory.js';
 import AuditLog from '../models/AuditLog.js';
 import { checkCredits, consumeCredits } from '../services/billingRuntimeService.js';
@@ -1179,6 +1182,31 @@ router.post(
         if (!sendInterviewLink && !message) {
             return res.status(400).json({ ok: false, error: 'message or sendInterviewLink is required' });
         }
+        /*
+         * The automated-send path builds the same video link the share popover
+         * copies, so it needs the same binding — and the same ownership proof.
+         * `orgScopedQuery` scopes to the authenticated sender's organization, so
+         * a campaign outside it does not exist here.
+         */
+        if (sendInterviewLink && interviewType === 'video') {
+            if (!campaignId) {
+                return res.status(400).json({
+                    ok: false,
+                    code: 'CAMPAIGN_REQUIRED',
+                    error: 'campaignId is required to send a video interview link',
+                });
+            }
+            const ownsCampaign = await RecruitmentCampaign.exists(
+                orgScopedQuery(req, { campaignId })
+            ).catch(() => null);
+            if (!ownsCampaign) {
+                return res.status(404).json({
+                    ok: false,
+                    code: 'CAMPAIGN_NOT_FOUND',
+                    error: 'Campaign not found in this organization',
+                });
+            }
+        }
 
         // LinkedIn automation gated by feature flag
         if (channel === 'linkedin' && !isLinkedInAutomationEnabled()) {
@@ -1439,7 +1467,8 @@ router.post(
         const candidateProfile = sanitizeCandidateProfile(body.candidateProfile);
         const searchCriteria = sanitizeSearchCriteria(body.searchCriteria);
         const campaignId = typeof body.campaignId === 'string' ? body.campaignId.trim() : '';
-        const position = typeof body.position === 'string' ? body.position.trim() : '';
+        // NOTE: `body.position` is deliberately NOT read. The role is taken from
+        // the campaign below — see the comment at the create() call.
 
         if (!candidateProfile && !searchCriteria) {
             return res
@@ -1447,24 +1476,99 @@ router.post(
                 .json({ ok: false, error: 'candidateProfile or searchCriteria is required' });
         }
 
+        /*
+         * 🔴 A share link must name a real RecruitmentCampaign. This is the
+         * strongest fail-closed point in the whole path: no campaign ⇒ no
+         * context id ⇒ the UI cannot build a link at all. Everything downstream
+         * (the organization, the blueprint, the readiness gate, the pinned
+         * competencies, Stage 3) hangs off it.
+         */
+        if (!campaignId) {
+            return res.status(400).json({
+                ok: false,
+                code: 'CAMPAIGN_REQUIRED',
+                error: 'campaignId is required — a share link must interview for a campaign',
+            });
+        }
+
+        const orgId = getOrgId(req);
+        /*
+         * OWNERSHIP RE-VERIFICATION. The browser can name any campaign it likes;
+         * `orgScopedQuery` adds the caller's SESSION organization, so a campaign
+         * outside it simply does not exist here. Correct at this point precisely
+         * because the caller IS authenticated — unlike the public intake, where
+         * the same scoping would be the cross-tenant bug.
+         */
+        const campaign = await RecruitmentCampaign.findOne(
+            orgScopedQuery(req, { campaignId })
+        )
+            .select(
+                'campaignId organizationId status formBinding criteria.position criteria.position_applied_for criteria.job templateName'
+            )
+            .lean()
+            .catch(() => null);
+
+        if (!campaign) {
+            return res.status(404).json({
+                ok: false,
+                code: 'CAMPAIGN_NOT_FOUND',
+                error: 'Campaign not found in this organization',
+            });
+        }
+        if (campaign.status === 'closed') {
+            return res.status(409).json({
+                ok: false,
+                code: 'CAMPAIGN_CLOSED',
+                error: 'This campaign is no longer accepting applications',
+            });
+        }
+        /*
+         * A screening-form campaign carries a `formBinding`, and the public
+         * intake validates every submission against it — including `skills` and
+         * `cv`, which the short video intake form does not collect. Binding a
+         * video invitation to one turns this 400 into a different 400 at the
+         * worst possible moment: after the candidate has filled in the form.
+         * The picker filters these out; this is the server saying the same thing
+         * to a client that did not.
+         */
+        if ((campaign as any).formBinding) {
+            return res.status(409).json({
+                ok: false,
+                code: 'CAMPAIGN_NOT_SHAREABLE_FOR_VIDEO',
+                error: 'This is a screening-form campaign and cannot host a video invitation',
+            });
+        }
+
         try {
             const contextId = crypto.randomBytes(12).toString('hex');
-            const orgId = getOrgId(req);
             const createdBy = getClerkUserId(req);
+            /*
+             * ⚠️ The role comes from the CAMPAIGN, and `body.position` is
+             * ignored outright.
+             *
+             * Not merely preferred — structurally enforced. Commit 8083f02 fixed
+             * a share link that advertised the candidate's CURRENT job title as
+             * the role they were applying for, which the candidate then saw on
+             * the form and which was recorded as what they "declared". Reading
+             * the body at all would leave that defect one client bug away from
+             * returning, and the Head Hunter search's own target role is no
+             * better a source: it is not what the campaign hires for.
+             */
+            const campaignRole = campaignRoleFromCampaign(campaign as any);
             await HeadHunterSourcingContext.create({
                 contextId,
                 candidateProfile,
                 searchCriteria,
-                campaignId: campaignId || undefined,
-                position: position || undefined,
-                organizationId: orgId || undefined,
+                campaignId,
+                position: campaignRole || undefined,
+                organizationId: orgId,
                 createdByClerkUserId: createdBy || undefined,
             });
 
             logAudit(req, {
                 action: 'headhunter.sourcing_context_created',
                 targetType: 'headhunter',
-                metadata: { contextId, campaignId: campaignId || null, position: position || null },
+                metadata: { contextId, campaignId, position: campaignRole || null },
             });
 
             return res.json({ ok: true, id: contextId });

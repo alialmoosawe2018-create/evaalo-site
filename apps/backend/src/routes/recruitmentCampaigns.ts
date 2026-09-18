@@ -548,6 +548,75 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
+/**
+ * GET /api/recruitment-campaigns/shareable
+ *
+ * The campaigns a Head Hunter video invitation may be attached to.
+ *
+ * ⚠️ Must be declared BEFORE `/:campaignId`, or Express matches "shareable" as
+ * a campaign id.
+ *
+ * Why a dedicated route rather than an ids-less branch on `GET /`:
+ *   * that route's 400 on a missing `ids` is a live guard — `RecentInterviewsCard`
+ *     calls it with no empty-array check, so an ids-less branch would turn a
+ *     harmless 400 into a full-organization download the caller then indexes as
+ *     "the ids I asked for";
+ *   * its 30s cache has no invalidation (its own comment says so), and
+ *     create-a-campaign-then-pick-it is the primary flow here;
+ *   * its projection ships the whole `criteria` object per row.
+ *
+ * The projection below is narrow but keeps EXACTLY the shape the frontend's
+ * `resolveTitleFromMeta` already consumes, so no third mirror of "what a
+ * campaign is called" is introduced.
+ *
+ * `formBinding` present = a screening-form campaign, whose form validation the
+ * short video intake cannot satisfy (it collects neither `skills` nor a CV).
+ * Those are excluded here and refused again at `/sourcing-context`.
+ */
+router.get(
+    '/shareable',
+    conditionalRequireAuth(),
+    requirePermission('campaign.read'),
+    async (req: Request, res: Response) => {
+        try {
+            const LIMIT = 200;
+            const rows = await RecruitmentCampaign.find(
+                orgScopedQuery(req, {
+                    status: { $ne: 'closed' },
+                    formBinding: { $exists: false },
+                })
+            )
+                .select(
+                    'campaignId criteria.position criteria.position_applied_for criteria.job templateName interviewType status createdAt'
+                )
+                .sort({ createdAt: -1 })
+                .limit(LIMIT + 1)
+                .lean();
+
+            const hasMore = rows.length > LIMIT;
+            return res.json({
+                success: true,
+                campaigns: rows.slice(0, LIMIT).map((c: any) => ({
+                    campaignId: c.campaignId,
+                    criteria: c.criteria || {},
+                    templateName: c.templateName || '',
+                    interviewType: c.interviewType || '',
+                    status: c.status || 'active',
+                    createdAt: c.createdAt,
+                })),
+                hasMore,
+            });
+        } catch (error: any) {
+            console.error('❌ Error listing shareable campaigns:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to list campaigns',
+                message: error.message,
+            });
+        }
+    }
+);
+
 // GET /api/recruitment-campaigns/:campaignId - الحصول على معايير حملة محددة
 router.get('/:campaignId', async (req: Request, res: Response) => {
     try {

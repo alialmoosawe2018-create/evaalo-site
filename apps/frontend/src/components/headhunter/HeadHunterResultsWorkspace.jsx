@@ -7,6 +7,9 @@ import HeadHunterCandidateCard from './HeadHunterCandidateCard.jsx';
 import HeadHunterCandidatePanel from './HeadHunterCandidatePanel.jsx';
 import HeadHunterResultsSkeleton from './HeadHunterResultsSkeleton.jsx';
 import AiWorkingIndicator from '../AiWorkingIndicator.jsx';
+import HeadHunterCampaignPicker from './HeadHunterCampaignPicker.jsx';
+import { localizeCatalogLabel } from '../../utils/localizeCatalogLabel.js';
+import { useLanguage } from '../../contexts/LanguageContext.jsx';
 import { apiClient } from '../../services/apiClient';
 
 /**
@@ -22,12 +25,24 @@ export const HEADHUNTER_RESULTS_PAGE_SIZE = 12;
  * @param {object} props
  * @param {ReturnType<import('../../hooks/useHeadHunterPersistence.js').useHeadHunterPersistence>} props.hh
  * @param {{ loading: boolean; error?: string; hasData: boolean; receivedAt: string | null; payload: unknown }} props.n8nInbound
- * @param {string} [props.campaignId]
- * @param {string} [props.campaignPosition]
  * @param {{ position?: string; location?: string; yearsExperience?: string; ageRange?: string; query?: string }} [props.searchContext]
  * @param {(key: string) => string} props.t
+ *
+ * 🔴 `campaignId` و`campaignPosition` **حُذفا عمداً من واجهة هذا المكوّن**.
+ *
+ * كانا اختياريَّين، وكلتا الصفحتين المستدعيتين لم تمرّرهما، فخرج كل رابط مشاركة
+ * بلا حملة — والمرشّح هو من اكتشف ذلك بعد ملء الاستمارة كاملة. وprop اختياري
+ * منسيّ لا يُصدر صوتاً. فبدل تمريرهما بعناية أكبر، لم يعودا موجودَين عند حدّ
+ * الصفحة أصلاً: الاختيار حالةٌ يملكها هذا المكوّن.
+ *
+ * ⚠️ ولا يُعاد تمرير `campaignPosition={campaign?.position}` من صفحة سجلّ البحث:
+ * تلك «حملة بحث» لا حملة توظيف، وعنوانها المستهدَف ليس ما توظّف عليه الحملة.
  */
-export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, campaignId, campaignPosition, searchContext }) {
+export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, searchContext }) {
+    const { currentLang } = useLanguage();
+    /** @type {[{campaignId: string, title: string} | null, Function]} */
+    const [shareCampaign, setShareCampaign] = useState(null);
+    const [pickerOpen, setPickerOpen] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
     const [visibleCount, setVisibleCount] = useState(HEADHUNTER_RESULTS_PAGE_SIZE);
     const [contactStatus, setContactStatus] = useState(null);
@@ -235,18 +250,67 @@ export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, campaign
                 ) : null
             ) : (
                 <>
+                    {/*
+                      * شريط الحملة: يُختار مرّة واحدة للبحث كلّه، لا لكل بطاقة.
+                      * الموظّف يشارك عشرات المرشّحين من بحثٍ واحد.
+                      */}
+                    <div className="headhunter-share-campaign-bar">
+                        {shareCampaign ? (
+                            <>
+                                <span>
+                                    {t('aiHeadHunterShareCampaignPrefix')}{' '}
+                                    <strong>
+                                        {localizeCatalogLabel(shareCampaign.title, currentLang) ||
+                                            shareCampaign.title}
+                                    </strong>
+                                </span>
+                                <button type="button" className="btn btn-tertiary" onClick={() => setPickerOpen(true)}>
+                                    {t('aiHeadHunterShareCampaignChange')}
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <span>{t('aiHeadHunterShareCampaignUnset')}</span>
+                                <button type="button" className="btn btn-secondary" onClick={() => setPickerOpen(true)}>
+                                    {t('aiHeadHunterShareCampaignChoose')}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    {pickerOpen
+                        ? createPortal(
+                              <div className="headhunter-campaign-picker__backdrop" role="dialog" aria-modal="true">
+                                  <HeadHunterCampaignPicker
+                                      t={t}
+                                      onClose={() => setPickerOpen(false)}
+                                      onPick={(row) => {
+                                          setShareCampaign(row);
+                                          setPickerOpen(false);
+                                      }}
+                                  />
+                              </div>,
+                              document.body
+                          )
+                        : null}
                     <div className="headhunter-results-grid">
                         {visibleList.map((c) => {
                             const revealKey = candidateRevealKey(c);
                             return (
                                 <HeadHunterCandidateCard
-                                    key={`${c.id}-${c.payload_index}`}
+                                    /*
+                                     * الحملة جزءٌ من المفتاح عن قصد. البطاقة
+                                     * تحفظ سياق الهيد هانتر في hhPromiseRef،
+                                     * فلو تغيّرت الحملة دون إعادة تركيب لسلّمت
+                                     * سياقاً مربوطاً بالحملة القديمة، ويرفضه
+                                     * الخادم عند التقديم برفضٍ لا يراه أحد.
+                                     */
+                                    key={`${c.id}-${c.payload_index}-${shareCampaign?.campaignId ?? 'none'}`}
                                     candidate={c}
                                     selected={selectedId === c.id}
                                     onSelect={selectCandidate}
                                     contactStatus={contactStatus}
-                                    campaignId={campaignId}
-                                    campaignPosition={campaignPosition}
+                                    shareCampaign={shareCampaign}
+                                    onChooseShareCampaign={() => setPickerOpen(true)}
                                     searchContext={searchContext}
                                     contactRevealed={isContactFullyRevealed(c, revealedFieldState)}
                                     contactRevealPending={revealPendingKey === revealKey}

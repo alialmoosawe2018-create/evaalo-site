@@ -65,8 +65,30 @@ export function buildInterviewLink(options?: string | BuildInterviewLinkOptions)
     const base = appBaseUrl();
 
     if (interviewType === 'video') {
+        /*
+         * 🔴 The twin of the frontend's builder, with the same defect it had:
+         * `if (opts.campaignId)` silently produced a link with no campaign, and
+         * a candidate who opened it filled in the whole form only to be refused
+         * with `Path 'organizationId' is required` — the organization is derived
+         * from the campaign and from nothing else.
+         *
+         * Closing the frontend builder alone would have left this one open, and
+         * this session already paid that exact price once: the blueprint
+         * recovery was deleted from `/end` while its twin lived on in the n8n
+         * sender, one module downstream, and defeated the fix entirely.
+         *
+         * Scoped to the video branch: `${base}/form` with no campaign is a real,
+         * used shape.
+         */
+        const campaignId = (opts.campaignId || '').trim();
+        if (!campaignId) {
+            throw new Error(
+                'buildInterviewLink: a video interview link requires a campaignId — ' +
+                    'without it the candidate cannot be attributed to an organization'
+            );
+        }
         const params = new URLSearchParams();
-        if (opts.campaignId) params.set('campaignId', opts.campaignId);
+        params.set('campaignId', campaignId);
         const position = (opts.position || '').trim();
         if (position) params.set('position', position);
         const hh = (opts.headHunterContextId || '').trim();

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { buildPublicVideoScreeningQuery } from '../utils/publicVideoScreeningUrl.js';
 import { apiClient } from '../services/apiClient';
 import { appendInterviewShareLanguage } from '../utils/interviewShareLink.js';
 
@@ -33,20 +34,19 @@ export function headHunterCandidatePosition(candidate) {
 
 
 /**
- * @param {{ campaignId?: string; position?: string; headHunterContextId?: string }} [opts]
+ * `campaignId` is REQUIRED and has no optional brackets on purpose: it was an
+ * optional prop that silently became `undefined` on both Head Hunter pages, and
+ * that is the whole defect this module was rewritten to make impossible.
+ *
+ * @param {{ campaignId: string; position?: string; headHunterContextId?: string; language?: string }} opts
  */
 export function buildPublicVideoScreeningUrl(opts = {}) {
-    const params = new URLSearchParams();
-    const campaignId = (opts.campaignId || '').trim();
-    const position = (opts.position || '').trim();
-    const hh = (opts.headHunterContextId || '').trim();
-    if (campaignId) params.set('campaignId', campaignId);
-    if (position) params.set('position', position);
-    if (hh) params.set('hh', hh);
-    appendInterviewShareLanguage(params, opts.language);
-    const qs = params.toString();
+    // Throws without a campaignId — see utils/publicVideoScreeningUrl.js for why
+    // a link with no campaign is not a degraded link but a broken one. The query
+    // lives there so it can be tested without window or the API client.
+    const qs = buildPublicVideoScreeningQuery(opts, appendInterviewShareLanguage);
     const base = `${window.location.origin}${import.meta.env.BASE_URL || '/'}`.replace(/\/?$/, '/');
-    return qs ? `${base}video-screening-call?${qs}` : `${base}video-screening-call`;
+    return `${base}video-screening-call?${qs}`;
 }
 
 /**

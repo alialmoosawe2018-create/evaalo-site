@@ -23,16 +23,19 @@ on:
     branches: [main, master, develop]
     paths:
       - 'apps/backend/**'
-      # The parity suite imports the real frontend utilities, so a change there
-      # can legitimately break a backend test. That is the point of it.
-      - 'apps/frontend/src/utils/**'
+      # The parity suites import real frontend code, and the source detectors
+      # READ it — retired-identity-wiring reads src/pages/VideoInterviewCall.jsx,
+      # headhunter-share-wiring reads src/pages and src/components. Limited to
+      # src/utils/** these guards were invisible on exactly the change they
+      # exist to catch: a detector that cannot run is not a guard.
+      - 'apps/frontend/src/**'
       - '.github/workflows/backend-tests.yml'
       - 'package.json'
       - 'package-lock.json'
   pull_request:
     paths:
       - 'apps/backend/**'
-      - 'apps/frontend/src/utils/**'
+      - 'apps/frontend/src/**'
       - '.github/workflows/backend-tests.yml'
       - 'package.json'
       - 'package-lock.json'

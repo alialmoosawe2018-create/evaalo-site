@@ -170,7 +170,6 @@ export default function HeadHunterCampaignPage() {
                                         <HeadHunterResultsWorkspace
                                             hh={hh}
                                             n8nInbound={n8nInbound}
-                                            campaignPosition={campaign?.position}
                                             searchContext={searchContext}
                                             t={t}
                                         />

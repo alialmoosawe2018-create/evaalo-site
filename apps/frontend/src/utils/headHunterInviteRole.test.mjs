@@ -17,6 +17,7 @@
  * Run: node src/utils/headHunterInviteRole.test.mjs   (from apps/frontend)
  */
 import { headHunterInviteRole } from '../utils/headHunterInviteRole.js';
+import { buildPublicVideoScreeningQuery } from './publicVideoScreeningUrl.js';
 
 let failed = 0;
 let passed = 0;
@@ -53,16 +54,17 @@ check("the candidate's current job cannot reach the invite", () => {
     );
 });
 
-// buildPublicVideoScreeningUrl itself lives in the hook module, which imports the
-// API client and touches `window` — unloadable under plain node. Its rule is one
-// line (`if (position) params.set('position', position)`), mirrored here so the
-// link-level consequence is still asserted.
-function linkParams(campaignId, position) {
-    const params = new URLSearchParams();
-    if (campaignId) params.set('campaignId', campaignId);
-    if (position) params.set('position', position);
-    return params.toString();
-}
+// 🔴 This used to be a hand-copied mirror of the builder's rule, written when
+// the only implementation lived in the hook module (which imports the API client
+// and touches `window`, so it cannot load under plain node).
+//
+// The mirror contained `if (campaignId) params.set('campaignId', campaignId)` —
+// the defect itself, preserved inside a passing test. A copy of a rule cannot
+// fail when the rule changes; that is the whole reason it was useless.
+//
+// The rule now lives in its own pure module, so this calls the real thing.
+const linkParams = (campaignId, position) =>
+    buildPublicVideoScreeningQuery({ campaignId, position });
 
 check('a campaign with no role sends no position at all — never a guess', () => {
     const qs = linkParams('camp-1', headHunterInviteRole(undefined));

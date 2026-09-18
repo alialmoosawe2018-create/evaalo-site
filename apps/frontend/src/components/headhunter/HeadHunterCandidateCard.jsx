@@ -29,8 +29,8 @@ function cardAboutText(c) {
  * @param {boolean} props.selected
  * @param {(c: HeadHunterCandidate) => void} props.onSelect
  * @param {unknown} [props.contactStatus]
- * @param {string} [props.campaignId]
- * @param {string} [props.campaignPosition]
+ * @param {{campaignId: string, title: string}} props.shareCampaign الحملة التي تُنشأ تحتها روابط المقابلة؛ `null` قبل الاختيار
+ * @param {() => void} props.onChooseShareCampaign
  * @param {object} [props.searchContext]
  * @param {(key: string) => string} props.t
  */
@@ -39,8 +39,8 @@ function HeadHunterCandidateCard({
     selected,
     onSelect,
     contactStatus,
-    campaignId,
-    campaignPosition,
+    shareCampaign,
+    onChooseShareCampaign,
     searchContext,
     contactRevealed = false,
     contactRevealPending = false,
@@ -223,8 +223,8 @@ function HeadHunterCandidateCard({
                         <HeadHunterCardVideoInvite
                             candidate={candidate}
                             contactStatus={contactStatus}
-                            campaignId={campaignId}
-                            campaignPosition={campaignPosition}
+                            shareCampaign={shareCampaign}
+                            onChooseShareCampaign={onChooseShareCampaign}
                             searchContext={searchContext}
                             t={t}
                             onActionClick={stopTailLinkBubble}

@@ -24,6 +24,7 @@ import { emitDomainEventBestEffort } from '../services/domainEventService.js';
 import { normalizePhoneKey } from '../services/phoneIdentity.js';
 import { recordMetricAsync } from '../services/siteMetricService.js';
 import HeadHunterSourcingContext from '../models/HeadHunterSourcingContext.js';
+import { assertSourcingContextMatchesCampaign } from '../services/headHunterShareBinding.js';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import {
     buildSubmissionInputFromRequest,
@@ -805,6 +806,22 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             typeof candidateData.campaignId === 'string' && candidateData.campaignId.trim()
                 ? candidateData.campaignId.trim()
                 : undefined;
+        /*
+         * Read the Head Hunter context id HERE, not at the enrichment block far
+         * below: the organization is decided in the campaign block that follows,
+         * and a check that runs after the decision cannot influence it. The
+         * document itself is fetched once inside that block and reused for
+         * enrichment, so the record that was verified is the record that is read.
+         */
+        const rawHeadHunterContextId =
+            typeof candidateData.headHunterContextId === 'string'
+                ? candidateData.headHunterContextId.trim()
+                : '';
+        const headHunterContextId = /^[a-f0-9]{8,64}$/i.test(rawHeadHunterContextId)
+            ? rawHeadHunterContextId
+            : '';
+        /** The verified context document, reused by the enrichment block below. */
+        let headHunterCtx: Record<string, any> | null = null;
         const rawSourceType =
             typeof candidateData.sourceType === 'string'
                 ? candidateData.sourceType.trim().toLowerCase()
@@ -872,8 +889,102 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                         'This application link is invalid or the campaign no longer exists.',
                 });
             }
+
+            /*
+             * A Head Hunter link additionally proves WHO minted it.
+             *
+             * The organization still comes from the campaign and nothing else.
+             * The context is a second, independent server-side record of the
+             * same link, so a context minted in one organization can never be
+             * spent against another organization's campaign — whatever the
+             * browser sends, and whichever account the candidate happens to be
+             * signed into.
+             *
+             * ⚠️ Deliberately NOT `orgScopedQuery`: the submitter is anonymous,
+             * so scoping this lookup to their session org is the cross-tenant
+             * trap `middleware/orgScope.ts` documents. Both sides compared below
+             * are the server's own records.
+             */
+            if (headHunterContextId) {
+                headHunterCtx = (await HeadHunterSourcingContext.findOne({
+                    contextId: headHunterContextId,
+                })
+                    .lean()
+                    .catch(() => null)) as Record<string, any> | null;
+                if (!headHunterCtx) {
+                    return res.status(404).json({
+                        success: false,
+                        error: 'Invitation not found',
+                        code: 'HEADHUNTER_CONTEXT_NOT_FOUND',
+                        message: 'This invitation has expired or is no longer valid.',
+                    });
+                }
+                const verdict = assertSourcingContextMatchesCampaign({
+                    contextOrgId: headHunterCtx.organizationId,
+                    contextCampaignId: headHunterCtx.campaignId,
+                    campaignOrgId: campaignOrganizationId,
+                    campaignId,
+                });
+                if (!verdict.ok) {
+                    console.warn(
+                        `⚠️ head-hunter share rejected (${verdict.code}): context ` +
+                            `${headHunterContextId} org=${String(headHunterCtx.organizationId || 'none')} ` +
+                            `campaign=${String(headHunterCtx.campaignId || 'none')} vs ` +
+                            `campaign ${campaignId} org=${campaignOrganizationId}`
+                    );
+                    return res.status(409).json({
+                        success: false,
+                        error: 'Invitation does not match this job',
+                        code: verdict.code,
+                        message: verdict.message,
+                    });
+                }
+            }
         } else {
             delete candidateData.campaignId;
+            /*
+             * 🔴 No campaign means no organization to attribute this person to.
+             *
+             * Until 2026-09-18 the request simply carried on and died several
+             * hundred lines later inside Mongoose —
+             * `Validation error: Path 'organizationId' is required` — which is
+             * what a candidate saw after filling in the whole form. The 404
+             * guard above was written for exactly this danger but sits INSIDE
+             * `if (campaignId)`, so it defends against a WRONG campaign and
+             * never against a MISSING one.
+             */
+            if (headHunterContextId) {
+                /*
+                 * Unconditional, in every environment. Outside production
+                 * `getOrgId` falls back to DEFAULT_ORG_ID (see
+                 * `middleware/auth.ts`), so on a developer machine this same
+                 * request SUCCEEDS and writes the candidate into the wrong
+                 * tenant in silence — worse than the failure it replaces.
+                 */
+                return res.status(400).json({
+                    success: false,
+                    error: 'Campaign required',
+                    code: 'CAMPAIGN_REQUIRED',
+                    message:
+                        'This invitation link is incomplete: it is not attached to a job. ' +
+                        'Ask whoever sent it to share the link again.',
+                });
+            }
+            if (!getOrgId(req)) {
+                /*
+                 * A strict subset of what already fails today: an empty org is
+                 * precisely the condition under which `orgScopedDefaults(req)`
+                 * writes `organizationId: ''` and the model rejects it. Every
+                 * authenticated caller has a non-empty org and is untouched, and
+                 * there is no manual "add candidate" UI that posts anonymously.
+                 */
+                return res.status(400).json({
+                    success: false,
+                    error: 'Campaign required',
+                    code: 'CAMPAIGN_REQUIRED',
+                    message: 'This application link is invalid or has expired.',
+                });
+            }
         }
 
         if (campaignFormBinding) {
@@ -985,17 +1096,11 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             delete candidateData.sourceType;
         }
 
-        // إثراء من لقطة سياق الهيد هانتر (headHunterContextId) — نملأ الحقول الفارغة فقط ببيانات LinkedIn.
-        const headHunterContextId =
-            typeof candidateData.headHunterContextId === 'string'
-                ? candidateData.headHunterContextId.trim()
-                : '';
-        if (headHunterContextId && /^[a-f0-9]{8,64}$/i.test(headHunterContextId)) {
+        // إثراء من لقطة سياق الهيد هانتر — القراءة والتحقّق جريا أعلاه؛ هنا الإثراء فقط.
+        if (headHunterContextId && headHunterCtx) {
             candidateData.headHunterContextId = headHunterContextId;
             try {
-                const ctx = await HeadHunterSourcingContext.findOne({
-                    contextId: headHunterContextId,
-                }).lean();
+                const ctx = headHunterCtx;
                 const profile = (ctx?.candidateProfile || {}) as Record<string, unknown>;
                 const isEmpty = (v: unknown) =>
                     v == null || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && v.length === 0);
