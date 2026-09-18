@@ -235,6 +235,30 @@ def _neutral_greeting_address() -> bool:
     return raw not in ("0", "false", "no", "off")
 
 
+def _greeting_carries_first_question() -> bool:
+    """Does the spoken greeting also ask the first question? Default YES.
+
+    Until 2026-09-18 the greeting was silently rewritten into a question by the
+    framing guard, so every interview opened on a question and nobody noticed the
+    greeting was gone. Now that the greeting is protected and spoken as written, a
+    greeting ALONE would end on a statement — and nothing in the session asks the
+    first question until the candidate speaks, so a candidate who waits politely
+    would be met with silence. Carrying the real bank/blueprint question keeps the
+    opening identical in shape to what candidates have been hearing, except the
+    greeting is audible and the question is the PLANNED one rather than something
+    the framing guard invented from the greeting's own words.
+
+    ⚠️ Gated on a NEW key. ``INITIAL_GREETING_INCLUDE_FIRST_QUESTION`` is one of the
+    71 secrets set in July whose values cannot be read back or edited in place, so
+    a code default behind it would be governed by a value nobody can see. This key
+    does not exist there, and the legacy key is deliberately NOT consulted.
+    """
+    raw = (os.getenv("INTERVIEW_GREETING_WITH_QUESTION_V3") or "").strip().lower()
+    if raw == "":
+        return True
+    return raw not in ("0", "false", "no", "off")
+
+
 def _parse_blueprint(meta: dict[str, Any]) -> dict[str, Any] | None:
     """Parse the specialized interview blueprint injected by the backend (metadata.blueprint).
 
@@ -566,10 +590,7 @@ def _canned_initial_greeting(meta: dict[str, Any]) -> str:
     first_q = bank.questions[0] if bank.questions else None
     mode = _greeting_mode(meta)
     short_mode = (os.getenv("INITIAL_GREETING_SHORT_MODE", "true").strip().lower() in ("1", "true", "yes"))
-    include_first_q = (
-        os.getenv("INITIAL_GREETING_INCLUDE_FIRST_QUESTION", "false").strip().lower()
-        in ("1", "true", "yes")
-    )
+    include_first_q = _greeting_carries_first_question()
 
     if short_mode:
         if mode in ("en", "english"):
@@ -580,18 +601,22 @@ def _canned_initial_greeting(meta: dict[str, Any]) -> str:
             if include_first_q and first_q:
                 return f"Hello {name},".strip(", ") + f" let's begin. {first_q}"
             return f"Hello {name},".strip(", ") + " let's begin."
-        # Arabic short mode (default)
-        if include_first_q and first_q:
-            if name:
-                return f"مرحباً {name}، لنبدأ المقابلة. {first_q}"
-            return f"مرحباً، لنبدأ المقابلة. {first_q}"
+        # Arabic short mode (default). The welcome is built first and the question
+        # appended to it — the old order returned early on `include_first_q` and so
+        # dropped the neutral «حياك الله … نبدأ من خبرتك العملية» wording entirely.
         if _neutral_greeting_address():
-            if name:
-                return f"حياك الله {name}، نبدأ من خبرتك العملية."
-            return "حياك الله، نبدأ من خبرتك العملية."
-        if name:
-            return f"مرحباً {name}، لنبدأ المقابلة."
-        return "مرحباً، لنبدأ المقابلة."
+            head_ar_short = (
+                f"حياك الله {name}، نبدأ من خبرتك العملية."
+                if name
+                else "حياك الله، نبدأ من خبرتك العملية."
+            )
+        else:
+            head_ar_short = (
+                f"مرحباً {name}، لنبدأ المقابلة." if name else "مرحباً، لنبدأ المقابلة."
+            )
+        if include_first_q and first_q:
+            return f"{head_ar_short} {first_q}"
+        return head_ar_short
 
     if mode in ("en", "english"):
         head: list[str] = ["Hello"]
@@ -1181,6 +1206,13 @@ async def my_agent(ctx: JobContext):
                     text[:120],
                 )
                 if text:
+                    # ⚠️ Without this the greeting never reaches the candidate.
+                    # say() text still flows through tts_node, and the framing guard
+                    # rewrites anything "bare" into a question — which is exactly
+                    # what a greeting is. Proven 2026-09-18 on two live interviews:
+                    # the TTS character count matched the FIRST QUESTION in the
+                    # transcript, not the greeting, in both.
+                    interview_agent.mark_verbatim(text)
                     await session.say(text, allow_interruptions=allow_interrupt)
                     logger.info("initial greeting: say() returned")
                 else:

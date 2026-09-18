@@ -859,6 +859,21 @@ class InterviewAssistant(Agent):
         # closing is emitted, so the session is actually torn down after it plays.
         self._winddown_turn: int = -1
         self._winddown_line: str | None = None
+        # A line the agent must speak EXACTLY as written, immune to every rewrite.
+        #
+        # ⚠️ 2026-09-18: the canned greeting was never heard by anyone. It was not
+        # lost — it was REWRITTEN. `session.say()` text flows through tts_node like
+        # any reply, and the greeting has no framing sentence and no «؟», which is
+        # precisely the shape `needs_framing` calls "bare", so the framing guard
+        # regenerated it as a question before it was ever spoken. Proven twice in
+        # one morning, to the character:
+        #   greeting 45 chars → LLM 24 tok → "reframed (reason=bare)" → TTS 78 chars
+        #                                    → first transcript line = 78 chars
+        #   greeting 43 chars → LLM 26 tok → "reframed (reason=bare)" → TTS 71 chars
+        #                                    → first transcript line = 71 chars
+        # What the candidate heard in its place was the first question. That is why
+        # no greeting has ever appeared in any transcript.
+        self._verbatim_line: str = ""
         # Same reason as the wind-down memo above: the reply guard runs TWICE per
         # turn (transcription_node + tts_node). A reframe must happen at most
         # once, or the interview pays two LLM round-trips and the SPOKEN question
@@ -1754,7 +1769,22 @@ class InterviewAssistant(Agent):
             question_id=mem.sent_question_id or None,
         )
 
+    def mark_verbatim(self, text: str) -> None:
+        """Declare a line that must reach TTS exactly as written.
+
+        Used for the canned greeting, which every guard would otherwise treat as a
+        malformed question turn: the framing guard rewrites it for being "bare",
+        and the single-question repair would try to make a question out of it.
+        """
+        self._verbatim_line = (text or "").strip()
+
+    def _is_verbatim(self, text: str) -> bool:
+        line = self._verbatim_line
+        return bool(line) and (text or "").strip() == line
+
     def _apply_guard_to_agent_text(self, agent_text: str) -> str:
+        if self._is_verbatim(agent_text):
+            return agent_text
         mode = self._turn_plan.response_mode if self._turn_plan else MODE_ASK
         if mode in (MODE_ASK, MODE_FOLLOW_UP):
             agent_text = rotate_framing_opener(agent_text, self._memory.turn_index)
@@ -1998,6 +2028,8 @@ class InterviewAssistant(Agent):
         is in the wrong language for a locked interview. The deterministic
         wind-down lines are never rewritten.
         """
+        if self._is_verbatim(text):
+            return text
         turn = self._memory.turn_index
         if self._winddown_turn == turn and self._winddown_line is not None:
             return text
