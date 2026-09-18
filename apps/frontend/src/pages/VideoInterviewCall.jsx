@@ -7,6 +7,7 @@ import VoiceInterviewPrepTips from '../components/VoiceInterviewPrepTips';
 import InterviewCompletedScreen from '../components/InterviewCompletedScreen';
 import InterviewLinkBlocked from '../components/InterviewLinkBlocked.jsx';
 import { isVideoInterviewLinkConsumed, INTERVIEW_LINK_ALREADY_USED } from '../utils/interviewLinkAccess.js';
+import { blueprintGateDecision } from '../utils/blueprintGate.js';
 import { parseInterviewUrlLanguage } from '../utils/interviewShareLink.js';
 import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import useLiveKitToken from '../hooks/useLiveKitToken';
@@ -346,6 +347,22 @@ const VideoInterviewCall = () => {
      *  once the call view mounts, so the candidate does not have to press a second
      *  "Start" button — Continue is the start. */
     const [autoStartRequested, setAutoStartRequested] = useState(false);
+    /**
+     * Readiness of THIS campaign's blueprint: 'ready' | 'generating' | 'absent',
+     * or null while unknown.
+     *
+     * The gate opens on readiness, never on a clock. Measured generation on the
+     * deployed model is 88–132 s and rising with deep packs, so any fixed wait is
+     * a number that goes stale — three public-path interviews ran blind and were
+     * then graded against the full rubric (coverage 0.22, 0.11, 0, 0.33; one zero).
+     *
+     * ⚠️ null must NOT gate. /prepare can be skipped by env or fail outright, and
+     * a UI that fails closed on "unknown" would block every candidate. The real
+     * enforcement is the backend guard on /start; this only spares the candidate
+     * from starting an interview that would be refused.
+     */
+    const [blueprintState, setBlueprintState] = useState(null);
+    const [blueprintPollTick, setBlueprintPollTick] = useState(0);
     /** True once the interview has ended (candidate pressed End, or the agent
      *  concluded and the room closed): swap the live call UI for a clear
      *  "your responses were submitted" screen instead of leaving a frozen page. */
@@ -535,9 +552,16 @@ const VideoInterviewCall = () => {
                         if (data.sessionId) {
                             prewarmSessionIdRef.current = data.sessionId;
                         }
+                        // Readiness arrives with the first response, so a campaign
+                        // whose blueprint is already locked — the overwhelming
+                        // majority — never polls and never waits.
+                        if (data.blueprint?.state) {
+                            setBlueprintState(data.blueprint.state);
+                        }
                         devLog('✅ Video interview prewarm:', {
                             sessionId: data.sessionId,
-                            reused: data.reused
+                            reused: data.reused,
+                            blueprint: data.blueprint
                         });
                     }
                 })
@@ -2947,6 +2971,52 @@ const VideoInterviewCall = () => {
         }
     };
 
+    /**
+     * Poll the campaign's blueprint readiness while the candidate is on the prep
+     * screen and it is not ready yet.
+     *
+     * ⚠️ Polling is also the RETRY: the endpoint calls ensureBlueprintForCampaign,
+     * which dedupes per campaign — so asking joins a running generation and
+     * restarts a failed one. That is what keeps 'absent' from being a dead end
+     * without introducing a clock.
+     *
+     * Stops the moment it reads 'ready', and never runs once the interview has
+     * started or when there is no campaign to wait for.
+     */
+    useEffect(() => {
+        if (prepDone || !campaignId) return;
+        if (blueprintState === 'ready') return;
+        let cancelled = false;
+        const controller = new AbortController();
+
+        const poll = () => {
+            fetch(
+                `${API_BASE}/api/video-interview/blueprint-status?campaignId=${encodeURIComponent(campaignId)}`,
+                { signal: controller.signal }
+            )
+                .then((res) => (res.ok ? res.json() : null))
+                .then((data) => {
+                    if (cancelled || !data?.state) return;
+                    setBlueprintState(data.state);
+                    devLog('🧭 blueprint readiness:', data.state, data.competencyCount);
+                })
+                .catch((err) => {
+                    // A failed poll leaves the last known state in place: it must
+                    // neither open the gate nor turn a running generation into a
+                    // failure. The next tick asks again.
+                    if (err?.name !== 'AbortError') devLog('blueprint poll failed:', err?.message);
+                });
+        };
+
+        poll();
+        const id = setInterval(poll, 3000);
+        return () => {
+            cancelled = true;
+            controller.abort();
+            clearInterval(id);
+        };
+    }, [prepDone, campaignId, blueprintState, blueprintPollTick]);
+
     // "Continue" on the prep screen is the start: once the call view has mounted
     // (prepDone), auto-run startInterview once, so there is no separate Start click.
     useEffect(() => {
@@ -3276,12 +3346,22 @@ const VideoInterviewCall = () => {
     }
 
     if (!prepDone) {
+        const gate = blueprintGateDecision(blueprintState);
         return (
             <VoiceInterviewPrepTips
                 title={t('publicVideoScreening_title')}
                 subtitle={candidateSubtitle}
                 onContinue={() => { setPrepDone(true); setAutoStartRequested(true); }}
                 dir={isRtl ? 'rtl' : 'ltr'}
+                continueDisabled={gate.blocked}
+                statusNote={
+                    gate.note === 'preparing'
+                        ? t('voiceInterviewPrep_preparingQuestions')
+                        : gate.note === 'failed'
+                          ? t('voiceInterviewPrep_preparingFailed')
+                          : ''
+                }
+                onRetry={gate.retry ? () => setBlueprintPollTick((n) => n + 1) : null}
             />
         );
     }

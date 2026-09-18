@@ -40,7 +40,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src",
-    "test:invite-role": "node src/utils/headHunterInviteRole.test.mjs"
+    "test:invite-role": "node src/utils/headHunterInviteRole.test.mjs",
+    "test:blueprint-gate": "node src/utils/blueprintGate.test.mjs"
   },
   "browserslist": {
     "production": [
