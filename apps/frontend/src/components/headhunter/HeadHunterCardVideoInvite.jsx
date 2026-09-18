@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useLanguage } from '../../contexts/LanguageContext.jsx';
 import {
     buildMailtoShareLink,
     buildPublicVideoScreeningUrl,
@@ -82,7 +81,6 @@ export default function HeadHunterCardVideoInvite({
     const [localFeedback, setLocalFeedback] = useState(null);
     const [popoverStyle, setPopoverStyle] = useState(null);
     const [hhId, setHhId] = useState('');
-    const { currentLang } = useLanguage();
 
     const { phone, linkedinUrl, canWhatsApp, canLinkedIn } = useMemo(
         () => getHeadHunterSendChannels(contactStatus, candidate),
@@ -120,6 +118,18 @@ export default function HeadHunterCardVideoInvite({
     // (الخادم يتجاهل هذه القيمة عند توليد السياق ويقرأ الحملة بنفسه؛ هذه للعرض
     // على الاستمارة، فتبقى متّسقة مع ما سيُسجَّل.)
     const campaignId = shareCampaign?.campaignId || '';
+    /*
+     * 🔴 لغة المقابلة من **الوظيفة**، لا من لغة واجهة الموظّف.
+     *
+     * كان الرابط يحمل `currentLang`، فموظّفٌ يتصفّح بالإنجليزية يُرسل مقابلةً
+     * إنجليزية — قِيس 2026-09-18: `session.language="en"` على مخطّطةٍ مرتكزاتها
+     * عربية، فترجمها الوكيل دوراً بدور. ولا شيء يُترجَم إليه أصلاً: ٥٤ من ٥٤
+     * مخطّطة في الإنتاج عربية.
+     *
+     * وحملةٌ لم تُقفل مخطّطتها بعد لا تُبلغ لغة، فيُحذف المُعامل من الرابط بدل
+     * اختراع واحدة — والخادم والوكيل يملكان احتياطهما.
+     */
+    const shareLanguage = shareCampaign?.language || undefined;
     const position = headHunterInviteRole(shareCampaign?.title);
 
     // ينشئ لقطة سياق المصدر مرة واحدة (يبدأ عند فتح الـ popover) ويعيد المعرّف.
@@ -221,7 +231,7 @@ export default function HeadHunterCardVideoInvite({
                 campaignId,
                 position,
                 headHunterContextId: id,
-                language: currentLang,
+                language: shareLanguage,
             });
             await navigator.clipboard.writeText(url);
             setLocalFeedback({ ok: true, text: t('aiHeadHunterLinkCopied') });
@@ -241,7 +251,7 @@ export default function HeadHunterCardVideoInvite({
                 campaignId,
                 position,
                 headHunterContextId: id,
-                language: currentLang,
+                language: shareLanguage,
             });
         } catch {
             setLocalFeedback({ ok: false, text: t('aiHeadHunterShareNeedsCampaign') });
@@ -275,7 +285,7 @@ export default function HeadHunterCardVideoInvite({
             position,
             headHunterContextId: id,
             sendInterviewLink: true,
-            language: currentLang,
+            language: shareLanguage,
         });
         if (ok) {
             setTimeout(closePopover, 1200);

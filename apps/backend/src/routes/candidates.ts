@@ -925,6 +925,20 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                     campaignOrgId: campaignOrganizationId,
                     campaignId,
                 });
+                if (verdict.ok) {
+                    /*
+                     * The one success line for this path. Until now the check
+                     * was silent, so "did the cross-check actually run?" could
+                     * not be answered from the logs at all — only inferred.
+                     *
+                     * ⚠️ IDs only. No name, email, phone or profile data: this
+                     * line exists to prove a binding, not to describe a person.
+                     */
+                    console.log(
+                        `🔗 head-hunter share verified: context=${headHunterContextId} ` +
+                            `campaign=${campaignId} org=${campaignOrganizationId}`
+                    );
+                }
                 if (!verdict.ok) {
                     console.warn(
                         `⚠️ head-hunter share rejected (${verdict.code}): context ` +
@@ -1096,9 +1110,21 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             delete candidateData.sourceType;
         }
 
-        // إثراء من لقطة سياق الهيد هانتر — القراءة والتحقّق جريا أعلاه؛ هنا الإثراء فقط.
+        /*
+         * إثراء من لقطة سياق الهيد هانتر — القراءة والتحقّق جريا أعلاه.
+         *
+         * ⚠️ ولا يُكتب `headHunterContextId` على **الشخص** هنا.
+         *
+         * الشخص واحد وقد يأتي من عدّة حملات وعدّة سياقات هيد هانتر؛ فحقلٌ واحد
+         * عليه يعني أنّ آخر تقديمٍ يمحو أصل ما قبله. العلاقة لكلّ تقديم:
+         *     CandidateApplication → RecruitmentCampaign + HeadHunterSourcingContext
+         * وتُكتب عند `upsertCandidateApplication` أدناه.
+         *
+         * (حقل `Candidate.headHunterContextId` باقٍ في النموذج لأنّ حذفه تغييرٌ
+         * أوسع، لكنّ هذا المسار لم يعد يكتبه — ولم يكن يصل إليه أصلاً: صفر
+         * مستند في الإنتاج يحمله.)
+         */
         if (headHunterContextId && headHunterCtx) {
-            candidateData.headHunterContextId = headHunterContextId;
             try {
                 const ctx = headHunterCtx;
                 const profile = (ctx?.candidateProfile || {}) as Record<string, unknown>;
@@ -1395,10 +1421,25 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
             source:
                 typeof (candidateDataForDB as { source?: string }).source === 'string'
                     ? (candidateDataForDB as { source?: string }).source
-                    : candidate.headHunterContextId
+                    : headHunterContextId
                       ? 'HeadHunter'
                       : undefined,
-            headHunterContextId: candidate.headHunterContextId,
+            /*
+             * 🔴 Read from the REQUEST, not from the person.
+             *
+             * This line used to be `candidate.headHunterContextId`, and the
+             * person never has one: the update whitelist does not carry it, and
+             * a returning applicant is not re-created. Measured on production —
+             * ZERO documents in the whole database held the field, on either
+             * collection, so every Head Hunter application was untraceable and
+             * `source` was never marked 'HeadHunter' either.
+             *
+             * The relation belongs to the APPLICATION: one person may be
+             * sourced through several contexts and several campaigns, and a
+             * single field on the person would let the newest application erase
+             * where the previous one came from.
+             */
+            headHunterContextId: headHunterContextId || undefined,
             jobPostingId: candidate.jobPostingId,
             status: campaignFormBinding
                 ? willSendStage1N8n

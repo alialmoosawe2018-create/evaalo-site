@@ -22,12 +22,21 @@ import { useLanguage } from '../../contexts/LanguageContext.jsx';
  * ⚠️ والعنوان يُترجَم للعرض فقط. الرابط يحمل القيمة المخزَّنة الخام — انظر
  * `utils/publicVideoScreeningUrl.js`.
  */
-export default function HeadHunterCampaignPicker({ onPick, onClose, t }) {
+/** الدور مُطَبَّع للمقارنة: المسافات والحالة فقط — لا اشتقاق ولا تخمين. */
+function normalizeRole(v) {
+    return String(v || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+}
+
+export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, t }) {
     const { currentLang } = useLanguage();
     const [rows, setRows] = useState(null);
     const [error, setError] = useState('');
     const [query, setQuery] = useState('');
     const [refreshing, setRefreshing] = useState(false);
+    const [showAll, setShowAll] = useState(false);
 
     /*
      * النقطة في الخادم بلا ذاكرة مؤقّتة عن قصد، لكنّ ذلك وحده لا يكفي: هذا
@@ -47,6 +56,8 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, t }) {
                         // نفس الدالّة التي تسمّي الحملة في كل شاشة أخرى،
                         // فلا تُستحدث مرآة ثالثة لعنوان الوظيفة.
                         title: resolveTitleFromMeta(c),
+                        // لغة المخطّطة — يرثها الرابط بدل لغة واجهة الموظّف.
+                        language: c.language || '',
                         createdAt: c.createdAt,
                     }))
                 );
@@ -66,15 +77,35 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, t }) {
         load();
     }, [load]);
 
-    const filtered = useMemo(() => {
+    /*
+     * 🔴 الوظيفة المعروضة هي وظيفة بحثك.
+     *
+     * لا شيء كان يمنع البحث عن «HR Generalist» ثمّ اختيار حملة «Sales Manager»:
+     * النظام يقبلها، ويُقابَل المرشّح على كفاءاتٍ ليست كفاءات البحث الذي وجده.
+     * فالافتراض هنا هو المطابق وحده.
+     *
+     * ⚠️ لكنّ «أظهر كلّ الوظائف» يبقى مفتوحاً عن قصد: المطابقة نصّية وهشّة
+     * («HR Generalist» مقابل «Human Resources Generalist»)، وترشيحٌ صارم يُخفي
+     * حملتك الحقيقية فيدفعك لإنشاء نسخةٍ مكرّرة — وذلك أسوأ من الخطأ الذي نمنعه.
+     */
+    const wantedRole = normalizeRole(searchRole);
+    const roleMatched = useMemo(() => {
         if (!rows) return [];
+        if (!wantedRole) return rows;
+        return rows.filter((r) => normalizeRole(r.title) === wantedRole);
+    }, [rows, wantedRole]);
+
+    const base = showAll || !wantedRole ? rows || [] : roleMatched;
+    const hiddenCount = (rows?.length || 0) - roleMatched.length;
+
+    const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
-        if (!q) return rows;
-        return rows.filter((r) => {
+        if (!q) return base;
+        return base.filter((r) => {
             const shown = localizeCatalogLabel(r.title, currentLang) || r.title || '';
             return shown.toLowerCase().includes(q) || (r.title || '').toLowerCase().includes(q);
         });
-    }, [rows, query, currentLang]);
+    }, [base, query, currentLang]);
 
     return (
         <div className="headhunter-campaign-picker">
@@ -99,6 +130,11 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, t }) {
                         placeholder={t('aiHeadHunterCampaignPickerSearch')}
                         aria-label={t('aiHeadHunterCampaignPickerSearch')}
                     />
+                    {filtered.length === 0 ? (
+                        <p className="headhunter-campaign-picker__state">
+                            {t('aiHeadHunterCampaignPickerNoMatch')}
+                        </p>
+                    ) : null}
                     <ul className="headhunter-campaign-history-list headhunter-campaign-picker__list">
                         {filtered.map((r) => (
                             <li key={r.campaignId}>
@@ -116,6 +152,17 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, t }) {
                             </li>
                         ))}
                     </ul>
+                    {wantedRole && hiddenCount > 0 ? (
+                        <button
+                            type="button"
+                            className="headhunter-campaign-picker__toggle"
+                            onClick={() => setShowAll((v) => !v)}
+                        >
+                            {showAll
+                                ? t('aiHeadHunterCampaignPickerOnlyMatching')
+                                : `${t('aiHeadHunterCampaignPickerShowAll')} (${hiddenCount})`}
+                        </button>
+                    ) : null}
                 </>
             )}
 

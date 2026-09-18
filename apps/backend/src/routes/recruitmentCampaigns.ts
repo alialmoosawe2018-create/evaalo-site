@@ -10,6 +10,7 @@ import { getOrgId, getClerkUserId, isMissingProductionOrg } from '../middleware/
 import { logAudit } from '../services/auditService.js';
 import { cacheGetOrSet } from '../services/cache.js';
 import { ensureBlueprintForCampaign } from '../services/expertise/ensureBlueprint.js';
+import InterviewBlueprint from '../models/InterviewBlueprint.js';
 import {
     buildEvaluationRubricFromCampaignBody,
     deriveLegacyRubricFromCriteria,
@@ -594,15 +595,51 @@ router.get(
                 .lean();
 
             const hasMore = rows.length > LIMIT;
+            const page = rows.slice(0, LIMIT);
+
+            /*
+             * 🔴 The language of an interview belongs to the JOB, not to whoever
+             * copies its link.
+             *
+             * The share link used to carry the recruiter's UI language, so a
+             * recruiter browsing in English sent an English interview — measured
+             * 2026-09-18: `session.language="en"` against a blueprint whose
+             * anchors are Arabic. The agent then translated an Arabic instrument
+             * turn by turn. And there is nothing to translate TO: all 54 locked
+             * blueprints in production are `ar`; not one is English.
+             *
+             * So the language travels with the campaign, from the only record
+             * that states it. A campaign whose blueprint has not locked yet
+             * reports none, and the link then omits the parameter entirely
+             * rather than inventing one — the server and the agent already have
+             * their own fallbacks for that.
+             */
+            const languageByCampaign = new Map<string, string>();
+            if (page.length > 0) {
+                const blueprints = await InterviewBlueprint.find({
+                    campaignId: { $in: page.map((c: any) => c.campaignId) },
+                    status: 'locked',
+                })
+                    .select('campaignId language')
+                    .lean()
+                    .catch(() => [] as any[]);
+                for (const b of blueprints as any[]) {
+                    if (b?.campaignId && typeof b.language === 'string' && b.language.trim()) {
+                        languageByCampaign.set(b.campaignId, b.language.trim());
+                    }
+                }
+            }
+
             return res.json({
                 success: true,
-                campaigns: rows.slice(0, LIMIT).map((c: any) => ({
+                campaigns: page.map((c: any) => ({
                     campaignId: c.campaignId,
                     criteria: c.criteria || {},
                     templateName: c.templateName || '',
                     interviewType: c.interviewType || '',
                     status: c.status || 'active',
                     createdAt: c.createdAt,
+                    language: languageByCampaign.get(c.campaignId) || '',
                 })),
                 hasMore,
             });

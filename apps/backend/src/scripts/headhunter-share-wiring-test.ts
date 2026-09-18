@@ -244,6 +244,53 @@ check('W7 🔴 the server-side link builder — the twin — refuses too', () =>
     }
 });
 
+check('W11 🔴 the application records WHICH invitation produced it', () => {
+    const src = code(BACKEND_SRC, 'routes', 'candidates.ts');
+    if (/headHunterContextId:\s*candidate\.headHunterContextId/.test(src)) {
+        throw new Error(
+            'the application reads the context from the PERSON again. The person never ' +
+                'carries one — measured: zero documents in the whole production database ' +
+                'held the field — so every head-hunted application was untraceable.'
+        );
+    }
+    if (!/headHunterContextId:\s*headHunterContextId\s*\|\|\s*undefined/.test(src)) {
+        throw new Error(
+            'the application is no longer given the context id from the REQUEST; the relation ' +
+                'CandidateApplication → HeadHunterSourcingContext is broken'
+        );
+    }
+    // ⚠️ An ASSIGNMENT, not a comparison: `=` not followed by `=`. The first
+    // version matched the `===` in the route's own type check and reported a
+    // write that was only a read.
+    if (/candidateData\.headHunterContextId\s*=(?!=)/.test(src)) {
+        throw new Error(
+            'the context is being written onto the PERSON. A person can be sourced ' +
+                'through several campaigns and several contexts; one field there lets the ' +
+                'newest application erase where the previous one came from.'
+        );
+    }
+});
+
+check('W12 the verified-binding log carries IDs and nothing else', () => {
+    const src = code(BACKEND_SRC, 'routes', 'candidates.ts');
+    const at = src.indexOf('head-hunter share verified');
+    if (at < 0) {
+        throw new Error(
+            'the success line is gone — whether the cross-check RAN becomes unanswerable ' +
+                'from the logs, which is exactly the gap this closed'
+        );
+    }
+    const line = src.slice(at, at + 400);
+    for (const leak of ['email', 'full_name', 'phone', 'candidateData', 'linkedin']) {
+        if (line.includes(leak)) {
+            throw new Error(`the log line includes ${leak} — it proves a binding, it does not describe a person`);
+        }
+    }
+    for (const id of ['context=', 'campaign=', 'org=']) {
+        if (!line.includes(id)) throw new Error(`the log line no longer carries ${id}`);
+    }
+});
+
 /* ────────────── the picker's escape hatch: create a campaign ───────────── */
 
 check('W9 🔴 "create a job" goes where a job can actually be created', () => {
@@ -315,6 +362,58 @@ check('W10 the picker can refetch — the server has no cache, but the client di
     }
     if (!src.includes('aiHeadHunterCampaignPickerRefresh')) {
         throw new Error('the refresh control has no label of its own');
+    }
+});
+
+/* ───── the job decides the language; the search decides the job ───── */
+
+check('W13 🔴 the link takes its language from the JOB, not the recruiter', () => {
+    const src = code(FRONTEND_SRC, 'components', 'headhunter', 'HeadHunterCardVideoInvite.jsx');
+    if (/language:\s*currentLang/.test(src)) {
+        throw new Error(
+            'the share link carries the UI language of whoever copies it again. Measured: that sent ' +
+                'an ENGLISH interview against a blueprint whose anchors are Arabic, and all ' +
+                '54 locked blueprints in production are ar — there is nothing to translate to.'
+        );
+    }
+    if (!/shareCampaign\?\.language/.test(src)) {
+        throw new Error('the link no longer reads the language from the chosen campaign');
+    }
+    const uses = src.split('language: shareLanguage').length - 1;
+    if (uses < 3) {
+        throw new Error(
+            `only ${uses} of the 3 link/send sites use the job's language; copy, free share ` +
+                `and the automated send must all agree`
+        );
+    }
+    const api = code(BACKEND_SRC, 'routes', 'recruitmentCampaigns.ts');
+    if (!/status:\s*'locked'/.test(api) || !api.includes('languageByCampaign')) {
+        throw new Error('/shareable no longer reports the locked blueprint language');
+    }
+});
+
+check('W14 🔴 the picker offers the jobs of THIS search first', () => {
+    const src = code(FRONTEND_SRC, 'components', 'headhunter', 'HeadHunterCampaignPicker.jsx');
+    if (!src.includes('searchRole')) {
+        throw new Error(
+            'the picker no longer knows the search role — nothing stops searching for ' +
+                '"HR Generalist" and interviewing against "Sales Manager"'
+        );
+    }
+    if (!/normalizeRole\(r\.title\)\s*===\s*wantedRole/.test(src)) {
+        throw new Error('the role filter is gone; every job is offered regardless of the search');
+    }
+    // The escape hatch must survive too: text matching is fragile, and a strict
+    // filter that hides the real campaign pushes the user to create a duplicate.
+    if (!src.includes('showAll')) {
+        throw new Error(
+            'there is no way to see non-matching jobs. Role names are fuzzy, and hiding ' +
+                'the real campaign is worse than the mistake being prevented.'
+        );
+    }
+    const ws = code(FRONTEND_SRC, 'components', 'headhunter', 'HeadHunterResultsWorkspace.jsx');
+    if (!/searchRole=\{searchContext\?\.position\}/.test(ws)) {
+        throw new Error('the workspace no longer hands the search role to the picker');
     }
 });
 

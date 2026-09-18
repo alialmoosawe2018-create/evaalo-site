@@ -24813,3 +24813,15 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
     font-size: 0.85rem;
     opacity: 0.8;
 }
+
+.headhunter-campaign-picker__toggle {
+    align-self: flex-start;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent, #2563eb);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: underline;
+}

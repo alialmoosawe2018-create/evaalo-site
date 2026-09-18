@@ -282,6 +282,9 @@ export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, searchCo
                               <div className="headhunter-campaign-picker__backdrop" role="dialog" aria-modal="true">
                                   <HeadHunterCampaignPicker
                                       t={t}
+                                      /* وظيفة البحث نفسها — الافتراض أن تُعرض
+                                         الحملات المطابقة لها وحدها. */
+                                      searchRole={searchContext?.position}
                                       onClose={() => setPickerOpen(false)}
                                       onPick={(row) => {
                                           setShareCampaign(row);
