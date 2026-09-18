@@ -63,6 +63,7 @@ from voice_interview.job_questions import (
 from voice_interview.entity_policy import build_role_glossary
 from voice_interview.experience_tracks import parse_experience_tracks, parse_interview_paths
 from voice_interview.keep_warm import is_keep_warm_job
+from voice_interview.lang import detect_lang_from_text
 from voice_interview.netutil import is_websocket_closing_error
 from voice_interview.transcript_hooks import attach_user_transcript_routing
 from playback_patches import configure_and_apply_playback_patches
@@ -233,6 +234,39 @@ server.setup_fnc = prewarm
 def _neutral_greeting_address() -> bool:
     raw = (os.getenv("INITIAL_GREETING_NEUTRAL_ADDRESS") or "true").strip().lower()
     return raw not in ("0", "false", "no", "off")
+
+
+def _greeting_question_matches_language(first_q: str, mode: str) -> bool:
+    """May this bank question be spoken verbatim inside the greeting?
+
+    ⚠️ 2026-09-18, one interview after the greeting fix shipped. The greeting now
+    carries the bank's first question, and that bank is English for many roles —
+    so an Arabic session opened with:
+
+        «حياك الله Ali Mahmood، نبدأ من خبرتك العملية.
+         Describe how you balance employee experience, company policy, and
+         compliance in HR decisions.»
+
+    and the candidate's very first words were «بالعربي ممكن نحكي بالعربي».
+
+    The old framing-guard rewrite used to MASK this by regenerating everything in
+    Arabic; protecting the greeting removed the mask and opened the path. The
+    normal turn path still translates bank questions — only this canned append
+    speaks the bank's raw text, so a mismatch is simply not appended.
+
+    ``detect_lang_from_text`` is code-switching aware: an Arabic question carrying
+    English terms («…لدور تقني صعب مثل Senior Software Engineer؟») reads as
+    Arabic and is kept. Ambiguous (``None``) is treated as a mismatch — a greeting
+    on its own is safer than a greeting in the wrong language.
+    """
+    q = (first_q or "").strip()
+    if not q:
+        return False
+    lang = detect_lang_from_text(q)
+    if mode in ("bilingual", "auto", "mixed"):
+        return lang is not None
+    want = "en" if mode in ("en", "english") else "ar"
+    return lang == want
 
 
 def _greeting_carries_first_question() -> bool:
@@ -591,6 +625,13 @@ def _canned_initial_greeting(meta: dict[str, Any]) -> str:
     mode = _greeting_mode(meta)
     short_mode = (os.getenv("INITIAL_GREETING_SHORT_MODE", "true").strip().lower() in ("1", "true", "yes"))
     include_first_q = _greeting_carries_first_question()
+    if include_first_q and first_q and not _greeting_question_matches_language(first_q, mode):
+        logger.info(
+            "initial greeting: first question dropped — %r bank question in a %s session",
+            (detect_lang_from_text(first_q) or "unknown"),
+            mode,
+        )
+        first_q = None
 
     if short_mode:
         if mode in ("en", "english"):

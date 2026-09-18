@@ -33,7 +33,10 @@ import asyncio
 from voice_interview.active_question import enforce_single_question_response
 from voice_interview.assistant import InterviewAssistant, TtsRouteContext
 from voice_interview.framing_guard import needs_framing
-from voice_interview.worker import _canned_initial_greeting
+from voice_interview.worker import (
+    _canned_initial_greeting,
+    _greeting_question_matches_language,
+)
 
 GREETING = "حياك الله علي محمود، نبدأ من خبرتك العملية."
 FIRST_Q = "شنو خبرتك بموضوع التوظيف، وشنو الطرق اللي استخدمتها لجذب المرشحين؟"
@@ -132,6 +135,61 @@ def test_marking_a_different_line_does_not_protect_this_one() -> None:
     agent = _assistant()
     agent.mark_verbatim("شيء آخر تماماً.")
     assert agent._apply_guard_to_agent_text(GREETING) != GREETING
+
+
+# ── …but only when it is in the session's language ───────────────────────────
+#
+# ⚠️ One interview after the greeting fix shipped, an Arabic session opened with:
+#     «حياك الله Ali Mahmood، نبدأ من خبرتك العملية.
+#      Describe how you balance employee experience, company policy, and
+#      compliance in HR decisions.»
+# and the candidate's first words were «بالعربي ممكن نحكي بالعربي». The bank is
+# English for many roles; the old framing-guard rewrite used to mask that by
+# regenerating everything in Arabic, and protecting the greeting removed the mask.
+
+# Verbatim, from that interview (n8n execution 1907).
+ENGLISH_BANK_Q = (
+    "Describe how you balance employee experience, company policy, "
+    "and compliance in HR decisions."
+)
+# Verbatim Arabic bank question carrying English terms — must still be kept.
+MIXED_AR_Q = "شنو خبرتك بوضع خطة استقطاب لدور تقني صعب مثل Senior Software Engineer؟"
+
+
+def _greeting_for(question: str, monkeypatch, **meta_over) -> str:
+    monkeypatch.delenv("INTERVIEW_GREETING_WITH_QUESTION_V3", raising=False)
+    monkeypatch.setattr(
+        "voice_interview.worker.resolve_livekit_questions",
+        lambda meta: type("B", (), {"questions": [question]})(),
+    )
+    return _canned_initial_greeting(_meta(**meta_over))
+
+
+def test_an_english_bank_question_is_not_spoken_into_an_arabic_greeting(monkeypatch) -> None:
+    text = _greeting_for(ENGLISH_BANK_Q, monkeypatch)
+    assert "Describe how you balance" not in text
+    assert "حياك الله" in text  # the welcome still goes out
+
+
+def test_an_arabic_question_with_english_terms_is_still_kept(monkeypatch) -> None:
+    """Code-switching is normal here — dropping these would gut the feature."""
+    text = _greeting_for(MIXED_AR_Q, monkeypatch)
+    assert MIXED_AR_Q in text
+
+
+def test_the_language_check_is_what_decides() -> None:
+    assert _greeting_question_matches_language(ENGLISH_BANK_Q, "ar") is False
+    assert _greeting_question_matches_language(MIXED_AR_Q, "ar") is True
+    assert _greeting_question_matches_language(ENGLISH_BANK_Q, "en") is True
+    assert _greeting_question_matches_language(MIXED_AR_Q, "en") is False
+    # ambiguous / too short is treated as a mismatch: a greeting alone is safer
+    assert _greeting_question_matches_language("Hi?", "ar") is False
+    assert _greeting_question_matches_language("", "ar") is False
+
+
+def test_an_english_session_keeps_its_english_question(monkeypatch) -> None:
+    text = _greeting_for(ENGLISH_BANK_Q, monkeypatch, language="en")
+    assert ENGLISH_BANK_Q in text
 
 
 # ── the greeting now carries the first question ──────────────────────────────
