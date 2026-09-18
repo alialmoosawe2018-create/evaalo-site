@@ -35,11 +35,13 @@ import {
     INTERVIEW_LINK_ALREADY_USED,
 } from '../services/interviewLinkAccess.js';
 import {
+    blueprintReadiness,
     blueprintStartFastModel,
     buildBlueprintSnapshot,
     ensureBlueprintForCampaign,
     getLockedBlueprintForCampaign,
     isBlueprintFeatureEnabled,
+    type BlueprintReadiness,
     type LockedBlueprintBundle,
 } from '../services/expertise/ensureBlueprint.js';
 import { claimOnce, withTimeout } from '../services/videoStartGuards.js';
@@ -1051,6 +1053,12 @@ router.post('/prepare', async (req, res) => {
                 url: process.env.LIVEKIT_URL,
                 token: livekitToken
             } : null,
+            // Readiness on the FIRST response, so a campaign whose blueprint is
+            // already locked — the overwhelming majority — never pays a poll and
+            // never sees a preparing screen.
+            blueprint: await blueprintReadiness(prepareCampaignId || '').catch(
+                (): BlueprintReadiness => ({ state: 'absent', competencyCount: 0 })
+            ),
             reused: false
         });
     } catch (error: any) {
@@ -2262,6 +2270,52 @@ router.post('/end', async (req, res) => {
  * GET /api/video-interview/status/:sessionId
  * الحصول على حالة المقابلة
  */
+/**
+ * GET /api/video-interview/blueprint-status?campaignId=…
+ *
+ * Is this campaign's interview instrument ready? The gate polls this instead of
+ * counting seconds: measured generation on the deployed model is 88–132 s and
+ * rising with deep packs, so any fixed wait is a number that goes stale.
+ *
+ * ⚠️ Polling also RETRIES. `ensureBlueprintForCampaign` dedupes per campaign, so
+ * asking is free while one is running and restarts it when the last attempt
+ * failed — which is what keeps `absent` from becoming a dead end.
+ *
+ * Side-effect free for the session: it touches no room, no dispatch, no billing.
+ */
+router.get('/blueprint-status', async (req, res) => {
+    const campaignId = String(req.query.campaignId || '').trim();
+    try {
+        if (!campaignId) {
+            // Nothing to wait for: no campaign means no blueprint and no claim to
+            // a specialism. Never block such a session.
+            return res
+                .status(200)
+                .json({ success: true, state: 'ready', competencyCount: 0, campaignId: '' });
+        }
+        const readiness = await blueprintReadiness(campaignId);
+        if (readiness.state !== 'ready' && isBlueprintFeatureEnabled()) {
+            // Fire-and-forget: restarts a failed generation, joins a running one.
+            ensureBlueprintForCampaign(campaignId).catch((err: any) => {
+                console.warn(
+                    `⚠️ blueprint-status: generation retry failed for ${campaignId}: ${err?.message || err}`
+                );
+            });
+        }
+        return res.status(200).json({ success: true, campaignId, ...readiness });
+    } catch (error: any) {
+        console.error('Error in /blueprint-status:', error);
+        // An error here must not read as "ready" — the gate would open on it.
+        return res.status(200).json({
+            success: false,
+            campaignId,
+            state: 'absent',
+            competencyCount: 0,
+            message: 'Failed to read blueprint readiness',
+        });
+    }
+});
+
 router.get('/status/:sessionId', async (req, res) => {
     try {
         const { sessionId } = req.params;

@@ -135,6 +135,59 @@ export function blueprintGenerationsInFlight(): number {
     return inFlight.size;
 }
 
+/** Is a generation for THIS campaign running right now? Keys are `${id}:${model}`. */
+export function isBlueprintGenerating(campaignId: string): boolean {
+    const id = (campaignId || '').trim();
+    if (!id) return false;
+    for (const key of inFlight.keys()) {
+        if (key === id || key.startsWith(`${id}:`)) return true;
+    }
+    return false;
+}
+
+/** What the interview gate sees. `ready` is the only state that may start one. */
+export type BlueprintReadinessState = 'ready' | 'generating' | 'absent';
+
+export interface BlueprintReadiness {
+    state: BlueprintReadinessState;
+    competencyCount: number;
+}
+
+/**
+ * Whether a campaign's interview instrument is ready to be interviewed against.
+ *
+ * ⚠️ A LOCK IS NOT READINESS. `/end` has always tested `competencies.length > 0`
+ * separately before trusting a snapshot — an admission that locked-but-empty and
+ * locked-but-partial both happen. Readiness therefore counts competencies rather
+ * than trusting `status: 'locked'`.
+ *
+ * Why this exists at all: `resolveBlueprintForStart` waits 8 s and then starts
+ * the interview without competencies. Measured on the deployed generator on
+ * 2026-09-18 — 88 s, 92 s, 126 s, 132 s — so that wait effectively never pays,
+ * and three consecutive public-path interviews ran blind while the scorer was
+ * later handed the full rubric (coverage 0.22, 0.11, 0, 0.33; one scored zero).
+ *
+ * This reports state; it never waits. The caller decides.
+ *
+ * ⚠️ No campaign, or the feature switched off, reports `ready` with zero
+ * competencies — ON PURPOSE. Such a session has no blueprint to wait for and
+ * claims no specialism, so gating it would block interviews that were never at
+ * risk. `competencyCount` is what tells those two apart from a real one.
+ */
+export async function blueprintReadiness(campaignId: string): Promise<BlueprintReadiness> {
+    const id = (campaignId || '').trim();
+    if (!id || !isBlueprintFeatureEnabled()) {
+        return { state: 'ready', competencyCount: 0 };
+    }
+    const bundle = await getLockedBlueprintForCampaign(id).catch(() => null);
+    const competencyCount = bundle?.blueprint?.competencies?.length ?? 0;
+    if (competencyCount > 0) return { state: 'ready', competencyCount };
+    return {
+        state: isBlueprintGenerating(id) ? 'generating' : 'absent',
+        competencyCount,
+    };
+}
+
 /**
  * يضمن وجود Blueprint مقفل للحملة. idempotent: استدعاءان متتاليان ينتجان نسخة واحدة.
  * يرمي عند تعذّر إيجاد الحملة فقط؛ غير ذلك يُرجع الحزمة أو null (fail-open للمستدعي).
