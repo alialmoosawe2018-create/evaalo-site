@@ -39,7 +39,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test:invite-role": "node src/utils/headHunterInviteRole.test.mjs"
   },
   "browserslist": {
     "production": [

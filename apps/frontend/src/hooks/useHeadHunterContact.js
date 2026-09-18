@@ -31,6 +31,7 @@ export function headHunterCandidatePosition(candidate) {
     return title;
 }
 
+
 /**
  * @param {{ campaignId?: string; position?: string; headHunterContextId?: string }} [opts]
  */

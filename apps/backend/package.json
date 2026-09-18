@@ -16,6 +16,7 @@
     "test:job-context": "tsx src/scripts/application-job-context-test.ts",
     "test:rubric-results": "tsx src/scripts/stage1-rubric-results-test.ts",
     "test:voice-tts-output-format": "tsx src/scripts/voice-tts-output-format-test.ts",
+    "test:headhunter-target-role": "tsx src/scripts/headhunter-target-role-test.ts",
     "test:evaluation-language": "tsx src/scripts/evaluation-language-test.ts",
     "test:campaign-role": "tsx src/scripts/campaign-role-test.ts",
     "test:video-evidence": "tsx src/scripts/video-evidence-test.ts",

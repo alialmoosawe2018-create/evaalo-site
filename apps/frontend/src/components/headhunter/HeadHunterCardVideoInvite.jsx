@@ -8,9 +8,9 @@ import {
     buildWhatsAppShareLink,
     createHeadHunterSourcingContext,
     getHeadHunterSendChannels,
-    headHunterCandidatePosition,
     useHeadHunterContactSend,
 } from '../../hooks/useHeadHunterContact.js';
+import { headHunterInviteRole } from '../../utils/headHunterInviteRole.js';
 
 const CAN_NATIVE_SHARE = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
@@ -88,9 +88,24 @@ export default function HeadHunterCardVideoInvite({
     const canShareWhatsApp = Boolean(phone) && !canWhatsApp;
     const canShareEmail = Boolean(email);
     const hasFreeShare = canShareWhatsApp || canShareEmail || CAN_NATIVE_SHARE;
-    const position =
-        headHunterCandidatePosition(candidate) ||
-        (typeof campaignPosition === 'string' ? campaignPosition.trim() : '');
+    // الوظيفة في الرابط هي دور حملة البحث وحده — لا وظيفة المرشّح الحالية.
+    //
+    // ⚠️ كانت `headHunterCandidatePosition(candidate) || campaignPosition`، و‍تلك
+    // الدالة تُرجع `current_title || headline`: أي أنّ الوظيفة التي يشغلها المرشّح
+    // **الآن** كانت تسبق الدور الذي يوظّف عليه صاحب العمل. فموظّفٌ يبحث عن
+    // «HR Generalist» ويشارك مرشّحاً عنوانه «Sales Manager» كان يولّد رابطاً
+    // يقول `position=Sales Manager` — وهو ما يراه المرشّح على الاستمارة، وما
+    // يُسجَّل بوصفه ما «صرّح» به وهو لم يصرّح بشيء.
+    //
+    // الخادم يصحّح هوية المقابلة بطبقتين قائمتين (`reconcileIntakePosition` عند
+    // الإدخال و`applyApplicationJobContext` عند القراءة)، وسجلّ الإنتاج يُظهر
+    // `[AGENT JOB] … → match` في كل الجلسات — فالمقابلة لم تكن تُطرح على الدور
+    // الخاطئ. لكنّ كلتا الطبقتين تحتاج دوراً للحملة تصحّح إليه: **حملة بلا دور
+    // لا مرجع لها**، فتمرّ وظيفة المرشّح كما هي. الرابط لا يجوز أن يكون مصدر
+    // هذه الحقيقة أصلاً.
+    //
+    // وغياب الدور يعني ألّا يُرسَل `position` إطلاقاً، لا أن يُملأ بتخمين.
+    const position = headHunterInviteRole(campaignPosition);
 
     // ينشئ لقطة سياق المصدر مرة واحدة (يبدأ عند فتح الـ popover) ويعيد المعرّف.
     const ensureSourcingContext = useCallback(() => {
