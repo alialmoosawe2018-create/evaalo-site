@@ -295,7 +295,13 @@ check('W12 the verified-binding log carries IDs and nothing else', () => {
 
 check('W9 🔴 "create a job" goes where a job can actually be created', () => {
     const src = code(FRONTEND_SRC, 'components', 'headhunter', 'HeadHunterCampaignPicker.jsx');
-    const at = src.indexOf('aiHeadHunterCampaignPickerCreate');
+    /*
+     * ⚠️ The exact key, closing quote included. Without it this matched the
+     * PREFIX of `aiHeadHunterCampaignPickerCreateFromSearch` — a different
+     * element entirely — and reported that the create action had stopped
+     * being a link when nothing about it had changed.
+     */
+    const at = src.indexOf("aiHeadHunterCampaignPickerCreate')");
     if (at < 0) throw new Error('the create-a-campaign action is gone from the picker');
     // The anchor element wrapping that label.
     const open = src.lastIndexOf('<a', at);
@@ -476,6 +482,57 @@ check('W16 a saved Head Hunter search is not called a job', () => {
                     `a recruiter to expect their search to be a job`
             );
         }
+    }
+});
+
+check('W17 🔴 one button: reuse the job if it exists, create it if it does not', () => {
+    const src = code(FRONTEND_SRC, 'components', 'headhunter', 'HeadHunterCampaignPicker.jsx');
+    if (!/apiClient\.post\('\/api\/recruitment-campaigns'/.test(src)) {
+        throw new Error('the picker can no longer create a job from the search');
+    }
+    /*
+     * ⚠️ REUSE FIRST, and this is the load-bearing half.
+     *
+     * Creating unconditionally means one campaign per search: this org already
+     * had two "HR Manager" and three "HR Generalist" jobs before creation became
+     * a single click. Each duplicate costs a full blueprint generation, makes
+     * its first candidate wait 60–130s, and splits the candidates for one role
+     * across several campaigns so the comparison screens fragment.
+     */
+    const reuse = src.indexOf('const existing = (rows || []).find');
+    const create = src.indexOf("apiClient.post('/api/recruitment-campaigns'");
+    if (reuse < 0) throw new Error('the button no longer reuses an existing job for the same role');
+    if (reuse > create) {
+        throw new Error('the reuse check runs AFTER creating — a duplicate is made every time');
+    }
+    if (!/onPick\(existing\)/.test(src)) {
+        throw new Error('the reused job is not selected, so the click does nothing visible');
+    }
+    if (!/interviewType: 'video'/.test(src) || !/templateType: 'video'/.test(src)) {
+        throw new Error('the created job is not a video campaign');
+    }
+    // The search already knows these; dropping them throws away real criteria.
+    for (const field of ['location', 'experienceYears']) {
+        if (!src.includes(`payload.${field}`)) {
+            throw new Error(`the created job drops ${field}, which the search already has`);
+        }
+    }
+    if (!/onPick\(\{ campaignId: result\.campaignId/.test(src)) {
+        throw new Error('the new job is not selected after creation — the point was one click');
+    }
+    if (!/language: ''/.test(src)) {
+        throw new Error(
+            'the freshly created job is given a language. Its blueprint has not locked yet, ' +
+                'so the link must omit the parameter rather than invent one.'
+        );
+    }
+    // The manual list is an escape hatch, not the flow: a role worded differently
+    // from the job ("Account Manager" vs "Key Account Manager") will not match.
+    if (!src.includes('setBrowsing')) {
+        throw new Error(
+            'there is no way to pick a job by hand any more. Role matching is exact, so a ' +
+                'differently worded job can never be reached and a duplicate is forced.'
+        );
     }
 });
 

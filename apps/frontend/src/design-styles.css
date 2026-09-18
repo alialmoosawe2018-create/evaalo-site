@@ -24960,3 +24960,122 @@ body.rtl-text[lang='ku'] .hero-title {
     line-height: 1.32;
     padding-bottom: 0.14em;
 }
+
+/* صفّ «أنشئ وظيفة البحث» — يظهر فقط حين لا يوجد مطابق. */
+.headhunter-campaign-picker__create-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    text-align: start;
+    padding: 12px 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    font: inherit;
+    border: 1px dashed rgba(129, 140, 248, 0.55);
+    background: rgba(99, 102, 241, 0.12);
+    color: #e2e8f0;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.headhunter-campaign-picker__create-row:hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(129, 140, 248, 0.85);
+}
+
+.headhunter-campaign-picker__create-row:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.headhunter-campaign-picker__create-role {
+    font-weight: 600;
+    color: #f1f5f9;
+}
+
+.headhunter-campaign-picker__create-hint {
+    font-size: 0.82rem;
+    color: #a5b4fc;
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__create-row {
+    border-color: rgba(99, 102, 241, 0.5);
+    background: var(--app-accent-bg, rgba(99, 102, 241, 0.1));
+    color: var(--app-text, #0f172a);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__create-role {
+    color: var(--app-text, #0f172a);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__create-hint {
+    color: var(--app-accent-text, #3730a3);
+}
+
+/* ─── أزرار المُنتقي ───────────────────────────────────────────────────── */
+/*
+ * 🔴 كان زرّ «أنشئ وظيفة» يظهر **فارغاً**.
+ *
+ * استعملتُ `.btn-secondary`، وهي تفرض `color: #ffffff` — نصٌّ أبيض على خلفية
+ * المُنتقي البيضاء في الوضع الفاتح، فيختفي. و`.btn-tertiary` التي استعملتها
+ * لـ«تحديث القائمة» و«إلغاء» **غير معرّفة في المشروع إطلاقاً** (صفر تعريف)،
+ * فبقي الزرّان بلا أي نمط.
+ *
+ * فيحمل المُنتقي أزراره بنفسه بدل الاتّكاء على أصنافٍ عامّة مضبوطة على خلفيةٍ
+ * داكنة. التخصيص هنا (نسَب + صنف) يتجاوز `.btn-secondary` العامّة.
+ */
+.headhunter-campaign-picker__foot .btn,
+.headhunter-campaign-picker__foot a.btn {
+    padding: 9px 16px;
+    border-radius: 10px;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    backdrop-filter: none;
+    transform: none;
+}
+
+.headhunter-campaign-picker__foot .btn-secondary,
+.headhunter-campaign-picker__foot a.btn-secondary {
+    border: 1px solid rgba(129, 140, 248, 0.6);
+    background: rgba(99, 102, 241, 0.18);
+    color: #e2e8f0;
+}
+
+.headhunter-campaign-picker__foot .btn-secondary:hover {
+    background: rgba(99, 102, 241, 0.3);
+    transform: none;
+}
+
+.headhunter-campaign-picker__foot .btn-tertiary {
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: transparent;
+    color: #cbd5e1;
+}
+
+.headhunter-campaign-picker__foot .btn-tertiary:hover:not(:disabled) {
+    background: rgba(148, 163, 184, 0.14);
+}
+
+.headhunter-campaign-picker__foot .btn-tertiary:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__foot .btn-secondary,
+html[data-app-theme='light'] .headhunter-campaign-picker__foot a.btn-secondary {
+    border-color: rgba(99, 102, 241, 0.5);
+    background: var(--app-accent-bg, rgba(99, 102, 241, 0.1));
+    color: var(--app-accent-text, #3730a3);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__foot .btn-tertiary {
+    border-color: var(--app-border, rgba(99, 102, 241, 0.22));
+    color: var(--app-text, #0f172a);
+}

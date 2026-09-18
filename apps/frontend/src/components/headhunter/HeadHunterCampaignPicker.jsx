@@ -30,13 +30,17 @@ function normalizeRole(v) {
         .replace(/\s+/g, ' ');
 }
 
-export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, t }) {
+export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, searchContext, t }) {
     const { currentLang } = useLanguage();
     const [rows, setRows] = useState(null);
     const [error, setError] = useState('');
     const [query, setQuery] = useState('');
     const [refreshing, setRefreshing] = useState(false);
     const [showAll, setShowAll] = useState(false);
+    /* القائمة مطويّة: الزرّ هو المسار، والاختيار اليدوي مخرجٌ لا واجهة. */
+    const [browsing, setBrowsing] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [createError, setCreateError] = useState('');
 
     /*
      * النقطة في الخادم بلا ذاكرة مؤقّتة عن قصد، لكنّ ذلك وحده لا يكفي: هذا
@@ -107,6 +111,71 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
         });
     }, [base, query, currentLang]);
 
+    /*
+     * إنشاء وظيفة من البحث نفسه، بضغطةٍ واحدة.
+     *
+     * ⚠️ لا يُعرض إلّا حين **لا يوجد مطابق**. بضغطةٍ متاحة دائماً تتكاثر الحملات
+     * بسرعة — عندك الآن حملتان «مدير موارد بشرية» وثلاث «أخصائي موارد بشرية عام»،
+     * وهذا قبل أن يصير الإنشاء بنقرة.
+     *
+     * والمعايير المُرسَلة هي ما يملكه البحث فعلاً. فحصتُ حملةً عاملة: من أربعة
+     * عشر معياراً، ستّة تُشتقّ من الدور آليّاً واثنان (الموقع وسنوات الخبرة) في
+     * البحث أصلاً. والمخطّطة تُبنى على الدور المطابَق بالكتالوج — وكلّ حملاتك
+     * بـ٧–٨ معايير وبلا إعلان وظيفة حصلت على ١٠ كفاءات.
+     *
+     * الناقص (المجال، التعليم، المهارات، اللغات) لا يمسّ مخطّطة الفيديو، لكنّه
+     * يمسّ فرز المرحلة الأولى لو استُعملت الحملة له لاحقاً.
+     */
+    /**
+     * زرٌّ واحد: يستعمل وظيفةً بدورك إن وُجدت، ويُنشئها إن لم توجد.
+     *
+     * ⚠️ إعادة الاستعمال ليست تفصيلاً تقنيّاً. بلا هذا الشرط، كلّ بحثٍ يُنشئ
+     * حملةً جديدة: في هذه المؤسّسة **حملتان** بـ«HR Manager» و**ثلاث** بـ
+     * «HR Generalist» قبل أن يصير الإنشاء بنقرة. والتكرار يكلّف ثلاثة أشياء —
+     * توليد مخطّطة كامل لكلّ نسخة، وانتظار ٦٠–١٣٠ ثانية لأوّل مرشّح فيها، وتشتّت
+     * مرشّحي الدور الواحد على حملاتٍ متعدّدة فتنقسم شاشات المقارنة.
+     */
+    const createOrReuse = async () => {
+        const role = String(searchRole || '').trim();
+        if (!role || creating) return;
+        setCreating(true);
+        setCreateError('');
+        try {
+            // موجودة سلفاً؟ تُستعمل — فورية، ومخطّطتها جاهزة.
+            const existing = (rows || []).find((r) => normalizeRole(r.title) === normalizeRole(role));
+            if (existing) {
+                onPick(existing);
+                return;
+            }
+            const payload = {
+                position: role,
+                interviewType: 'video',
+                templateType: 'video',
+            };
+            const loc = String(searchContext?.location || '').trim();
+            if (loc) payload.location = loc;
+            const yrs = String(searchContext?.yearsExperience || '').trim();
+            if (yrs) payload.experienceYears = yrs;
+
+            const result = await apiClient.post('/api/recruitment-campaigns', payload);
+            if (!result?.success || !result?.campaignId) {
+                setCreateError(t('aiHeadHunterCampaignPickerCreateFailed'));
+                return;
+            }
+            /*
+             * تُختار فوراً. ولغتها فارغة عن قصد: المخطّطة لم تُقفل بعد (٦٠–١٣٠
+             * ثانية)، فيُحذف مُعامل اللغة من الرابط بدل اختراع واحدة.
+             */
+            onPick({ campaignId: result.campaignId, title: role, language: '' });
+        } catch {
+            setCreateError(t('aiHeadHunterCampaignPickerCreateFailed'));
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    const canCreateFromSearch = Boolean(wantedRole);
+
     return (
         <div className="headhunter-campaign-picker">
             <div className="headhunter-campaign-picker__head">
@@ -114,7 +183,45 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                 <p>{t('aiHeadHunterCampaignPickerHint')}</p>
             </div>
 
-            {rows === null ? (
+            {canCreateFromSearch ? (
+                <>
+                    <button
+                        type="button"
+                        className="headhunter-campaign-picker__create-row"
+                        onClick={createOrReuse}
+                        disabled={creating || rows === null}
+                    >
+                        <span className="headhunter-campaign-picker__create-role">
+                            {localizeCatalogLabel(searchRole, currentLang) || searchRole}
+                        </span>
+                        <span className="headhunter-campaign-picker__create-hint">
+                            {creating
+                                ? t('aiHeadHunterCampaignPickerCreating')
+                                : t('aiHeadHunterCampaignPickerCreateFromSearch')}
+                        </span>
+                    </button>
+                    {createError ? (
+                        <p className="headhunter-campaign-picker__state">{createError}</p>
+                    ) : null}
+                    {/*
+                      * مخرجٌ لا واجهة: الزرّ أعلاه هو المسار، لكنّ دوراً مكتوباً
+                      * بصيغةٍ مختلفة عن وظيفتك («Account Manager» مقابل
+                      * «Key Account Manager») لن يُطابَق، فتُنشأ نسخة. هذا
+                      * السطر يسمح بالاختيار اليدوي وقتها.
+                      */}
+                    <button
+                        type="button"
+                        className="headhunter-campaign-picker__toggle"
+                        onClick={() => setBrowsing((v) => !v)}
+                    >
+                        {browsing
+                            ? t('aiHeadHunterCampaignPickerHideList')
+                            : t('aiHeadHunterCampaignPickerBrowse')}
+                    </button>
+                </>
+            ) : null}
+
+            {canCreateFromSearch && !browsing ? null : rows === null ? (
                 <p className="headhunter-campaign-picker__state">{t('aiHeadHunterCampaignPickerLoading')}</p>
             ) : rows.length === 0 ? (
                 <p className="headhunter-campaign-picker__state">
@@ -172,6 +279,7 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                     className="btn btn-tertiary"
                     onClick={load}
                     disabled={refreshing}
+                    hidden={canCreateFromSearch && !browsing}
                 >
                     {refreshing
                         ? t('aiHeadHunterCampaignPickerLoading')

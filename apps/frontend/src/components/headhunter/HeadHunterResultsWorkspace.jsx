@@ -285,6 +285,7 @@ export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, searchCo
                                       /* وظيفة البحث نفسها — الافتراض أن تُعرض
                                          الحملات المطابقة لها وحدها. */
                                       searchRole={searchContext?.position}
+                                      searchContext={searchContext}
                                       onClose={() => setPickerOpen(false)}
                                       onPick={(row) => {
                                           setShareCampaign(row);
