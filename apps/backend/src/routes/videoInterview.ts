@@ -502,12 +502,59 @@ function cleanupExpiredSessions(): void {
     }
 }
 
+/**
+ * How long to let LiveKit finish tearing a retired room down before a new one is
+ * dispatched for the same candidate.
+ *
+ * ⚠️ Deleting a room kills the agent PROCESS serving it, and the worker runs a
+ * single replica. On 2026-09-18 a rebuild dispatched the new room one second
+ * before the old room's deletion landed, and the worker's own log shows the
+ * consequence: `received job request` at 10:50:29, then `process exiting` at
+ * 10:50:30 carrying the OLD room's summary, and not one line for the new room
+ * afterwards. The candidate waited in a correct room, with ten competencies
+ * pinned, and no avatar ever joined.
+ *
+ * Awaiting the delete is necessary but not sufficient — the API returns before
+ * the worker has finished reaping the process — so a short grace follows it.
+ *
+ * ⚠️ A NEW key: none of the 71 LiveKit secrets set in July can reach this.
+ */
+const REBUILD_GRACE_MS = Math.max(
+    0,
+    Number(process.env.INTERVIEW_REBUILD_GRACE_MS ?? 750) || 0
+);
+
+/**
+ * Retire a prewarmed room BEFORE its replacement is built.
+ *
+ * The single place that tears a stale room down, so it cannot be done twice for
+ * the same room — the in-memory and the durable resolver each used to delete it,
+ * and the log showed the same room deleted twice followed by "does not exist".
+ */
+async function retireStaleRoom(roomName: string | undefined, reason: string): Promise<void> {
+    const name = (roomName || '').trim();
+    if (!name) return;
+    console.log(`♻️ Retiring stale room ${name} (${reason}) — waiting for teardown before rebuild`);
+    await deleteLiveKitRoom(name).catch((err: any) => {
+        console.warn(`⚠️ Failed to delete stale room ${name}:`, err?.message || err);
+    });
+    if (REBUILD_GRACE_MS > 0) {
+        await new Promise((resolve) => setTimeout(resolve, REBUILD_GRACE_MS));
+    }
+}
+
 /** Reuse prewarmed room only when campaign matches — prevents HR link using petroleum metadata. */
 function resolvePreparedSessionReuse(
     candidateId: string,
     requestedCampaignId: string | undefined,
     maxAgeMs = 2 * 60 * 1000,
-    requiredCompetencyCount = 0
+    requiredCompetencyCount = 0,
+    /**
+     * Rooms this call decided to retire. It CANNOT delete them itself: this
+     * function is synchronous, so a delete here is fire-and-forget and races the
+     * rebuild that follows. The async caller awaits them via retireStaleRoom.
+     */
+    retire?: string[]
 ): { roomName: string; token: string; sessionId: string } | null {
     cleanupExpiredSessions();
     const existing = activeCandidateSessions.get(candidateId);
@@ -522,11 +569,7 @@ function resolvePreparedSessionReuse(
                 `(stored=${storedCamp}, requested=${reqCamp})`
         );
         activeCandidateSessions.delete(candidateId);
-        if (existing.roomName) {
-            deleteLiveKitRoom(existing.roomName).catch((err: any) => {
-                console.warn(`⚠️ Failed to delete stale room ${existing.roomName}:`, err?.message || err);
-            });
-        }
+        if (existing.roomName) retire?.push(existing.roomName);
         return null;
     }
     // See the durable resolver: a room dispatched before the blueprint locked
@@ -537,9 +580,7 @@ function resolvePreparedSessionReuse(
                 `blueprint now has ${requiredCompetencyCount} — rebuilding`
         );
         activeCandidateSessions.delete(candidateId);
-        if (existing.roomName) {
-            deleteLiveKitRoom(existing.roomName).catch(() => undefined);
-        }
+        if (existing.roomName) retire?.push(existing.roomName);
         return null;
     }
     return {
@@ -563,12 +604,19 @@ async function resolvePreparedSessionReuseDurable(
     requestedCampaignId: string | undefined,
     requiredCompetencyCount = 0
 ): Promise<{ roomName: string; token: string; sessionId: string } | null> {
+    // Rooms the synchronous pass decided to retire, torn down here where it can
+    // be AWAITED — the rebuild must not start while the old agent process lives.
+    const retire: string[] = [];
     const inMemory = resolvePreparedSessionReuse(
         candidateId,
         requestedCampaignId,
         undefined,
-        requiredCompetencyCount
+        requiredCompetencyCount,
+        retire
     );
+    for (const roomName of retire) {
+        await retireStaleRoom(roomName, 'in-memory prewarm superseded');
+    }
     if (inMemory) return inMemory;
     try {
         const row = await VideoPrewarmSession.findOne({ candidateId }).lean().exec();
@@ -579,7 +627,7 @@ async function resolvePreparedSessionReuseDurable(
             // Different campaign: the prewarmed room carries the wrong metadata, so
             // drop it here too rather than leaving the agent parked in it.
             await VideoPrewarmSession.deleteOne({ candidateId }).catch(() => undefined);
-            deleteLiveKitRoom(row.roomName).catch(() => undefined);
+            await retireStaleRoom(row.roomName, `campaign mismatch (${storedCamp} -> ${reqCamp})`);
             return null;
         }
         // Same reason, different staleness: /prepare baked the blueprint into the
@@ -599,7 +647,7 @@ async function resolvePreparedSessionReuseDurable(
                     `and the blueprint has since locked (${requiredCompetencyCount}) — rebuilding`
             );
             await VideoPrewarmSession.deleteOne({ candidateId }).catch(() => undefined);
-            deleteLiveKitRoom(row.roomName).catch(() => undefined);
+            await retireStaleRoom(row.roomName, 'prewarmed without competencies');
             return null;
         }
         const token = await createUserToken(row.roomName, `user-${candidateId}`);
