@@ -1005,8 +1005,36 @@ class InterviewAssistant(Agent):
         except Exception as ex:  # no running loop (tests without one) — never fatal
             logger.debug("wait timeout not armed: %s", ex)
 
-    def _wait_timeout_instructions(self) -> str:
+    def _wait_timeout_recommendation(self) -> str:
+        """The recommendation worth offering to a timeout reply, or "".
+
+        ``_turn_recommended`` belongs to the turn the timer was armed on, and that
+        turn was a SILENT WAIT — so what is sitting there is normally the wait's own
+        continuation nudge («أكيد، خذ راحتك وكمل فكرتك.»), not a question at all.
+        Handing it to the model under the words "ask the recommended question" is
+        an instruction to ask something that is not a question.
+
+        The other case is a recommendation that IS a question but has already been
+        spoken; offering it back asks it twice. Checked with the same notion of
+        "same question" the rest of the system uses, so a paraphrase counts.
+        """
         rec = (getattr(self, "_turn_recommended", None) or "").strip()
+        if not rec:
+            return ""
+        if count_question_marks(rec) < 1:
+            logger.info("wait timeout: recommendation is not a question | rec=%r", rec[:80])
+            return ""
+        mem = self._memory
+        already = normalize_text(rec) == (
+            mem.last_sent_question_norm or ""
+        ) or is_semantic_duplicate_question(rec, mem.asked_questions[-6:])
+        if already:
+            logger.info("wait timeout: recommendation already spoken | rec=%r", rec[:80])
+            return ""
+        return rec
+
+    def _wait_timeout_instructions(self) -> str:
+        rec = self._wait_timeout_recommendation()
         base = (
             "The candidate paused after a short answer and has not continued. Do not wait "
             "further. Reply now in the candidate's language, briefly: at most one short "
@@ -1017,6 +1045,11 @@ class InterviewAssistant(Agent):
             base += (
                 " If there is nothing worth following up, ask the recommended question "
                 f'instead (ONE question only): "{rec[:300]}"'
+            )
+        else:
+            base += (
+                " Do NOT repeat any question you have already asked; follow up on what "
+                "they just said instead."
             )
         return base
 
@@ -1035,7 +1068,21 @@ class InterviewAssistant(Agent):
                     return
                 if str(getattr(sess, "user_state", "")) == "speaking":
                     continue
-                sess.generate_reply(instructions=self._wait_timeout_instructions())
+                instructions = self._wait_timeout_instructions()
+                # ⚠️ The turn plan still says MODE_WAIT — it belongs to the SILENT
+                # turn this timer was armed on. Leaving it in place makes the reply
+                # a non-turn as far as every guard is concerned:
+                #   _guard_repetition_and_language returns on its first line for
+                #     MODE_WAIT ("wait/acknowledge carry no question to guard"), so
+                #     the duplicate check and the bridge never run, and
+                #   enforce_single_question_response strips the «؟» for MODE_WAIT.
+                # Both were visible in the 2026-09-17 interview: the same question
+                # twice, the second time without its question mark. Clearing the
+                # plan makes this what it actually is — a fresh ask — and every
+                # guard (duplicate bridge, post-wrap-up closing, subject ledger)
+                # engages on it. A None plan reads as MODE_ASK everywhere.
+                self._turn_plan = None
+                sess.generate_reply(instructions=instructions)
                 logger.info(
                     "wait_for_completion timed out after %dms → replying to what was said",
                     delay_ms,
@@ -1457,14 +1504,24 @@ class InterviewAssistant(Agent):
             mem.asked_questions[-1] if mem.asked_questions else ""
         )
         ckey = mem.current_competency_key or ""
-        if diag.get("is_substantive_answer") and (ckey or question):
+        claims = bool(diag.get("claims_already_answered"))
+        # ⚠️ A claim is never evidence of itself. «سألتني هذا السؤال وجاوبتك.
+        # خلينا نغيره.» is 39 characters, so `analyze_user_answer` calls it
+        # substantive — and recording it here made it the subject's "prior answer",
+        # which is what `close_on_candidate_claim` then checks. The claim
+        # authorised itself: a candidate who never answered could drop any subject
+        # by saying «جاوبتك». Seen live on 2026-09-17:
+        #   subject_already_covered | prior='سألتني هذا السؤال وجاوبتك. خلينا نغيره.'
+        # Skipping the write leaves only real answers on record, which is exactly
+        # what the claim is supposed to be checked against.
+        if not claims and diag.get("is_substantive_answer") and (ckey or question):
             cov.record_answer(
                 text,
                 question=question,
                 competency_key=ckey,
                 is_rich=bool(diag.get("is_rich_answer")),
             )
-        if not diag.get("claims_already_answered"):
+        if not claims:
             return
         if not cov.close_on_candidate_claim(question, competency_key=ckey):
             return
