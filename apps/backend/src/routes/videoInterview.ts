@@ -49,6 +49,7 @@ import {
     applyBlueprintMetadataToLiveKit,
     buildBlueprintMetadata,
 } from '../services/expertise/blueprintMetadata.js';
+import { pinnedBlueprintForScoring } from '../services/expertise/pinnedBlueprint.js';
 import { resolveApplicationJobContext } from '../services/applicationJobContext.js';
 import { loadCampaignRoles } from '../services/campaignRole.js';
 import { findApplicationForCallback } from '../services/candidateApplicationService.js';
@@ -159,6 +160,10 @@ const activeCandidateSessions = new Map<string, {
     sessionId: string;
     createdAt: number;
     campaignId?: string;
+    /** How many blueprint competencies this room was actually dispatched with.
+     *  0 means it was prepared blind, and /start must rebuild rather than reuse
+     *  it once the blueprint has locked — see resolvePreparedSessionReuse. */
+    blueprintCompetencyCount?: number;
 }>();
 
 const ACTIVE_SESSION_TTL_MS = 5 * 60 * 1000; // 5 دقائق
@@ -501,7 +506,8 @@ function cleanupExpiredSessions(): void {
 function resolvePreparedSessionReuse(
     candidateId: string,
     requestedCampaignId: string | undefined,
-    maxAgeMs = 2 * 60 * 1000
+    maxAgeMs = 2 * 60 * 1000,
+    requiredCompetencyCount = 0
 ): { roomName: string; token: string; sessionId: string } | null {
     cleanupExpiredSessions();
     const existing = activeCandidateSessions.get(candidateId);
@@ -523,6 +529,19 @@ function resolvePreparedSessionReuse(
         }
         return null;
     }
+    // See the durable resolver: a room dispatched before the blueprint locked
+    // carries no competencies, and reusing it reintroduces the blind interview.
+    if (requiredCompetencyCount > 0 && (existing.blueprintCompetencyCount ?? 0) === 0) {
+        console.warn(
+            `♻️ In-memory prewarm for ${candidateId} has no competencies while the ` +
+                `blueprint now has ${requiredCompetencyCount} — rebuilding`
+        );
+        activeCandidateSessions.delete(candidateId);
+        if (existing.roomName) {
+            deleteLiveKitRoom(existing.roomName).catch(() => undefined);
+        }
+        return null;
+    }
     return {
         roomName: existing.roomName,
         token: existing.token,
@@ -541,9 +560,15 @@ function resolvePreparedSessionReuse(
  */
 async function resolvePreparedSessionReuseDurable(
     candidateId: string,
-    requestedCampaignId: string | undefined
+    requestedCampaignId: string | undefined,
+    requiredCompetencyCount = 0
 ): Promise<{ roomName: string; token: string; sessionId: string } | null> {
-    const inMemory = resolvePreparedSessionReuse(candidateId, requestedCampaignId);
+    const inMemory = resolvePreparedSessionReuse(
+        candidateId,
+        requestedCampaignId,
+        undefined,
+        requiredCompetencyCount
+    );
     if (inMemory) return inMemory;
     try {
         const row = await VideoPrewarmSession.findOne({ candidateId }).lean().exec();
@@ -553,6 +578,26 @@ async function resolvePreparedSessionReuseDurable(
         if (reqCamp && storedCamp && reqCamp !== storedCamp) {
             // Different campaign: the prewarmed room carries the wrong metadata, so
             // drop it here too rather than leaving the agent parked in it.
+            await VideoPrewarmSession.deleteOne({ candidateId }).catch(() => undefined);
+            deleteLiveKitRoom(row.roomName).catch(() => undefined);
+            return null;
+        }
+        // Same reason, different staleness: /prepare baked the blueprint into the
+        // room at prewarm time, and the blueprint may have locked since. Reusing a
+        // room that was dispatched BLIND would interview the candidate without the
+        // competencies they are then graded against — which is the whole defect
+        // this gate exists to stop, arriving through the back door.
+        //
+        // Treated exactly like the campaign mismatch above, deliberately: drop the
+        // row, drop the room, return null, and let the ordinary /start path build a
+        // correct one. That path already handles billing and session persistence;
+        // patching metadata into a live room would be a second, untested way to do
+        // the same thing.
+        if (requiredCompetencyCount > 0 && (row.blueprintCompetencyCount ?? 0) === 0) {
+            console.warn(
+                `♻️ Prewarmed room for ${candidateId} was dispatched without competencies ` +
+                    `and the blueprint has since locked (${requiredCompetencyCount}) — rebuilding`
+            );
             await VideoPrewarmSession.deleteOne({ candidateId }).catch(() => undefined);
             deleteLiveKitRoom(row.roomName).catch(() => undefined);
             return null;
@@ -573,12 +618,20 @@ async function persistPrewarmHandoff(
     candidateId: string,
     roomName: string,
     sessionId: string,
-    campaignId?: string
+    campaignId?: string,
+    blueprintCompetencyCount?: number
 ): Promise<void> {
     try {
         await VideoPrewarmSession.findOneAndUpdate(
             { candidateId },
-            { candidateId, roomName, sessionId, campaignId, createdAt: new Date() },
+            {
+                candidateId,
+                roomName,
+                sessionId,
+                campaignId,
+                blueprintCompetencyCount,
+                createdAt: new Date(),
+            },
             { upsert: true }
         ).exec();
     } catch (err: any) {
@@ -1019,13 +1072,20 @@ router.post('/prepare', async (req, res) => {
                     sessionId,
                     createdAt: Date.now(),
                     campaignId: prepareCampaignId || undefined,
+                    blueprintCompetencyCount: prepareBlueprintMeta
+                        ? (prepareBlueprintBundle?.blueprint?.competencies?.length ?? 0)
+                        : 0,
                 });
                 // Mirror the handoff so /start can still find it after a restart.
                 await persistPrewarmHandoff(
                     candidateId,
                     livekitRoomName,
                     sessionId,
-                    prepareCampaignId || undefined
+                    prepareCampaignId || undefined,
+                    // What this room was ACTUALLY given. /start compares against it:
+                    // a room dispatched blind must not be reused once the blueprint
+                    // has since locked.
+                    prepareBlueprintMeta ? (prepareBlueprintBundle?.blueprint?.competencies?.length ?? 0) : 0
                 );
             } catch (error: any) {
                 console.error('⚠️ Failed to prepare LiveKit room:', error.message);
@@ -1187,7 +1247,59 @@ router.post('/start', async (req, res) => {
         const normalizedCampaignIdEarly =
             (typeof campaignId === 'string' && campaignId.trim() ? campaignId.trim() : undefined)
             || candidateCampaignIdEarly;
-        const reusedStartSession = await resolvePreparedSessionReuseDurable(candidateId, normalizedCampaignIdEarly);
+        /**
+         * The gate, enforced on the server.
+         *
+         * A specialist interview must not begin without the competencies it will
+         * be graded against. Three consecutive public-path interviews did exactly
+         * that — /end later handed the scorer the full rubric and they scored on
+         * coverage 0.22, 0.11, 0 and 0.33, one of them ZERO.
+         *
+         * ⚠️ Placed BEFORE the reuse branch on purpose: that branch returns early,
+         * and it is the one that hands the agent a room prepared earlier. A guard
+         * after it would miss exactly the path most likely to carry stale metadata.
+         *
+         * ⚠️ 409, not 4xx-terminal: `retryable` tells the client this is a wait,
+         * not a rejection. Sessions with no campaign — and installations with the
+         * feature off — report ready with zero competencies and pass straight
+         * through, because they claim no specialism and were never at risk.
+         */
+        let startReadiness: BlueprintReadiness = { state: 'ready', competencyCount: 0 };
+        if (!isTestMode && normalizedCampaignIdEarly) {
+            const readiness = await blueprintReadiness(normalizedCampaignIdEarly).catch(
+                (): BlueprintReadiness => ({ state: 'absent', competencyCount: 0 })
+            );
+            startReadiness = readiness;
+            if (readiness.state !== 'ready') {
+                // Polling /blueprint-status is the retry, but a client that calls
+                // /start directly must nudge generation too, or a failed run would
+                // never restart for it.
+                if (isBlueprintFeatureEnabled()) {
+                    ensureBlueprintForCampaign(normalizedCampaignIdEarly).catch(() => {});
+                }
+                console.warn(
+                    `⚠️ /start refused: blueprint ${readiness.state} for campaign ` +
+                        `${normalizedCampaignIdEarly} (candidate ${candidateId})`
+                );
+                return res.status(409).json({
+                    success: false,
+                    code: 'BLUEPRINT_NOT_READY',
+                    state: readiness.state,
+                    competencyCount: readiness.competencyCount,
+                    retryable: true,
+                    message: 'The interview questions for this role are not ready yet.',
+                });
+            }
+        }
+
+        // The count the room MUST already carry. A prewarmed room dispatched before
+        // the blueprint locked carries none, and reusing it would reintroduce the
+        // blind interview through the back door.
+        const reusedStartSession = await resolvePreparedSessionReuseDurable(
+            candidateId,
+            normalizedCampaignIdEarly,
+            startReadiness.competencyCount
+        );
         if (reusedStartSession) {
             console.log(`ℹ️ Reusing existing session for candidate ${candidateId} (prevents duplicate avatar)`);
             // ⚠️ هذا الفرع يعود قبل موضع القياس أدناه، فكان أعمى تماماً — ولا
@@ -1261,6 +1373,11 @@ router.post('/start', async (req, res) => {
                             interviewMode,
                             startedAt: new Date(),
                             ...(reuseSnapshot ? { blueprintSnapshot: reuseSnapshot } : {}),
+                            // Same pin on the reuse path: this session is just as
+                            // historical, and it is the one that carries metadata
+                            // prepared earlier.
+                            blueprintReady: Boolean((reuseSnapshot as any)?.competencies?.length),
+                            blueprintPinnedAt: new Date(),
                             ...(inheritedOrgId ? { organizationId: inheritedOrgId } : {}),
                             // Video billing snapshot — frozen at start; /end + sweep settle against it.
                             ...(reuseVideoBilling
@@ -1459,6 +1576,12 @@ router.post('/start', async (req, res) => {
             ...(jobCriteriaSnapshot ? { jobCriteriaSnapshot } : {}),
             ...(roleContextSnapshot ? { roleContextSnapshot } : {}),
             ...(blueprintSnapshot ? { blueprintSnapshot } : {}),
+            // The historical truth of THIS interview: were the competencies
+            // actually present when it began? /end reads this instead of asking
+            // the campaign again — a blueprint that locks later must not be able
+            // to rewrite the past.
+            blueprintReady: Boolean((blueprintSnapshot as any)?.competencies?.length),
+            blueprintPinnedAt: new Date(),
             ...(inheritedOrgId ? { organizationId: inheritedOrgId } : {}),
             // Video billing snapshot — frozen at start; /end + sweep settle against it.
             ...(videoBilling
@@ -1595,7 +1718,8 @@ router.post('/start', async (req, res) => {
                     candidateId,
                     livekitRoomName,
                     sessionId,
-                    normalizedCampaignId || undefined
+                    normalizedCampaignId || undefined,
+                    startBlueprintBundle?.blueprint?.competencies?.length ?? 0
                 );
             } catch (error: any) {
                 console.warn('⚠️ Failed to create LiveKit room (non-blocking):', error.message);
@@ -2033,39 +2157,34 @@ router.post('/end', async (req, res) => {
                 session?.jobCriteriaSnapshot && typeof session.jobCriteriaSnapshot === 'object'
                     ? (session.jobCriteriaSnapshot as Record<string, unknown>)
                     : undefined;
-            // لو بدأت المقابلة قبل أن يُقفَل blueprint الحملة، لا تحمل الجلسة لقطة —
-            // فيصل النصّ للمصحّح بلا كفاءات ويسقط حتماً إلى insufficient_data.
-            // التوليد انتهى قطعاً الآن، فنلتقطها هنا بدل خسارة التقييم كلّه.
             const resolvedCampaignId = await resolveCampaignIdForEnd(
                 session,
                 resolvedCandidateId
             );
-            // لقطة تُعدّ صالحة فقط إن حملت كفاءات فعليّة؛ لقطة فارغة {} أو جزئية
-            // (بدأت المقابلة قبل قفل blueprint الحملة) لا تنفع المصحّح وتُسقَط لاحقاً.
-            const snapshotHasCompetencies = (
-                snap: Record<string, unknown> | undefined | null
-            ): snap is Record<string, unknown> =>
-                !!snap &&
-                Array.isArray((snap as any).competencies) &&
-                (snap as any).competencies.length > 0;
-            const sessionSnapshot =
-                session?.blueprintSnapshot && typeof session.blueprintSnapshot === 'object'
-                    ? (session.blueprintSnapshot as Record<string, unknown>)
-                    : undefined;
-            let blueprintSnapshot = snapshotHasCompetencies(sessionSnapshot)
-                ? sessionSnapshot
-                : undefined;
-            // إن لم تحمل الجلسة كفاءات (جلسة غير محفوظة أو لقطة فارغة/جزئية) نُعيد البناء
-            // من blueprint الحملة المقفل — التوليد انتهى قطعاً الآن، فنلتقطها بدل خسارة التقييم كلّه.
-            if (!blueprintSnapshot && resolvedCampaignId) {
-                const rebuilt = buildBlueprintSnapshot(
-                    await loadBlueprintBundleSafe(resolvedCampaignId)
-                );
-                if (snapshotHasCompetencies(rebuilt)) blueprintSnapshot = rebuilt;
-                console.log(
-                    blueprintSnapshot
-                        ? `ℹ️ /end: recovered blueprint snapshot for ${sessionId} (campaign ${resolvedCampaignId}, ${(blueprintSnapshot as any).competencies.length} competencies)`
-                        : `⚠️ /end: no locked blueprint competencies for campaign ${resolvedCampaignId} — ${sessionId} will score without competencies`
+            /**
+             * 🔴 THE BLUEPRINT PINNED AT /start IS THE HISTORICAL TRUTH OF THIS
+             * INTERVIEW. A blueprint that locks afterwards does not get to rewrite
+             * the past.
+             *
+             * This used to rebuild the snapshot from the campaign whenever the
+             * session carried none — reasoning that generation had certainly
+             * finished by now, so it was better than losing the evaluation. It is
+             * not: generation finishing LATER is precisely the case where the agent
+             * never had the competencies, so the candidate was asked one set of
+             * questions and graded against another. Measured on four real sessions:
+             * coverage 0.22, 0.11, 0 and 0.33, one of them scoring ZERO.
+             *
+             * A session with no competencies now goes to the scorer without them
+             * and is logged. The readiness gate on /start makes that nearly
+             * unreachable; when it does happen, an honest "insufficient" beats a
+             * confident wrong number.
+             */
+            const blueprintSnapshot = pinnedBlueprintForScoring(session);
+            if (!blueprintSnapshot) {
+                console.warn(
+                    `⚠️ /end: ${sessionId} had no competencies pinned at start ` +
+                        `(campaign ${resolvedCampaignId || 'n/a'}) — scoring WITHOUT them. ` +
+                        `The interview never asked about them.`
                 );
             }
             // One scorer run per interview. /end arrives twice when a tab closes (the

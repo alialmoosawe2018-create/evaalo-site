@@ -25,6 +25,11 @@ export interface IVideoPrewarmSession extends Document {
     roomName: string;
     sessionId: string;
     campaignId?: string;
+    /** How many blueprint competencies the prewarmed room was actually given.
+     *  0 means the room was dispatched blind — /start must not reuse it once the
+     *  blueprint has since locked, or the candidate is interviewed without the
+     *  competencies they will then be graded against. */
+    blueprintCompetencyCount?: number;
     createdAt: Date;
 }
 
@@ -33,6 +38,7 @@ const VideoPrewarmSessionSchema = new Schema<IVideoPrewarmSession>({
     roomName: { type: String, required: true },
     sessionId: { type: String, required: true },
     campaignId: { type: String },
+    blueprintCompetencyCount: { type: Number },
     // Mongo removes the row on its own once the handoff window has passed, so a
     // stale prewarm can never be reused for a later interview.
     createdAt: { type: Date, default: Date.now, expires: 300 },

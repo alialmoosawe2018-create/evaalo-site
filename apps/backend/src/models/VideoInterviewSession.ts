@@ -45,6 +45,17 @@ export interface IVideoInterviewSession extends Document {
     /** نص ROLE CONTEXT المختصر الجاهز (يُرسل للوكيل عبر metadata ويُخزَّن للاتساق). */
     roleContextSnapshot?: string;
     /**
+     * هل كانت كفاءات المخطّطة حاضرة فعلاً لحظة البدء؟
+     *
+     * ⚠️ المخطّطة الموجودة عند `/start` هي **الحقيقة التاريخية** لهذه المقابلة.
+     * ظهور مخطّطةٍ أحدث بعدها لا يعطي `/end` حقّ تغيير الماضي: كان `/end` يعيد
+     * بناء اللقطة من الحملة فيُصحَّح المرشّح على كفاءاتٍ لم تُطرح عليه —
+     * تغطية ٠٫٢٢ و٠٫١١ و٠ و٠٫٣٣، وواحدة بدرجة صفر.
+     */
+    blueprintReady?: boolean;
+    /** متى ثُبِّتت اللقطة — أي متى صارت هذه الحقيقة التاريخية. */
+    blueprintPinnedAt?: Date;
+    /**
      * لقطة Blueprint الحملة وقت بدء المقابلة (إن وُجد blueprint مقفل) — لثبات المقابلة
      * لكل المرشحين ولاستخدامها في التقييم بالكفاءات لاحقاً، دون التأثّر بأي تغيير لاحق.
      */
@@ -207,6 +218,14 @@ const VideoInterviewSessionSchema = new Schema<IVideoInterviewSession>(
         },
         blueprintSnapshot: {
             type: Schema.Types.Mixed,
+            default: undefined
+        },
+        blueprintReady: {
+            type: Boolean,
+            default: undefined
+        },
+        blueprintPinnedAt: {
+            type: Date,
             default: undefined
         },
         startedAt: {
