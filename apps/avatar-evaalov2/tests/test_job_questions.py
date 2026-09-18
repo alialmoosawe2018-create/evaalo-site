@@ -326,8 +326,23 @@ def test_seniority_and_suffix_normalization(title: str, expected_category: str) 
 
 
 def test_unknown_role_still_yields_no_false_positive() -> None:
+    """An unknown role must never be matched to someone else's bank.
+
+    ⚠️ The outcome changed DELIBERATELY on 2026-09-18 and this test was updated
+    with it — do not "fix" it back. It used to assert `start_no_bank`: correct
+    about the false positive, but it meant an interview with no anchors at all.
+    Once the fuzzy tier was blocked for blueprint-less sessions (a real interview
+    had handed an "HR Assistant" the HR Business Partner bank), `start_no_bank`
+    would have become the COMMON outcome rather than the rare one. Neutral
+    behavioural anchors keep the session real while still claiming no specialism,
+    which is what this test has always been protecting.
+    """
     res = resolve_livekit_questions({"position": "Totally Made Up Role"})
-    assert res.resolution == "start_no_bank"
+    assert res.resolution == "neutral_behavioral"
+    # the point of the test, unchanged: no other role's bank was selected
+    assert res.category == ""
+    assert res.industry_family == ""
+    assert res.matched_key == "__neutral__"
 
 
 def test_software_engineer_and_developer_share_job_override() -> None:

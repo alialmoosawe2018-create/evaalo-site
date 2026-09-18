@@ -189,8 +189,22 @@ def _fuzzy_match_slug(store: _QuestionBankStore, pos: str) -> tuple[str, str] | 
             continue
         union = candidates | key_tokens
         jaccard = len(inter) / len(union)
-        # Reward full containment (e.g. candidate ⊆ key or key ⊆ candidate).
-        if candidates <= key_tokens or key_tokens <= candidates:
+        # Reward full containment (e.g. candidate ⊆ key or key ⊆ candidate) —
+        # but ONLY when both sides carry more than one distinctive token.
+        #
+        # ⚠️ 2026-09-18, from a real interview: "HR Assistant" reduces to the single
+        # token {'hr'} because "assistant" is a stopword. {'hr'} is contained in
+        # EVERY HR title, so the reward lifted it to 0.75, cleared the 0.6
+        # threshold, and handed a junior assistant the HR BUSINESS PARTNER bank —
+        # he was asked how he balances employee experience, company policy and
+        # compliance "when taking decisions". Raw overlap alone scores 1/3 here,
+        # which is correctly below the threshold. A one-token title carries no
+        # evidence of WHICH role it is, so it must not win on containment.
+        if (
+            len(candidates) >= 2
+            and len(key_tokens) >= 2
+            and (candidates <= key_tokens or key_tokens <= candidates)
+        ):
             jaccard = max(jaccard, 0.75)
         if jaccard > best_score:
             best_score, best_slug, best_key = jaccard, slug, key
@@ -270,6 +284,55 @@ def _load_store() -> _QuestionBankStore:
     return _store
 
 
+# Role-agnostic behavioural anchors, used ONLY when there is no blueprint and no
+# trustworthy catalog match. Nothing here claims a specialism, so a candidate can
+# never be asked another role's expert questions. Arabic on purpose: the English
+# ``__default__`` bank is three lines long and was heard as English mid-interview.
+NEUTRAL_BEHAVIORAL_QUESTIONS: tuple[str, ...] = (
+    "خذني بخبرتك العملية بشكل عام — شنو آخر شغل اشتغلته، وشنو كانت مسؤولياتك اليومية بيه؟",
+    "احچيلي عن موقف صعب مرّ عليك بالشغل. شنو كانت الحالة، وشنو سويت بيها؟",
+    "كل شغل بيه ضغط. اذكرلي مرّة انضغطت بيها بالوقت أو بالموارد، شلون تصرّفت؟",
+    "اذكرلي حالة اشتغلت بيها ضمن فريق وصار فيها خلاف بالرأي — شنو كان دورك بيها؟",
+    "احچيلي عن شغلة سويتها وتفتخر بيها. شنو اللي سويته بالضبط، وشنو كانت النتيجة؟",
+    "صار وياك خطأ بالشغل؟ اذكرلي شنو صار، وشلون عالجته.",
+    "شلون تنظّم أولوياتك لما تصير عندك أكثر من مهمة بنفس الوقت — اذكرلي مثال حقيقي؟",
+    "اذكرلي شي جديد تعلّمته بشغلك مؤخراً، وشلون استفدت منه فعلياً؟",
+)
+
+
+def blueprint_competency_count(meta: dict[str, Any]) -> int:
+    """How many competencies the blueprint in this metadata carries (0 when absent).
+
+    The backend ships the blueprint as a JSON string under ``metadata.blueprint``
+    with a ``competencies`` list (see ``buildBlueprintMetadata``). Deliberately
+    tolerant: anything unreadable counts as ZERO, because the consequence of a
+    false "present" is a candidate being asked another role's expert questions,
+    while the consequence of a false "absent" is a neutral interview.
+    """
+    raw = meta.get("blueprint")
+    if not raw:
+        return 0
+    try:
+        bp = json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:
+        return 0
+    if not isinstance(bp, dict):
+        return 0
+    comps = bp.get("competencies")
+    return len(comps) if isinstance(comps, list) else 0
+
+
+def _allow_fuzzy_without_blueprint() -> bool:
+    """Escape hatch for the guard below. Default OFF — guessing is the defect.
+
+    ⚠️ A NEW key: the 71 LiveKit secrets set in July cannot be read back or edited
+    in place, so a guard gated on any of them would be governed by a value nobody
+    can see.
+    """
+    raw = (os.getenv("INTERVIEW_FUZZY_BANK_WITHOUT_BLUEPRINT_V4") or "").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
 def _canonical_slug(slug_key: str) -> str:
     """Follow ``alias_of`` in position_registry (e.g. software-developer -> software-engineer)."""
     store = _load_store()
@@ -323,7 +386,9 @@ def position_slug_from_meta(meta: dict[str, Any]) -> str:
     return ""
 
 
-def _resolve_registry_entry(meta: dict[str, Any], slug_key: str) -> dict[str, str] | None:
+def _resolve_registry_entry(
+    meta: dict[str, Any], slug_key: str, *, allow_fuzzy: bool = True
+) -> dict[str, str] | None:
     store = _load_store()
     if slug_key and slug_key in store.position_registry:
         return store.position_registry[slug_key]
@@ -358,6 +423,18 @@ def _resolve_registry_entry(meta: dict[str, Any], slug_key: str) -> dict[str, st
             if vslug and vslug in store.position_registry:
                 return store.position_registry[vslug]
         # 3) Fuzzy token-overlap fallback (safety net before industry_family/default).
+        # Blocked outright when there is no blueprint: with competencies present the
+        # interview is driven by them and a near-miss bank is harmless depth, but
+        # WITHOUT them the bank IS the interview — and a guessed specialism is then
+        # the whole instrument. The owner's rule: «HR Assistant لا يجوز أن يتحول إلى
+        # HR Business Partner لمجرد fuzzy match».
+        if not allow_fuzzy:
+            logger.info(
+                "Question bank: fuzzy match skipped for %r — no blueprint competencies "
+                "(a guessed specialism would be the whole interview)",
+                pos,
+            )
+            return None
         fuzzy = _fuzzy_match_slug(store, pos)
         if fuzzy:
             slug, key = fuzzy
@@ -436,7 +513,11 @@ def resolve_livekit_questions(meta: dict[str, Any]) -> BankResolution:
     store = _load_store()
     job_key = primary_job_id_from_meta(meta)
     slug_key = position_slug_from_meta(meta)
-    registry = _resolve_registry_entry(meta, slug_key)
+    # With competencies present, behaviour is exactly as before. Without them the
+    # bank is the entire interview, so no specialism may be guessed into it.
+    has_blueprint = blueprint_competency_count(meta) > 0
+    allow_fuzzy = has_blueprint or _allow_fuzzy_without_blueprint()
+    registry = _resolve_registry_entry(meta, slug_key, allow_fuzzy=allow_fuzzy)
     category = str((registry or {}).get("category") or "").strip()
     industry_family = str((registry or {}).get("industry_family") or "").strip()
 
@@ -527,6 +608,30 @@ def resolve_livekit_questions(meta: dict[str, Any]) -> BankResolution:
             position_slug=slug_key,
             category=category,
             industry_family=industry_family,
+            override_used=False,
+        )
+        log_question_bank_resolved(res)
+        return res
+
+    # Nothing trustworthy matched. With no blueprint either, the alternative to a
+    # neutral bank is `start_no_bank` — an interview with no anchors at all — so the
+    # guard above would have traded a wrong-role interview for no interview. Neutral
+    # behavioural anchors keep the session real without claiming any specialism.
+    if not has_blueprint:
+        logger.warning(
+            "Interview question bank: neutral behavioural anchors "
+            "(no blueprint competencies and no trusted match for slug=%r) — "
+            "this session is NOT a specialist interview",
+            slug_key or None,
+        )
+        res = _make_resolution(
+            list(NEUTRAL_BEHAVIORAL_QUESTIONS),
+            resolution="neutral_behavioral",
+            matched_key="__neutral__",
+            question_bank_source="__neutral__",
+            position_slug=slug_key,
+            category="",
+            industry_family="",
             override_used=False,
         )
         log_question_bank_resolved(res)
