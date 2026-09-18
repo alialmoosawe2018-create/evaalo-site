@@ -2888,6 +2888,21 @@ const VideoInterviewCall = () => {
             // حفظ session ID
             const newSessionId = startData.sessionId;
             setSessionId(newSessionId);
+            /*
+             * 🔴 من هنا فصاعداً معرّف /prepare ميّت.
+             *
+             * كان يبقى في الـref إلى الأبد، وحارس pagehide يحسب
+             * `sessionId || prewarmSessionIdRef.current`. وبما أنّ endInterview()
+             * يصفّر sessionId، فإنّ أيّ إغلاق تبويبة بعد انتهاء المقابلة كان
+             * يُعيد إرسال نصّ المقابلة الحقيقي تحت معرّف التحمية المتقاعد —
+             * فيصل المقيّم تقييمان لمقابلة واحدة، والثاني يطمس الأوّل
+             * (قِيس 2026-09-18: نداءان 12:11:32 و12:14:16).
+             *
+             * يُمحى دون شرط: إن أُعيد استخدام غرفة التحمية فالمعرّف نفسه صار
+             * في sessionId، وكلّ المستهلكين يقرأونه أوّلاً — فلا شيء يعتمد على
+             * الـref بعد نجاح /start.
+             */
+            prewarmSessionIdRef.current = null;
 
             // 3. الاتصال بـ LiveKit Room (الـ Agent سيبدأ تلقائياً من Backend)
             if (startData.livekit && startData.livekit.roomName && startData.livekit.token && startData.livekit.url) {
@@ -3291,6 +3306,8 @@ const VideoInterviewCall = () => {
         setAssistantLiveCaption('');
         setIsConnected(false);
         setSessionId(null);
+        // ولا يُترك معرّف التحمية خلفه ليلتقطه حارس pagehide بعد الانتهاء.
+        prewarmSessionIdRef.current = null;
         setLivekitRoomName(null);
         setLivekitToken(null);
         setLivekitUrl(null);

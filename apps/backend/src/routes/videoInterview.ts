@@ -44,7 +44,12 @@ import {
     type BlueprintReadiness,
     type LockedBlueprintBundle,
 } from '../services/expertise/ensureBlueprint.js';
-import { claimOnce, withTimeout } from '../services/videoStartGuards.js';
+import {
+    claimOnce,
+    isRetiredInterviewIdentity,
+    retireInterviewIdentity,
+    withTimeout,
+} from '../services/videoStartGuards.js';
 import {
     applyBlueprintMetadataToLiveKit,
     buildBlueprintMetadata,
@@ -569,6 +574,7 @@ function resolvePreparedSessionReuse(
                 `(stored=${storedCamp}, requested=${reqCamp})`
         );
         activeCandidateSessions.delete(candidateId);
+        retireInterviewIdentity(existing.sessionId, 'campaign mismatch');
         if (existing.roomName) retire?.push(existing.roomName);
         return null;
     }
@@ -580,6 +586,7 @@ function resolvePreparedSessionReuse(
                 `blueprint now has ${requiredCompetencyCount} — rebuilding`
         );
         activeCandidateSessions.delete(candidateId);
+        retireInterviewIdentity(existing.sessionId, 'prewarmed without competencies');
         if (existing.roomName) retire?.push(existing.roomName);
         return null;
     }
@@ -627,6 +634,7 @@ async function resolvePreparedSessionReuseDurable(
             // Different campaign: the prewarmed room carries the wrong metadata, so
             // drop it here too rather than leaving the agent parked in it.
             await VideoPrewarmSession.deleteOne({ candidateId }).catch(() => undefined);
+            retireInterviewIdentity(row.sessionId, 'campaign mismatch (durable)');
             await retireStaleRoom(row.roomName, `campaign mismatch (${storedCamp} -> ${reqCamp})`);
             return null;
         }
@@ -647,6 +655,7 @@ async function resolvePreparedSessionReuseDurable(
                     `and the blueprint has since locked (${requiredCompetencyCount}) — rebuilding`
             );
             await VideoPrewarmSession.deleteOne({ candidateId }).catch(() => undefined);
+            retireInterviewIdentity(row.sessionId, 'prewarmed without competencies (durable)');
             await retireStaleRoom(row.roomName, 'prewarmed without competencies');
             return null;
         }
@@ -2235,12 +2244,28 @@ router.post('/end', async (req, res) => {
                         `The interview never asked about them.`
                 );
             }
-            // One scorer run per interview. /end arrives twice when a tab closes (the
-            // pagehide beacon and the room disconnect fire together, 100–300 ms
-            // apart) and both used to reach n8n with the same transcript — one
-            // session scored 9 and 17 for identical input. Billing already dedupes
-            // on `vi_end:<sessionId>`; the scorer call did not.
-            if (!claimOnce(stage3Sent, sessionId)) {
+            /*
+             * 🔴 An id /start abandoned before the interview began may not be scored.
+             *
+             * The browser keeps the /prepare session id and falls back to it once the
+             * live id is cleared, so closing a finished tab re-posts the REAL
+             * transcript under the retired id. With no session row the server takes
+             * the transcript from the request body and scores the same interview a
+             * second time — and claimOnce below cannot see it, because that dedupes
+             * per session id and this arrives under a different one. Measured
+             * 2026-09-18: two Stage 3 callbacks for one interview (12:11:32 and
+             * 12:14:16), the second overwriting the first on the application.
+             *
+             * Only the SCORER is refused. Teardown, billing and session closure are
+             * outside this branch and still run, so nothing is left hanging.
+             */
+            if (isRetiredInterviewIdentity(sessionId)) {
+                console.warn(
+                    `🪦 /end: ${sessionId} was retired before its interview began — ` +
+                        `refusing to score it. The real session was already evaluated ` +
+                        `under its own id.`
+                );
+            } else if (!claimOnce(stage3Sent, sessionId)) {
                 console.log(
                     `ℹ️ /end: Stage 3 already dispatched for ${sessionId} — not sending the transcript twice`
                 );

@@ -37,10 +37,6 @@ import {
     formatVisionRead,
     CERT_VISION_MAX_PER_APPLICATION,
 } from './certificateVisionReader.js';
-import {
-    buildBlueprintSnapshot,
-    getLockedBlueprintForCampaign,
-} from './expertise/ensureBlueprint.js';
 
 // الحصول على مسار المجلد الحالي
 const __filename = fileURLToPath(import.meta.url);
@@ -1098,32 +1094,35 @@ export const sendVideoTranscriptToN8N = async (payload: {
             conversationHistory: payload.conversationHistory,
         });
 
-        // /prepare + /start reuse never persist a session, so /end often has no
-        // snapshot even when the campaign's blueprint has been locked for minutes.
-        // Fill it here — the last hop before n8n — whenever campaignId is known.
-        let blueprintSnapshot =
+        // 🔴 The blueprint pinned at /start is the historical truth of this interview,
+        // and this is the LAST hop before the scorer — so it is the last place that
+        // could quietly rewrite it. It must not.
+        //
+        // Until 2026-09-18 it did: whenever the caller had no snapshot it rebuilt one
+        // from the campaign, on the premise (written into the old comment here) that
+        // "/prepare + /start reuse never persist a session". That premise is false —
+        // both session writes pin the snapshot. And the premise was never the point:
+        // a blueprint that locks AFTER the interview is exactly the case where the
+        // agent never had the competencies, so the candidate is asked one set of
+        // questions and graded against another.
+        //
+        // Measured the day this was closed: a retired blind prewarm session with no
+        // session row at all was handed 10 recovered competencies here and scored a
+        // second time — 0 / Reject — for an interview it never conducted.
+        //
+        // The twin of this block was deleted from the /end route first; this one
+        // survived and defeated it, because the detector only read the route. The
+        // module no longer imports the campaign lookup at all, so the capability is
+        // gone rather than merely unused.
+        const blueprintSnapshot =
             payload.blueprintSnapshot && Object.keys(payload.blueprintSnapshot).length > 0
                 ? payload.blueprintSnapshot
                 : undefined;
-        if (!blueprintSnapshot && campaignId) {
-            try {
-                blueprintSnapshot = buildBlueprintSnapshot(
-                    await getLockedBlueprintForCampaign(campaignId)
-                );
-                if (blueprintSnapshot) {
-                    const n = Array.isArray(blueprintSnapshot.competencies)
-                        ? blueprintSnapshot.competencies.length
-                        : 0;
-                    console.log(
-                        `[n8n video] recovered blueprint snapshot for campaign ${campaignId} (${n} competencies)`
-                    );
-                }
-            } catch (bpErr: unknown) {
-                const message = bpErr instanceof Error ? bpErr.message : String(bpErr);
-                console.warn(
-                    `[n8n video] blueprint snapshot lookup failed for ${campaignId}: ${message}`
-                );
-            }
+        if (!blueprintSnapshot) {
+            console.warn(
+                `[n8n video] ${payload.sessionId} has no pinned blueprint — scoring WITHOUT competencies. ` +
+                    `The interview never asked about them; the campaign's blueprint is not a substitute.`
+            );
         }
 
         const body: Record<string, unknown> = {
