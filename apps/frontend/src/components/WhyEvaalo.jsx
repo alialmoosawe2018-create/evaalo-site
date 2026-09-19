@@ -13,7 +13,7 @@ const STEP_ICONS = [
     'M4 6h16M4 11h9M4 16h6 M17.2 14.2m-3.2 0a3.2 3.2 0 1 0 6.4 0a3.2 3.2 0 1 0 -6.4 0 M19.6 16.6L22 19',
     // Voice Interview — microphone
     'M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z M6 11a6 6 0 0 0 12 0 M12 17v4 M9 21h6',
-    // Video Assessment — camera
+    // Video Interview — camera
     'M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M16 10l5-3v10l-5-3',
     // Candidate Comparison — ranked bars
     'M5 20V12 M12 20V5 M19 20v-5',
@@ -54,7 +54,7 @@ const buildStepArt = (questionMark) => [
         <path d="M42 24l1 6 6-6" />
         <text x="44.5" y="20" textAnchor="middle" fontSize="13" fontWeight="700" stroke="none" fill="currentColor">{questionMark}</text>
     </>,
-    // Video Assessment — scored against the role's own competency model (this is
+    // Video Interview — scored against the role's own competency model (this is
     // literally the blueprint radar behind Stage 3).
     <>
         {/* The grid: a regular pentagon with its axes. */}
