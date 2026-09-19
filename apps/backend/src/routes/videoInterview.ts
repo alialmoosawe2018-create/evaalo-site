@@ -749,6 +749,43 @@ function normalizeAgentLanguage(raw: unknown): 'ar' | 'en' | undefined {
 }
 
 /**
+ * اللغة التي يسمعها المرشّح — لا لغة الرابط وحدها.
+ *
+ * 🔴 العطب الذي تُغلقه هذه الدالّة (٢٠٢٦-٠٩-١٨، مقابلة Sales Manager/بغداد).
+ * كانت لغة الوكيل تُقرأ من جسم طلب `/start` **وحده**. رابطٌ بلا `lang` ⇒ لا
+ * يُرسَل `metadata.language` إطلاقاً ⇒ الوكيل يسقط على متغيّر بيئته
+ * `INITIAL_GREETING_LANGUAGE` (موجودٌ في أسرار LiveKit منذ تمّوز، وقيمته ليست
+ * عربية)، فافتتح مقابلةً عربية بـ«Hello … let's begin.» وسؤالٍ إنجليزي من بنك
+ * الأسئلة. أوّل ما نطق به المرشّح كان: «Can we speak in Arabic? Please?».
+ *
+ * وكلّ شيء آخر في الجلسة كان يعرف الجواب: المخطّطة لغتها `ar` وكفاءاتها
+ * ومرتكزاتها عربية، ومعايير الحملة تحمل `evaluationLanguage: "ar"`.
+ *
+ * ⚠️ والمفارقة أنّ هذه السلسلة **كانت موجودة أصلاً — للمصحّح لا للمُحاوِرة**:
+ * `/end` يرسل إلى n8n بـ`session.language || blueprintSnapshot.language ||
+ * 'auto'`. فعرف المقيّم أنّ المقابلة عربية، ولم يعرف الوكيل. نفس الملفّ، نفس
+ * الجلسة، قاعدتان.
+ *
+ * ⚠️ الترتيب مقصود: اختيار الموظّف الصريح في الرابط يعلو على المخطّطة — من
+ * يطلب مقابلة إنجليزية يحصل عليها. المخطّطة احتياطٌ عند الصمت، لا تجاوز.
+ *
+ * ⚠️ ولماذا ظهر الآن: زرّ «أنشئ الوظيفة من البحث» يُنشئ الحملة ثمّ يبني الرابط
+ * فوراً، والمخطّطة لم تُقفل بعد، فتُحذف لغة الرابط عمداً بدل اختراع واحدة. أي
+ * أنّ **كلّ حملة جديدة** كانت تسقط في هذه الحفرة بالضبط.
+ */
+function resolveAgentLanguage(
+    linkLanguage: unknown,
+    blueprintLanguage: unknown,
+    criteriaLanguage: unknown
+): 'ar' | 'en' | undefined {
+    return (
+        normalizeAgentLanguage(linkLanguage) ||
+        normalizeAgentLanguage(blueprintLanguage) ||
+        normalizeAgentLanguage(criteriaLanguage)
+    );
+}
+
+/**
  * LiveKit question bank metadata (high-quality path):
  * 1) jobId in request body (valid Mongo ObjectId) wins.
  * 2) Else candidate.jobPostingId from DB.
@@ -961,6 +998,8 @@ router.post('/prepare', async (req, res) => {
         const prepareIsPublic = !isTestMode
             && String((candidate as { sourceType?: string }).sourceType || '').trim().toLowerCase() === 'public_screening';
         let prepareRoleContext = '';
+        /* لغة تقييم الحملة — آخر احتياط للوكيل حين يصمت الرابط والمخطّطة. */
+        let prepareCriteriaLanguage: unknown;
         if (prepareIsPublic && prepareCampaignId) {
             try {
                 const camp = await RecruitmentCampaign.findOne({ campaignId: prepareCampaignId }).lean();
@@ -969,6 +1008,7 @@ router.post('/prepare', async (req, res) => {
                         (camp.criteria && typeof camp.criteria === 'object') ? camp.criteria as Record<string, any> : undefined,
                         camp.jobAdvertisement
                     );
+                    prepareCriteriaLanguage = (camp.criteria as Record<string, any> | undefined)?.evaluationLanguage;
                 }
             } catch (campErr: any) {
                 console.warn(`⚠️ /prepare: failed to load campaign criteria for ${prepareCampaignId}: ${campErr?.message || campErr}`);
@@ -988,6 +1028,15 @@ router.post('/prepare', async (req, res) => {
             ? null
             : await resolveBlueprintForStart(prepareCampaignId);
         const prepareBlueprintMeta = buildBlueprintMetadata(prepareBlueprintBundle);
+        /*
+         * تُحسب هنا لا داخل الكائن: المخطّطة لم تكن معروفة قبل هذا السطر، وهي
+         * الاحتياط الذي يمنع الوكيل من الترحيب بلغة متغيّر بيئته.
+         */
+        const prepareAgentLanguage = resolveAgentLanguage(
+            prepareLanguage,
+            prepareBlueprintBundle?.blueprint?.language,
+            prepareCriteriaLanguage
+        );
 
         // The blueprint step can take seconds. If the candidate pressed Start meanwhile,
         // /start owns the room: dispatching a second agent here would park it in a room
@@ -1071,10 +1120,9 @@ router.post('/prepare', async (req, res) => {
                     current_phase: typeof currentPhase === 'string' && currentPhase.trim() ? currentPhase.trim() : 'L1',
                     current_question: typeof currentQuestion === 'string' && currentQuestion.trim() ? currentQuestion.trim() : 'N/A',
                     // /start قد يعيد استخدام هذه الغرفة دون dispatch جديد، فلا بد
-                    // أن يصلها قفل اللغة هنا أيضاً.
-                    ...(normalizeAgentLanguage(prepareLanguage)
-                        ? { language: normalizeAgentLanguage(prepareLanguage)! }
-                        : {}),
+                    // أن يصلها قفل اللغة هنا أيضاً — ومن المخطّطة عند صمت الرابط،
+                    // وإلا رحّب الوكيل بلغة متغيّر بيئته. انظر resolveAgentLanguage.
+                    ...(prepareAgentLanguage ? { language: prepareAgentLanguage } : {}),
                 };
                 if (bankMeta.jobIdForBank) {
                     metadata.job_id = bankMeta.jobIdForBank;
@@ -1539,6 +1587,15 @@ router.post('/start', async (req, res) => {
         const startBlueprintBundle = isTestMode ? null : await resolveBlueprintForStart(normalizedCampaignId);
         const startBlueprintMeta = buildBlueprintMetadata(startBlueprintBundle);
         const blueprintSnapshot = buildBlueprintSnapshot(startBlueprintBundle);
+        /*
+         * بعد المخطّطة ومعايير الحملة عن قصد: كلاهما يُحمَّل أعلاه، وهذه هي
+         * النقطة الأولى التي تُعرف فيها لغة المقابلة الحقيقية.
+         */
+        const startAgentLanguage = resolveAgentLanguage(
+            sessionLanguage,
+            (blueprintSnapshot as Record<string, unknown> | undefined)?.language,
+            jobCriteriaSnapshot?.evaluationLanguage
+        );
 
         const organizationId =
             !isTestMode && (candidate as { organizationId?: string }).organizationId
@@ -1704,11 +1761,14 @@ router.post('/start', async (req, res) => {
                     question_locked: String(parseStateBool(questionLocked, false)),
                     current_phase: typeof currentPhase === 'string' && currentPhase.trim() ? currentPhase.trim() : 'L1',
                     current_question: typeof currentQuestion === 'string' && currentQuestion.trim() ? currentQuestion.trim() : 'N/A',
-                    // قفل لغة المقابلة من رابط المشاركة — بدونه لا يعرف الوكيل
-                    // أن المقابلة إنجليزية فيرحّب بالعربية افتراضياً.
-                    ...(normalizeAgentLanguage(sessionLanguage)
-                        ? { language: normalizeAgentLanguage(sessionLanguage)! }
-                        : {}),
+                    /*
+                     * قفل لغة المقابلة: الرابط أوّلاً، ثمّ المخطّطة، ثمّ معايير
+                     * الحملة. التعليق القديم هنا قال إنّ غياب القفل يعني ترحيباً
+                     * «بالعربية افتراضياً» — وهذا لم يكن صحيحاً على الإنتاج:
+                     * الوكيل يسقط على `INITIAL_GREETING_LANGUAGE` في أسراره، لا
+                     * على العربية. انظر resolveAgentLanguage.
+                     */
+                    ...(startAgentLanguage ? { language: startAgentLanguage } : {}),
                 };
                 if (bankMeta.jobIdForBank) {
                     metadata.job_id = bankMeta.jobIdForBank;

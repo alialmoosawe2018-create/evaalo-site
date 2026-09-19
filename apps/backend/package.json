@@ -26,6 +26,7 @@
     "test:headhunter-share-wiring": "tsx src/scripts/headhunter-share-wiring-test.ts",
     "test:retired-identity": "tsx src/scripts/retired-identity-test.ts",
     "test:retired-identity-wiring": "tsx src/scripts/retired-identity-wiring-test.ts",
+    "test:agent-language-inheritance": "tsx src/scripts/agent-language-inheritance-test.ts",
     "test:blueprint-no-recovery-at-send": "tsx src/scripts/blueprint-no-recovery-at-send-test.ts",
     "test:prewarm-rebuild-order": "tsx src/scripts/prewarm-rebuild-order-test.ts",
     "test:evaluation-language": "tsx src/scripts/evaluation-language-test.ts",
