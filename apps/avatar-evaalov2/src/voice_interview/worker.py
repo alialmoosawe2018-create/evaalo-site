@@ -35,11 +35,11 @@ from voice_interview.config import (
     avatar_stability_mode,
     effective_avatar_clear_buffer_timeout,
     env_allow_interruption,
-    env_preemptive_generation,
     interview_defaults_enabled,
     interview_discard_audio_if_uninterruptible,
     interview_false_interruption_timeout,
     interview_min_interruption_duration,
+    interview_preemptive_generation,
     interview_profile_normalized,
 )
 from voice_interview.factories import (
@@ -915,7 +915,7 @@ async def my_agent(ctx: JobContext):
     min_ept = float(os.getenv("MIN_ENDPOINTING_DELAY", _default_min_ept))
     max_ept = float(os.getenv("MAX_ENDPOINTING_DELAY", "2.0"))
     min_ept, max_ept = apply_interview_endpointing_boost(min_ept, max_ept)
-    preemptive = env_preemptive_generation()
+    preemptive = interview_preemptive_generation()
     allow_interrupt = env_allow_interruption()
     logger.info(
         "interruption policy | allow_interruptions=%s INTERVIEW_FORCE_ALLOW_INTERRUPTION=%r "

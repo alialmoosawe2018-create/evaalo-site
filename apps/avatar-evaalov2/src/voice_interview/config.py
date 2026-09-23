@@ -315,33 +315,65 @@ def env_allow_interruption() -> bool:
     return True
 
 
-def env_preemptive_generation() -> bool:
-    """AgentSession.preemptive_generation.
+#: The ONE switch for ``AgentSession.preemptive_generation`` in the video interview
+#: agent. Deliberately a name the LiveKit Cloud agent has never had as a secret.
+PREEMPTIVE_OVERRIDE_ENV = "EVAALO_INTERVIEW_PREEMPTIVE_GENERATION"
 
-    When ``PREEMPTIVE_GENERATION=false``, the pipeline waits longer before LLM/TTS work — the UI
-    often stays in *thinking* noticeably longer. Prefer ``true`` with ``INTERVIEW_PROFILE=latency``.
+#: Legacy switches — both still set on the LiveKit Cloud agent (secrets created
+#: 2026-07-18) and NO LONGER READ by this agent. Listed only so the decision log can
+#: say they were present and ignored. See ``interview_preemptive_generation``.
+LEGACY_PREEMPTIVE_ENVS = ("PREEMPTIVE_GENERATION", "INTERVIEW_FORCE_PREEMPTIVE_GENERATION")
 
-    If ``PREEMPTIVE_GENERATION`` is set, it wins. Otherwise with interview defaults it
-    is **off**, and ``INTERVIEW_FORCE_PREEMPTIVE_GENERATION=true`` forces it on.
+_ON = ("1", "true", "yes", "on")
+_OFF = ("0", "false", "no", "off")
 
-    ⚠️ Measured 2026-09-12 (session …1789254551115, 15 turns): ``on_user_turn_completed``
-    rewrites the chat context with the decision frame on EVERY turn, so LiveKit
-    discarded the preemptive result 15 times out of 15 ("chat context or tools have
-    changed") — no latency was ever gained — and once synthesised a 9 s reply
-    mid-answer while the candidate was still talking. Off until the decision frame
-    stops mutating the context.
+
+def interview_preemptive_generation() -> bool:
+    """``AgentSession.preemptive_generation`` for the video interview agent.
+
+    ONE precedence rule: ``EVAALO_INTERVIEW_PREEMPTIVE_GENERATION`` decides, and when it
+    is unset (or unrecognised) the answer is OFF. Nothing else is read — not the legacy
+    ``PREEMPTIVE_GENERATION`` or ``INTERVIEW_FORCE_PREEMPTIVE_GENERATION``, nor
+    ``INTERVIEW_PROFILE`` or ``SPEECHMATICS_INTERVIEW_DEFAULTS``.
+
+    Why it is off. Measured 2026-09-12 (session …1789254551115, 15 turns):
+    ``on_user_turn_completed`` rewrites the chat context with the decision frame on
+    EVERY turn, so LiveKit discards the preemptive result every time ("chat context or
+    tools have changed") — no latency is ever gained. Worse, the discarded draft still
+    runs ``tts_node`` and therefore the reply guard, whose state changes stick: on
+    2026-09-23 20:31 a discarded draft "offered" the wrap-up, so the candidate was never
+    asked «أكو شي تحب تضيفه؟» and the next turn went straight to the closing.
+
+    Why the legacy switches are ignored rather than obeyed. The 09-12 fix made OFF the
+    default but let ``PREEMPTIVE_GENERATION`` win when set — and the deployed agent has
+    carried that secret since July, so the fix never took effect in production (every
+    turn of the 09-23 interviews logged the discard). Those secrets cannot be corrected
+    in place: ``lk agent update-secrets`` rewrites an existing key only with
+    ``--overwrite``, which replaces the whole set, and values cannot be read back.
+
+    To turn it back on deliberately, add ``EVAALO_INTERVIEW_PREEMPTIVE_GENERATION=true``
+    as a NEW secret (adding a key needs no ``--overwrite``).
     """
-    raw = os.getenv("PREEMPTIVE_GENERATION")
-    if raw is not None and str(raw).strip() != "":
-        return str(raw).strip().lower() == "true"
-    if not interview_defaults_enabled():
-        return True
-    # Off for interviews unless forced (see the measurement in the docstring).
-    return os.getenv("INTERVIEW_FORCE_PREEMPTIVE_GENERATION", "false").lower() in (
-        "1",
-        "true",
-        "yes",
+    raw = (os.getenv(PREEMPTIVE_OVERRIDE_ENV) or "").strip().lower()
+    if raw in _ON:
+        enabled = True
+    else:
+        enabled = False
+        if raw and raw not in _OFF:
+            logger.warning(
+                "Ignoring invalid %s=%r (use true or false); preemptive generation stays off",
+                PREEMPTIVE_OVERRIDE_ENV,
+                raw,
+            )
+    legacy = {k: os.getenv(k) for k in LEGACY_PREEMPTIVE_ENVS if (os.getenv(k) or "").strip()}
+    logger.info(
+        "preemptive generation=%s (decided by %s=%s; legacy %s not read)",
+        enabled,
+        PREEMPTIVE_OVERRIDE_ENV,
+        raw or "unset",
+        legacy or "none set",
     )
+    return enabled
 
 
 def interview_turn_detector_v2() -> bool:
