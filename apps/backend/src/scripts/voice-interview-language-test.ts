@@ -212,7 +212,11 @@ function walk(dir: string, out: string[] = []): string[] {
     return out;
 }
 const FRONT_SRC = join(HERE, '..', '..', '..', 'frontend', 'src');
-const VOICE_SITE = /absoluteAppUrl\(`\/(?:interview|screening-call)\?\$\{/g;
+/* Video links too, since the owner's decision (2026-09-23) made the campaign the
+   only authority for BOTH interviews. The video pages stopped reading the link's
+   language in 4350887, so a locale stamped there is dead — but it is exactly the
+   pattern that caused the 09-23 interviews, and it misleads whoever reads it next. */
+const VOICE_SITE = /absoluteAppUrl\(`\/(?:interview|screening-call|video-interview-call|video-screening-call)\?\$\{/g;
 const builders: { file: string; block: string }[] = [];
 for (const file of walk(FRONT_SRC)) {
     const text = readFileSync(file, 'utf8');
@@ -232,21 +236,17 @@ for (const file of walk(FRONT_SRC)) {
         builders.push({ file: file.slice(FRONT_SRC.length + 1).replace(/\\/g, '/'), block });
     }
 }
-console.log(`   voice-link builders found by scan: ${builders.length} — ${builders.map((b) => b.file).join(', ')}`);
+console.log(`   interview-link builders found by scan: ${builders.length} — ${builders.map((b) => b.file).join(', ')}`);
 check('the scan finds at least the four known voice-link builders', builders.length >= 4, true);
+check('…and the two video links built by the job form', builders.filter((b) => b.file.endsWith('NewInterviewSidebar.jsx')).length >= 4, true);
 for (const b of builders) {
     const injects =
         /language:\s*currentLang\s*[,}\n]/.test(b.block) ||
         /\.set\(\s*'language'\s*,\s*currentLang/.test(b.block);
-    check(`${b.file}: the voice link does not carry the recruiter's browser locale`, injects, false);
+    check(`${b.file}: the interview link does not carry the recruiter's browser locale`, injects, false);
 }
 
 /* ── 5. what this change deliberately does NOT touch ──────────────────────── */
-/* The video link is another session's scope (plan: hidden-wibbling-puddle.md) and
-   another window is editing that path — leaving it alone is the point, not an
-   oversight. Asserted so a later edit here has to be deliberate. */
-check('the video share link is left exactly as it was',
-    /\/video-interview-call\?\$\{q\.toString\(\)\}`\);/.test(sidebar) && sidebar.includes('language: currentLang,'), true);
 /* The site-wide default locale is a product decision, not a voice bug. */
 const langCtx = front('contexts', 'LanguageContext.jsx');
 check('the site-wide default locale is untouched', /return 'en';/.test(langCtx), true);

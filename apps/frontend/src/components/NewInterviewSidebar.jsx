@@ -1982,7 +1982,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             const params = new URLSearchParams();
             params.set('campaignId', result.campaignId);
             params.set('mode', 'public');
-            params.set('language', currentLang || 'ar');
+            // بلا لغة: الحملة تقرّر (`interviewLanguage`)، وصفحة الفيديو لا تقرأها من الرابط.
             if (pos) params.set('position', pos);
             const link = absoluteAppUrl(`/video-screening-call?${params.toString()}`);
             setCampaignId(result.campaignId);
@@ -2147,7 +2147,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                 candidateId: personId,
                                 campaignId: result.campaignId,
                                 applicationId,
-                                language: currentLang,
+                                // بلا لغة: الحملة تقرّر في الخادم (videoInterview /prepare و/start).
+                                language: undefined,
                             });
                             const videoLink = absoluteAppUrl(`/video-interview-call?${q.toString()}`);
                             setVideoInterviewLinkWithCandidate(videoLink);
