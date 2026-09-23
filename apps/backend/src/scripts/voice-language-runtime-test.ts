@@ -190,7 +190,8 @@ class VoiceClient {
     msgs: Array<Record<string, any>> = [];
     closed = false;
     closeCode?: number;
-    constructor(url: string) {
+    /** @param playbackMs how long "the audio plays" before the browser reports its end */
+    constructor(url: string, playbackMs = 0) {
         this.ws = new WebSocket(url);
         this.ws.on('message', (data) => {
             let m: Record<string, any>;
@@ -201,8 +202,12 @@ class VoiceClient {
             }
             this.msgs.push(m);
             // the browser reports the end of every playback
-            if (m.type === 'tts_complete' && this.ws.readyState === WebSocket.OPEN) {
-                this.ws.send(JSON.stringify({ type: 'playback_ended' }));
+            if (m.type === 'tts_complete') {
+                const report = () => {
+                    if (this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: 'playback_ended' }));
+                };
+                if (playbackMs > 0) setTimeout(report, playbackMs);
+                else report();
             }
         });
         this.ws.on('close', (code) => {
@@ -236,10 +241,10 @@ class VoiceClient {
 }
 
 let port = 0;
-async function connect(query: Record<string, string | undefined>) {
+async function connect(query: Record<string, string | undefined>, playbackMs = 0) {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(query)) if (v !== undefined) qs.set(k, v);
-    const c = new VoiceClient(`ws://127.0.0.1:${port}/ws/voice-interview?${qs}`);
+    const c = new VoiceClient(`ws://127.0.0.1:${port}/ws/voice-interview?${qs}`, playbackMs);
     await c.opened();
     return c;
 }
@@ -261,9 +266,14 @@ type RunResult = {
  */
 async function runSession(
     query: Record<string, string | undefined>,
-    opts: { turns: number; answer: (turn: number) => string; end: 'none' | 'time' | 'client' | 'server' }
+    opts: {
+        turns: number;
+        answer: (turn: number) => string;
+        end: 'none' | 'time' | 'client' | 'server';
+        playbackMs?: number;
+    }
 ): Promise<RunResult> {
-    const client = await connect(query);
+    const client = await connect(query, opts.playbackMs ?? 0);
     client.send({ type: 'start_listening' });
     const result: RunResult = { replies: [], errors: [], client };
     const gi = await client.waitFor((m) => m.type === 'agent_reply' || m.type === 'error', 0);
@@ -562,11 +572,35 @@ out('\n▶ resume · English campaign · the candidate drops out after 5 answers
     await runSession(q, { turns: 5, answer: englishAnswer, end: 'client' });
     check('the session was parked for the grace window', rec.logs.some((l) => l.includes('[RESUME]') && l.includes('parked until')), true);
     resetRecorders();
-    const back = await runSession(q, { turns: 1, answer: (t) => englishAnswer(t + 5), end: 'client' });
+    // Real playback time on the way back: the resume line's backup timer (3 s here)
+    // fires while the first question after it is still playing (V17).
+    const back = await runSession(q, { turns: 2, answer: (t) => englishAnswer(t + 5), end: 'client', playbackMs: 2000 });
     check('it reattached to the same interview', rec.logs.some((l) => l.includes('reattached within the grace window')), true);
     check('the resume line is English', back.greeting, 'Welcome back. Let us continue from where we stopped.');
     check('…in the English voice', rec.tts[0]?.language, 'en');
     check('the next turn still went to the model in English', rec.llm.length > 0 && rec.llm.every((c) => c.sessionLanguage === 'en'), true);
+    check('V17: both questions after the resume line were answered', back.replies.length, 2);
+    check('V17: no turn waited out a lost playback_ended after the resume line', rec.logs.some((l) => l.includes('[PLAYBACK TIMEOUT]')), false);
+}
+
+/* V17 — the greeting's backup timer must not erase a LATER turn's wait.
+   It used to: the timer was never cleared, and its `done` deleted whatever wait
+   was registered for the session. With the browser taking 2 s to play each line
+   and the backup at 3 s, the first question is still playing when it fires; the
+   browser's playback_ended for that question was then ignored and the server
+   stayed in SPEAKING — throwing away the candidate's first words. */
+out('\n▶ V17 · real playback time · the greeting backup timer fires while question 1 is playing');
+{
+    resetRecorders();
+    const p = await person({ name: 'Rana Yousif', applicationCampaign: 'rt-en', position: 'Sales Engineer' });
+    const r = await runSession(
+        { candidateId: p.candidateId, campaignId: 'rt-en', applicationId: p.applicationId },
+        { turns: 3, answer: () => 'Yes, I am ready to start.', end: 'client', playbackMs: 2000 }
+    );
+    check('all three questions were asked and answered', r.replies.length, 3);
+    check('every playback_ended was honoured (greeting + 3 questions)', rec.logs.filter((l) => l.startsWith('[PLAYBACK_ENDED]')).length, 4);
+    check('no turn waited out a lost playback_ended', rec.logs.some((l) => l.includes('[PLAYBACK TIMEOUT]')), false);
+    if (r.stall) out(`     STALLED — ${r.stall}`);
 }
 
 out('\n▶ an English interview · the candidate answers in Arabic, then asks for Arabic');

@@ -801,6 +801,41 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
     armSilenceTimer();
   };
 
+  /**
+   * انتظار `playback_ended` من المتصفّح، أو المهلة — أيّهما أسبق. المكان الوحيد
+   * الذي يُسجَّل فيه انتظارٌ في `pendingPlaybackEnded`.
+   *
+   * ⚠️ كانت أربع نسخٍ من هذا الوعد (التحيّة، سطر الرجوع، الختام، ردّ الدور)، وفي
+   * ثلاثٍ منها مؤقّتُ المهلة لا يُلغى، و`done` تمحو المدخل **بلا شرط**. فبعد أن
+   * تنتهي التحيّة بإشارة المتصفّح يبقى مؤقّتها حيّاً، ويطلق بعد ١٥ ث فيمحو مدخل
+   * **الدور الجاري** إن كان الوكيل يُسمِع سؤالاً لحظتها — فتُهمَل إشارة ذلك الدور،
+   * ويبقى الخادم في SPEAKING حتى الصوت + ٣ ث، ويُرمى أوّل كلام المرشّح في جوابه.
+   * مُثبت بالتشغيل (`voice-language-runtime-test`: احتياط ٣ ث وتشغيلٌ ٢ ث ⇒ توقّفت
+   * الجلسة بعد الدور الأول)، وفي سجلّات ٠٩-٠٨ اثنتان من سبع مهلات على أوّل ردّ
+   * بعد التحيّة بالضبط (`f25ee81e`، `96608883`).
+   *
+   * - **الإصلاح:** المؤقّت يُلغى حين تحسم الإشارةُ الانتظار، فلا مهلة تطلق بعد
+   *   أوانها. مُطفَّر: حذفُه يحمّر الاختبار — ويكتب أيضاً `[PLAYBACK TIMEOUT]`
+   *   كاذباً لأدوارٍ انتهت بإشارتها، لأنّ `onTimeout` يطلق مع المؤقّت.
+   * - **تأمينٌ لا يمرّ به مسارٌ مُختبَر:** `done` لا تمحو إلّا مدخلها هي، لو حلّ
+   *   محلّها انتظارٌ أحدث قبل أن تُحسم (الختام بدأ وردُّ الدور ما زال ينتظر).
+   *   حذفُه وحده يُبقي الاختبار أخضر — الإلغاء أعلاه يغطّي كل ما يمرّ به.
+   */
+  const waitForPlaybackEnded = (timeoutMs: number, onTimeout?: () => void): Promise<void> =>
+    new Promise<void>((resolve) => {
+      let timer: NodeJS.Timeout | undefined;
+      const done = () => {
+        if (timer) clearTimeout(timer);
+        if (pendingPlaybackEnded.get(sessionId) === done) pendingPlaybackEnded.delete(sessionId);
+        resolve();
+      };
+      pendingPlaybackEnded.set(sessionId, done);
+      timer = setTimeout(() => {
+        onTimeout?.();
+        done();
+      }, timeoutMs);
+    });
+
   /** TTS + محاذاة كلمات + انتظار playback_ended + استئناف الاستماع — مشترك بين المقابلة ووضع اختبار الصوت */
   const speakAgentReply = async (llmReply: string, options?: { resumeListening?: boolean; endSession?: boolean }) => {
     const resumeListening = options?.resumeListening ?? true;
@@ -933,20 +968,11 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         ? Math.min(voiceTiming.playbackEndedTimeoutMs, audioMs + voiceTiming.playbackEndedMarginMs)
         : voiceTiming.playbackEndedTimeoutMs;
     const minDelay = new Promise<void>((r) => setTimeout(r, TTS_TO_STT_DELAY_MS));
-    const playbackEnded = new Promise<void>((resolve) => {
-      const done = () => {
-        if (t) clearTimeout(t);
-        pendingPlaybackEnded.delete(sessionId);
-        resolve();
-      };
-      pendingPlaybackEnded.set(sessionId, done);
-      const t = setTimeout(() => {
-        console.warn(
-          `[PLAYBACK TIMEOUT] ${sessionId.substring(0, 8)}... no playback_ended after ${PLAYBACK_ENDED_TIMEOUT_MS}ms (audio ${audioMs}ms)`
-        );
-        done();
-      }, PLAYBACK_ENDED_TIMEOUT_MS);
-    });
+    const playbackEnded = waitForPlaybackEnded(PLAYBACK_ENDED_TIMEOUT_MS, () =>
+      console.warn(
+        `[PLAYBACK TIMEOUT] ${sessionId.substring(0, 8)}... no playback_ended after ${PLAYBACK_ENDED_TIMEOUT_MS}ms (audio ${audioMs}ms)`
+      )
+    );
     await Promise.all([minDelay, playbackEnded]);
     if (ws.readyState !== ws.OPEN) return;
     // المقابلة انتهت: الخادم يغلق الاتصال من جهته بعد سماع الرسالة الختامية كاملة (مهلة قصيرة)
@@ -1615,15 +1641,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
               };
               await textToSpeech(resumeLine, interviewLanguage, sendResumeChunk);
               send(ws, { type: "tts_complete" });
-              const resumePlaybackEnded = new Promise<void>((resolve) => {
-                const done = () => {
-                  pendingPlaybackEnded.delete(sessionId);
-                  resolve();
-                };
-                pendingPlaybackEnded.set(sessionId, done);
-                setTimeout(done, voiceTiming.playbackFallbackMs);
-              });
-              await resumePlaybackEnded;
+              await waitForPlaybackEnded(voiceTiming.playbackFallbackMs);
               await new Promise((r) => setTimeout(r, voiceTiming.postPlaybackResumeMs));
               if (ws.readyState === ws.OPEN) startListening();
               return;
@@ -1691,15 +1709,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         };
             await textToSpeech(greetingMsg, interviewLanguage, sendChunk);
             send(ws, { type: "tts_complete" });
-            const playbackEnded = new Promise<void>((resolve) => {
-              const done = () => {
-                pendingPlaybackEnded.delete(sessionId);
-                resolve();
-              };
-              pendingPlaybackEnded.set(sessionId, done);
-              setTimeout(done, voiceTiming.playbackFallbackMs);
-            });
-            await playbackEnded;
+            await waitForPlaybackEnded(voiceTiming.playbackFallbackMs);
             await new Promise((r) => setTimeout(r, voiceTiming.postPlaybackResumeMs));
             if (ws.readyState === ws.OPEN) startListening();
           } catch (err: any) {
@@ -1745,15 +1755,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
             };
             await textToSpeech(closingMsg, interviewLanguage, sendChunk);
             send(ws, { type: "tts_complete" });
-            const playbackEnded = new Promise<void>((resolve) => {
-              const done = () => {
-                pendingPlaybackEnded.delete(sessionId);
-                resolve();
-              };
-              pendingPlaybackEnded.set(sessionId, done);
-              setTimeout(done, voiceTiming.playbackFallbackMs);
-            });
-            await playbackEnded;
+            await waitForPlaybackEnded(voiceTiming.playbackFallbackMs);
             await new Promise((r) => setTimeout(r, voiceTiming.postPlaybackResumeMs));
           } catch (err: any) {
             console.warn(`[TIME_ENDED] ${sessionId.substring(0, 8)}... ${err?.message || err}`);
