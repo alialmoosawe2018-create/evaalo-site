@@ -6249,17 +6249,38 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
         flex: 0 0 auto;
     }
 
+    /* ١٤ لا ١٠: المسافة كانت ١٠px مقيسة، وهي مسافةٌ لا تُقرأ فصلاً بين كتلة
+       الموجة وعمودِ الحروف بجوارها. */
     .voice-interview-stage__profile-wrap--candidate .voice-interview-stage__profile-row {
         flex-direction: row;
         justify-content: flex-start;
-        gap: 10px;
+        gap: 14px;
     }
 
     /* Agent: mirrored — waveform → name → avatar, aligned right */
     .voice-interview-stage__profile-wrap--agent .voice-interview-stage__profile-row {
         flex-direction: row-reverse;
         justify-content: flex-start;
-        gap: 10px;
+        gap: 14px;
+    }
+
+    /*
+     * الاسم سطرٌ واحد بثلاث نقاط لا عمودٌ من الحروف. `--wrap` يكسر عند أي حرف
+     * (`overflow-wrap: anywhere`)، وهو صحيحٌ حين تتوفّر المساحة — وهنا لا تتوفّر،
+     * فينتج عن الكسر خمسة أسطر لاسمٍ كامل. والقصّ يحتاج `min-width: 0` على
+     * الهوية وإلّا رفض عنصر الفلكس أن يضيق دون محتواه.
+     */
+    .voice-interview-stage__profile-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        word-break: normal;
+        overflow-wrap: normal;
+    }
+
+    .voice-interview-stage__profile-wrap--candidate .voice-interview-stage__profile-identity,
+    .voice-interview-stage__profile-wrap--agent .voice-interview-stage__profile-identity {
+        min-width: 0;
     }
 
     .voice-interview-stage__profile-wrap--candidate .voice-interview-stage__profile-identity {
