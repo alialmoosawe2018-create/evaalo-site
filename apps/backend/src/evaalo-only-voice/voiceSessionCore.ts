@@ -6,7 +6,7 @@ import { createSession, removeSession, touchSession, updateState } from "./sessi
 import { createInterviewState, getInterviewState, removeInterviewState, onExchangeComplete, FOLLOW_UP_MAX_PER_INTERVIEW, FOLLOW_UP_MIN_GAP_TURNS } from "./interviewState.js";
 import { getControllerOutput } from "./interviewController.js";
 import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer, isEndInterviewRequest, buildRequestedClosing, turnDefersBookings } from "./questionEngine.js";
-import { isVoiceTopicMemoryEnabled } from "./interviewConfig.js";
+import { isVoiceTopicMemoryEnabled, parseLinkLanguage, resolveInterviewLanguage } from "./interviewConfig.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
 import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend, shouldHoldForLiveSpeech, LIVE_SPEECH_POLL_MS } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
@@ -183,8 +183,14 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
    * ولغة ردود الايجنت. لا يتغير بتغيّر لغة كلام المرشح؛ يتغير فقط بطلب تحويل
    * صريح. الكردية تُعامل كعربية لأن الصوت العربي هو الوحيد الذي يخدمها.
    */
-  let interviewLanguage: 'ar' | 'en' =
-    language === 'en' || language === 'english' ? 'en' : 'ar';
+  /**
+   * لغة الرابط — `null` تعني أنّ الرابط **لم يقل شيئاً**، وهو فرقٌ يقرّر المقابلة.
+   *
+   * كان الحساب ثلاثيّاً: كلّ ما ليس 'en' عربيّ. فاستوى «طلبَ العربية» و«لم يطلب
+   * شيئاً»، ولم يبقَ للحملة موضعٌ تتكلّم فيه.
+   */
+  const linkLanguage = parseLinkLanguage(language);
+  let interviewLanguage: 'ar' | 'en' = linkLanguage ?? 'ar';
   const isVoiceTest = url.searchParams.get("voiceTest") === "1";
   // المسار العام (رابط مشارَك): mode=public => حقن معايير الوظيفة + إرسالها مع الترانسكريبت إلى n8n.
   const sessionMode = url.searchParams.get("mode") === "public" ? ("public" as const) : undefined;
@@ -1544,6 +1550,41 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         initialGreetingSent = true;
         (async () => {
           try {
+            /**
+             * لغة المقابلة تُحسم هنا، قبل التحيّة وقبل اختيار الصوت.
+             *
+             * ⚠️ كانت تُحسم من الرابط وحده، والرابط يحمل **لغة متصفّح الموظّف** لحظة
+             * إنشائه (`NewInterviewSidebar`: `params.set('language', currentLang)`)،
+             * والافتراضي لأيّ زائر بلا تفضيل محفوظ هو `en` (`LanguageContext`). فمقابلتا
+             * ٢٠٢٦-٠٩-٢٣ (`6cfb7d62` و`2718fd5f`) جرتا بالإنجليزية كاملةً بينما حملتاهما
+             * تقولان `evaluationLanguage: 'ar'`؛ وأحد المرشّحَين أجاب بالعربية طوال
+             * المقابلة («نعم»، «عربي عند انقلش») وقُيّم على إنجليزيّته.
+             *
+             * والترتيب هو نفسه المعتمد في مسار الفيديو ولا يُخالَف: **اختيار الرابط
+             * الصريح يعلو**، والحملة احتياطٌ عند صمته. ما تغيّر أنّ الصمت صار ممكناً —
+             * الواجهة لم تعد تصنع «اختياراً» من لغة المتصفّح.
+             *
+             * ولا يُنتظر هنا شيءٌ جديد: `campaignContextPromise` انطلق عند الاتصال،
+             * والتحيّة لا تُطلب إلّا بعد رسالة العميل، فهو محلولٌ عمليّاً.
+             */
+            if (linkLanguage === null) {
+              try {
+                await campaignContextPromise;
+                const fromCampaign = String(
+                  (jobCriteria as Record<string, unknown> | undefined)?.evaluationLanguage ?? ''
+                ).toLowerCase();
+                interviewLanguage = resolveInterviewLanguage(null, fromCampaign);
+                console.log(
+                  `[LANG] ${sessionId.substring(0, 8)}... resolved=${interviewLanguage} source=${fromCampaign ? 'campaign' : 'default'}`
+                );
+              } catch (langErr: any) {
+                console.warn(
+                  `[LANG] ${sessionId.substring(0, 8)}... campaign language unavailable (${langErr?.message || langErr}) — keeping ${interviewLanguage}`
+                );
+              }
+            } else {
+              console.log(`[LANG] ${sessionId.substring(0, 8)}... resolved=${interviewLanguage} source=link`);
+            }
             /**
              * الرجوع داخل النافذة: الرابط مقفل في قاعدة البيانات (ولهذا لا نسأل
              * `isVoiceLinkConsumedById` — سترفض)، لكنّ الجلسة مركونة وتبنّيناها

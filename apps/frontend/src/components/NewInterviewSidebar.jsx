@@ -1884,7 +1884,12 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             const params = new URLSearchParams();
             params.set('campaignId', result.campaignId);
             params.set('mode', 'public');
-            params.set('language', currentLang || 'ar');
+            /* لا لغة في الرابط ما لم يخترها أحد.
+             *
+             * كان هنا `params.set('language', currentLang || 'ar')` — أي لغة متصفّح
+             * الموظّف، وافتراضُها `en` لأي زائر بلا تفضيل محفوظ. فكانت تصل الخادم
+             * كأنّها اختيارٌ صريح فتعلو على الحملة، ومقابلتا ٢٠٢٦-٠٩-٢٣ جرتا
+             * بالإنجليزية وحملتاهما تقولان عربي. الصمت هنا يسلّم القرار للحملة. */
             if (pos) params.set('position', pos);
             const link = absoluteAppUrl(`/screening-call?${params.toString()}`);
             setCampaignId(result.campaignId);
@@ -2109,7 +2114,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                 candidateId: personId,
                                 campaignId: result.campaignId,
                                 applicationId,
-                                language: currentLang,
+                                // بلا لغة: الحملة تقرّر في الخادم (انظر voiceSessionCore).
+                                language: undefined,
                             });
                             const interviewLink = absoluteAppUrl(`/interview?${q.toString()}`);
                             setVoiceInterviewLinkWithCandidate(interviewLink);

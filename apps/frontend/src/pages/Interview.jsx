@@ -24,7 +24,8 @@ const Interview = () => {
   const campaignId = searchParams.get('campaignId') || null;
   const applicationIdFromUrl = searchParams.get('applicationId') || null;
   const urlLang = parseInterviewUrlLanguage(searchParams.get('language'));
-  const language = urlLang || 'ar';
+  // بلا احتياطٍ محلّي: غياب اللغة إشارةٌ للخادم أن يسأل الحملة.
+  const language = urlLang || undefined;
 
   const { isAuthenticated } = useAuth();
   const [candidate, setCandidate] = useState(null);

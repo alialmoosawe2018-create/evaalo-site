@@ -670,7 +670,8 @@ export default function useVoiceInterview(options = {}) {
       paramsRef.current;
     const params = new URLSearchParams();
     if (cid) params.set('candidateId', cid);
-    params.set('language', lang || 'ar');
+    // يُرسَل فقط إن وُجد: الخادم يقرأ الحملة عند غيابه (`linkLanguage === null`).
+    if (lang) params.set('language', lang);
     if (m) params.set('mode', m);
     if (pos) params.set('position', pos);
     if (camp) params.set('campaignId', camp);

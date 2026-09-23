@@ -35,10 +35,6 @@ function parseUrlLanguage(raw) {
   return null;
 }
 
-function voiceSessionLanguage(uiLang) {
-  return uiLang === 'en' ? 'en' : 'ar';
-}
-
 const PublicScreeningCall = () => {
   const [searchParams] = useSearchParams();
   const { t, currentLang, changeLanguage } = useLanguage();
@@ -62,7 +58,11 @@ const PublicScreeningCall = () => {
   const [prepDone, setPrepDone] = useState(false);
 
   const isRtl = currentLang === 'ar' || currentLang === 'ku';
-  const voiceLang = voiceSessionLanguage(currentLang);
+  /* لغة الجلسة = ما قاله الرابط فقط. لغة الصفحة تخصّ ما يقرأه المرشّح، ولا
+     تُرقّى إلى اختيارٍ لِما ينطقه الوكيل — وإلّا عاد العطل من الباب الآخر. */
+  const voiceLang = parseUrlLanguage(searchParams.get('language')) === 'en' ? 'en'
+    : parseUrlLanguage(searchParams.get('language')) ? 'ar'
+    : undefined;
 
   useEffect(() => {
     const fromUrl = parseUrlLanguage(searchParams.get('language'));
