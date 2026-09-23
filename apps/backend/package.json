@@ -78,6 +78,7 @@
     "test:stage2-outbound": "tsx src/scripts/stage2-outbound-test.ts",
     "test:stage2-inbound": "tsx src/scripts/stage2-inbound-test.ts",
     "test:stage2-eval-gate": "tsx src/scripts/stage2-evaluation-hardening-test.ts",
+    "test:stage2-attitude-abstention": "tsx src/scripts/stage2-professional-attitude-abstention-test.ts",
     "test:stage2-parity": "tsx src/scripts/stage2-parity-test.ts",
     "test:stage3-outbound": "tsx src/scripts/stage3-outbound-test.ts",
     "test:stage3-inbound": "tsx src/scripts/stage3-inbound-test.ts",

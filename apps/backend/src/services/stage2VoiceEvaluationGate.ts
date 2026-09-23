@@ -74,6 +74,35 @@ export function isValidStage2ProfessionalAttitude(raw: unknown): boolean {
     return words.length >= 2 || s.length >= 30;
 }
 
+/**
+ * Does THIS result say, explicitly, that Professional Attitude was not assessed?
+ *
+ * True only when `competencyScores` (from the same n8n result) holds exactly one
+ * `professional_attitude` entry whose rating is a Not-Assessed token AND whose
+ * `assessed` is literally `false`. A missing list, a missing or duplicated
+ * entry, a real rating, or `assessed` not being `false` all answer no.
+ *
+ * Why it exists: a candidate who leaves before attitude comes up gets a
+ * legitimate "not assessed" from the v2 scorer, which then sends the attitude
+ * paragraph EMPTY. The gate required a paragraph with no abstention, so it
+ * refused the WHOLE evaluation — n8n execution 1942 (2026-09-23), 400 ×3,
+ * issues=["professional_attitude"] — and HR saw nothing, not even the scorer's
+ * note that the candidate left early and should be invited back.
+ */
+export function isProfessionalAttitudeExplicitlyNotAssessed(patch: Record<string, unknown>): boolean {
+    const scores = patch.competencyScores;
+    if (!Array.isArray(scores)) return false;
+    const entries = scores.filter(
+        (e) =>
+            e !== null &&
+            typeof e === 'object' &&
+            (e as Record<string, unknown>).competencyKey === 'professional_attitude'
+    ) as Array<Record<string, unknown>>;
+    if (entries.length !== 1) return false;
+    const [entry] = entries;
+    return STAGE2_NOT_ASSESSED_TOKENS.has(normalizeToken(entry.rating)) && entry.assessed === false;
+}
+
 /** Default enforce — n8n + backend share the same strict contract. */
 export function getStage2EvaluationGateMode(): Stage2EvaluationGateMode {
     const raw = process.env.STAGE2_EVALUATION_GATE_MODE;
@@ -93,7 +122,12 @@ export function getStage2VoicePatchIssues(patch: Record<string, unknown>): strin
     if (!isValidStage2CompetencyRating(patch.confidence)) issues.push('confidence');
     if (!isValidStage2CompetencyRating(patch.problem_solving)) issues.push('problem_solving');
     if (!isValidStage2CompetencyRating(patch.digital_skills)) issues.push('digital_skills');
-    if (!isValidStage2ProfessionalAttitude(patch.professional_attitude)) {
+    // An EMPTY attitude paragraph passes only when the same result marks the
+    // competency not assessed. A present-but-malformed paragraph never does.
+    const attitude = patch.professional_attitude;
+    const attitudeEmpty = attitude === undefined || attitude === null || String(attitude).trim() === '';
+    const attitudeAbstained = attitudeEmpty && isProfessionalAttitudeExplicitlyNotAssessed(patch);
+    if (!attitudeAbstained && !isValidStage2ProfessionalAttitude(attitude)) {
         issues.push('professional_attitude');
     }
     if (!isValidStage2MeaningfulText(patch.summary)) issues.push('summary');

@@ -1,0 +1,27 @@
+{
+  "_provenance": "n8n workflow BB87WRQQYEiLdMsk (active version a7ead5f3), execution 1942, 2026-09-23T20:57:17Z — the body its 'HTTP Request' node POSTed to /webhook/n8n (ingress=stage2). Built from the 'Apply Stage 2 Localization' output of that execution through the node's own bodyParameters mapping; multipart/form-data, so every value arrives as a string (Overall_score null → \"null\", coverage 15 → \"15\"). The backend answered 400 STAGE2_INCOMPLETE_EVALUATION issues=[\"professional_attitude\"] three times (20:58:34-36Z). Voice session f2b55e56, candidate 6aae4c9688e7a6d01639e09b, campaign 5e6ec3a8.",
+  "body": {
+    "candidateId": "6aae4c9688e7a6d01639e09b",
+    "sessionId": "f2b55e56-e5b0-4b52-9958-eb014b5092e7",
+    "language": "ar",
+    "stage": "2",
+    "evaluationSource": "voice",
+    "ingress": "stage2",
+    "Summary": "ملاحظة: غادر المرشح المقابلة قبل أن تنتهي، لذا لم تصل الأجزاء اللاحقة منها ولم يمكن تقديم تقييم موثوق به. يُنصح بدعوته لاستكمال المقابلة قبل اتخاذ القرار.",
+    "Strengths": "[]",
+    "Weaknesses": "[]",
+    "Final HR Evaluation": "ملاحظة: غادر المرشح المقابلة قبل أن تنتهي، لذا لم تصل الأجزاء اللاحقة منها ولم يمكن تقديم تقييم موثوق به. يُنصح بدعوته لاستكمال المقابلة قبل اتخاذ القرار.",
+    "Communication Skills": "Good",
+    "English Fluency": "Not Assessed",
+    "Confidence Level": "Not Assessed",
+    "Computer Skills": "Not Assessed",
+    "Problem Solving": "Not Assessed",
+    "Professional Attitude": "",
+    "Recommendation": "Consider",
+    "Overall_score": "null",
+    "status": "insufficient_data",
+    "coverage": "15",
+    "competencyScores": "[{\"competencyKey\":\"relevant_experience_role_fit\",\"rating\":\"Not Assessed\",\"assessed\":false,\"evidence\":[],\"selfReported\":false},{\"competencyKey\":\"communication_skills\",\"rating\":\"Good\",\"assessed\":true,\"evidence\":[],\"selfReported\":false},{\"competencyKey\":\"professional_attitude\",\"rating\":\"Not Assessed\",\"assessed\":false,\"evidence\":[],\"selfReported\":false},{\"competencyKey\":\"english_fluency\",\"rating\":\"Not Assessed\",\"assessed\":false,\"evidence\":[],\"selfReported\":false},{\"competencyKey\":\"learning_and_adaptability\",\"rating\":\"Not Assessed\",\"assessed\":false,\"evidence\":[],\"selfReported\":false},{\"competencyKey\":\"time_management_and_prioritization\",\"rating\":\"Not Assessed\",\"assessed\":false,\"evidence\":[],\"selfReported\":false},{\"competencyKey\":\"teamwork_and_collaboration\",\"rating\":\"Not Assessed\",\"assessed\":false,\"evidence\":[],\"selfReported\":false},{\"competencyKey\":\"problem_solving\",\"rating\":\"Not Assessed\",\"assessed\":false,\"evidence\":[],\"selfReported\":false},{\"competencyKey\":\"confidence_level\",\"rating\":\"Not Assessed\",\"assessed\":false,\"evidence\":[],\"selfReported\":false},{\"competencyKey\":\"computer_skills\",\"rating\":\"Not Assessed\",\"assessed\":false,\"evidence\":[],\"selfReported\":true}]",
+    "priors": "{\"communicationSkills\":5,\"englishFluency\":0,\"confidenceLevel\":5}"
+  }
+}
