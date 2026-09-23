@@ -520,7 +520,9 @@ const WrittenInterview = () => {
             candidateId,
             campaignId: camp,
             applicationId: resolveShareApplicationId(candidate),
-            language: currentLang,
+            // بلا لغة: الحملة تقرّر في الخادم. لغة واجهة الموظّف ليست اختياراً للمقابلة
+            // (V1 — كانت هنا وحدها كافية لإجراء مقابلة إنجليزية مع مرشّحٍ عربي).
+            language: undefined,
         });
         const interviewLink = absoluteAppUrl(`/interview?${q.toString()}`);
 

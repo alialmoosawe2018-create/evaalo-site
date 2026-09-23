@@ -457,15 +457,16 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
         const candidateId = resolveSharePersonId(interview) || interview.id;
         const camp = interview.campaignId;
         const stage = interview.stage;
+        const stageNum = Number(stage);
+        const useVideo = stageNum === 3;
         const q = buildCandidateInterviewQuery({
             candidateId,
             campaignId: camp,
             applicationId: resolveShareApplicationId(interview),
-            language: currentLang,
+            // الصوت بلا لغة (الحملة تقرّر في الخادم — V1)، والفيديو كما كان تماماً:
+            // مسار الفيديو خطّةٌ أخرى وجلسةٌ أخرى، فلا يُمسّ من هنا.
+            language: useVideo ? currentLang : undefined,
         });
-
-        const stageNum = Number(stage);
-        const useVideo = stageNum === 3;
         const interviewLink = useVideo
             ? absoluteAppUrl(`/video-interview-call?${q.toString()}`)
             : absoluteAppUrl(`/interview?${q.toString()}`);

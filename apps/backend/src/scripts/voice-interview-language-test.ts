@@ -31,7 +31,7 @@
  *
  * Run: npx tsx src/scripts/voice-interview-language-test.ts
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseLinkLanguage, resolveInterviewLanguage } from '../evaalo-only-voice/interviewConfig.js';
@@ -123,6 +123,51 @@ check('the candidate page takes the session language from the URL, not the page'
 const interviewPage = front('pages', 'Interview.jsx');
 check('the per-candidate page no longer forces Arabic locally',
     interviewPage.includes("const language = urlLang || 'ar';"), false);
+
+/* ── 4b. EVERY voice-link builder, found by scanning — not by a list ───────────
+   ⚠️ The first version of this fix silenced two builders and missed two others
+   (WrittenInterview.jsx — the Stage 1 share button — and RecentInterviewsCard.jsx),
+   because the sites were enumerated by hand. And both 2026-09-23 sessions ran with
+   `mode=direct`, i.e. through an `/interview` link: the path those candidates took
+   was among the ones left unfixed. So this section finds the builders itself. A
+   fifth builder added tomorrow is caught here without anyone remembering it. */
+function walk(dir: string, out: string[] = []): string[] {
+    for (const name of readdirSync(dir)) {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) walk(p, out);
+        else if (/\.(jsx?|tsx?)$/.test(name)) out.push(p);
+    }
+    return out;
+}
+const FRONT_SRC = join(HERE, '..', '..', '..', 'frontend', 'src');
+const VOICE_SITE = /absoluteAppUrl\(`\/(?:interview|screening-call)\?\$\{/g;
+const builders: { file: string; block: string }[] = [];
+for (const file of walk(FRONT_SRC)) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(VOICE_SITE)) {
+        const at = m.index ?? 0;
+        // the params object this link is built from: the nearest preceding builder
+        const starts = [
+            text.lastIndexOf('buildCandidateInterviewQuery({', at),
+            text.lastIndexOf('new URLSearchParams', at),
+        ];
+        const start = Math.max(...starts);
+        const block = text
+            .slice(start, at)
+            .split(/\r?\n/)
+            .filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l))
+            .join('\n');
+        builders.push({ file: file.slice(FRONT_SRC.length + 1).replace(/\\/g, '/'), block });
+    }
+}
+console.log(`   voice-link builders found by scan: ${builders.length} — ${builders.map((b) => b.file).join(', ')}`);
+check('the scan finds at least the four known voice-link builders', builders.length >= 4, true);
+for (const b of builders) {
+    const injects =
+        /language:\s*currentLang\s*[,}\n]/.test(b.block) ||
+        /\.set\(\s*'language'\s*,\s*currentLang/.test(b.block);
+    check(`${b.file}: the voice link does not carry the recruiter's browser locale`, injects, false);
+}
 
 /* ── 5. what this change deliberately does NOT touch ──────────────────────── */
 /* The video link is another session's scope (plan: hidden-wibbling-puddle.md) and
