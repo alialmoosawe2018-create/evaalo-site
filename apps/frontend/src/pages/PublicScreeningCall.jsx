@@ -27,14 +27,6 @@ import '../styles.css';
 
 const API_BASE = API_BASE_URL;
 
-function parseUrlLanguage(raw) {
-  const v = (raw || '').toLowerCase();
-  if (v === 'en' || v === 'english') return 'en';
-  if (v === 'ku' || v === 'kurdish' || v === 'ckb') return 'ku';
-  if (v === 'ar' || v === 'arabic') return 'ar';
-  return null;
-}
-
 const PublicScreeningCall = () => {
   const [searchParams] = useSearchParams();
   const { t, currentLang, changeLanguage } = useLanguage();
@@ -58,23 +50,34 @@ const PublicScreeningCall = () => {
   const [prepDone, setPrepDone] = useState(false);
 
   const isRtl = currentLang === 'ar' || currentLang === 'ku';
-  /* لغة الجلسة = ما قاله الرابط فقط. لغة الصفحة تخصّ ما يقرأه المرشّح، ولا
-     تُرقّى إلى اختيارٍ لِما ينطقه الوكيل — وإلّا عاد العطل من الباب الآخر. */
-  const voiceLang = parseUrlLanguage(searchParams.get('language')) === 'en' ? 'en'
-    : parseUrlLanguage(searchParams.get('language')) ? 'ar'
-    : undefined;
 
+  /* لغة المقابلة تقرّرها الحملة وحدها (قرار المالك ٢٠٢٦-٠٩-٢٣)، والخادم يحسمها
+     للوكيل. والصفحة تُعرض بها قبل المكالمة — لا بلغة `?language=`، فالروابط
+     القديمة تحمل فيه لغة متصفّح الموظّف. استثناء: الكردية تبقى في حملةٍ عربية. */
   useEffect(() => {
-    const fromUrl = parseUrlLanguage(searchParams.get('language'));
-    if (fromUrl && fromUrl !== currentLang) {
-      changeLanguage(fromUrl);
-    }
+    if (!campaignId) return undefined;
+    let cancelled = false;
+    fetch(`${API_BASE}/api/public/campaign-interview-language?campaignId=${encodeURIComponent(campaignId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const lang = data?.data?.interviewLanguage;
+        const campaignLang = lang === 'en' ? 'en' : lang === 'ar' ? 'ar' : null;
+        if (campaignLang && campaignLang !== currentLang && !(campaignLang === 'ar' && currentLang === 'ku')) {
+          changeLanguage(campaignLang);
+        }
+      })
+      .catch(() => {
+        /* عرضٌ فقط — الوكيل يتكلّم بلغة الحملة على أيّ حال */
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [campaignId]);
 
   const session = useVoiceInterview({
     candidateId,
-    language: voiceLang,
     mode: 'public',
     position,
     campaignId,

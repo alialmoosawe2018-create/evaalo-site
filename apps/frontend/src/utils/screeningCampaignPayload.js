@@ -66,6 +66,7 @@ export function buildScreeningCampaignCreateBody({
     formTemplateId,
     jobAdvertisement,
     language,
+    interviewLanguage,
 }) {
     const payload = {
         ...buildPresetCriteriaPayload({
@@ -97,6 +98,10 @@ export function buildScreeningCampaignCreateBody({
     }
     if (language) {
         payload.language = language;
+    }
+    // لغة المقابلة (لا لغة التقرير أعلاه) — حقلٌ علوي في الحملة، ينزعه الخادم من المعايير.
+    if (interviewLanguage) {
+        payload.interviewLanguage = interviewLanguage;
     }
     return payload;
 }

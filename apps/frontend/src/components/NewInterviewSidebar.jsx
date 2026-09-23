@@ -648,6 +648,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     const [cvFilledCount, setCvFilledCount] = useState(0);
     const [cvDetectedPosition, setCvDetectedPosition] = useState('');
     const [jobAdvertisement, setJobAdvertisement] = useState('');
+    /** لغة المقابلة — إلزامية بلا افتراض (قرار المالك ٢٠٢٦-٠٩-٢٣): تُحدَّد هنا عند
+     *  إنشاء الوظيفة وحدها، ولا يقرّرها بعدها رابطٌ ولا متصفّح. '' = لم يُختر بعد. */
+    const [interviewLanguage, setInterviewLanguage] = useState('');
     const [generatingAd, setGeneratingAd] = useState(false);
     const [suggestingCriteria, setSuggestingCriteria] = useState(false);
     const [suggestError, setSuggestError] = useState('');
@@ -1814,8 +1817,19 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             });
         }
 
+        if (interviewLanguage !== 'ar' && interviewLanguage !== 'en') {
+            newErrors.interviewLanguage = t('newCampaign_interviewLanguage_errRequired');
+        }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    /** يرفض الإنشاء بلا لغة مقابلة. حارسٌ مستقلّ لأنّ مُنشئَي الرابط العام لا يمرّان بـ validateForm. */
+    const requireInterviewLanguage = () => {
+        if (interviewLanguage === 'ar' || interviewLanguage === 'en') return true;
+        setErrors((prev) => ({ ...prev, interviewLanguage: t('newCampaign_interviewLanguage_errRequired') }));
+        modalScrollRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' });
+        return false;
     };
 
     const handleGenerateAdvertisement = async () => {
@@ -1863,6 +1877,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
      * كل مرشح يفتح الرابط يُدخل بياناته في الصفحة العامة فيُنشأ سجله هناك.
      */
     const handleGeneratePublicLink = async () => {
+        if (!requireInterviewLanguage()) return;
         setGeneratingPublicLink(true);
         setErrors(prev => ({ ...prev, general: null }));
         setPublicLinkCopied(false);
@@ -1873,6 +1888,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                 ...buildCriteriaPayload(),
                 position: pos || 'General Screening',
                 interviewType: 'audio',
+                interviewLanguage,
                 templateType: 'audio',
             };
             if (jobAdvertisement.trim()) campaignPayload.jobAdvertisement = jobAdvertisement.trim();
@@ -1922,6 +1938,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         setAudioFlowTab(tab);
         setSelectedCriteria({});
         setJobDetails({});
+        setInterviewLanguage('');
         setCertificationRows(['']);
         setSkillRows(['']);
         setLanguageRows(['']);
@@ -1943,6 +1960,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
      * كل مرشح يفتح الرابط يُدخل بياناته في الصفحة العامة فيُنشأ سجله هناك (entryStage=video).
      */
     const handleGenerateVideoPublicLink = async () => {
+        if (!requireInterviewLanguage()) return;
         setGeneratingPublicLink(true);
         setErrors(prev => ({ ...prev, general: null }));
         setPublicLinkCopied(false);
@@ -1952,6 +1970,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                 ...buildCriteriaPayload(),
                 position: pos || 'General Screening',
                 interviewType: 'video',
+                interviewLanguage,
                 templateType: 'video',
             };
             if (jobAdvertisement.trim()) campaignPayload.jobAdvertisement = jobAdvertisement.trim();
@@ -1992,6 +2011,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         setVideoFlowTab(tab);
         setSelectedCriteria({});
         setJobDetails({});
+        setInterviewLanguage('');
         setCertificationRows(['']);
         setSkillRows(['']);
         setLanguageRows(['']);
@@ -2035,9 +2055,12 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                           formTemplateId: selectedTemplate?.id || DEFAULT_SCREENING_FORM_TEMPLATE_ID,
                           jobAdvertisement,
                           language: currentLang,
+                          interviewLanguage,
                       })
                     : (() => {
                           const body = { ...buildCriteriaPayload() };
+                          // لغة المقابلة حقلٌ علوي في الحملة — الخادم ينزعها من المعايير فلا تُقيَّم.
+                          body.interviewLanguage = interviewLanguage;
                           if (jobAdvertisement.trim()) body.jobAdvertisement = jobAdvertisement.trim();
                           return body;
                       })();
@@ -2172,6 +2195,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             // لا نمنع الفتح إن لم يُختر قالب فيديو مخصّص — نفس مسار الصوت؛ رابط الاستمارة يستخدم selectedVideoTemplate أو selectedTemplate (انظر resolveCampaignFormTemplateId).
             setSelectedCriteria({});
             setJobDetails({});
+            setInterviewLanguage('');
             setCertificationRows(['']);
             setSkillRows(['']);
             setLanguageRows(['']);
@@ -2191,6 +2215,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         if (optionId === 'audio-interview') {
             setSelectedCriteria({});
             setJobDetails({});
+            setInterviewLanguage('');
             setCertificationRows(['']);
             setSkillRows(['']);
             setLanguageRows(['']);
@@ -2211,6 +2236,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             /** Screening: شاشة «Add on demand» — ابدأ بدون معايير ظاهرة، والمستخدم يضيف بزر + */
             setSelectedCriteria({});
             setJobDetails({});
+            setInterviewLanguage('');
             setCertificationRows(['']);
             setSkillRows(['']);
             setLanguageRows(['']);
@@ -2512,6 +2538,64 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                 <span style={{ color: '#EF4444', fontSize: '13px', fontWeight: 600 }}>{errors.general}</span>
                             </div>
                         )}
+
+                        {/* لغة المقابلة — إلزامية بلا افتراض. أعلى النموذج عمداً: المسارات الثلاثة
+                            (الفرز، رابط الصوت العام، رابط الفيديو العام) كلّها تمرّ من هنا. */}
+                        <div className="ni-interview-language" style={{ marginBottom: '18px' }}>
+                            <div
+                                id="ni-interview-language-label"
+                                style={{ fontSize: '13px', fontWeight: 600, color: NT.title, marginBottom: '8px' }}
+                            >
+                                {t('newCampaign_interviewLanguage_label')}
+                                <span aria-hidden style={{ color: '#EF4444', marginInlineStart: '4px' }}>*</span>
+                            </div>
+                            <div
+                                role="radiogroup"
+                                aria-labelledby="ni-interview-language-label"
+                                aria-required="true"
+                                style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}
+                            >
+                                {[
+                                    { value: 'ar', key: 'newCampaign_interviewLanguage_ar' },
+                                    { value: 'en', key: 'newCampaign_interviewLanguage_en' },
+                                ].map((opt) => {
+                                    const on = interviewLanguage === opt.value;
+                                    return (
+                                        <button
+                                            key={opt.value}
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={on}
+                                            onClick={() => {
+                                                setInterviewLanguage(opt.value);
+                                                setErrors((prev) => ({ ...prev, interviewLanguage: null }));
+                                            }}
+                                            style={{
+                                                padding: '8px 18px',
+                                                borderRadius: '999px',
+                                                fontSize: '13px',
+                                                fontWeight: 600,
+                                                cursor: 'pointer',
+                                                border: on ? '1px solid #22d3ee' : NT.itemBorderInactive,
+                                                background: on ? 'rgba(34, 211, 238, 0.14)' : NT.itemBgMuted,
+                                                color: on ? '#22d3ee' : NT.inputText,
+                                                transition: 'all 0.2s ease',
+                                            }}
+                                        >
+                                            {t(opt.key)}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <p style={{ margin: '6px 0 0', fontSize: '12px', color: NT.meta, lineHeight: 1.6 }}>
+                                {t('newCampaign_interviewLanguage_hint')}
+                            </p>
+                            {errors.interviewLanguage && (
+                                <p role="alert" style={{ margin: '6px 0 0', fontSize: '12px', fontWeight: 600, color: '#EF4444' }}>
+                                    {errors.interviewLanguage}
+                                </p>
+                            )}
+                        </div>
 
                         {/* General (public link) flow: hint + generated link box — Call AI agent → General tab */}
                         {isGeneralAudio && (

@@ -41,6 +41,9 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
     const [browsing, setBrowsing] = useState(false);
     const [creating, setCreating] = useState(false);
     const [createError, setCreateError] = useState('');
+    /* لغة المقابلة للوظيفة التي **ستُنشأ** — إلزامية بلا افتراض (قرار المالك
+       ٢٠٢٦-٠٩-٢٣). لا تُسأل عند إعادة استعمال وظيفةٍ قائمة: لغتها محدَّدة سلفاً. */
+    const [interviewLanguage, setInterviewLanguage] = useState('');
 
     /*
      * النقطة في الخادم بلا ذاكرة مؤقّتة عن قصد، لكنّ ذلك وحده لا يكفي: هذا
@@ -160,10 +163,15 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                 onPick(existing);
                 return;
             }
+            if (interviewLanguage !== 'ar' && interviewLanguage !== 'en') {
+                setCreateError(t('newCampaign_interviewLanguage_errRequired'));
+                return;
+            }
             const payload = {
                 position: role,
                 interviewType: 'video',
                 templateType: 'video',
+                interviewLanguage,
             };
             const loc = String(searchContext?.location || '').trim();
             if (loc) payload.location = loc;
@@ -211,6 +219,49 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
 
             {canCreateFromSearch ? (
                 <>
+                    {!matchedExisting ? (
+                        <div
+                            role="radiogroup"
+                            aria-label={t('newCampaign_interviewLanguage_label')}
+                            aria-required="true"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}
+                        >
+                            <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                                {t('newCampaign_interviewLanguage_label')}
+                                <span aria-hidden style={{ color: '#EF4444', marginInlineStart: '4px' }}>*</span>
+                            </span>
+                            {[
+                                { value: 'ar', key: 'newCampaign_interviewLanguage_ar' },
+                                { value: 'en', key: 'newCampaign_interviewLanguage_en' },
+                            ].map((opt) => {
+                                const on = interviewLanguage === opt.value;
+                                return (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={on}
+                                        onClick={() => {
+                                            setInterviewLanguage(opt.value);
+                                            setCreateError('');
+                                        }}
+                                        style={{
+                                            padding: '6px 14px',
+                                            borderRadius: '999px',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            border: on ? '1px solid #22d3ee' : '1px solid rgba(148, 163, 184, 0.45)',
+                                            background: on ? 'rgba(34, 211, 238, 0.14)' : 'transparent',
+                                            color: on ? '#22d3ee' : 'inherit',
+                                        }}
+                                    >
+                                        {t(opt.key)}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ) : null}
                     <button
                         type="button"
                         className="headhunter-campaign-picker__create-row"

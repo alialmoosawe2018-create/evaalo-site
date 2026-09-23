@@ -15,7 +15,7 @@
  *
  * Run: npx tsx src/scripts/interview-language-contract-test.ts
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -125,6 +125,77 @@ check('both reads use the same shared loader', (pub.match(/loadCampaignInterview
 check('the report language derivation is unchanged',
     /criteria\.evaluationLanguage = evaluationLanguage;/.test(route) &&
         /const shareLangRaw = String\(body\.language \|\| ''\)\.toLowerCase\(\);/.test(route), true);
+
+/* ── 6. the frontend: every creator sends it, every creator refuses without it ──
+   Found by SCANNING, not listed: earlier today a hand-written list of link
+   builders missed two of four. Every `apiClient.post('/api/recruitment-campaigns'`
+   in the frontend is found here, and the function that contains it must both send
+   interviewLanguage and refuse to post without one. A new creator added later is
+   caught without anyone remembering it. */
+const FRONT = join(HERE, '..', '..', '..', 'frontend', 'src');
+function walk(dir: string, out: string[] = []): string[] {
+    for (const name of readdirSync(dir)) {
+        const p = join(dir, name);
+        if (statSync(p).isDirectory()) walk(p, out);
+        else if (/\.(jsx?|tsx?)$/.test(name)) out.push(p);
+    }
+    return out;
+}
+/** The body of the `const X = async (…) => {` that encloses `at`. */
+function enclosingHandler(text: string, at: number): { name: string; body: string } {
+    const re = /const (\w+) = async \([^)]*\) => \{/g;
+    let best: { name: string; start: number } | null = null;
+    for (const m of text.matchAll(re)) {
+        if ((m.index ?? 0) < at) best = { name: m[1], start: m.index ?? 0 };
+    }
+    return best ? { name: best.name, body: text.slice(best.start, at) } : { name: '(none)', body: '' };
+}
+const creators: { file: string; name: string; body: string }[] = [];
+for (const file of walk(FRONT)) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/apiClient\.post\(\s*'\/api\/recruitment-campaigns'/g)) {
+        const h = enclosingHandler(text, m.index ?? 0);
+        creators.push({ file: file.slice(FRONT.length + 1).replace(/\\/g, '/'), name: h.name, body: code(h.body) });
+    }
+}
+console.log(`   campaign creators found by scan: ${creators.length} — ${creators.map((c) => `${c.file}#${c.name}`).join(', ')}`);
+check('the scan finds all four creation call sites', creators.length >= 4, true);
+const sidebarText = code(readFileSync(join(FRONT, 'components', 'NewInterviewSidebar.jsx'), 'utf8'));
+const validateBody = sidebarText.slice(
+    sidebarText.indexOf('const validateForm = () => {'),
+    sidebarText.indexOf('setErrors(newErrors);', sidebarText.indexOf('const validateForm = () => {')),
+);
+for (const c of creators) {
+    const label = `${c.file}#${c.name}`;
+    /* The screening body is built by a helper — the call must hand it the value,
+       and the helper must put it in the payload. */
+    const sends = /\binterviewLanguage\b/.test(c.body);
+    check(`${label}: sends the interview language`, sends, true);
+    const refuses =
+        /requireInterviewLanguage\(\)/.test(c.body) ||
+        /if \(interviewLanguage !== 'ar' && interviewLanguage !== 'en'\)/.test(c.body) ||
+        (/validateForm\(\)/.test(c.body) && /newErrors\.interviewLanguage/.test(validateBody));
+    check(`${label}: refuses to create without one`, refuses, true);
+}
+const helper = code(readFileSync(join(FRONT, 'utils', 'screeningCampaignPayload.js'), 'utf8'));
+check('the screening payload helper puts it in the body', /payload\.interviewLanguage = interviewLanguage;/.test(helper), true);
+
+/* "No default" also means no CARRY-OVER: opening the form for a new job must not
+   silently inherit the previous job's choice. Every reset of the job form resets it. */
+const resets = (sidebarText.match(/setJobDetails\(\{\}\);/g) || []).length;
+const langResets = (sidebarText.match(/setJobDetails\(\{\}\);\s*setInterviewLanguage\(''\);/g) || []).length;
+check(`every job-form reset (${resets}) also clears the interview language`, langResets === resets && resets > 0, true);
+check('the choice starts empty — no default',
+    /const \[interviewLanguage, setInterviewLanguage\] = useState\(''\);/.test(sidebarText), true);
+
+/* The candidate pages show the CAMPAIGN's language and never read `?language=`. */
+for (const page of ['Interview.jsx', 'PublicScreeningCall.jsx']) {
+    const text = code(readFileSync(join(FRONT, 'pages', page), 'utf8'));
+    check(`${page}: does not read ?language= at all`, /searchParams\.get\('language'\)/.test(text), false);
+    check(`${page}: does not pass a language to the voice socket`,
+        /useVoiceInterview\(\{[^}]*\blanguage\b/.test(text), false);
+    check(`${page}: switches the page to the campaign's language`, /changeLanguage\(campaignLang\)/.test(text), true);
+}
 
 if (failures > 0) {
     console.error(`\n${failures} check(s) failed`);

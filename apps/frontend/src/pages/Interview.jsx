@@ -13,7 +13,6 @@ import VoiceInterviewStage from '../components/VoiceInterviewStage';
 import VoiceInterviewPrepTips from '../components/VoiceInterviewPrepTips';
 import InterviewLinkBlocked from '../components/InterviewLinkBlocked.jsx';
 import { isVoiceInterviewLinkConsumed } from '../utils/interviewLinkAccess.js';
-import { parseInterviewUrlLanguage } from '../utils/interviewShareLink.js';
 import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import '../design-styles.css';
 
@@ -23,9 +22,8 @@ const Interview = () => {
   const candidateIdParam = searchParams.get('candidateId');
   const campaignId = searchParams.get('campaignId') || null;
   const applicationIdFromUrl = searchParams.get('applicationId') || null;
-  const urlLang = parseInterviewUrlLanguage(searchParams.get('language'));
-  // بلا احتياطٍ محلّي: غياب اللغة إشارةٌ للخادم أن يسأل الحملة.
-  const language = urlLang || undefined;
+  /* لغة المقابلة تقرّرها الحملة وحدها (قرار المالك ٢٠٢٦-٠٩-٢٣) والخادم يحسمها.
+     لا تُقرأ من `?language=`: الروابط القديمة تحمل فيه لغة متصفّح الموظّف. */
 
   const { isAuthenticated } = useAuth();
   const [candidate, setCandidate] = useState(null);
@@ -37,18 +35,10 @@ const Interview = () => {
 
   const session = useVoiceInterview({
     candidateId: resolvedPersonId,
-    language,
     campaignId,
     applicationId: resolvedApplicationId,
   });
 
-  useEffect(() => {
-    const fromUrl = parseInterviewUrlLanguage(searchParams.get('language'));
-    if (fromUrl && fromUrl !== currentLang) {
-      changeLanguage(fromUrl);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   useEffect(() => {
     if (!candidateIdParam) {
@@ -78,6 +68,12 @@ const Interview = () => {
         const row = data?.data;
         if (!data?.success || !row) return;
         setCandidate(row);
+        /* الصفحة بلغة المقابلة، كي لا يقرأ المرشّح صفحةً بلغةٍ ويسمع وكيلاً بأخرى.
+           استثناءٌ واحد: الكردية تبقى كردية في حملةٍ عربية — الصوت عربيٌّ في الحالتين. */
+        const campaignLang = row.interviewLanguage === 'en' ? 'en' : row.interviewLanguage === 'ar' ? 'ar' : null;
+        if (campaignLang && campaignLang !== currentLang && !(campaignLang === 'ar' && currentLang === 'ku')) {
+          changeLanguage(campaignLang);
+        }
         const personId = row.candidateId ? String(row.candidateId) : String(candidateIdParam);
         setResolvedPersonId(personId);
         if (row.applicationId) setResolvedApplicationId(String(row.applicationId));
@@ -92,6 +88,7 @@ const Interview = () => {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateIdParam, campaignId, applicationIdFromUrl]);
 
   const displayName = candidate
