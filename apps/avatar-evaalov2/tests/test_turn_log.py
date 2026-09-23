@@ -113,14 +113,29 @@ def test_missing_plan_still_produces_a_record():
     assert rec["turnIndex"] == 3
 
 
-def test_sink_dedupes_the_double_emit_per_turn():
-    """The reply guard runs twice per turn; the log must update, not duplicate."""
+def test_utterances_sharing_a_turn_index_are_never_merged():
+    """THE LIVE FINDING, 2026-09-23, against the DEPLOYED agent.
+
+    Three distinct utterances (the greeting, then a question twice) all carried
+    ``turnIndex: 0`` — ``turn_index`` only advances inside
+    ``on_user_turn_completed``. The first sink keyed records on turnIndex and
+    would have stored ONE of the three. The same run showed no double-emit at
+    all (3 utterances -> 3 emits), so that dedup guarded nothing real.
+    """
     sink = TurnLogSink(object())
-    sink.emit(_record(turn_index=1, question_text="first"))
-    sink.emit(_record(turn_index=1, question_text="second"))
-    sink.emit(_record(turn_index=2))
-    assert [r["turnIndex"] for r in sink.records] == [1, 2]
-    assert sink.records[0]["spokenQuestion"] == "second"
+    sink.emit(_record(turn_index=0, question_text="حياك الله"))
+    sink.emit(_record(turn_index=0, question_text="شنو خبرتك بـ PTW؟"))
+    sink.emit(_record(turn_index=0, question_text="شنو خبرتك بـ PTW؟"))
+    assert len(sink.records) == 3, "a same-index utterance was silently overwritten"
+    assert sink.records[0]["spokenQuestion"] == "حياك الله"
+
+
+def test_every_emission_gets_a_unique_increasing_seq():
+    """``seq`` is the record identity the browser merges on — not turnIndex."""
+    sink = TurnLogSink(object())
+    for _ in range(4):
+        sink.emit(_record(turn_index=0))
+    assert [r["seq"] for r in sink.records] == [0, 1, 2, 3]
 
 
 def test_sink_never_raises_when_the_room_is_absent_or_broken():
@@ -186,7 +201,7 @@ def test_end_record_uses_a_sentinel_index_so_it_cannot_shadow_a_turn():
     assert END_RECORD_TURN_INDEX < 0
 
 
-def test_end_and_turn_records_coexist_and_each_dedupes_against_itself():
+def test_turns_are_append_only_and_the_end_record_is_single():
     sink = TurnLogSink(object())
     sink.emit(_record(turn_index=0))
     sink.emit(_record(turn_index=1))
@@ -198,9 +213,10 @@ def test_end_and_turn_records_coexist_and_each_dedupes_against_itself():
         "two teardown routes must not produce two end records"
     )
     assert kinds.count("turn") == 2
-    # Last writer wins, so the record reflects the route that actually ran.
+    # FIRST writer wins: the route that concluded first is the true one, and
+    # the assistant's own _end_record_sent lock agrees.
     end = next(r for r in sink.records if r["kind"] == "end")
-    assert end["endTrigger"] == "wrap_up_guard"
+    assert end["endTrigger"] == "agent_tool"
 
 
 def test_an_end_record_never_collides_with_a_real_turn():

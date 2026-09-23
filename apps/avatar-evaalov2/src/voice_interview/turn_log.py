@@ -177,7 +177,7 @@ class TurnLogSink:
     def __init__(self, ctx: Any) -> None:
         self._ctx = ctx
         self._records: list[dict[str, Any]] = []
-        self._seen_keys: set[tuple[str, int]] = set()
+        self._next_seq = 0
         self._publish_failures = 0
         #: Strong refs to in-flight publish tasks (see ``_publish``).
         self._pending: set[Any] = set()
@@ -189,33 +189,33 @@ class TurnLogSink:
     def emit_end(self, record: dict[str, Any]) -> None:
         """Record and publish the end-of-interview record. Never raises.
 
-        Kept as its own entry point so callers read as what they are, but it
-        shares the de-duplication path: two teardown routes can both fire (the
-        model calls ``end_interview`` while the guard has already scheduled a
-        conclude), and the interview must still end up with ONE end record.
+        At most ONE end record is ever kept: two teardown routes can both fire
+        (the model calls ``end_interview`` while the guard has already scheduled
+        a conclude), and the first route is the true one. The assistant enforces
+        the same with ``_end_record_sent``; this is the second lock.
         """
+        if any(r.get("kind") == "end" for r in self._records):
+            return
         self.emit(record)
 
     def emit(self, record: dict[str, Any]) -> None:
-        """Record and publish one turn. Never raises."""
+        """Record and publish one agent utterance. Never raises.
+
+        ⚠️ APPEND-ONLY, identified by ``seq`` — never de-duplicated by
+        ``turnIndex``. The first version keyed records on ``(kind, turnIndex)``
+        to absorb a feared "record_agent_reply runs twice per turn", and the live
+        check against the deployed agent on 2026-09-23 showed why that was wrong:
+        three distinct utterances all carried ``turnIndex: 0`` and would have
+        collapsed into ONE stored record. ``turn_index`` only advances inside
+        ``on_user_turn_completed``, so any two utterances without a completed user
+        turn between them share it. The same run showed no double-emit at all
+        (3 utterances → 3 emits). For telemetry a duplicate is recoverable at
+        analysis time; a silent overwrite is not.
+        """
         try:
-            # ``record_agent_reply`` can run twice for one turn (the reply guard
-            # is wired into both transcription_node and tts_node). Keyed on
-            # (kind, turnIndex) so the second pass updates rather than
-            # duplicates — and so the end record, which carries a sentinel
-            # index, can never collide with a real turn.
-            key = (str(record.get("kind") or "turn"), int(record.get("turnIndex", -1)))
-            if key in self._seen_keys:
-                for i, existing in enumerate(self._records):
-                    if (
-                        str(existing.get("kind") or "turn"),
-                        int(existing.get("turnIndex", -1)),
-                    ) == key:
-                        self._records[i] = record
-                        break
-            else:
-                self._seen_keys.add(key)
-                self._records.append(record)
+            record["seq"] = self._next_seq
+            self._next_seq += 1
+            self._records.append(record)
 
             if record.get("kind") == "end":
                 logger.info(

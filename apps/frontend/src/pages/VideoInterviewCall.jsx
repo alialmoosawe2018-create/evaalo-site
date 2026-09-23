@@ -19,6 +19,7 @@ import {
     serializeTranscript,
     stampNewMessages,
 } from '../utils/videoTranscriptSerialize.js';
+import { mergeTurnLogRecord } from '../utils/videoTurnLog.js';
 import '../design-styles.css';
 
 const isBeyAvatarIdentity = (p) => p?.identity === 'bey-avatar-agent';
@@ -1615,18 +1616,13 @@ const VideoInterviewCall = () => {
                     // لا يمسّ الترانسكريبت إطلاقاً (ذاك من lk.transcription وحده).
                     if (topic === TURN_LOG_TOPIC) {
                         try {
-                            const record = JSON.parse(new TextDecoder().decode(payload));
-                            const list = turnLogRef.current;
-                            // المفتاح (kind, turnIndex): الوكيل قد يُصدر الدور نفسه
-                            // مرتين (حارس الرد يعمل في transcription_node و tts_node)
-                            // فنُحدّث ولا نُكرّر؛ وسجل النهاية يحمل فهرساً بديلاً
-                            // فلا يصطدم بدور حقيقي أبداً.
-                            const kind = record.kind || 'turn';
-                            const at = list.findIndex(
-                                (r) => (r.kind || 'turn') === kind && r.turnIndex === record.turnIndex
+                            // الهوية `seq` لكل إصدار — لا `turnIndex`. الفحص الحيّ
+                            // (٢٠٢٦-٠٩-٢٣) أثبت أن ثلاث عبارات مختلفة تحمل الفهرس نفسه،
+                            // فكانت ستُطوى في سجلّ واحد. انظر utils/videoTurnLog.js.
+                            mergeTurnLogRecord(
+                                turnLogRef.current,
+                                JSON.parse(new TextDecoder().decode(payload))
                             );
-                            if (at === -1) list.push(record);
-                            else list[at] = record;
                         } catch {
                             /* سجل تالف لا يجوز أن يزعج المقابلة */
                         }
