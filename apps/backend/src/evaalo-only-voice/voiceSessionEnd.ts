@@ -10,6 +10,8 @@
  * الخادم يعرف الفرق دائماً — هو من يستدعي ws.close — فلا حاجة لأي تغيير في
  * البروتوكول: يكفي أن نسجّل السبب عند كل موضع إغلاق ونقرأه في معالج close.
  */
+
+import { PHASE1_MAX_USER_MSGS_EN } from './interviewController.js';
 export type VoiceSessionEndCause =
   /** أغلق المتصفّح: زرّ End، أو إغلاق التبويب، أو انقطاع الشبكة. لا نعرف أيّها. */
   | "client"
@@ -54,8 +56,34 @@ export function completesInterview(cause: VoiceSessionEndCause): boolean {
 export function endedBeforeEnglishPhase(opts: {
   completedByServer: boolean;
   phaseReached?: number | null;
+  sessionLanguage?: 'ar' | 'en';
+  /** عدد أدوار المرشّح — معيار الاقتضاب في الجلسة الإنجليزية. */
+  userMessageCount?: number | null;
 }): boolean {
   if (opts.completedByServer) return false;
+  /**
+   * الجلسة الإنجليزية لها معيارها، لأنّ معيار العربية لا ينطبق عليها.
+   *
+   * الحكم العربي مبنيّ على أنّ مَن لم يبلغ المرحلة الثالثة لم تُختبر إنجليزيّته
+   * فخسر خمس عشرة نقطة بحكم الشيفرة. والجلسة الإنجليزية لا مرحلة ثالثة لها
+   * (`interviewController`)، وإنجليزيّتها مُختبَرة من أوّل دور — فهي بطبيعتها
+   * `phase < 3` دائماً، ولو تُرك الحكم على حاله لانقلبت **كلّ** مقابلة إنجليزية
+   * أغلقها المتصفّح إلى «غير مكتملة».
+   *
+   * ⚠️ والإعفاء الشامل خطأٌ مقابل: كان يُسكت الإشارة عن مقابلةٍ قُطعت فعلاً بعد
+   * أربعة أدوار. فالمعيار هنا التقدّم لا المرحلة: مَن لم يُكمل أدوار المرحلة
+   * الأولى (`PHASE1_MAX_USER_MSGS_EN`) لم يصل حتّى إلى محاور المرحلة الثانية،
+   * وتلك هي «قُطعت» بعينها. ومَن تجاوزها أعطى ما يكفي.
+   *
+   * وبلا عدّاد لا نخمّن: غياب المعلومة ليس معلومة، كما في المرحلة المجهولة أدناه.
+   */
+  if (opts.sessionLanguage === 'en') {
+    const turns = opts.userMessageCount;
+    if (turns === null || turns === undefined) return false;
+    const n = Number(turns);
+    if (!Number.isFinite(n)) return false;
+    return n < PHASE1_MAX_USER_MSGS_EN;
+  }
   // ⚠️ لا تكتب Number(opts.phaseReached) مباشرة: Number(null) تساوي صفراً وهي
   // عددٌ نهائيّ، فتمرّ «مرحلة مجهولة» بوصفها المرحلة صفر ويُقلب تقرير المرشّح
   // إلى «غير مكتملة» بلا دليل. غياب المعلومة ليس معلومة.

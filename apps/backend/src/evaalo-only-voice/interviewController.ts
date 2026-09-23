@@ -24,7 +24,33 @@ const PHASE2_MAX_USER_MSGS = 13;
  * بالكامل. أدوارها الأربعة تُوزَّع على Phase 1 (+3) ويبقى Phase 2 مفتوحاً حتى
  * انتهاء الوقت، فتبقى المدة الإجمالية كما هي.
  */
-const PHASE1_MAX_USER_MSGS_EN = 12;
+export const PHASE1_MAX_USER_MSGS_EN = 12;
+
+/**
+ * المرحلة من العدّاد وحده — **الصيغة الوحيدة** في النظام.
+ *
+ * ⚠️ كانت مكتوبةً مرّتين: هنا باللغة، وفي `interviewState` بلا لغة
+ * (`< 9 ? 1 : < 13 ? 2 : 3`). والثانية هي التي تملأ `phaseReached` في الحمولة
+ * الصادرة — فكلّ جلسة إنجليزية كانت تُبلَّغ بأنّها بلغت المرحلة الثالثة، وهي
+ * مرحلةٌ لا وجود لها في الجلسة الإنجليزية أصلاً. مقيس في `6cfb7d62` و`2718fd5f`
+ * (٢٠٢٦-٠٩-٢٣): السجلّ يقول `phase=2` حتى آخر دور، والحمولة تقول `phaseReached: 3`.
+ *
+ * فمن اليوم: صيغةٌ واحدة يستوردها الطرفان. والخروج المبكر من المرحلة الأولى
+ * يبقى هنا وحده، لأنّه يعتمد على تغطية المواضيع لا على العدّ.
+ */
+export function computePhaseByCount(
+  userMessageCount: number,
+  sessionLanguage?: 'ar' | 'en'
+): InterviewPhase {
+  if (sessionLanguage === 'en') {
+    return userMessageCount < PHASE1_MAX_USER_MSGS_EN ? 1 : 2;
+  }
+  return userMessageCount < PHASE1_MAX_USER_MSGS
+    ? 1
+    : userMessageCount < PHASE2_MAX_USER_MSGS
+      ? 2
+      : 3;
+}
 
 /**
  * يحسب مخرجات الـ Controller من الحالة الحالية
@@ -36,8 +62,6 @@ export function getControllerOutput(
   sessionLanguage?: 'ar' | 'en',
   phase1TopicsExhausted?: boolean
 ): ControllerOutput {
-  const englishSession = sessionLanguage === 'en';
-
   /**
    * الخروج المبكر من المرحلة الأولى حين تنفد محاورها.
    *
@@ -64,15 +88,10 @@ export function getControllerOutput(
     (state?.secondMandatoryAsked ?? false);
   const leavePhase1Early = phase1TopicsExhausted === true && allMandatoriesAsked;
 
-  const phase: InterviewPhase = englishSession
-    ? userMessageCount < PHASE1_MAX_USER_MSGS_EN && !leavePhase1Early
-      ? 1
-      : 2
-    : userMessageCount < PHASE1_MAX_USER_MSGS && !leavePhase1Early
-      ? 1
-      : userMessageCount < PHASE2_MAX_USER_MSGS
-        ? 2
-        : 3;
+  // الأساس من الصيغة المشتركة، ثمّ الخروج المبكر يرفع المرحلة الأولى إلى الثانية
+  // فقط — وهو ما كانت تفعله الشروط المتشعّبة السابقة حرفاً بحرف.
+  const basePhase = computePhaseByCount(userMessageCount, sessionLanguage);
+  const phase: InterviewPhase = leavePhase1Early && basePhase === 1 ? 2 : basePhase;
 
   const isFirstPhase3Message = phase === 3 && userMessageCount === PHASE2_MAX_USER_MSGS;
 

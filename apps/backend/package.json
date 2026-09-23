@@ -16,6 +16,8 @@
     "test:job-context": "tsx src/scripts/application-job-context-test.ts",
     "test:rubric-results": "tsx src/scripts/stage1-rubric-results-test.ts",
     "test:voice-tts-output-format": "tsx src/scripts/voice-tts-output-format-test.ts",
+    "test:voice-english-phase2-plan": "tsx src/scripts/voice-english-phase2-plan-test.ts",
+    "test:voice-phase2-wiring": "tsx src/scripts/voice-phase2-wiring-test.ts",
     "test:headhunter-target-role": "tsx src/scripts/headhunter-target-role-test.ts",
     "test:blueprint-readiness": "tsx src/scripts/blueprint-readiness-test.ts",
     "test:blueprint-gate-pin": "tsx src/scripts/blueprint-gate-pin-test.ts",

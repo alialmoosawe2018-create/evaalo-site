@@ -1234,7 +1234,13 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         console.log(`[DEFLECTION PROBE] ${sessionId.substring(0, 8)}... used=${(interviewState?.deflectionProbesUsed ?? 0) + 1}/${DEFLECTION_PROBE_MAX}`);
       }
 
-      const mode = clarificationRequested ? 'clarify' : deflectionProbe ? 'deflection-probe' : followUpNext ? `follow-up:${followUpNext}` : selectedQuestion?.availableTopics ? 'topic-choice' : selectedQuestion?.topic ? 'topic' : selectedQuestion?.isFixed ? 'fixed' : 'rephrase';
+      /**
+       * ⚠️ الوسم `rephrase` كان يكذب. كلّ سؤال من المرحلة الثانية يحمل `topicKey`
+       * بلا `topic` ولا `availableTopics` ولا `isFixed`، فيسقط إلى آخر خيار في
+       * السلسلة — أي أنّ «rephrase» كان اسماً لكلّ أدوار المرحلة الثانية، لا
+       * لوضعٍ قائم. كلّفني ذلك تشخيصاً خاطئاً كاملاً في ٢٠٢٦-٠٩-٢٣.
+       */
+      const mode = clarificationRequested ? 'clarify' : deflectionProbe ? 'deflection-probe' : followUpNext ? `follow-up:${followUpNext}` : selectedQuestion?.isDeepDive ? 'deep-dive' : selectedQuestion?.availableTopics ? 'topic-choice' : selectedQuestion?.topicKey ? `phase2:${selectedQuestion.topicKey}` : selectedQuestion?.topic ? 'topic' : selectedQuestion?.isFixed ? 'fixed' : 'unspecified';
       console.log(`[PHASE] ${sessionId.substring(0, 8)}... userMsgs=${userMessageCount} phase=${currentPhase} mode=${mode} candidateData=${candidateProfile ? 'yes' : 'no'}`);
 
       let llmReply: string;
@@ -1465,6 +1471,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         // منعُ طرح السؤال نفسه مرّتين متتاليتين. ولا يُسجَّل عند طلب التوضيح أو
         // المتابعة لأنّهما يعودان للموضوع نفسه بقصد.
         phase2TopicUsed: deferredTurn ? undefined : selectedQuestion?.topicKey,
+        deepDiveUsed: !deferredTurn && selectedQuestion?.isDeepDive === true,
         // مصدر بذرة المتابعة في الدور التالي. ولا يُكتب في دور المتابعة نفسه ولا
         // عند طلب التوضيح: كلاهما يبقى على الموضوع القائم، فالمرجع لا يتغيّر.
         evaluatesUsed: deferredTurn ? undefined : selectedQuestion?.evaluates,
@@ -1472,6 +1479,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         // تُحسب متابعةً فقط إن نُطقت فعلاً — لا إن استحقّت ثم تخطّاها إلزاميّ ثابت.
         followUpAsked: followUpNext === 1 && !spokeFixedQuestion,
         phase3Reached: currentPhase === 3,
+        sessionLanguage: interviewLanguage,
         englishIntroEmitted,
         deflectionProbeUsed: deflectionProbe,
       });
@@ -2018,6 +2026,8 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
               endedBeforeEnglishPhase({
                 completedByServer,
                 phaseReached: interviewState?.phase ?? null,
+                sessionLanguage: interviewLanguage,
+                userMessageCount: interviewState?.userMessageCount ?? null,
               }),
           },
         });

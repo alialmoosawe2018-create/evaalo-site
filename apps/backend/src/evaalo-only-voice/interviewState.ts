@@ -5,6 +5,7 @@
  */
 
 import type { InterviewPhase } from '../services/llmService.js';
+import { computePhaseByCount } from './interviewController.js';
 
 export interface InterviewState {
   sessionId: string;
@@ -72,6 +73,12 @@ export interface InterviewState {
    * مرّتين متتاليتين).
    */
   askedPhase2Topics: string[];
+  /**
+   * عدد أسئلة التعميق المطروحة بعد نفاد محاور المرحلة الثانية — يدوّر زاوية
+   * التعميق فلا يتكرّر نصّها. منفصل عن `totalFollowUps` عمداً: ذاك سقفٌ يحمي
+   * المحاور من أن تأكلها المتابعات، وهذا يبدأ بعد أن تنتهي المحاور.
+   */
+  phase2DeepDives: number;
 }
 
 /** سقف المتابعات للمقابلة الواحدة */
@@ -99,6 +106,7 @@ export function createInterviewState(sessionId: string): InterviewState {
     englishTestAnnounced: false,
     askedTopics: [],
     askedPhase2Topics: [],
+    phase2DeepDives: 0,
     deflectionProbesUsed: 0,
     followUpCount: 0,
     totalFollowUps: 0,
@@ -148,8 +156,16 @@ export function onExchangeComplete(
     deflectionProbeUsed?: boolean;
     /** مفتاح موضوع المرحلة الثانية الذي طُرح في هذا الدور — يمنع إعادته */
     phase2TopicUsed?: string;
+    /** صحيحٌ حين كان ردّ هذا الدور سؤال تعميق — يدوّر الزاوية في الدور التالي */
+    deepDiveUsed?: boolean;
     /** `evaluates` السؤال المطروح هذا الدور — يُغذّي بذرة المتابعة في الدور التالي */
     evaluatesUsed?: string[];
+    /**
+     * لغة الجلسة — تدخل في حساب المرحلة. بدونها تُحسب المرحلة بعتبات العربية
+     * وحدها، وتلك هي التي كانت تعلن «المرحلة الثالثة» في جلسة إنجليزية لا
+     * مرحلة ثالثة فيها.
+     */
+    sessionLanguage?: 'ar' | 'en';
   }
 ): InterviewState | undefined {
   const state = stateStore.get(sessionId);
@@ -192,6 +208,9 @@ export function onExchangeComplete(
     state.totalFollowUps = (state.totalFollowUps ?? 0) + 1;
     state.lastFollowUpTurn = newUserCount;
   }
+  if (options?.deepDiveUsed) {
+    state.phase2DeepDives = (state.phase2DeepDives ?? 0) + 1;
+  }
   if (options?.deflectionProbeUsed) {
     state.deflectionProbesUsed = (state.deflectionProbesUsed ?? 0) + 1;
   }
@@ -213,7 +232,24 @@ export function onExchangeComplete(
    * وحذفُ الائتمان لا يغيّر سؤالاً واحداً: `state.phase` تُقرأ في أربعة مواضع
    * كلّها تقارير (مقياسان و`phaseReached` مرّتين)، ولا شيء يختار منها.
    */
-  const phase: InterviewPhase = newUserCount < 9 ? 1 : newUserCount < 13 ? 2 : 3;
+  /**
+   * ⚠️ الصيغة مستوردة من `interviewController` ولم تعد تُكتب هنا. كانت نسخةً
+   * ثانيةً بلا لغة، فأعلنت «المرحلة الثالثة» في كلّ جلسة إنجليزية — والمرحلة
+   * الثالثة اختبارُ إنجليزية لا يُطرح في مقابلة إنجليزية أصلاً.
+   *
+   * ولا يدخل هنا «الخروج المبكر» من المرحلة الأولى: هو قرارُ اختيارٍ يعتمد على
+   * تغطية المواضيع، وهذه القيمة لا تختار سؤالاً. أثرُه أنّ هذه القيمة قد تتأخّر
+   * دوراً أو دورين في إعلان المرحلة الثانية، ولا تتغيّر به إجابةُ أيّ مستهلك.
+   *
+   * ⚠️ لكنّها **ليست تقريراً محضاً**، خلافاً لما يقوله التعليق أعلاه: `state.phase`
+   * تُمرَّر في `evalContext.phase`، و`llmService` يصفّر بها `englishFluency` حين
+   * `phase < 3`. وهي محايدة اليوم في الجلسة الإنجليزية — كانت تبلغ الثالثة
+   * و`englishQuestionsAsked` صفرٌ فتصفّر بالفرع الثاني، وصارت تقف عند الثانية
+   * فتصفّر بالأوّل: صفرٌ في الحالتين. لكنّ مَن يغيّر أحد الفرعين لاحقاً يغيّر درجةً،
+   * لا سطراً في تقرير. (والتصفير نفسه في مقابلةٍ كلُّها إنجليزية عيبٌ قائم قبل هذا
+   * التعديل ولم يُعالَج فيه.)
+   */
+  const phase: InterviewPhase = computePhaseByCount(newUserCount, options?.sessionLanguage);
 
   if (phase !== state.phase) {
     state.phase = phase;

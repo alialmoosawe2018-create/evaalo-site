@@ -20,7 +20,7 @@
  * Run: npm run test:voice-phase2-topic-memory
  */
 import { pickPhase2Topic } from '../evaalo-only-voice/questionEngine.js';
-import { PHASE2_TOPIC_KEYS } from '../evaalo-only-voice/interviewConfig.js';
+import { PHASE2_TOPIC_KEYS, getPhase2TopicKeys } from '../evaalo-only-voice/interviewConfig.js';
 import type { InterviewState } from '../evaalo-only-voice/interviewState.js';
 
 let failures = 0;
@@ -57,6 +57,7 @@ console.log('\n— replaying the same session against the new selection —');
 const asked: string[] = [];
 const serve = (change: boolean) => {
     const k = pickPhase2Topic(st(asked, asked.length), change);
+    if (k === null) throw new Error("the bank is not exhausted here — null means the picker regressed");
     asked.push(k);
     return k;
 };
@@ -73,26 +74,36 @@ console.log('\n— every topic is served exactly once before any repeat —');
 const seen: string[] = [];
 for (let i = 0; i < PHASE2_TOPIC_KEYS.length; i += 1) {
     // alternate change requests to prove they cannot cause a collision either
-    seen.push(pickPhase2Topic(st(seen, seen.length), i % 2 === 1));
+    const k = pickPhase2Topic(st(seen, seen.length), i % 2 === 1);
+    if (k === null) throw new Error("exhausted too early: the base six must all be servable");
+    seen.push(k);
 }
 check('all topics covered', new Set(seen).size, PHASE2_TOPIC_KEYS.length);
 check('no topic served twice', seen.length, new Set(seen).size);
 
-console.log('\n— and the interview still continues once they run out —');
-const allAsked = [...PHASE2_TOPIC_KEYS];
-const afterExhaustion = pickPhase2Topic(st(allAsked, 7), false);
-check('falls back to rotation rather than nothing', PHASE2_TOPIC_KEYS.includes(afterExhaustion as never), true);
+/* ── what happens once the bank runs out — CHANGED 2026-09-23 ──────────────
+   This used to assert a round-robin fallback: once every topic had been asked the
+   picker returned `keys[userMessageCount % keys.length]`, so the interview re-asked
+   the whole bank in order. That IS the repetition heard in the two English sessions
+   of 2026-09-23 (6cfb7d62, 2718fd5f), so the fallback is gone: the picker now reports
+   exhaustion with `null` and `selectNextQuestion` answers it with a deepening question
+   about what the candidate just said. Pinned here so the old behaviour cannot return. */
+console.log('\n— once they run out, the picker says so instead of repeating —');
+const allAsked = [...getPhase2TopicKeys()];
+check('exhaustion is reported, not papered over', pickPhase2Topic(st(allAsked, 7), false), null);
+check('and no counter value revives a repeat', pickPhase2Topic(st(allAsked, 8), true), null);
 check(
-    'and the fallback rotates with the counter',
-    pickPhase2Topic(st(allAsked, 7), false) === pickPhase2Topic(st(allAsked, 8), false),
-    false
+    'one short of the end still serves that last topic',
+    pickPhase2Topic(st(allAsked.slice(0, -1), 7), false),
+    allAsked[allAsked.length - 1]
 );
 
 console.log('\n— a change request must not skip a topic into oblivion —');
 // With one topic left, a change request has nowhere to go: serve it, do not
 // return undefined and do not fall through to the exhausted-rotation branch.
-const oneLeft = PHASE2_TOPIC_KEYS.slice(0, PHASE2_TOPIC_KEYS.length - 1);
-const last = PHASE2_TOPIC_KEYS[PHASE2_TOPIC_KEYS.length - 1];
+const BANK = getPhase2TopicKeys();
+const oneLeft = BANK.slice(0, BANK.length - 1);
+const last = BANK[BANK.length - 1];
 check('the last remaining topic is still served on a change', pickPhase2Topic(st([...oneLeft], 5), true), last);
 
 if (failures > 0) {

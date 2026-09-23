@@ -14,6 +14,8 @@ import {
   PHASE1_TOPICS,
   POOL_COUNT,
   PHASE2_TOPIC_KEYS,
+  PHASE2_TOPIC_KEYS_EXTRA,
+  getPhase2TopicKeys,
   PHASE3_QUESTIONS,
   PHASE3_MAX_QUESTIONS,
   PHASE3_TRANSLATION_QUESTION,
@@ -792,7 +794,9 @@ export function getFollowUpPromptPair(
  * كل مفتاح مستقل (قابل للاختبار) ويُرجع نصاً مع قيمة البروفايل أو بدونها.
  * إضافة topic جديد = إضافة معالج واحد فقط في `PHASE2_TOPIC_PROMPTS`.
  */
-type Phase2TopicKey = (typeof PHASE2_TOPIC_KEYS)[number];
+type Phase2TopicKey =
+  | (typeof PHASE2_TOPIC_KEYS)[number]
+  | (typeof PHASE2_TOPIC_KEYS_EXTRA)[number];
 
 type Phase2PromptResult = { ar: string; en: string };
 
@@ -813,6 +817,17 @@ const PHASE2_TOPIC_EVALUATES: Record<Phase2TopicKey, InterviewEvaluationIntent[]
   education: ['learning_agility', 'role_fit', 'clarity'],
   company: ['problem_solving', 'ownership', 'collaboration'],
   language: ['communication', 'clarity'],
+  // المحاور الإضافية — سلوكية، تغذّي أبعاد المقيّم السبعة.
+  achievement: ['ownership', 'goal_orientation', 'clarity'],
+  scale: ['experience', 'role_fit', 'clarity'],
+  onboarding: ['structured_thinking', 'role_fit', 'initiative'],
+  ambiguity: ['judgment', 'decision_making', 'self_awareness'],
+  stakeholders: ['collaboration', 'communication', 'professionalism'],
+  training_others: ['communication', 'teamwork', 'maturity'],
+  improvement: ['initiative', 'innovation', 'problem_solving'],
+  decision: ['decision_making', 'ownership', 'judgment'],
+  tool_depth: ['digital_skills', 'tooling', 'technical_judgment'],
+  expectations: ['self_awareness', 'work_style', 'commitment'],
 };
 
 const PHASE3_EVALUATES: InterviewEvaluationIntent[] = ['english_fluency', 'communication', 'clarity'];
@@ -892,7 +907,10 @@ export function languageNamesOnly(languages?: (string | null | undefined)[] | nu
   return result;
 }
 
-const PHASE2_TOPIC_PROMPTS: Record<Phase2TopicKey, Phase2TopicHandler> = {
+const PHASE2_TOPIC_PROMPTS: Record<
+  (typeof PHASE2_TOPIC_KEYS)[number],
+  Phase2TopicHandler
+> = {
   /**
    * الموضوع الوحيد المشتقّ من **الوظيفة** لا من السيرة.
    *
@@ -992,6 +1010,89 @@ const PHASE2_TOPIC_PROMPTS: Record<Phase2TopicKey, Phase2TopicHandler> = {
   },
 };
 
+/**
+ * محاور الجلسة الإنجليزية الإضافية.
+ *
+ * كلّها سلوكية وتطلب موقفاً واحداً محدّداً — لا رأياً عامّاً: «احكِ لي عن مرّة»
+ * تُنتج دليلاً يُقتبس، و«ما رأيك في ضغط العمل» تُنتج كلاماً لا يُقيَّم. وهذا ما
+ * يحتاجه مقيّم المرحلة الثانية: اقتباسٌ حرفيّ لكلّ تقدير يمنح نقاطاً.
+ *
+ * ونصّها العربي موجود رغم أنّها للجلسة الإنجليزية: المرشّح يملك تحويل الجلسة
+ * إلى العربية في منتصفها (`isWantsArabicSwitch`)، فلو غاب النصّ لسقط المحور إلى
+ * الاحتياطي العامّ في أسوأ لحظة.
+ */
+const PHASE2_EXTRA_PROMPTS: Record<
+  (typeof PHASE2_TOPIC_KEYS_EXTRA)[number],
+  Phase2TopicHandler
+> = {
+  achievement: () => ({
+    ar: 'اسأل المرشح عن إنجاز محدد يفتخر بيه بشغله، وشلون عرف إنه نجح.',
+    en: 'Ask the candidate about one specific achievement they are proud of at work, and how they knew it succeeded.',
+  }),
+  scale: () => ({
+    ar: 'اسأل المرشح عن حجم الشغل اللي كان مسؤول عنه — كم شخص أو كم معاملة أو كم موقع — وشلون كان يتابعه.',
+    en: 'Ask the candidate about the size of the work they were responsible for — how many people, cases, or sites — and how they kept track of it.',
+  }),
+  onboarding: (profile) => {
+    const position = profile?.position_applied_for?.trim();
+    return {
+      ar: position
+        ? `اسأل المرشح شنو أول شي راح يسويه بأول أسبوعين بوظيفة ${position}، وليش هذا بالذات.`
+        : 'اسأل المرشح شنو أول شي راح يسويه بأول أسبوعين بالوظيفة، وليش هذا بالذات.',
+      en: position
+        ? `Ask the candidate what they would do in their first two weeks in the ${position} role, and why that first.`
+        : 'Ask the candidate what they would do in their first two weeks in the role, and why that first.',
+    };
+  },
+  ambiguity: () => ({
+    ar: 'اسأل المرشح شنو يسوي إذا انطوه مهمة والتفاصيل ناقصة أو التعليمات مو واضحة.',
+    en: 'Ask the candidate what they do when they are given a task with missing details or unclear instructions.',
+  }),
+  stakeholders: (profile) => {
+    const position = profile?.position_applied_for?.trim();
+    return {
+      ar: 'اسأل المرشح شلون يشتغل وية أقسام ثانية أو جهات برا فريقه، وشنو أصعب شي بهالشغل.',
+      en: position
+        ? `Ask the candidate how they work with other departments or people outside their own team in a ${position} context, and what the hardest part of that is.`
+        : 'Ask the candidate how they work with other departments or people outside their own team, and what the hardest part of that is.',
+    };
+  },
+  training_others: () => ({
+    ar: 'اسأل المرشح عن مرة درّب أو علّم بيها زميل شغلة يعرفها، وشلون تأكد إنه فهمها.',
+    en: 'Ask the candidate about a time they trained or taught a colleague something they knew, and how they made sure it landed.',
+  }),
+  improvement: () => ({
+    ar: 'اسأل المرشح عن شي غيّره بطريقة انجاز الشغل من نفسه بلا ما أحد يطلب منه.',
+    en: 'Ask the candidate about something they changed in the way the work was done, on their own initiative and without being asked.',
+  }),
+  decision: () => ({
+    ar: 'اسأل المرشح عن قرار اتخذه بصلاحيته هو بلا ما يرجع لمديره، وشلون طلعت النتيجة.',
+    en: 'Ask the candidate about a decision they took on their own authority without going back to their manager, and how it turned out.',
+  }),
+  /**
+   * عمق الأداة — والمصدر هو المهارة الثانية لا الأولى عمداً.
+   *
+   * كان `skills[1] || skills[0]`، والارتداد إلى الأولى يجعله **نفس** محور `skill`
+   * الأساسي حرفياً لكلّ مرشّح ذكر مهارة واحدة — أي تكرارٌ أدخلَته إضافةُ المحاور
+   * لا البنك القديم. فإن لم تكن هناك مهارة ثانية نسأل عن الأداة اليومية بدلها.
+   */
+  tool_depth: (profile) => {
+    const second = profile?.skills?.[1]?.trim();
+    return {
+      ar: second
+        ? `اسأل المرشح عن مثال عملي واحد استخدم بيه "${second}" فعلاً، وشنو كانت النتيجة.`
+        : 'اسأل المرشح عن أداة أو نظام يشتغل عليه كل يوم، ومثال عملي واحد استخدمه بيه.',
+      en: second
+        ? `Ask the candidate for one concrete example where they actually used "${second}", and what the result was.`
+        : 'Ask the candidate about a tool or system they use every day, and one concrete example of using it.',
+    };
+  },
+  expectations: () => ({
+    ar: 'اسأل المرشح شنو يحتاج من صاحب العمل أو المدير حتى يطلع أحسن شغل عنده.',
+    en: 'Ask the candidate what they need from an employer or manager in order to do their best work.',
+  }),
+};
+
 const PHASE2_GENERIC_FALLBACK: Phase2PromptResult = {
   ar: 'اسأل المرشح عن أبرز خبراته المهنية وما يميّزها.',
   en: 'Ask the candidate about the most relevant experience they have and what makes it stand out.',
@@ -1002,7 +1103,9 @@ export function buildPhase2TopicPrompt(
   ar: boolean,
   profile?: CandidateProfileForEngine | null
 ): string {
-  const handler = (PHASE2_TOPIC_PROMPTS as Record<string, Phase2TopicHandler | undefined>)[topicKey];
+  const handler =
+    (PHASE2_TOPIC_PROMPTS as Record<string, Phase2TopicHandler | undefined>)[topicKey] ??
+    (PHASE2_EXTRA_PROMPTS as Record<string, Phase2TopicHandler | undefined>)[topicKey];
   const out = handler ? handler(profile) : PHASE2_GENERIC_FALLBACK;
   return ar ? out.ar : out.en;
 }
@@ -1047,20 +1150,61 @@ export function getFallbackForTopic(topic: string, genderRaw?: string | null): s
  * وإن استُنفدت المواضيع كلّها (مقابلة أطول من عددها) نعود للتناوب على العدّاد: تكرارٌ
  * بعد تغطية الجميع خيرٌ من صمت.
  */
+/**
+ * زوايا التعميق — تُستعمل بعد نفاد محاور المرحلة الثانية.
+ *
+ * ليست مواضيع جديدة بل عدساتٌ على ما قاله المرشّح تواً: النتيجة بالضبط، أصعب
+ * جزء، منو قرّر، شنو جرّب أولاً وما نفع… ولهذا لا تصطدم بأيّ بنك — لا تُدخل
+ * موضوعاً جديداً أصلاً.
+ *
+ * ولماذا قائمة مستقلّة بدل `getFollowUpPromptPair` وحدها؟ لأنّ تلك تدور على ثلاث
+ * صيغ لكلّ intent، وبذرة التعميق ثابتة بعد النفاد (`lastQuestionEvaluates` لا
+ * تتغيّر)، فكانت الزاوية تتكرّر بعد ثلاثة أسئلة — مقيس: مقابلة ٣٠ دوراً أعادت أربع
+ * صيغ. وأربع عشرة زاوية تغطّي أطول مقابلة واقعية (٣٤ دوراً ⇒ أحد عشر تعميقاً).
+ *
+ * وما بعدها تدور، وهذا مقبول ومقصود: بلوغُ الدور الأربعين داخل اثنتي عشرة دقيقة
+ * يعني ثمانيَ عشرة ثانية للتبادل الواحد، وقد سُئل المرشّح قبلها ستّةً وثلاثين
+ * سؤالاً مختلفاً. والتوجيه صياغةٌ لا نصّ مُلزِم: الموديل يبني السؤال من آخر كلام
+ * المرشّح، وهو يختلف كلّ دور ولو تكرّرت الزاوية.
+ */
+export const DEEP_DIVE_ANGLES: { ar: string; en: string }[] = [
+  { ar: 'شنو كانت النتيجة بالضبط؟', en: 'What exactly was the outcome?' },
+  { ar: 'شنو أصعب جزء بهالموضوع؟', en: 'What was the hardest part of it?' },
+  { ar: 'منو غيرك كان داخل بالموضوع؟', en: 'Who else was involved?' },
+  { ar: 'لو ترجع لنفس الموقف، شنو تغيّر؟', en: 'If you faced it again, what would you change?' },
+  { ar: 'كم أخذ منك وقت؟', en: 'How long did it take you?' },
+  { ar: 'شنو أول شي جرّبته وما نفع؟', en: 'What did you try first that did not work?' },
+  { ar: 'شلون عرفت إنه طلع صح؟', en: 'How did you know it had worked?' },
+  { ar: 'شنو كان البديل لو ما سويتها هيچي؟', en: 'What was the alternative if you had not done that?' },
+  { ar: 'منو اللي قرّر بالنهاية؟', en: 'Who made the final call?' },
+  { ar: 'شنو تكلّه لواحد يسويها أول مرة؟', en: 'What would you tell someone doing it for the first time?' },
+  { ar: 'شنو كانت الكلفة أو المخاطرة؟', en: 'What was the cost or the risk?' },
+  { ar: 'كل شكَد يصير هالشي بشغلك؟', en: 'How often does that come up in your work?' },
+  { ar: 'شنو صار بعدها؟', en: 'What happened afterwards?' },
+  { ar: 'شنو كانت أول خطوة سويتها؟', en: 'What was the very first step you took?' },
+];
+
 export function pickPhase2Topic(
   state: InterviewState | undefined,
   changeRequested: boolean
-): Phase2TopicKey {
+): Phase2TopicKey | null {
+  const keys = getPhase2TopicKeys() as readonly Phase2TopicKey[];
   const asked = new Set(state?.askedPhase2Topics ?? []);
   // ملاحظة مقصودة: لا نضيف 'role' هنا من `state.roleMandatoryAsked`. ذاك العلَم
   // يُضبط من *استحقاق* السؤال لا من نطقه؛ فحين يستبدل تنبيهُ التهرّب أو الخاتمة
   // الكائنَ المختار، يُرفع العلَم بلا أن يُطرح السؤال. عندها يسقط `topicKey` مع
   // الكائن المستبدَل، فتلتقط المرحلةُ الثانية الموضوع — وهو التعويض الصحيح.
-  const unasked = PHASE2_TOPIC_KEYS.filter((k) => !asked.has(k));
-  if (unasked.length === 0) {
-    const idx = (state?.userMessageCount ?? 0) % PHASE2_TOPIC_KEYS.length;
-    return PHASE2_TOPIC_KEYS[idx];
-  }
+  /**
+   * نفدت المحاور ⇒ `null`، ولم يعد الدورانُ على العدّاد.
+   *
+   * كان هنا `keys[userMessageCount % keys.length]` وتعليقٌ يقول «تكرارٌ بعد تغطية
+   * الجميع خيرٌ من صمت» — وهو صحيح في مقابلته الوحيدة: الصمت. لكنّ البديل ليس
+   * الصمت بل التعميق، وقد استُبدل به في `selectNextQuestion`. وتوسيعُ البنك وحده
+   * لا يُغني: الأدوار محكومة بمؤقّت لا بعدد، فأيّ بنك ثابت يُتجاوز في مقابلة
+   * طويلة بما يكفي (مقيس: ٣٤ دوراً ⇒ عشر إعادات).
+   */
+  const unasked = keys.filter((k) => !asked.has(k));
+  if (unasked.length === 0) return null;
   // طلب التغيير يتخطّى المرشّح الأوّل ما دام هناك بديل.
   if (changeRequested && unasked.length > 1) return unasked[1];
   return unasked[0];
@@ -1213,8 +1357,31 @@ export function selectNextQuestion(
   }
 
   if (phase === 2) {
-    const topicKey = pickPhase2Topic(state, changeRequested === true);
     const ar = candidateLastLanguage === 'ar';
+    const topicKey = pickPhase2Topic(state, changeRequested === true);
+    /**
+     * البنك نفد ⇒ نعمّق بدل أن نعيد.
+     *
+     * الزاوية تُسحب من آلية المتابعة القائمة (`getFollowUpPromptPair`) ببذرة
+     * `evaluates` آخرِ سؤالٍ طُرح فعلاً، وتدور بعدّاد التعميق — فلا يتكرّر نصّ.
+     * وهو **ليس** متابعةً في المحاسبة: سقف المتابعات خمسٌ للمقابلة كلّها وغرضه
+     * ألّا تأكل المتابعاتُ المحاور، ونحن هنا بعد أن انتهت المحاور أصلاً.
+     *
+     * والتوجيه صياغةٌ لا نصٌّ مُلزِم، كبقيّة محاور المرحلة الثانية: الموديل يبني
+     * السؤال من آخر ما قاله المرشّح، والتاريخ أمامه فلا يعيد سؤالاً مطروحاً.
+     */
+    if (topicKey === null) {
+      const seed = DEEP_DIVE_ANGLES[(state?.phase2DeepDives ?? 0) % DEEP_DIVE_ANGLES.length];
+      const angle = ar ? seed.ar : seed.en;
+      return {
+        text: ar
+          ? `محاور المقابلة خلصت. اسأل المرشح سؤال واحد أعمق عن آخر شي حچاه هو بنفسه — بزاوية: «${angle}» — ولا تعيد أي سؤال انطرح قبل.`
+          : `The topic plan is complete. Ask ONE deeper question about what the candidate just said — angle: "${angle}" — and do not repeat any question already asked.`,
+        isDeepDive: true,
+        evaluates: state?.lastQuestionEvaluates,
+        preferArabic: ar,
+      };
+    }
     const text = buildPhase2TopicPrompt(topicKey, ar, candidateProfile);
     return {
       text,

@@ -352,6 +352,11 @@ export interface SelectedQuestion {
     textIsAuthoritative?: boolean;
     /** قائمة مواضيع — LLM يختار الأنسب حسب إجابة المرشح (بدل round-robin) */
     availableTopics?: string[];
+    /**
+     * سؤال تعميق بعد نفاد محاور المرحلة الثانية — يُحاسَب بعدّاده لا بسقف
+     * المتابعات، فسقفُ المتابعات يحمي المحاورَ من أن تُؤكل، ولا محاور بقيت.
+     */
+    isDeepDive?: boolean;
 }
 
 export interface LLMContext {
