@@ -25018,6 +25018,96 @@ html[data-app-theme='light'] .headhunter-campaign-picker__create-hint {
     color: var(--app-accent-text, #3730a3);
 }
 
+/* ─── الخيار الثانوي: بطاقة لا رابط ───────────────────────────────────── */
+/*
+ * كان `__toggle` — رابطاً مسطَّراً بلا حشو: هدفٌ بارتفاع سطرٍ واحد يصعب إصابته
+ * على الهاتف، ومحاذاته يساراً بينما «إلغاء» يميناً، فيقرأه المستخدم بقيّةَ نصٍّ
+ * لا خياراً. صار يأخذ **شكل `__create-row` نفسه** مفرَّغاً من التعبئة: الممتلئ
+ * هو المقترح والمفرَّغ هو البديل. الحدّ رماديّ لا بنفسجيّ عمداً — لونُ العلامة
+ * محجوزٌ للمسار الأوّل وحده، وإلّا تنافس الزرّان على العين.
+ *
+ * ⚠️ `__toggle` يبقى بلا مساس: يستعمله «أظهر كلّ الوظائف (ن)» أسفل القائمة،
+ * وهو هناك رابطٌ صحيح داخل سياق قائمةٍ مفتوحة أصلاً.
+ * ⚠️ ولا `margin` هنا: الحاوية `.headhunter-campaign-picker` فيها
+ * `gap: 12px` تتكفّل بالفصل.
+ */
+.headhunter-campaign-picker__browse {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    text-align: start;
+    padding: 11px 13px;
+    border-radius: 12px;
+    cursor: pointer;
+    font: inherit;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    background: transparent;
+    color: #e2e8f0;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.headhunter-campaign-picker__browse:hover {
+    background: rgba(148, 163, 184, 0.12);
+    border-color: rgba(148, 163, 184, 0.55);
+}
+
+.headhunter-campaign-picker__browse-icon,
+.headhunter-campaign-picker__browse-chevron {
+    flex: none;
+    color: #94a3b8;
+}
+
+/*
+ * الاتّجاه يتكفّل به `flex` مع `direction: rtl` — فالأيقونة تقع في البداية
+ * والسهم في النهاية في اللغتين بلا قاعدة منفصلة.
+ */
+.headhunter-campaign-picker__browse-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.headhunter-campaign-picker__browse-title {
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.headhunter-campaign-picker__browse-count {
+    font-size: 0.82rem;
+    color: #94a3b8;
+}
+
+.headhunter-campaign-picker__browse-chevron {
+    transition: transform 0.2s ease;
+}
+
+.headhunter-campaign-picker__browse.is-open .headhunter-campaign-picker__browse-chevron {
+    transform: rotate(180deg);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__browse {
+    border-color: rgba(15, 23, 42, 0.18);
+    color: var(--app-text, #0f172a);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__browse:hover {
+    background: rgba(15, 23, 42, 0.05);
+    border-color: rgba(15, 23, 42, 0.3);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__browse-title {
+    color: var(--app-text, #0f172a);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__browse-icon,
+html[data-app-theme='light'] .headhunter-campaign-picker__browse-chevron,
+html[data-app-theme='light'] .headhunter-campaign-picker__browse-count {
+    color: var(--app-muted, #64748b);
+}
+
 /* ─── أزرار المُنتقي ───────────────────────────────────────────────────── */
 /*
  * 🔴 كان زرّ «أنشئ وظيفة» يظهر **فارغاً**.

@@ -236,15 +236,61 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                       * بصيغةٍ مختلفة عن وظيفتك («Account Manager» مقابل
                       * «Key Account Manager») لن يُطابَق، فتُنشأ نسخة. هذا
                       * السطر يسمح بالاختيار اليدوي وقتها.
+                      *
+                      * 🔴 وكان **سطراً مسطَّراً بلا حشو** (`__toggle`): هدفٌ
+                      * بارتفاع سطر واحد، ومحاذاته يساراً بينما «إلغاء» يميناً،
+                      * فيُقرأ بقيّةَ نصٍّ لا خياراً. صار بطاقةً بشكل
+                      * `__create-row` نفسه لكن **مفرَّغة** — الممتلئ هو المقترح
+                      * والمفرَّغ هو البديل، فالهرميّة بصريّة بلا كلمة «instead».
+                      * ⚠️ و`__toggle` يبقى كما هو: يستعمله «أظهر كلّ الوظائف».
                       */}
                     <button
                         type="button"
-                        className="headhunter-campaign-picker__toggle"
+                        className={`headhunter-campaign-picker__browse${browsing ? ' is-open' : ''}`}
                         onClick={() => setBrowsing((v) => !v)}
+                        aria-expanded={browsing}
                     >
-                        {browsing
-                            ? t('aiHeadHunterCampaignPickerHideList')
-                            : t('aiHeadHunterCampaignPickerBrowse')}
+                        <svg
+                            className="headhunter-campaign-picker__browse-icon"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            aria-hidden
+                        >
+                            <path
+                                fill="currentColor"
+                                d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"
+                            />
+                        </svg>
+                        <span className="headhunter-campaign-picker__browse-text">
+                            <span className="headhunter-campaign-picker__browse-title">
+                                {browsing
+                                    ? t('aiHeadHunterCampaignPickerHideList')
+                                    : t('aiHeadHunterCampaignPickerBrowse')}
+                            </span>
+                            {/*
+                              * العدد يُطمئن قبل النقر: من لا يعرف أنّ عنده
+                              * وظائف لن يفتح القائمة. و`rows === null` تعني
+                              * «لم تصل بعد» لا «صفر» — فلا يُطبع رقمٌ كاذب.
+                              */}
+                            {rows === null ? null : (
+                                <span className="headhunter-campaign-picker__browse-count">
+                                    {String(t('aiHeadHunterCampaignPickerBrowseCount')).replace(
+                                        '{count}',
+                                        String(rows.length)
+                                    )}
+                                </span>
+                            )}
+                        </span>
+                        <svg
+                            className="headhunter-campaign-picker__browse-chevron"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            aria-hidden
+                        >
+                            <path fill="currentColor" d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z" />
+                        </svg>
                     </button>
                 </>
             ) : null}
