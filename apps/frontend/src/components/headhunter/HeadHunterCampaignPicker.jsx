@@ -141,14 +141,33 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
         [rows, wantedRole]
     );
 
+    /*
+     * 🔴 الكتابة تتخطّى مرشّح الدور.
+     *
+     * كان البحث يرشّح داخل `base`، و`base` هي `roleMatched` ما دام هناك دور بحث
+     * و«أظهر الكل» مطفأ. فإن لم توجد وظيفةٌ بدور بحثك — وهي الحالة الشائعة، إذ
+     * الزرّ الأوّل نفسه يقول «لا توجد وظيفة لها بعد» — فـ`base` **فارغة**،
+     * والصندوق يرشّح داخل الفراغ.
+     *
+     * مقيسٌ بتشغيل الأسطر نفسها على ١٤ وظيفة ودور «Account Manager» بلا مطابق:
+     * «manager» ⇒ 0 · «hr» ⇒ 0 · «account» ⇒ 0 · «sales» ⇒ 0 — صفرٌ لكلّ مدخل.
+     * وبعد «أظهر كل الوظائف»: 5 · 6 · 2 · 1. أي أنّ الصندوق **لا يبحث** في تلك
+     * الحالة، ولا شيء في الشاشة يقول ذلك.
+     *
+     * والكتابة نيّةٌ صريحة تتقدّم على ترشيحٍ ضمنيّ لم يطلبه المستخدم — فما دام
+     * هناك نصّ، يجري البحث في **كلّ** الوظائف.
+     */
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
         if (!q) return base;
-        return base.filter((r) => {
+        const pool = rows || [];
+        return pool.filter((r) => {
             const shown = localizeCatalogLabel(r.title, currentLang) || r.title || '';
             return shown.toLowerCase().includes(q) || (r.title || '').toLowerCase().includes(q);
         });
-    }, [base, query, currentLang]);
+    }, [base, rows, query, currentLang]);
+
+    const searching = query.trim().length > 0;
 
     /*
      * إنشاء وظيفة من البحث نفسه، بضغطةٍ واحدة.
@@ -377,17 +396,53 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                 </p>
             ) : (
                 <>
-                    <input
-                        type="search"
-                        className="headhunter-campaign-picker__search"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder={t('aiHeadHunterCampaignPickerSearch')}
-                        aria-label={t('aiHeadHunterCampaignPickerSearch')}
-                    />
+                    <div className="headhunter-campaign-picker__search-wrap">
+                        <svg
+                            className="headhunter-campaign-picker__search-icon"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            aria-hidden
+                        >
+                            <path
+                                fill="currentColor"
+                                d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                            />
+                        </svg>
+                        <input
+                            type="search"
+                            className="headhunter-campaign-picker__search"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={t('aiHeadHunterCampaignPickerSearch')}
+                            aria-label={t('aiHeadHunterCampaignPickerSearch')}
+                        />
+                        {searching ? (
+                            <button
+                                type="button"
+                                className="headhunter-campaign-picker__search-clear"
+                                onClick={() => setQuery('')}
+                                aria-label={t('aiHeadHunterCampaignPickerSearchClear')}
+                            >
+                                <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden>
+                                    <path
+                                        fill="currentColor"
+                                        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                                    />
+                                </svg>
+                            </button>
+                        ) : null}
+                    </div>
+                    {/*
+                      * رسالتان لا واحدة. كانت «لا توجد وظيفة تطابق هذا البحث»
+                      * تظهر **والصندوق فارغ** — لأنّ الفراغ سببه مرشّح الدور لا
+                      * نصٌّ كتبه أحد. فمن لم يكتب شيئاً يُقال له إنّ بحثه فشل.
+                      */}
                     {filtered.length === 0 ? (
                         <p className="headhunter-campaign-picker__state">
-                            {t('aiHeadHunterCampaignPickerNoMatch')}
+                            {searching
+                                ? t('aiHeadHunterCampaignPickerNoMatch')
+                                : t('aiHeadHunterCampaignPickerNoRoleMatch')}
                         </p>
                     ) : null}
                     <ul className="headhunter-campaign-history-list headhunter-campaign-picker__list">
@@ -446,7 +501,9 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                             );
                         })}
                     </ul>
-                    {wantedRole && hiddenCount > 0 ? (
+                    {/* أثناء الكتابة يشمل البحث كلّ الوظائف أصلاً، فزرّ «أظهر
+                        الكل» يَعِد بما هو حاصل — يُخفى حتى يُمسَح النصّ. */}
+                    {wantedRole && hiddenCount > 0 && !searching ? (
                         <button
                             type="button"
                             className="headhunter-campaign-picker__toggle"
