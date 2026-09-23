@@ -1055,6 +1055,7 @@ router.post('/search', conditionalRequireAuth(), requirePermission('headhunter.s
         location,
         query: rawQuery,
         criteria: optionalCriteria,
+        ...roleFieldsFrom(body as Record<string, unknown>),
     });
 
     const payload = {
@@ -1668,6 +1669,7 @@ router.post(
                 location: str(body.location, 200),
                 query: str(body.query, 2000),
                 criteria,
+                ...roleFieldsFrom(body),
             });
             return res.json({
                 ok: true,
@@ -1699,6 +1701,29 @@ type HistoryInput = Record<string, unknown>;
 
 function str(v: unknown, max = 400): string {
     return String(v ?? '').trim().slice(0, max);
+}
+
+/**
+ * The catalog picker's structured role, as the search UI already posts it.
+ *
+ * This route used to read only `position`, so the picker's choice was thrown away
+ * server-side and the role had to be re-derived by fuzzy string matching — which put
+ * "Talent Acquisition Partner" on `lawyer` and any "… Specialist" on `graduate_trainee`.
+ * Both call sites derive it through this one helper: /search and the warm-up must agree
+ * exactly, or the warm-up heats a different cache entry than the search reads.
+ */
+function roleFieldsFrom(body: Record<string, unknown>): {
+    roleKey: string;
+    labelKey: string;
+    careerLevel: string;
+    managementTrack: string;
+} {
+    return {
+        roleKey: str(body.roleKey, 80),
+        labelKey: str(body.labelKey, 120),
+        careerLevel: str(body.careerLevel, 40),
+        managementTrack: str(body.managementTrack, 40),
+    };
 }
 
 /**

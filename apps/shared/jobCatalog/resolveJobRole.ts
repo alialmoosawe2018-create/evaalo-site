@@ -68,6 +68,59 @@ function inferLevelFromPrefix(raw: string): { stripped: string; level?: CareerLe
 /** Min length before suffix/prefix fuzzy matching — short tokens like "st"/"er" match too many titles. */
 const FUZZY_MIN_TOKEN_LEN = 4;
 
+/**
+ * A weak fuzzy hit is not a role.
+ *
+ * `fuzzyMatchCatalog` always reports 0.65, and its `endsWith` branches let any title
+ * that merely ENDS in a catalog title's generic base land on an unrelated role: 22
+ * catalog entries reduce to a single generic noun ("Junior Specialist" → "specialist",
+ * "Partner" → "partner"), so "Payroll Specialist" became `graduate_trainee` and
+ * "Talent Acquisition Partner" became `lawyer`. Measured against the deployed build:
+ * of 452 realistic non-catalog titles that got a roleKey, 176 were wrong (135 landing
+ * in a different domain); 151 of the 179 roles can be reached this way.
+ *
+ * The picker already refuses these in the browser — PositionSuggestCombobox accepts a
+ * fuzzy hit only at confidence >= 0.85 — but the server had no such floor, so the exact
+ * strings the UI rejects were the ones the backend resolved wrongly. This applies the
+ * same rule wherever the server resolves free text.
+ *
+ * Because fuzzy is hardcoded to 0.65 this currently rejects every fuzzy hit, including
+ * the ~179 it happened to get right. That trade is deliberate: a null roleKey degrades
+ * safely (the generator falls back to the recruiter's own title), a wrong one does not.
+ */
+export const MIN_FREE_TEXT_CONFIDENCE = 0.85;
+const MIN_FREE_TEXT_LENGTH = 4;
+
+/**
+ * Downgrade a below-floor fuzzy hit to the same shape as "no match".
+ *
+ * Reuses the existing `unknown` matchSource rather than adding a union member: callers
+ * already treat `unknown` as "no catalog role" (see blueprintGenerator's
+ * `hasCatalogRoleKey`), and keeping `displayTitle` as the raw input stops a fuzzy
+ * catalog title from overwriting what the recruiter actually typed.
+ */
+function rejectWeakFuzzy(resolution: RoleResolution, raw: string): RoleResolution {
+    if (!resolution.roleKey || resolution.matchSource !== 'fuzzy') return resolution;
+
+    const trimmed = raw.trim();
+    if (
+        resolution.confidence >= MIN_FREE_TEXT_CONFIDENCE
+        && trimmed.length >= MIN_FREE_TEXT_LENGTH
+    ) {
+        return resolution;
+    }
+
+    const { level: prefixLevel } = inferLevelFromPrefix(trimmed);
+    return {
+        roleKey: null,
+        careerLevel: prefixLevel ?? 'mid',
+        managementTrack: 'ic',
+        displayTitle: trimmed,
+        confidence: 0.2,
+        matchSource: 'unknown',
+    };
+}
+
 function fuzzyMatchCatalog(raw: string): RoleResolution | null {
     const { stripped, level: prefixLevel } = inferLevelFromPrefix(raw);
     const normStripped = normalizeTitle(stripped);
@@ -199,7 +252,9 @@ export function resolveJobRoleFromCriteria(criteria?: Record<string, unknown>): 
     const position = String(
         criteria.position || criteria.job || criteria.jobTitle || criteria.title || ''
     ).trim();
-    return resolveJobRole(position);
+    // Server-side free text: no structured roleKey survived, so apply the confidence
+    // floor the picker applies in the browser.
+    return rejectWeakFuzzy(resolveJobRole(position), position);
 }
 
 export function isAmbiguousLegacyTitle(title: string): boolean {

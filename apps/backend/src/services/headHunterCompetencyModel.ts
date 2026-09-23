@@ -90,6 +90,19 @@ export interface HeadHunterCompetencyInput {
     query?: string;
     /** The recruiter's optional filters, as forwarded to n8n. */
     criteria?: Record<string, string>;
+    /**
+     * Structured role identity from the catalog picker.
+     *
+     * The search UI has always sent these, but this route never read them, so the
+     * typed string was all that survived and `resolveJobRoleFromCriteria` could never
+     * short-circuit on `labelKey` — it always fell through to fuzzy string matching.
+     * Forwarding them makes the picker's choice authoritative, exactly as it already
+     * is for a campaign's stored criteria.
+     */
+    roleKey?: string;
+    labelKey?: string;
+    careerLevel?: string;
+    managementTrack?: string;
 }
 
 /** Off switch, independent of the video interview's own blueprint flag. */
@@ -166,6 +179,12 @@ const HEAD_HUNTER_MODEL_LANGUAGE = 'en' as const;
 
 function cacheKeyFor(input: HeadHunterCompetencyInput): string {
     const parts = [text(input.position, 120).toLowerCase()];
+    // The structured role is part of the identity: the same typed string can now carry
+    // different picker selections, and they must not share a cached model.
+    const labelKey = text(input.labelKey, 120).toLowerCase();
+    if (labelKey) parts.push(`labelKey=${labelKey}`);
+    const roleKey = text(input.roleKey, 80).toLowerCase();
+    if (roleKey) parts.push(`roleKey=${roleKey}`);
     for (const key of ROLE_SHAPING_KEYS) {
         const value = text(input.criteria?.[key], 80).toLowerCase();
         if (value) parts.push(`${key}=${value}`);
@@ -361,6 +380,17 @@ function toGeneratorCriteria(input: HeadHunterCompetencyInput): Record<string, s
         const v = text(value, 240);
         if (v) criteria[key] = v;
     }
+    // Last, so the picker's structured role always wins over anything carrying the
+    // same key in the recruiter's optional filters. `resolveJobRoleFromCriteria`
+    // short-circuits on labelKey/roleKey and never reaches the fuzzy string path.
+    const roleKey = text(input.roleKey, 80);
+    if (roleKey) criteria.roleKey = roleKey;
+    const labelKey = text(input.labelKey, 120);
+    if (labelKey) criteria.labelKey = labelKey;
+    const careerLevel = text(input.careerLevel, 40);
+    if (careerLevel) criteria.careerLevel = careerLevel;
+    const managementTrack = text(input.managementTrack, 40);
+    if (managementTrack) criteria.managementTrack = managementTrack;
     return criteria;
 }
 
