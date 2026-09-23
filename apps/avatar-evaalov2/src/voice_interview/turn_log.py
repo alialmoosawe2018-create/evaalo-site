@@ -71,6 +71,7 @@ def build_record(
     followup_skip_reason: str,
     competency_budget: dict[str, int] | None,
     asked_competency_keys: Any,
+    guard_swap: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Flatten one agent turn into a JSON-safe record.
 
@@ -78,8 +79,14 @@ def build_record(
     INTENDED, before the LLM rephrased anything. Comparing it against what the
     transcript actually contains is what separates "this competency was never
     asked" from "it was asked but the wording lost the subject".
+
+    ``guardSwap`` is set when the reply guard threw the model's question away
+    («to»: bank_anchor / competency / bridge, and why). A competency swap
+    installs a new plan, so ``competencyKey`` then names the REPLACEMENT and
+    ``guardSwap.fromCompetency`` keeps the picker's original intent.
     """
     d = diag or {}
+    g = guard_swap or {}
     source = getattr(plan, "source", "") or ""
     competency_key = getattr(plan, "competency_key", "") or ""
     return {
@@ -115,6 +122,17 @@ def build_record(
         "followupSkipReason": _clip(followup_skip_reason, 60),
         "competencyBudgetSpent": dict(competency_budget or {}),
         "askedCompetencyCount": len(asked_competency_keys or ()),
+        "guardSwap": (
+            {
+                "to": _clip(g.get("to"), 40),
+                "reason": _clip(g.get("reason"), 40),
+                "fromCompetency": _clip(g.get("fromCompetency"), 80),
+                "fromQuestion": _clip(g.get("fromQuestion")),
+                "toCompetency": _clip(g.get("toCompetency"), 80),
+            }
+            if g
+            else None
+        ),
         "kind": "turn",
     }
 
@@ -230,8 +248,9 @@ class TurnLogSink:
                 self._publish(record)
                 return
 
+            swap = record.get("guardSwap") or {}
             logger.info(
-                "[turn-log] turn=%s competency=%s source=%s followup=%s skip=%s opener=%s/%s",
+                "[turn-log] turn=%s competency=%s source=%s followup=%s skip=%s opener=%s/%s swap=%s",
                 record.get("turnIndex"),
                 record.get("competencyKey") or "-",
                 record.get("planSource") or "-",
@@ -239,6 +258,9 @@ class TurnLogSink:
                 record.get("followupSkipReason") or "-",
                 record.get("openerAssigned") or "-",
                 record.get("openerUsed") or "-",
+                f"{swap.get('to')}:{swap.get('fromCompetency') or '-'}"
+                if swap
+                else "-",
             )
             self._publish(record)
         except Exception as e:  # pragma: no cover - telemetry must never break a turn

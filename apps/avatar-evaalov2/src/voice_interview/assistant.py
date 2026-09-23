@@ -111,7 +111,7 @@ from voice_interview.lang import (
     detect_lang_reply_fallback,
     detect_language_switch_intent,
 )
-from voice_interview.subject_coverage import SubjectCoverage
+from voice_interview.subject_coverage import SubjectCoverage, subject_already_asked
 from voice_interview.turn_log import build_end_record, build_record as build_turn_log_record
 
 logger = logging.getLogger("agent")
@@ -902,6 +902,15 @@ class InterviewAssistant(Agent):
         # anchor: that anchor is a context-free one-liner (usually English) and must
         # be reframed before it is spoken — question mark or not.
         self._reframe_forced_turn: int = -1
+        # When the reply guard swaps a duplicate for an uncovered blueprint
+        # competency it installs a NEW plan; the second guard pass must return
+        # the same line rather than pick again from state the first pass changed.
+        self._dup_swap_turn: int = -1
+        self._dup_swap_plan: TurnPlan | None = None
+        self._dup_swap_line: str | None = None
+        # Telemetry only: (turn_index, what the guard replaced and with what).
+        # Read once by record_agent_reply, never by any decision.
+        self._guard_swap: tuple[int, dict[str, str]] | None = None
         self._conclude_after_reply: bool = False
         # Hold a reference to the fire-and-forget conclude task so it is not
         # garbage-collected before it tears the room down.
@@ -1891,6 +1900,12 @@ class InterviewAssistant(Agent):
         turn = mem.turn_index
         if self._winddown_turn == turn and self._winddown_line is not None:
             return self._winddown_line
+        if (
+            self._dup_swap_turn == turn
+            and self._dup_swap_line is not None
+            and self._turn_plan is self._dup_swap_plan
+        ):
+            return self._dup_swap_line
         # بعد عرض الختام يُنهي الوكيلُ المقابلة، ما لم يكن الدور استجابةً لكلام
         # المرشح الجاري: توضيحاً لسؤال الختام نفسه، أو متابعةً تتيح له إكمال فكرته
         # الأخيرة (سلوك مقصود يحرسه test_guard_followup_after_wrapup_still_passes).
@@ -1934,6 +1949,7 @@ class InterviewAssistant(Agent):
         )
         if not (is_dup or is_hybrid or is_presupposing):
             return text
+        reason = "duplicate" if is_dup else ("hybrid" if is_hybrid else "presupposing")
         anchor = self._pick_next_bank_anchor(recent)
         if anchor:
             logger.info(
@@ -1943,11 +1959,25 @@ class InterviewAssistant(Agent):
                 is_hybrid,
                 is_presupposing,
             )
+            self._note_guard_swap(turn, "bank_anchor", reason=reason)
             # The anchor never met the framing instruction and may not be in the
             # interview's language ("Describe a time you improved a process…" was
             # spoken raw to an Arabic candidate). Make the reframe unconditional.
             self._reframe_forced_turn = turn
             return enforce_single_question_response(anchor, self._turn_plan)
+        # A duplicate with a blueprint behind it is not "nothing left to ask".
+        # The 2026-09-23 18:58 interview (HR Assistant) replaced three planned
+        # competency questions in a row — confidentiality, interview coordination,
+        # HRIS — with «اذكرلي موقف كان صعب عليك» and its cousins, then a fourth
+        # after «خلينا نغير السؤال», while SIX competencies had never been asked.
+        # Each was a correct duplicate (the three anchors cover those subjects);
+        # the fault was looking for a replacement among the three spent anchors
+        # only. The next uncovered competency comes before the wrap-up and the
+        # role-neutral bridge below, which are for when nothing is left.
+        if is_dup:
+            swapped = self._swap_duplicate_for_uncovered_competency(turn, recent)
+            if swapped is not None:
+                return swapped
         # No fresh question is left, so a replacement would just recycle a covered
         # one. Offer a single graceful wrap-up instead of repeating; the closing
         # (and teardown) follows on a LATER turn, so the candidate gets a real
@@ -1978,6 +2008,7 @@ class InterviewAssistant(Agent):
                 "[reply-guard] duplicate %s with no fresh anchor; bridging instead of repeating",
                 mode,
             )
+            self._note_guard_swap(turn, "bridge", reason=reason)
             self._reframe_forced_turn = turn
             # Returned as-is, NOT through enforce_single_question_response: the
             # plan may still say WAIT/ACKNOWLEDGE/RESUME from the turn we are
@@ -1986,6 +2017,95 @@ class InterviewAssistant(Agent):
             # carries exactly one «؟».
             return bridge
         return text
+
+    def _swap_duplicate_for_uncovered_competency(
+        self, turn: int, recent: list[str]
+    ) -> str | None:
+        """The next blueprint competency the candidate has not heard, or None.
+
+        "Not heard" is checked three ways, because each alone missed something on
+        2026-09-23: the competency keys already asked (plus the one just rejected,
+        whose rephrase WAS the duplicate), the subject ledger, and — the gap that
+        mattered — whether any question already spoken named the competency's
+        subject. The anchor «شنو خبرتك بتنسيق المقابلات على ATS…» shares almost
+        no words with «احچيلي عن موقف حقيقي يبيّن تنسيق المقابلات», so without
+        that last check the guard would swap one repeat for another.
+        """
+        mem = self._memory
+        plan = self._turn_plan
+        rejected = ((plan.competency_key if plan else "") or "").strip()
+        heard = list(mem.asked_questions)
+        for comp in self._ordered_blueprint_competencies():
+            ckey = str(comp.get("competencyKey") or comp.get("key") or "").strip()
+            if not ckey or ckey == rejected:
+                continue
+            if ckey in mem.asked_competency_keys or ckey in mem.rejected_competency_keys:
+                continue
+            question = self._competency_question_text(comp)
+            if not question:
+                continue
+            if mem.subject_coverage.should_skip(question, competency_key=ckey):
+                continue
+            if subject_already_asked(str(comp.get("title") or "").strip() or ckey, heard):
+                continue
+            spoken = naturalize_spoken_question(question)
+            if is_semantic_duplicate_question(spoken, recent) or is_topic_repeat(spoken, recent):
+                continue
+            break
+        else:
+            return None
+
+        if rejected:
+            # Its rephrase repeated a question the candidate already heard, so the
+            # subject is covered; left unmarked, the picker serves it again next
+            # turn and the guard has to swap it again.
+            mem.asked_competency_keys.add(rejected)
+        self._note_guard_swap(turn, "competency", reason="duplicate", to_competency=ckey)
+        mem.current_competency_key = ckey
+        mem.pending_competency_key = ckey
+        # A fresh competency ask in its own right: record_agent_reply marks THIS
+        # competency asked, and spends no follow-up budget on it.
+        new_plan = TurnPlan(
+            question=spoken,
+            competency_key=ckey,
+            source="competency_engine",
+            response_mode=MODE_ASK,
+        )
+        self._turn_plan = new_plan
+        line = enforce_single_question_response(spoken, new_plan)
+        # The template never met the framing instruction; reframe it like an anchor.
+        self._reframe_forced_turn = turn
+        self._dup_swap_turn = turn
+        self._dup_swap_plan = new_plan
+        self._dup_swap_line = line
+        logger.info(
+            "[reply-guard] duplicate replaced with uncovered competency %s (planned %s)",
+            ckey,
+            rejected or "-",
+        )
+        return line
+
+    def _note_guard_swap(
+        self, turn: int, to: str, *, reason: str, to_competency: str = ""
+    ) -> None:
+        """Telemetry only: what the guard threw away, and what it put in its place.
+
+        Taken BEFORE any plan swap, so ``fromCompetency`` is still the picker's
+        intent. Without it a swapped turn logs the replacement as if the picker
+        had chosen it, and the planned-vs-spoken gap that exposed the generic
+        bridge disappears from the record.
+        """
+        plan = self._turn_plan
+        self._guard_swap = (
+            turn,
+            {
+                "to": to,
+                "reason": reason,
+                "fromCompetency": ((plan.competency_key if plan else "") or ""),
+                "fromQuestion": ((plan.question if plan else "") or ""),
+                "toCompetency": to_competency,
+            },
+        )
 
     def _turn_is_tied_to_active_question(self, mode: str) -> bool:
         """After the wrap-up, only a turn PROVABLY about the active question may pass.
@@ -2954,6 +3074,8 @@ class InterviewAssistant(Agent):
         # Emitted BEFORE the ``not plan`` bail-out on purpose: a turn the picker
         # never planned is exactly the kind we most need to see, because it is
         # invisible everywhere else. Wrapped so telemetry can never break a turn.
+        swap = self._guard_swap
+        self._guard_swap = None
         if self._turn_log_sink is not None:
             try:
                 self._turn_log_sink.emit(
@@ -2968,6 +3090,7 @@ class InterviewAssistant(Agent):
                         followup_skip_reason=self._last_followup_skip,
                         competency_budget=mem.competency_followup_counts,
                         asked_competency_keys=mem.asked_competency_keys,
+                        guard_swap=swap[1] if swap and swap[0] == mem.turn_index else None,
                     )
                 )
             except Exception as _tl_err:  # pragma: no cover - never break a turn

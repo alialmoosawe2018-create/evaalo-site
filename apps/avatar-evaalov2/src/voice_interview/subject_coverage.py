@@ -28,6 +28,8 @@ same subject cannot reopen it.
 
 from __future__ import annotations
 
+import os
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from .heuristics import (
@@ -66,6 +68,105 @@ def _signature(question: str) -> str:
     """A stable subject key for a question with no competency behind it."""
     toks = sorted(set(content_tokens(question)))[:4]
     return "q:" + "-".join(toks) if toks else ""
+
+
+# ---- has the candidate already heard this subject? ---------------------------
+#
+# 2026-09-23 18:58 (HR Assistant): the blueprint's three anchor questions — ATS
+# scheduling, HRIS records, sensitive documents — are the same subjects as three
+# of its competencies. The competency question itself («احچيلي عن موقف حقيقي يبيّن
+# تنسيق المقابلات») shares almost no words with the anchor the candidate already
+# heard («شنو خبرتك بتنسيق المقابلات على ATS…»), so neither the duplicate detector
+# nor the ledger above recognises the overlap. Only the model's rephrase did, once
+# it borrowed the anchor's wording. Matching on the competency's SUBJECT (its
+# title) against what was actually spoken closes that gap.
+
+# Arabic clitics that glue onto a noun: «بتنسيق», «والسياسات», «للمرشحين».
+_AR_CLITICS = ("وال", "بال", "فال", "كال", "لل", "ال", "و", "ب", "ف", "ك", "ل")
+# Plural / feminine endings: «مقابلات» and «مقابلة» are one subject.
+_AR_SUFFIXES = ("ات", "ين", "ون", "ه")  # noqa: RUF001 — Arabic, not Latin look-alikes
+_ALEF_MAP = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ة": "ه", "ى": "ي"})  # noqa: RUF001
+_AR_LONG_VOWELS = str.maketrans("", "", "اوي")
+
+
+def _is_latin(word: str) -> bool:
+    return word.isascii()
+
+
+def _skeleton(word: str) -> str:
+    """Drop Arabic long vowels after the first letter: «تنسيق» and «تنسق» meet."""
+    if _is_latin(word) or len(word) < 2:
+        return word
+    return word[0] + word[1:].translate(_AR_LONG_VOWELS)
+
+
+def _subject_terms(text: str) -> list[set[str]]:
+    """Each content word of ``text`` as the set of forms it may appear in.
+
+    Two-letter words are dropped: in Arabic they are function words («مع», «او»)
+    and matching on them marked «التواصل مع المرشحين» as already asked because
+    an earlier question said «مقابلة مع مرشح».
+    """
+    out: list[set[str]] = []
+    for token in content_tokens(text):
+        tok = token.translate(_ALEF_MAP)
+        if len(tok) < 3:
+            continue
+        if _is_latin(tok):
+            out.append({tok})
+            continue
+        forms = {tok}
+        frontier = [tok]
+        for _ in range(2):  # «وبالتنسيق» needs two strips
+            frontier = [
+                t[len(p) :] for t in frontier for p in _AR_CLITICS
+                if t.startswith(p) and len(t) - len(p) >= 3
+            ]
+            forms.update(frontier)
+        forms.update(
+            f[: -len(s)] for f in list(forms) for s in _AR_SUFFIXES
+            if f.endswith(s) and len(f) - len(s) >= 3
+        )
+        out.append({_skeleton(f) for f in forms})
+    return out
+
+
+def _same_term(a: set[str], b: set[str]) -> bool:
+    """One word, possibly inflected: «مرشح»/«مرشحين», interview/interviews."""
+    for x in a:
+        for y in b:
+            if x == y:
+                return True
+            short, long_ = (x, y) if len(x) <= len(y) else (y, x)
+            if _is_latin(x) and _is_latin(y):
+                # coordination / coordinating share everything but the ending.
+                shared = len(os.path.commonprefix([x, y]))
+                if shared >= 4 and shared >= 0.75 * len(short):
+                    return True
+            elif len(short) >= 3 and long_.startswith(short) and len(long_) - len(short) <= 2:
+                return True
+    return False
+
+
+def subject_already_asked(subject: str, asked_questions: Iterable[str]) -> bool:
+    """True when a question the candidate already heard named this subject.
+
+    Two of the subject's words in one earlier question (one, if the subject is a
+    single word). Deliberately about what was SPOKEN, not about which bank a
+    question came from — the candidate hears a repeat either way.
+    """
+    terms = _subject_terms(subject)
+    if not terms:
+        return False
+    need = min(2, len(terms))
+    for question in asked_questions:
+        heard = _subject_terms(question)
+        if not heard:
+            continue
+        hits = sum(1 for term in terms if any(_same_term(term, h) for h in heard))
+        if hits >= need:
+            return True
+    return False
 
 
 def evidence_state_for(answer: str, *, is_rich: bool) -> str:
