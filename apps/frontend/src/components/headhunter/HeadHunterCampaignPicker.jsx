@@ -22,6 +22,29 @@ import { useLanguage } from '../../contexts/LanguageContext.jsx';
  * ⚠️ والعنوان يُترجَم للعرض فقط. الرابط يحمل القيمة المخزَّنة الخام — انظر
  * `utils/publicVideoScreeningUrl.js`.
  */
+/*
+ * تاريخ الصفّ مثبَّتٌ على `en-US` — وهي قاعدة البيت لا اختياري: انظر
+ * `INTERVIEW_ROW_DATE_LOCALE` في `RecentInterviewsCard.jsx` وتعليلها. سطرٌ
+ * واحد يجمع «أخصائي موارد بشرية عام» مع «٦ أيلول ٢٠٢٦» يخلط كتابتين ونظامَي
+ * أرقام في نفَسٍ واحد.
+ */
+const PICKER_ROW_DATE_LOCALE = 'en-US';
+
+/** @param {string | undefined} raw @returns {string} */
+function formatPickerRowDate(raw) {
+    if (!raw) return '';
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return '';
+    try {
+        return new Intl.DateTimeFormat(PICKER_ROW_DATE_LOCALE, {
+            day: 'numeric',
+            month: 'short',
+        }).format(d);
+    } catch {
+        return '';
+    }
+}
+
 /** الدور مُطَبَّع للمقارنة: المسافات والحالة فقط — لا اشتقاق ولا تخمين. */
 function normalizeRole(v) {
     return String(v || '')
@@ -368,21 +391,60 @@ export default function HeadHunterCampaignPicker({ onPick, onClose, searchRole, 
                         </p>
                     ) : null}
                     <ul className="headhunter-campaign-history-list headhunter-campaign-picker__list">
-                        {filtered.map((r) => (
-                            <li key={r.campaignId}>
-                                <button
-                                    type="button"
-                                    className="headhunter-campaign-history-row"
-                                    onClick={() => onPick(r)}
-                                >
-                                    <span className="headhunter-campaign-history-row__title">
-                                        {localizeCatalogLabel(r.title, currentLang) ||
-                                            r.title ||
-                                            t('aiHeadHunterCampaignPickerUntitled')}
-                                    </span>
-                                </button>
-                            </li>
-                        ))}
+                        {/*
+                          * 🔴 الصفّ كان عنواناً وحده — وذلك يكفي فقط لو كانت
+                          * العناوين فريدة. في هذه المؤسّسة **ثلاث** وظائف باسم
+                          * «أخصائي موارد بشرية عام» و**اثنتان** باسم «مدير موارد
+                          * بشرية»: صفوفٌ متطابقة حرفاً بحرف، والاختيار تخمين.
+                          * فيحمل الصفّ الآن ما يفرّق فعلاً — اللغة (صارت لكلّ
+                          * وظيفة لغتها)، وتاريخ الإنشاء، ووسمُ المطابقة.
+                          *
+                          * ⚠️ وعدد المرشّحين **غير معروض عمداً**: النقطة
+                          * `/api/recruitment-campaigns/shareable` لا تُرسله، ورقمٌ
+                          * مُخمَّن أسوأ من لا رقم.
+                          */}
+                        {filtered.map((r) => {
+                            const isMatch = Boolean(wantedRole) && normalizeRole(r.title) === wantedRole;
+                            const langKey =
+                                r.language === 'ar'
+                                    ? 'newCampaign_interviewLanguage_ar'
+                                    : r.language === 'en'
+                                      ? 'newCampaign_interviewLanguage_en'
+                                      : null;
+                            const created = formatPickerRowDate(r.createdAt);
+                            return (
+                                <li key={r.campaignId}>
+                                    <button
+                                        type="button"
+                                        className={`headhunter-campaign-history-row${isMatch ? ' is-match' : ''}`}
+                                        onClick={() => onPick(r)}
+                                    >
+                                        <span className="headhunter-campaign-picker__row-head">
+                                            <span className="headhunter-campaign-history-row__title">
+                                                {localizeCatalogLabel(r.title, currentLang) ||
+                                                    r.title ||
+                                                    t('aiHeadHunterCampaignPickerUntitled')}
+                                            </span>
+                                            {isMatch ? (
+                                                <span className="headhunter-campaign-picker__row-match">
+                                                    {t('aiHeadHunterCampaignPickerRowMatch')}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                        {langKey || created ? (
+                                            <span className="headhunter-campaign-picker__row-meta">
+                                                {langKey ? <span>{t(langKey)}</span> : null}
+                                                {created ? (
+                                                    <span className="headhunter-campaign-history-row__meta-date">
+                                                        {created}
+                                                    </span>
+                                                ) : null}
+                                            </span>
+                                        ) : null}
+                                    </button>
+                                </li>
+                            );
+                        })}
                     </ul>
                     {wantedRole && hiddenCount > 0 ? (
                         <button

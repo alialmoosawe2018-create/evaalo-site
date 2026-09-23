@@ -24858,6 +24858,60 @@ html[data-app-theme='light'] .interview-templates-page .interview-templates-card
     border-color: rgba(129, 140, 248, 0.5);
 }
 
+/* ─── صفّ الوظيفة: ما يفرّق وظيفتين بالاسم نفسه ───────────────────────── */
+.headhunter-campaign-picker__row-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* العنوان داخل الرأس لا يحمل هامشه السفلي — `__row-meta` تتكفّل بالفصل. */
+.headhunter-campaign-picker__row-head .headhunter-campaign-history-row__title {
+    margin-bottom: 0;
+    font-size: 0.95rem;
+}
+
+.headhunter-campaign-picker__row-match {
+    flex: none;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(99, 102, 241, 0.32);
+    color: #c7d2fe;
+}
+
+.headhunter-campaign-picker__row-meta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+}
+
+.headhunter-campaign-picker__list .headhunter-campaign-history-row.is-match {
+    border-color: rgba(129, 140, 248, 0.7);
+    background: rgba(99, 102, 241, 0.18);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__row-match {
+    background: rgba(99, 102, 241, 0.18);
+    color: var(--app-accent-text, #3730a3);
+}
+
+html[data-app-theme='light'] .headhunter-campaign-picker__row-meta {
+    color: var(--app-muted, #64748b);
+}
+
+html[data-app-theme='light']
+    .headhunter-campaign-picker__list
+    .headhunter-campaign-history-row.is-match {
+    border-color: rgba(99, 102, 241, 0.55);
+    background: rgba(99, 102, 241, 0.12);
+}
+
 .headhunter-campaign-picker__toggle {
     align-self: flex-start;
     padding: 0;

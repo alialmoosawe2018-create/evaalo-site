@@ -1216,6 +1216,36 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     }, [jobDetails.roleKey, t]);
 
     const criteriaInputTokens = useMemo(() => getCriteriaInputTokens(theme), [theme]);
+    /*
+     * 🔴 لغة المقابلة كانت مرسومة بـ`NT` وحده — و`NT` **ثابتٌ داكن**:
+     * `title: '#ffffff'` و`itemBgMuted: rgba(15,23,42,.72)`. في الوضع الفاتح
+     * اختفى العنوان (أبيض على أبيض، ولم يبقَ إلّا النجمة الحمراء) ولبست
+     * الحبّتان خلفيةً داكنة وسط نافذةٍ بيضاء. فالوضعان يُفصلان هنا كما يفعل
+     * `getCriteriaInputTokens` لبقيّة الحقول.
+     */
+    const interviewLanguageTone = useMemo(
+        () =>
+            theme === 'light'
+                ? {
+                      label: '#0f172a',
+                      onBg: 'rgba(99, 102, 241, 0.12)',
+                      onBorder: 'rgba(79, 70, 229, 0.7)',
+                      onText: '#4338ca',
+                      offBg: '#ffffff',
+                      offBorder: 'rgba(15, 23, 42, 0.16)',
+                      offText: '#334155',
+                  }
+                : {
+                      label: NT.criteriaLabel,
+                      onBg: 'rgba(34, 211, 238, 0.16)',
+                      onBorder: 'rgba(34, 211, 238, 0.85)',
+                      onText: '#22d3ee',
+                      offBg: NT.itemBgMuted,
+                      offBorder: 'rgba(255, 255, 255, 0.14)',
+                      offText: NT.inputText,
+                  },
+        [theme]
+    );
     const criteriaComboboxProps = useCallback(
         (hasError) => buildCriteriaComboboxProps(criteriaInputTokens, hasError),
         [criteriaInputTokens]
@@ -2545,7 +2575,12 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                         <div className="ni-interview-language" style={{ marginBottom: '18px' }}>
                             <div
                                 id="ni-interview-language-label"
-                                style={{ fontSize: '13px', fontWeight: 600, color: NT.title, marginBottom: '8px' }}
+                                style={{
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    color: interviewLanguageTone.label,
+                                    marginBottom: '8px',
+                                }}
                             >
                                 {t('newCampaign_interviewLanguage_label')}
                                 <span aria-hidden style={{ color: '#EF4444', marginInlineStart: '4px' }}>*</span>
@@ -2572,25 +2607,49 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                                 setErrors((prev) => ({ ...prev, interviewLanguage: null }));
                                             }}
                                             style={{
-                                                padding: '8px 18px',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '7px',
+                                                minWidth: '116px',
+                                                justifyContent: 'center',
+                                                padding: '9px 18px',
                                                 borderRadius: '999px',
                                                 fontSize: '13px',
                                                 fontWeight: 600,
                                                 cursor: 'pointer',
-                                                border: on ? '1px solid #22d3ee' : NT.itemBorderInactive,
-                                                background: on ? 'rgba(34, 211, 238, 0.14)' : NT.itemBgMuted,
-                                                color: on ? '#22d3ee' : NT.inputText,
+                                                border: `1px solid ${
+                                                    on
+                                                        ? interviewLanguageTone.onBorder
+                                                        : interviewLanguageTone.offBorder
+                                                }`,
+                                                background: on
+                                                    ? interviewLanguageTone.onBg
+                                                    : interviewLanguageTone.offBg,
+                                                color: on
+                                                    ? interviewLanguageTone.onText
+                                                    : interviewLanguageTone.offText,
                                                 transition: 'all 0.2s ease',
                                             }}
                                         >
+                                            {/* علامةٌ لا لونٌ وحده: الخياران متشابهان في الشكل،
+                                                واللون وحده لا يكفي لمن لا يميّزه. */}
+                                            <svg
+                                                width="14"
+                                                height="14"
+                                                viewBox="0 0 24 24"
+                                                aria-hidden
+                                                style={{ opacity: on ? 1 : 0, flex: 'none' }}
+                                            >
+                                                <path
+                                                    fill="currentColor"
+                                                    d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                                                />
+                                            </svg>
                                             {t(opt.key)}
                                         </button>
                                     );
                                 })}
                             </div>
-                            <p style={{ margin: '6px 0 0', fontSize: '12px', color: NT.meta, lineHeight: 1.6 }}>
-                                {t('newCampaign_interviewLanguage_hint')}
-                            </p>
                             {errors.interviewLanguage && (
                                 <p role="alert" style={{ margin: '6px 0 0', fontSize: '12px', fontWeight: 600, color: '#EF4444' }}>
                                     {errors.interviewLanguage}
