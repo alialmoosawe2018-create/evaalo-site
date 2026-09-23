@@ -27,6 +27,19 @@ export interface IVideoInterviewSession extends Document {
     /** applicationId العام (CandidateApplication) — لعزل قفل الرابط لكل تقديم */
     applicationId?: string;
     conversationHistory: IConversationMessage[];
+    /**
+     * تلمترية لكل دور من أدوار الوكيل — قياس بحت، لا يقرأها أي منطق تقييم.
+     *
+     * سببها: الوكيل يعمل على LiveKit Cloud حيث `lk agent logs` ذيلي بلا نطاق
+     * زمني، فتضيع الجلسة خلال ساعات. وهذا ما جعل سؤالين غير قابلين للإجابة بعد
+     * مقابلة 2026-09-23: أي كفاءة كان الوكيل **ينويها** في كل دور (المنتقي
+     * يعلّمها «مسؤولة» قبل أن يعيد النموذج صياغتها، فتتباعد النية عن المنطوق دون
+     * أثر)، ولماذا لم تُطلق متابعة النتيجة ولا مرة في عشرة أسئلة.
+     *
+     * الشكل حر عمداً (`Schema.Types.Mixed`): هذا سجل تشخيصي يتطوّر مع التحقيق،
+     * وتثبيت مخططه هنا يعني نشر الخادم كلما أضفنا حقل قياس.
+     */
+    turnLog?: Record<string, any>[];
     status: 'active' | 'completed' | 'cancelled';
     /** وضع المقابلة من الواجهة: فيديو، صوت، أو مشاركة شاشة */
     interviewMode?: 'video' | 'voice' | 'screen';
@@ -183,6 +196,12 @@ const VideoInterviewSessionSchema = new Schema<IVideoInterviewSession>(
                 }
             }
         ],
+        // ⚠️ يُقصّ مع conversationHistory بنفس السقف (انظر hook الحفظ أدناه):
+        // سجل غير محدود يدفع الوثيقة نحو حد 16MB تماماً كما يفعل الترانسكريبت.
+        turnLog: {
+            type: [mongoose.Schema.Types.Mixed],
+            default: undefined
+        },
         status: {
             type: String,
             enum: ['active', 'completed', 'cancelled'],
@@ -305,6 +324,14 @@ VideoInterviewSessionSchema.pre('save', function (next) {
         this.conversationHistory = hist.slice(-MAX_CONVERSATION_MESSAGES);
         console.warn(
             `[video-session] conversationHistory capped to ${MAX_CONVERSATION_MESSAGES} for session ${this.sessionId}`,
+        );
+    }
+    // نفس الحارس للتلمترية: سجل قياس لا يجوز أن يكون هو ما يُفجّر حد الوثيقة.
+    const turns = (this as any).turnLog;
+    if (Array.isArray(turns) && turns.length > MAX_CONVERSATION_MESSAGES) {
+        (this as any).turnLog = turns.slice(-MAX_CONVERSATION_MESSAGES);
+        console.warn(
+            `[video-session] turnLog capped to ${MAX_CONVERSATION_MESSAGES} for session ${this.sessionId}`,
         );
     }
     next();

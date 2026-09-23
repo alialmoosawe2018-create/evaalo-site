@@ -16,6 +16,10 @@ import useSoundEffects from '../hooks/useSoundEffects';
 import { connectWithRetry, handleConnectionError } from '../utils/connectionRetry';
 import { isLocalHostDebug } from '../utils/isLocalHostDebug';
 import { API_BASE_URL } from '../config/apiBase.js';
+import {
+    serializeTranscript,
+    stampNewMessages,
+} from '../utils/videoTranscriptSerialize.js';
 import '../design-styles.css';
 
 const isBeyAvatarIdentity = (p) => p?.identity === 'bey-avatar-agent';
@@ -78,15 +82,6 @@ const USER_STRAGGLER_WINDOW_MS = 6000;
  * يحوّل conversationHistory (state الواجهة) إلى صيغة الباكند { role, content }.
  * نُبقي الرسائل النهائية فقط (isFinal !== false) ونتجاهل الفارغة — كي يصل ترانسكريبت نظيف إلى n8n.
  */
-function serializeTranscript(history) {
-    if (!Array.isArray(history)) return [];
-    return history
-        .filter((msg) => msg && msg.isFinal !== false && String(msg.content || '').trim())
-        .map((msg) => ({
-            role: msg.role === 'assistant' ? 'assistant' : 'user',
-            content: String(msg.content || '').trim(),
-        }));
-}
 
 /** دمج نهائيين فقط إن كانا نفس موجة STT (امتداد/تصحيح/تكرار)، لا جملتين مستقلتين. */
 function shouldMergeUserTranscriptFinals(prev, next) {
@@ -204,6 +199,12 @@ if (typeof global === 'undefined') {
 /** كم بين نبضتين تحفظان الترانسكريبت على الخادم. 20 ثانية = فقدان أقصاه 20 ثانية
  *  من الحوار لو مات التبويب فجأة، مقابل ~3 طلبات في الدقيقة. */
 const VIDEO_HEARTBEAT_MS = 20000;
+/**
+ * موضوع قناة البيانات لسجل أدوار الوكيل (يقابل TURN_LOG_TOPIC في turn_log.py).
+ * مقصود ألا يحتوي على "transcript"/"user"/"agent" حتى لا يلتبس بالترانسكريبت.
+ */
+const TURN_LOG_TOPIC = 'evaalo.turnlog';
+
 
 /** بعد انتهاء كلام الوكيل: تأخير قبل إعادة الميكروفون يقلّل ذيل الصدى؛ قيماً عالية (~400ms+) تُسقط أول كلمات لأن الصوت لا يُرسل للغرفة حتى enabled=true */
 const _envMicDelay = import.meta.env?.VITE_AVATAR_MIC_UNMUTE_DELAY_MS;
@@ -421,9 +422,21 @@ const VideoInterviewCall = () => {
     // ✅ FIX: Ref للـ messages container للـ auto-scroll
     const messagesContainerRef = useRef(null);
     
+    /** سجل أدوار الوكيل الوارد عبر قناة بيانات LiveKit (موضوع evaalo.turnlog). */
+    const turnLogRef = useRef([]);
+
     // نُبقي الـ ref مزامناً مع آخر حالة للترانسكريبت (يُقرأ في endInterview/pagehide)
     useEffect(() => {
         conversationHistoryRef.current = conversationHistory;
+        // ⚠️ الطابع يُكتب على **كائن الرسالة نفسه**، لا بفهرسه.
+        // الفهرسة كانت خاطئة: منطق الدمج يُسقط الـpartials من المصفوفة
+        // (`filter(msg => !(msg.role === role && msg.isFinal === false))`)، وقد يقع
+        // partial للوكيل في وسط المصفوفة بينما يُضاف نهائي للمستخدم بعده — فعند وصول
+        // نهائي الوكيل يُحذف ذلك الوسط وتنزاح كل الفهارس بعده، فتُنسب أزمنة الأدوار
+        // لأدوار غيرها. وزمن خاطئ أسوأ من غياب الزمن، لأننا سنحسب منه تأخير كل دور.
+        // الدمج يبني الكائنات بالـspread فيحمل الطابع معه، ولا يُعاد ختم كائن مختوم:
+        // وقت الدور هو وقت **بدايته** لا وقت آخر تعديل عليه.
+        stampNewMessages(conversationHistory, Date.now());
     }, [conversationHistory]);
 
     // ✅ FIX: Auto-scroll للرسائل الجديدة
@@ -612,6 +625,10 @@ const VideoInterviewCall = () => {
                     body: JSON.stringify({
                         sessionId: sid,
                         conversationHistory: serializeTranscript(conversationHistoryRef.current),
+                        // النبضة هي الطريق الوحيد من وكيل LiveKit إلى قاعدتنا:
+                        // الوكيل لا يملك أي مسار HTTP للخادم. كل نبضة تعيد إرسال
+                        // السجل كاملاً، والخادم لا يُنقص ما لديه، فسقوط نبضة لا يكلّف شيئاً.
+                        turnLog: turnLogRef.current,
                     }),
                     keepalive: true,
                 }).catch(() => undefined);
@@ -633,6 +650,7 @@ const VideoInterviewCall = () => {
                     [JSON.stringify({
                         sessionId: sid,
                         conversationHistory: serializeTranscript(conversationHistoryRef.current),
+                        turnLog: turnLogRef.current,
                         // كل مسار من الثلاثة يقول سببه: بدونها كان الخادم يرى
                         // إنهاءً واحداً، فلا يُميَّز من أكمل المقابلة ممّن غادرها.
                         endedBy: 'page_hide'
@@ -1344,9 +1362,8 @@ const VideoInterviewCall = () => {
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
                                         sessionId: sid,
-                                        conversationHistory: serializeTranscript(
-                                            conversationHistoryRef.current
-                                        ),
+                                        conversationHistory: serializeTranscript(conversationHistoryRef.current),
+                                        turnLog: turnLogRef.current,
                                         endedBy: 'room_disconnect',
                                     }),
                                     keepalive: true,
@@ -1570,6 +1587,29 @@ const VideoInterviewCall = () => {
 
                 // ✅ FIX: Transcripts من registerTextStreamHandler('lk.transcription') فقط - لا نضيف من DataReceived (يمنع تكرار الرسائل)
                 room.on(RoomEvent.DataReceived, (payload, participant, kind, topic) => {
+                    // سجل الأدوار: قياس فقط. يحمل الكفاءة التي *نواها* الوكيل لكل
+                    // دور قبل أن يعيد النموذج صياغتها — وهي المعلومة الوحيدة التي
+                    // تفصل «الكفاءة لم تُسأل» عن «سُئلت لكن الصياغة ضيّعت الموضوع».
+                    // لا يمسّ الترانسكريبت إطلاقاً (ذاك من lk.transcription وحده).
+                    if (topic === TURN_LOG_TOPIC) {
+                        try {
+                            const record = JSON.parse(new TextDecoder().decode(payload));
+                            const list = turnLogRef.current;
+                            // المفتاح (kind, turnIndex): الوكيل قد يُصدر الدور نفسه
+                            // مرتين (حارس الرد يعمل في transcription_node و tts_node)
+                            // فنُحدّث ولا نُكرّر؛ وسجل النهاية يحمل فهرساً بديلاً
+                            // فلا يصطدم بدور حقيقي أبداً.
+                            const kind = record.kind || 'turn';
+                            const at = list.findIndex(
+                                (r) => (r.kind || 'turn') === kind && r.turnIndex === record.turnIndex
+                            );
+                            if (at === -1) list.push(record);
+                            else list[at] = record;
+                        } catch {
+                            /* سجل تالف لا يجوز أن يزعج المقابلة */
+                        }
+                        return;
+                    }
                     if (
                         import.meta.env.DEV &&
                         topic &&
@@ -3212,6 +3252,7 @@ const VideoInterviewCall = () => {
                         body: JSON.stringify({
                             sessionId: sessionId,
                             conversationHistory: serializeTranscript(conversationHistoryRef.current),
+                            turnLog: turnLogRef.current,
                             endedBy: 'user_action'
                         })
                     });

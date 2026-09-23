@@ -18,6 +18,10 @@ import {
 } from '../services/usageReservationService.js';
 import { startVideoSession, consumeVideoSeconds, type StartVideoResult } from '../services/videoBillingService.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
+import {
+    normalizeIncomingTranscript,
+    normalizeIncomingTurnLog,
+} from '../services/videoTurnTelemetry.js';
 import type { UsageType } from '../types/billing.js';
 import { transcribeAudio } from '../services/sttService.js';
 import { createLiveKitRoom, createUserToken, dispatchAgentToRoom, deleteLiveKitRoom, deleteOtherCandidateRooms } from '../services/livekitService.js';
@@ -2146,19 +2150,19 @@ router.post('/heartbeat', async (req, res) => {
 
         session.lastActivityAt = new Date();
 
-        const normalized: Array<{ role: 'user' | 'assistant'; content: string }> = Array.isArray(incomingHistory)
-            ? incomingHistory
-                .map((m: any) => ({
-                    role: m?.role === 'assistant' ? 'assistant' : 'user' as 'user' | 'assistant',
-                    content: String(m?.content || '').trim(),
-                }))
-                .filter((m: { content: string }) => m.content.length > 0)
-            : [];
+        const normalized = normalizeIncomingTranscript(incomingHistory);
         // Only ever grow. A late or out-of-order beat carrying a shorter transcript
         // must not truncate what we already hold.
         if (normalized.length > (session.conversationHistory?.length || 0)) {
             session.conversationHistory = normalized as any;
             session.markModified?.('conversationHistory');
+        }
+        // تلمترية الأدوار: تنمو فقط، تماماً كالترانسكريبت أعلاه — نبضة متأخرة أو
+        // خارج الترتيب تحمل سجلاً أقصر لا يجوز أن تمحو ما لدينا.
+        const incomingTurns = normalizeIncomingTurnLog((req.body || {}).turnLog);
+        if (incomingTurns.length > (session.turnLog?.length || 0)) {
+            session.turnLog = incomingTurns as any;
+            session.markModified?.('turnLog');
         }
         await session.save().catch(() => undefined);
         return res.json({ success: true, turns: session.conversationHistory?.length || 0 });
@@ -2191,20 +2195,26 @@ router.post('/end', async (req, res) => {
 
         // ✅ سدّ ثغرة الترانسكريبت: مسار LiveKit لا يكتب conversationHistory في الجلسة.
         // الواجهة ترسل الترانسكريبت في body عند الإنهاء؛ نكتبه في الجلسة إن كانت فارغة قبل الإرسال لـ n8n.
-        const normalizedIncoming: Array<{ role: 'user' | 'assistant'; content: string }> = Array.isArray(incomingHistory)
-            ? incomingHistory
-                .map((m: any) => ({
-                    role: m?.role === 'assistant' ? 'assistant' : 'user' as 'user' | 'assistant',
-                    content: String(m?.content || '').trim(),
-                }))
-                .filter((m: { content: string }) => m.content.length > 0)
-            : [];
+        const normalizedIncoming = normalizeIncomingTranscript(incomingHistory);
         if (session && normalizedIncoming.length && !(session.conversationHistory?.length)) {
             try {
                 session.conversationHistory = normalizedIncoming as any;
                 session.markModified?.('conversationHistory');
             } catch (histErr: any) {
                 console.warn(`⚠️ /end: failed to persist incoming transcript: ${histErr?.message || histErr}`);
+            }
+        }
+        // نفس المنطق للتلمترية، لكنها تنمو ولا تُشترط فراغ ما لدينا: نبضة أخيرة
+        // قد تكون سبقت آخر دور، و/end هو آخر فرصة لالتقاطه.
+        if (session) {
+            try {
+                const endTurns = normalizeIncomingTurnLog((req.body || {}).turnLog);
+                if (endTurns.length > (session.turnLog?.length || 0)) {
+                    session.turnLog = endTurns as any;
+                    session.markModified?.('turnLog');
+                }
+            } catch (tlErr: any) {
+                console.warn(`⚠️ /end: failed to persist turnLog: ${tlErr?.message || tlErr}`);
             }
         }
 

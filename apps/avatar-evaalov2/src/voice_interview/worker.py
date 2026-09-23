@@ -66,6 +66,7 @@ from voice_interview.keep_warm import is_keep_warm_job
 from voice_interview.lang import detect_lang_from_text
 from voice_interview.netutil import is_websocket_closing_error
 from voice_interview.transcript_hooks import attach_user_transcript_routing
+from voice_interview.turn_log import make_sink as make_turn_log_sink
 from playback_patches import configure_and_apply_playback_patches
 
 logger = logging.getLogger("agent")
@@ -1110,6 +1111,11 @@ async def my_agent(ctx: JobContext):
         pack_match_confidence=str(meta.get("pack_match_confidence") or ""),
         role_key=str(meta.get("role_key") or ""),
     )
+    # Per-turn telemetry. The assistant deliberately has no room handle, so the
+    # sink is built here (where ``ctx`` lives) and injected. Records go out on
+    # the LiveKit data channel; the browser forwards them on its existing
+    # heartbeat, which is the only path from this worker to our database.
+    interview_agent._turn_log_sink = make_turn_log_sink(ctx)
     if bank_questions:
         first_q = bank_questions[0]
         interview_agent._memory.current_topic = first_q
@@ -1323,6 +1329,25 @@ async def my_agent(ctx: JobContext):
         else:
             _session_tel.end_reason = "ws_closed"
     finally:
+        # Telemetry fallback: the universal exit. ``_emit_end_record`` is a
+        # one-shot, so this is a no-op when the agent already concluded through
+        # ``end_interview`` or the wrap-up guard; it only fires for the endings
+        # nobody labelled — the safety cap, a cancel, a main-loop error, a room
+        # that simply went away.
+        #
+        # For the commonest of those (the candidate closes the tab) the browser
+        # is already gone, so this record cannot reach the database and only the
+        # agent log will carry it. That is not a gap to work around: the ABSENCE
+        # of an end record on the session is itself the finding — it means the
+        # agent never decided to stop.
+        try:
+            _end_sink_owner = locals().get("interview_agent")
+            if _end_sink_owner is not None:
+                _end_sink_owner._emit_end_record(
+                    f"worker:{_session_tel.end_reason or 'room_closed'}"
+                )
+        except Exception as _end_tel_err:
+            logger.debug("[turn-log] worker end record failed: %s", _end_tel_err)
         disconnect_event.set()  # release the cap task's sleep guard
         if _cap_task is not None and not _cap_task.done():
             _cap_task.cancel()

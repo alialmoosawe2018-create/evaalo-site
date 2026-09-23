@@ -112,6 +112,7 @@ from voice_interview.lang import (
     detect_language_switch_intent,
 )
 from voice_interview.subject_coverage import SubjectCoverage
+from voice_interview.turn_log import build_end_record, build_record as build_turn_log_record
 
 logger = logging.getLogger("agent")
 
@@ -852,6 +853,22 @@ class InterviewAssistant(Agent):
         self._turn_clarify_source: str = ""
         self._turn_plan: TurnPlan | None = None
         self._turn_cross_domain_guard: str = "pass"
+        # ── Turn telemetry (observational only, see turn_log.py) ─────────────
+        # Injected by the worker, which owns the room handle; None when the
+        # feature is off or in tests. Nothing here may influence a decision.
+        self._turn_log_sink: Any | None = None
+        # The diag dict the picker branched on this turn, the opener it assigned,
+        # and why the result follow-up declined to fire — all captured where they
+        # are already computed, and read back in ``record_agent_reply``.
+        self._last_diag: dict[str, Any] = {}
+        self._last_opener_assigned: str = ""
+        self._last_followup_skip: str = ""
+        # Which rule ended the interview. ``endedBy`` on the session says only
+        # what the BROWSER did (page_hide / user_action / room_disconnect); none
+        # of its values distinguish "the agent decided to stop" from "the
+        # candidate walked away", nor which guard fired. Both are telemetry.
+        self._wrap_up_trigger: str = ""
+        self._end_record_sent: bool = False
         # Wind-down state machine (offer wrap-up → final closing → conclude). The
         # reply-guard runs twice per turn (transcription_node + tts_node), so it
         # only advances once per ``turn_index`` and memoizes the line it emitted;
@@ -960,7 +977,7 @@ class InterviewAssistant(Agent):
             and mention the HR team will review their answers and follow up) in the SAME turn,
             BEFORE this tool closes the session. Do not call it early or while topics remain.
             """
-            await self._conclude_interview(ctx)
+            await self._conclude_interview(ctx, trigger="agent_tool")
             return "Interview concluded; the session is closing now."
 
         return function_tool(end_interview, name="end_interview")
@@ -982,7 +999,9 @@ class InterviewAssistant(Agent):
             logger.info("[reply-guard] final closing emitted but auto-end disabled; room kept open")
             return
         try:
-            self._conclude_task = asyncio.create_task(self._conclude_interview())
+            self._conclude_task = asyncio.create_task(
+                self._conclude_interview(trigger="wrap_up_guard")
+            )
             logger.info("[reply-guard] final closing → agent-initiated conclude scheduled")
         except Exception as ex:
             logger.warning("[reply-guard] schedule conclude failed: %s", ex)
@@ -1109,13 +1128,49 @@ class InterviewAssistant(Agent):
         except Exception as ex:
             logger.warning("wait timeout reply failed: %s", ex)
 
-    async def _conclude_interview(self, ctx: RunContext | None = None) -> None:
+    def _emit_end_record(self, trigger: str) -> None:
+        """Telemetry: say who ended the interview and on which rule. Never raises.
+
+        Emitted BEFORE the teardown waits on playout, because everything after
+        this point can hang or be killed — an end record that only ships after a
+        clean shutdown is exactly the record we would never get on the sessions
+        worth diagnosing.
+        """
+        sink = self._turn_log_sink
+        if sink is None or self._end_record_sent:
+            return
+        self._end_record_sent = True
+        try:
+            mem = self._memory
+            sink.emit_end(
+                build_end_record(
+                    trigger=trigger,
+                    wrap_up_trigger=self._wrap_up_trigger,
+                    questions_asked=len(mem.asked_questions or ()),
+                    asked_competency_keys=mem.asked_competency_keys,
+                    total_competencies=len(self._blueprint_competencies or ()),
+                    final_closing_sent=bool(getattr(mem, "final_closing_sent", False)),
+                    wrap_up_offered=bool(getattr(mem, "wrap_up_offered", False)),
+                    turn_index=mem.turn_index,
+                )
+            )
+        except Exception as ex:  # pragma: no cover - telemetry must never block teardown
+            logger.debug("[turn-log] end record failed: %s", ex)
+
+    async def _conclude_interview(
+        self, ctx: RunContext | None = None, *, trigger: str = ""
+    ) -> None:
         """Wait for the closing remark to finish, then close the session from the agent side.
 
         ``ctx`` is provided when called from the ``end_interview`` tool; the
         guard-triggered path passes ``None`` and derives the current speech from the
         live session instead.
+
+        ``trigger`` is telemetry only: which of the two teardown routes arrived
+        here. It defaults to inferring from ``ctx`` so no caller can silently
+        produce an unlabelled end record.
         """
+        self._emit_end_record(trigger or ("agent_tool" if ctx is not None else "wrap_up_guard"))
         # Let the goodbye the agent just spoke play out fully before tearing down.
         try:
             speech = None
@@ -1899,6 +1954,7 @@ class InterviewAssistant(Agent):
         # chance to answer "anything to add?" first.
         if not mem.wrap_up_offered and len(mem.asked_questions) >= _wrap_up_min_questions():
             mem.wrap_up_offered = True
+            self._wrap_up_trigger = "no_fresh_anchor"  # telemetry only
             self._winddown_turn = turn
             self._winddown_line = _WRAP_UP_PROMPT_AR
             logger.info("[reply-guard] no fresh anchor for %s; offering wrap-up", mode)
@@ -2253,6 +2309,11 @@ class InterviewAssistant(Agent):
     ) -> str | None:
         mem = self._memory
         mem.pending_path_advance = False
+        # Telemetry only: snapshot what this turn's decision is made from, and
+        # clear last turn's follow-up verdict so a stale reason cannot be
+        # attributed to this turn. Neither value is read by any picker.
+        self._last_diag = dict(diag or {})
+        self._last_followup_skip = ""
         # Hard cap on interview length: even when fresh bank questions still exist,
         # an interview that has already asked this many questions must wind down —
         # otherwise a bank-driven interview (no blueprint) keeps finding "fresh"
@@ -2264,6 +2325,7 @@ class InterviewAssistant(Agent):
             and len(mem.asked_questions) >= _wrap_up_max_questions()
         ):
             mem.wrap_up_offered = True
+            self._wrap_up_trigger = "hard_question_cap"  # telemetry only
             self._winddown_turn = mem.turn_index
             self._winddown_line = _WRAP_UP_PROMPT_AR
             logger.info(
@@ -2559,12 +2621,25 @@ class InterviewAssistant(Agent):
         candidate actually answered and did not already state an outcome, and
         once per competency.
         """
+        # The ``self._last_followup_skip`` assignments below are telemetry only
+        # (turn_log.py): five early-exits that the transcript cannot tell apart,
+        # which is why ten questions in a row produced no probe and no evidence
+        # of why. The control flow is unchanged.
         ckey = (mem.current_competency_key or "").strip()
-        if not ckey or ckey in mem.result_probed_competency_keys:
+        if not ckey:
+            self._last_followup_skip = "no_competency"
             return None
-        if not diag.get("is_substantive_answer") or diag.get("mentions_result"):
+        if ckey in mem.result_probed_competency_keys:
+            self._last_followup_skip = "already_probed"
+            return None
+        if not diag.get("is_substantive_answer"):
+            self._last_followup_skip = "not_substantive"
+            return None
+        if diag.get("mentions_result"):
+            self._last_followup_skip = "mentions_result"
             return None
         if not self._competency_followup_budget_left(mem):
+            self._last_followup_skip = "budget_spent"
             return None
         mem.result_probed_competency_keys.add(ckey)
         return self._set_turn_recommendation(
@@ -2725,6 +2800,10 @@ class InterviewAssistant(Agent):
         """
         n = len(_QUESTION_OPENERS)
         opener = _QUESTION_OPENERS[max(0, int(mem.turn_index or 0)) % n]
+        # Telemetry only: the assigned opener is compared in the turn log against
+        # the head the model actually used. The rotation is prompt-level, so the
+        # gap between these two is the only evidence it is being ignored.
+        self._last_opener_assigned = opener
         return (
             f"OPENING WORDS for THIS question (assigned, rotates every turn — use them, "
             f"adapt the grammar around them): «{opener}».\n"
@@ -2870,6 +2949,29 @@ class InterviewAssistant(Agent):
             mem.subject_coverage.record_asked(
                 question_text, competency_key=(plan.competency_key if plan else "")
             )
+
+        # ── Turn telemetry ───────────────────────────────────────────────────
+        # Emitted BEFORE the ``not plan`` bail-out on purpose: a turn the picker
+        # never planned is exactly the kind we most need to see, because it is
+        # invisible everywhere else. Wrapped so telemetry can never break a turn.
+        if self._turn_log_sink is not None:
+            try:
+                self._turn_log_sink.emit(
+                    build_turn_log_record(
+                        turn_index=mem.turn_index,
+                        plan=plan,
+                        spoken_text=guarded,
+                        question_text=question_text,
+                        opener_assigned=self._last_opener_assigned,
+                        opener_used=_question_stem(question_text),
+                        diag=self._last_diag,
+                        followup_skip_reason=self._last_followup_skip,
+                        competency_budget=mem.competency_followup_counts,
+                        asked_competency_keys=mem.asked_competency_keys,
+                    )
+                )
+            except Exception as _tl_err:  # pragma: no cover - never break a turn
+                logger.debug("[turn-log] record failed: %s", _tl_err)
 
         if not plan:
             return
