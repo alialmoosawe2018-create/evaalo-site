@@ -111,7 +111,11 @@ from voice_interview.lang import (
     detect_lang_reply_fallback,
     detect_language_switch_intent,
 )
-from voice_interview.subject_coverage import SubjectCoverage, subject_already_asked
+from voice_interview.subject_coverage import (
+    SubjectCoverage,
+    shared_term_count,
+    subject_already_asked,
+)
 from voice_interview.turn_log import build_end_record, build_record as build_turn_log_record
 
 logger = logging.getLogger("agent")
@@ -424,6 +428,11 @@ class InterviewMemory:
     # The one ledger both question sources answer to: asked / insufficient /
     # evidence_obtained per SUBJECT, not per bank. See ``subject_coverage``.
     subject_coverage: SubjectCoverage = field(default_factory=SubjectCoverage)
+    # What the candidate actually HEARD, for P4's coverage check only. Unlike
+    # ``asked_questions`` (which dedup reads and which keeps the greeting's
+    # never-spoken rewrite), this holds the delivered line, plus the blueprint
+    # wording of any anchor that was delivered. See ``_delivered_coverage``.
+    coverage_evidence: list[str] = field(default_factory=list)
 
     def record_opener_stem(self, stem: str, *, keep: int = 3) -> None:
         s = (stem or "").strip()
@@ -911,6 +920,11 @@ class InterviewAssistant(Agent):
         # Telemetry only: (turn_index, what the guard replaced and with what).
         # Read once by record_agent_reply, never by any decision.
         self._guard_swap: tuple[int, dict[str, str]] | None = None
+        # (turn_index, anchor text) the guard swapped in this turn — the anchor
+        # the candidate actually heard, which can differ from the plan's.
+        self._delivered_anchor: tuple[int, str] | None = None
+        # Diagnostics only: (turn_index, "key=reason, …") when P4 found nothing.
+        self._p4_exclusions: tuple[int, str] | None = None
         self._conclude_after_reply: bool = False
         # Hold a reference to the fire-and-forget conclude task so it is not
         # garbage-collected before it tears the room down.
@@ -1960,6 +1974,9 @@ class InterviewAssistant(Agent):
                 is_presupposing,
             )
             self._note_guard_swap(turn, "bank_anchor", reason=reason)
+            # What the candidate hears is THIS anchor, not the plan's: on
+            # 2026-09-23 20:25 the plan said anchor 1 and anchor 2 was spoken.
+            self._note_delivered_anchor(turn, anchor)
             # The anchor never met the framing instruction and may not be in the
             # interview's language ("Describe a time you improved a process…" was
             # spoken raw to an Arabic candidate). Make the reframe unconditional.
@@ -1988,6 +2005,9 @@ class InterviewAssistant(Agent):
             self._winddown_turn = turn
             self._winddown_line = _WRAP_UP_PROMPT_AR
             logger.info("[reply-guard] no fresh anchor for %s; offering wrap-up", mode)
+            self._note_guard_swap(
+                turn, "wrap_up", reason=reason, p4_excluded=self._p4_excluded_for(turn)
+            )
             return _WRAP_UP_PROMPT_AR
         # A DETECTED duplicate must never be spoken. This used to `return text`,
         # and the fall-through fired whenever the bank had no fresh anchor AND
@@ -2008,7 +2028,9 @@ class InterviewAssistant(Agent):
                 "[reply-guard] duplicate %s with no fresh anchor; bridging instead of repeating",
                 mode,
             )
-            self._note_guard_swap(turn, "bridge", reason=reason)
+            self._note_guard_swap(
+                turn, "bridge", reason=reason, p4_excluded=self._p4_excluded_for(turn)
+            )
             self._reframe_forced_turn = turn
             # Returned as-is, NOT through enforce_single_question_response: the
             # plan may still say WAIT/ACKNOWLEDGE/RESUME from the turn we are
@@ -2023,36 +2045,63 @@ class InterviewAssistant(Agent):
     ) -> str | None:
         """The next blueprint competency the candidate has not heard, or None.
 
-        "Not heard" is checked three ways, because each alone missed something on
-        2026-09-23: the competency keys already asked (plus the one just rejected,
-        whose rephrase WAS the duplicate), the subject ledger, and — the gap that
-        mattered — whether any question already spoken named the competency's
-        subject. The anchor «شنو خبرتك بتنسيق المقابلات على ATS…» shares almost
-        no words with «احچيلي عن موقف حقيقي يبيّن تنسيق المقابلات», so without
-        that last check the guard would swap one repeat for another.
+        "Not heard" is checked four ways: the competency keys already asked (plus
+        the one just rejected, whose rephrase WAS the duplicate), the ledger for
+        that competency's own subject, whether a DELIVERED question already asked
+        for its substance (``subject_already_asked`` over ``coverage_evidence``),
+        and whether its own question would repeat a recent one word for word.
+
+        The broad topic classifier is deliberately NOT used here (2026-09-24): it
+        files «بيانات» and «الأدلة» under one bucket, which hid HR analytics in L
+        and HRIS administration in K. It still guards duplicates everywhere else.
+        When nothing qualifies, every exclusion and its reason is kept for the log
+        and the turn record — L's wrap-up could only be explained by inference.
         """
         mem = self._memory
         plan = self._turn_plan
         rejected = ((plan.competency_key if plan else "") or "").strip()
-        heard = list(mem.asked_questions)
-        for comp in self._ordered_blueprint_competencies():
+        heard = list(mem.coverage_evidence)
+        ordered = self._ordered_blueprint_competencies()
+        titles = {
+            id(c): str(c.get("title") or "").strip()
+            or str(c.get("competencyKey") or c.get("key") or "")
+            for c in ordered
+        }
+        excluded: list[str] = []
+        for comp in ordered:
             ckey = str(comp.get("competencyKey") or comp.get("key") or "").strip()
-            if not ckey or ckey == rejected:
+            if not ckey:
+                continue
+            if ckey == rejected:
+                excluded.append(f"{ckey}=rejected")
                 continue
             if ckey in mem.asked_competency_keys or ckey in mem.rejected_competency_keys:
+                excluded.append(f"{ckey}=asked")
                 continue
             question = self._competency_question_text(comp)
             if not question:
+                excluded.append(f"{ckey}=no_question")
                 continue
-            if mem.subject_coverage.should_skip(question, competency_key=ckey):
+            # Its own subject only — passing the question would let the ledger
+            # fold it into another subject through the same topic buckets.
+            if mem.subject_coverage.should_skip(competency_key=ckey):
+                excluded.append(f"{ckey}=ledger")
                 continue
-            if subject_already_asked(str(comp.get("title") or "").strip() or ckey, heard):
+            others = [t for i, t in titles.items() if i != id(comp)]
+            if subject_already_asked(titles[id(comp)], heard, other_subjects=others):
+                excluded.append(f"{ckey}=covered")
                 continue
             spoken = naturalize_spoken_question(question)
-            if is_semantic_duplicate_question(spoken, recent) or is_topic_repeat(spoken, recent):
+            if is_semantic_duplicate_question(spoken, recent):
+                excluded.append(f"{ckey}=template_dup")
                 continue
             break
         else:
+            self._p4_exclusions = (turn, ", ".join(excluded))
+            logger.info(
+                "[reply-guard] P4 found no uncovered competency; excluded: %s",
+                ", ".join(excluded) or "-",
+            )
             return None
 
         if rejected:
@@ -2085,8 +2134,61 @@ class InterviewAssistant(Agent):
         )
         return line
 
+    def _note_delivered_anchor(self, turn: int, anchor: str) -> None:
+        """Remember which anchor the guard put in front of the candidate this turn.
+
+        First write wins: the guard runs twice per turn and only the first pass
+        (tts_node) decides what is spoken; the second runs on the already reworded
+        text and may pick a different anchor that is then discarded.
+        """
+        if self._delivered_anchor is not None and self._delivered_anchor[0] == turn:
+            return
+        self._delivered_anchor = (turn, anchor)
+
+    def _p4_excluded_for(self, turn: int) -> str:
+        found = self._p4_exclusions
+        return found[1] if found is not None and found[0] == turn else ""
+
+    def _delivered_coverage(self, spoken: str, plan: TurnPlan | None, swapped: bool) -> list[str]:
+        """The text(s) this utterance puts on record as asked, for P4's coverage.
+
+        Only what the candidate actually heard counts (the owner's coverage rule):
+        * the greeting is recorded here as the reworded version the transcript pass
+          produced, but the audio played the verbatim line — so the verbatim line
+          is what counts, and the never-spoken rewrite does not;
+        * an anchor counts in its blueprint wording too, because the reworded
+          question can drop the subject's own words («تنسق» for «تنسيق») — but only
+          the anchor actually delivered: the one the guard swapped in, or the
+          plan's own when the guard did not touch the turn AND the spoken question
+          visibly carries it (two shared words).
+        """
+        mem = self._memory
+        delivered = spoken
+        if mem.turn_index == 0 and self._verbatim_line and not mem.candidate_turns:
+            delivered = self._verbatim_line
+        out = [delivered]
+        anchor = self._delivered_anchor
+        if anchor is not None and anchor[0] == mem.turn_index:
+            out.append(anchor[1])
+            self._delivered_anchor = None
+        elif (
+            plan is not None
+            and not swapped
+            and plan.source in ("bank", "track_anchor")
+            and (plan.question or "").strip()
+            and shared_term_count(plan.question or "", spoken) >= 2
+        ):
+            out.append(plan.question or "")
+        return out
+
     def _note_guard_swap(
-        self, turn: int, to: str, *, reason: str, to_competency: str = ""
+        self,
+        turn: int,
+        to: str,
+        *,
+        reason: str,
+        to_competency: str = "",
+        p4_excluded: str = "",
     ) -> None:
         """Telemetry only: what the guard threw away, and what it put in its place.
 
@@ -2094,7 +2196,13 @@ class InterviewAssistant(Agent):
         intent. Without it a swapped turn logs the replacement as if the picker
         had chosen it, and the planned-vs-spoken gap that exposed the generic
         bridge disappears from the record.
+
+        First write per turn wins. The second guard pass runs on the text the
+        first pass already produced, and on 2026-09-23 20:25 it overwrote the real
+        reason (presupposing) with its own (hybrid, from «وHRIS» in the rewrite).
         """
+        if self._guard_swap is not None and self._guard_swap[0] == turn:
+            return
         plan = self._turn_plan
         self._guard_swap = (
             turn,
@@ -2104,6 +2212,7 @@ class InterviewAssistant(Agent):
                 "fromCompetency": ((plan.competency_key if plan else "") or ""),
                 "fromQuestion": ((plan.question if plan else "") or ""),
                 "toCompetency": to_competency,
+                "p4Excluded": p4_excluded,
             },
         )
 
@@ -3070,12 +3179,19 @@ class InterviewAssistant(Agent):
                 question_text, competency_key=(plan.competency_key if plan else "")
             )
 
+        swap = self._guard_swap
+        self._guard_swap = None
+        this_turn_swap = swap[1] if swap and swap[0] == mem.turn_index else None
+        # What P4 may treat as already asked: the line the candidate heard, and
+        # the anchor behind it when one was actually delivered.
+        mem.coverage_evidence.extend(
+            self._delivered_coverage(guarded, plan, swapped=this_turn_swap is not None)
+        )
+
         # ── Turn telemetry ───────────────────────────────────────────────────
         # Emitted BEFORE the ``not plan`` bail-out on purpose: a turn the picker
         # never planned is exactly the kind we most need to see, because it is
         # invisible everywhere else. Wrapped so telemetry can never break a turn.
-        swap = self._guard_swap
-        self._guard_swap = None
         if self._turn_log_sink is not None:
             try:
                 self._turn_log_sink.emit(
@@ -3090,7 +3206,7 @@ class InterviewAssistant(Agent):
                         followup_skip_reason=self._last_followup_skip,
                         competency_budget=mem.competency_followup_counts,
                         asked_competency_keys=mem.asked_competency_keys,
-                        guard_swap=swap[1] if swap and swap[0] == mem.turn_index else None,
+                        guard_swap=this_turn_swap,
                     )
                 )
             except Exception as _tl_err:  # pragma: no cover - never break a turn

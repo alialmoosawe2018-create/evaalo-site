@@ -129,6 +129,9 @@ def build_record(
                 "fromCompetency": _clip(g.get("fromCompetency"), 80),
                 "fromQuestion": _clip(g.get("fromQuestion")),
                 "toCompetency": _clip(g.get("toCompetency"), 80),
+                # Set only when P4 found nothing to swap in: each competency it
+                # excluded and why («key=covered», «key=asked», …).
+                "p4Excluded": _clip(g.get("p4Excluded")),
             }
             if g
             else None

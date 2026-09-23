@@ -28,7 +28,6 @@ same subject cannot reopen it.
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
@@ -80,91 +79,116 @@ def _signature(question: str) -> str:
 # nor the ledger above recognises the overlap. Only the model's rephrase did, once
 # it borrowed the anchor's wording. Matching on the competency's SUBJECT (its
 # title) against what was actually spoken closes that gap.
+#
+# 2026-09-24 — the first version of this matcher was too eager, and it cost two
+# interviews real questions. It dropped long vowels from INSIDE words and kept a
+# form with the article, so «الأعمال» became «العمل», «العمليات» became «العمل»,
+# «تأثير» became «تأثر», and «وبياناته» (strip «و», strip the root «ب») met
+# «ينتهي». In L (Senior HR Generalist) that marked business partnering and policy
+# design as "heard", so the guard offered the wrap-up with both never asked; in K
+# (Senior HR Specialist) «بياناته» + «موظف» — two generic HR words — hid
+# confidentiality, and a medium competency was asked before two high ones.
+#
+# The rule now, as the owner defined coverage: a competency is covered only when
+# a question the candidate actually heard asked for its substance. Mechanically:
+#   * a word matches another only by losing clitics in front (ال، و، ب…) or an
+#     inflection ending (ات، ين، ون، ة) — never a letter from inside, and never
+#     leaving fewer than three letters;
+#   * a word that also appears in ANOTHER competency's title of the same
+#     blueprint carries no subject of its own («موظف», «بيانات», «إدارة»…). The
+#     blueprint decides this, not a word list;
+#   * one heard question must hold two of the title's words, at least one of them
+#     distinctive — or, when every word of the title is shared, all of them.
 
-# Arabic clitics that glue onto a noun: «بتنسيق», «والسياسات», «للمرشحين».
-_AR_CLITICS = ("وال", "بال", "فال", "كال", "لل", "ال", "و", "ب", "ف", "ك", "ل")
-# Plural / feminine endings: «مقابلات» and «مقابلة» are one subject.
+# Arabic clitics that glue onto a word: «بتنسيق», «والسياسات», «للمرشحين».
+_AR_PREFIXES = ("وال", "بال", "فال", "كال", "لل", "ال", "و", "ب", "ف", "ك", "ل")
+# Inflection endings only — plural, feminine, the attached pronoun («مقابلات»/«مقابلة»).
 _AR_SUFFIXES = ("ات", "ين", "ون", "ه")  # noqa: RUF001 — Arabic, not Latin look-alikes
+_EN_SUFFIXES = ("ions", "ion", "ing", "ed", "es", "s")
 _ALEF_MAP = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ة": "ه", "ى": "ي"})  # noqa: RUF001
-_AR_LONG_VOWELS = str.maketrans("", "", "اوي")
+_MIN_STEM = 3
 
 
 def _is_latin(word: str) -> bool:
     return word.isascii()
 
 
-def _skeleton(word: str) -> str:
-    """Drop Arabic long vowels after the first letter: «تنسيق» and «تنسق» meet."""
-    if _is_latin(word) or len(word) < 2:
-        return word
-    return word[0] + word[1:].translate(_AR_LONG_VOWELS)
+def _word_forms(token: str) -> frozenset[str]:
+    """Every spelling one word takes by losing clitics or an inflection ending.
 
-
-def _subject_terms(text: str) -> list[set[str]]:
-    """Each content word of ``text`` as the set of forms it may appear in.
-
-    Two-letter words are dropped: in Arabic they are function words («مع», «او»)
-    and matching on them marked «التواصل مع المرشحين» as already asked because
-    an earlier question said «مقابلة مع مرشح».
+    Nothing is ever removed from the middle of a word. Words under three letters
+    (Arabic function words such as «مع», «او») and bare clitics («والـ») carry no
+    subject and yield no forms.
     """
-    out: list[set[str]] = []
-    for token in content_tokens(text):
-        tok = token.translate(_ALEF_MAP)
-        if len(tok) < 3:
-            continue
-        if _is_latin(tok):
-            out.append({tok})
-            continue
-        forms = {tok}
-        frontier = [tok]
-        for _ in range(2):  # «وبالتنسيق» needs two strips
-            frontier = [
-                t[len(p) :] for t in frontier for p in _AR_CLITICS
-                if t.startswith(p) and len(t) - len(p) >= 3
-            ]
-            forms.update(frontier)
+    tok = token.translate(_ALEF_MAP)
+    if len(tok) < _MIN_STEM or tok in _AR_PREFIXES:
+        return frozenset()
+    forms = {tok}
+    if _is_latin(tok):
+        # coordination / coordinating → «coordinat»; interviews → «interview».
         forms.update(
-            f[: -len(s)] for f in list(forms) for s in _AR_SUFFIXES
-            if f.endswith(s) and len(f) - len(s) >= 3
+            tok[: -len(s)] for s in _EN_SUFFIXES if tok.endswith(s) and len(tok) - len(s) >= 4
         )
-        out.append({_skeleton(f) for f in forms})
-    return out
+        return frozenset(forms)
+    frontier = [tok]
+    for _ in range(2):  # «وبالتنسيق» needs two strips
+        frontier = [
+            t[len(p) :]
+            for t in frontier
+            for p in _AR_PREFIXES
+            if t.startswith(p) and len(t) - len(p) >= _MIN_STEM
+        ]
+        forms.update(frontier)
+    forms.update(
+        f[: -len(s)]
+        for f in list(forms)
+        for s in _AR_SUFFIXES
+        if f.endswith(s) and len(f) - len(s) >= _MIN_STEM
+    )
+    return frozenset(forms)
 
 
-def _same_term(a: set[str], b: set[str]) -> bool:
-    """One word, possibly inflected: «مرشح»/«مرشحين», interview/interviews."""
-    for x in a:
-        for y in b:
-            if x == y:
-                return True
-            short, long_ = (x, y) if len(x) <= len(y) else (y, x)
-            if _is_latin(x) and _is_latin(y):
-                # coordination / coordinating share everything but the ending.
-                shared = len(os.path.commonprefix([x, y]))
-                if shared >= 4 and shared >= 0.75 * len(short):
-                    return True
-            elif len(short) >= 3 and long_.startswith(short) and len(long_) - len(short) <= 2:
-                return True
-    return False
+def _terms(text: str) -> list[frozenset[str]]:
+    return [forms for forms in (_word_forms(t) for t in content_tokens(text)) if forms]
 
 
-def subject_already_asked(subject: str, asked_questions: Iterable[str]) -> bool:
-    """True when a question the candidate already heard named this subject.
+def _has_term(term: frozenset[str], terms: Iterable[frozenset[str]]) -> bool:
+    return any(term & other for other in terms)
 
-    Two of the subject's words in one earlier question (one, if the subject is a
-    single word). Deliberately about what was SPOKEN, not about which bank a
-    question came from — the candidate hears a repeat either way.
+
+def shared_term_count(a: str, b: str) -> int:
+    """How many of ``a``'s words also occur in ``b``, under the same word rule."""
+    other = _terms(b)
+    return sum(1 for term in _terms(a) if _has_term(term, other))
+
+
+def subject_already_asked(
+    subject: str,
+    heard_questions: Iterable[str],
+    *,
+    other_subjects: Iterable[str] = (),
+) -> bool:
+    """True when a question the candidate actually heard asked about this subject.
+
+    ``subject`` is a competency title; ``other_subjects`` are the titles of the
+    other competencies in the same blueprint — a word they share is not evidence
+    of THIS subject. ``heard_questions`` must be what was delivered, not what was
+    planned (see ``InterviewMemory.coverage_evidence``).
     """
-    terms = _subject_terms(subject)
+    terms = _terms(subject)
     if not terms:
         return False
-    need = min(2, len(terms))
-    for question in asked_questions:
-        heard = _subject_terms(question)
+    others = [_terms(s) for s in other_subjects]
+    distinctive = [t for t in terms if not any(_has_term(t, o) for o in others)]
+    for question in heard_questions:
+        heard = _terms(question)
         if not heard:
             continue
-        hits = sum(1 for term in terms if any(_same_term(term, h) for h in heard))
-        if hits >= need:
+        matched = [t for t in terms if _has_term(t, heard)]
+        if not distinctive:
+            if len(matched) == len(terms):
+                return True
+        elif len(matched) >= min(2, len(terms)) and any(t in distinctive for t in matched):
             return True
     return False
 

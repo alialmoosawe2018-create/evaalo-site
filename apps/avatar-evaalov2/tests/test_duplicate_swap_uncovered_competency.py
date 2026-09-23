@@ -138,6 +138,11 @@ def session_j_competencies() -> list[dict]:
     ]
 
 
+#: The canned greeting as the worker marked it verbatim, and what the audio played —
+#: with a SYNTHETIC name in place of the candidate's. The double space the agent
+#: log printed inside the name is kept.
+_J_GREETING = "حياك الله ألف باء  جيم دال، نبدأ من خبرتك العملية."
+
 #: What production recorded for the greeting (turn 0): a reframe that was never
 #: spoken. Kept because it is in the agent's memory for the rest of the session.
 _J_GREETING_RECORD = (
@@ -164,28 +169,34 @@ _NONE = "none"  # production recorded no agent reply on this turn
 _CLARIFY = "clarify"  # the clarification the picker planned
 
 #: (turn, candidate's words, what the model said) — turns as the agent log split them.
+#: The words are SYNTHETIC: no candidate speech is stored. Each line gives the real
+#: picker exactly what the production line gave it — the same diagnostics (ready /
+#: shallow / rich answer / clarify request / topic change / trailing «لان.»), the
+#: same entities, recommended question, plan, spoken text, turn-log record and
+#: end-of-session memory — checked by replaying both through the agent, in the
+#: fixed and the pre-P4 build, and diffing every decision frame.
 SESSION_J_SCRIPT: list[tuple[int, str, str]] = [
-    (1, "مرحبا. انا جاهز.", _J_SPOKEN_ATS),
-    (2, "للسؤال.", _J_SPOKEN_HRIS),
-    (3, "يعني. معروف عندنا ان الموظف.", _NONE),
+    (1, "هلا. انا جاهز.", _J_SPOKEN_ATS),
+    (2, "حول الموضوع.", _J_SPOKEN_HRIS),
+    (3, "يعني. واضح عندنا بالشغل.", _NONE),
     (
         4,
-        "لما يجي. جديد لازم نسجله بياناته. بقاعدة البيانات اللي تمتلكها الشركة وكل المعلومات "
-        "اللي تخص المعلومات الشخصية والمعلومات العامه. ارقام الهواتف. الايميلات. الراتب. "
-        "التفاصيل. نسبه الاستقطاع من الضمان هاي كلها اشياء مهمه لازم نعرفها للحالات الطارئه.",
+        "لما يباشر موظف جديد نسجل بياناته بنظام الشركة ونكتب معلوماته الشخصية ووسائل التواصل "
+        "وتفاصيل العقد والدوام والمخصصات. ونراجع كل حقل مرة ثانية حتى تكون البيانات صحيحة "
+        "ونرجع لها عند اي حالة طارئة.",
         _J_SPOKEN_DOCS,
     ),
-    (5, "نخزنها سواء ورقي. بالمكتب او نخزنها بشكل سوفت.", _NONE),
-    (6, "وير بالحاسبه. تحمل الاي دي مال الموظف حتى نرجع لها باي وقت نحتاجها.", _DUP),
-    (7, "سؤال.", _DUP),
-    (8, "مثل شنو ممكن توضحي لي الموقف بالضبط يعني شنو شنو نوع الموقف؟ لان.", _NONE),
-    (9, "يكون حسب نوع الموقف.", _DUP),
+    (5, "نحفظها ورقياً بالمكتب او الكترونياً على الجهاز.", _NONE),
+    (6, "بملف على الحاسبة. باسم الرقم الوظيفي حتى نلكاها بسرعة وقت ما نحتاجها.", _DUP),
+    (7, "طيب.", _DUP),
+    (8, "شنو تقصدين بالموقف بالضبط يعني اي نوع من المواقف؟ لان.", _NONE),
+    (9, "يعتمد على الحالة.", _DUP),
     (
         10,
-        "تعتمد على نوع المشكلة يعني ممكن توضحي لي شنو انواع المشاكل اللي نحجي عليها هسة.",
+        "يعتمد على الحالة يعني ممكن توضحي لي شنو نوع المشاكل المقصودة هنا.",
         _CLARIFY,
     ),
-    (11, "خلينا نغير السؤال.", _DUP),
+    (11, "ممكن نغير السؤال.", _DUP),
 ]
 
 #: Covered before turn 6 — by the anchors the candidate had already heard — or,
@@ -237,6 +248,7 @@ async def replay_session_j(agent: InterviewAssistant) -> list[dict]:
     each ``[turn-log]`` line lands just after TTS synthesis ends.
     """
     agent._turn_log_sink = TurnLogSink(object())
+    agent.mark_verbatim(_J_GREETING)
     agent.record_agent_reply(_J_GREETING_RECORD)
     rows: list[dict] = []
     try:
@@ -375,12 +387,22 @@ def test_no_covered_competency_is_swapped_in_to_avoid_the_duplicate():
     assert "confidentiality_and_discretion" not in swapped  # the one just rejected
 
 
+def _deliver(agent: InterviewAssistant, anchor: str, spoken: str) -> None:
+    """Put an anchor in front of the candidate through the real record path."""
+    agent._turn_plan = TurnPlan(
+        question=anchor, source="track_anchor", response_mode=MODE_ASK
+    )
+    agent.record_agent_reply(spoken)
+    agent._turn_plan = TurnPlan(question="", response_mode=MODE_ASK)
+
+
 def test_a_competency_whose_subject_was_already_heard_is_skipped():
     """interview_coordination is FIRST in line and still must not be chosen.
 
     Its own question («…يبيّن تنسيق المقابلات…») is not a duplicate of the ATS
-    anchor by any word-overlap test — only its subject is. That is the case the
-    subject check exists for, and deleting that check must fail here.
+    anchor by any word-overlap test — only its subject is. The delivered anchor
+    «شنو خبرتك بتنسيق المقابلات على ATS…» is what carries that subject; the
+    model's rewording («شلون تنسق المقابلات…») kept only one of its words.
     """
     agent = InterviewAssistant(
         tts_router=_router(),
@@ -393,12 +415,10 @@ def test_a_competency_whose_subject_was_already_heard_is_skipped():
             if c["competencyKey"] in ("interview_coordination", "policy_and_compliance")
         ],
     )
-    mem = agent._memory
-    mem.asked_questions.append(_J_SPOKEN_ATS)
+    _deliver(agent, SESSION_J_ANCHORS[0], _J_SPOKEN_ATS)
     template = agent._competency_question_text(agent._blueprint_competencies[0])
     assert not is_semantic_duplicate_question(template, [_J_SPOKEN_ATS])  # the trap
 
-    agent._turn_plan = TurnPlan(question="", response_mode=MODE_ASK)
     out = agent._guard_repetition_and_language(_J_SPOKEN_ATS)
     assert agent._turn_plan.competency_key == "policy_and_compliance"
     assert "تنسيق" not in out
@@ -415,8 +435,7 @@ def _dup_agent(competencies: list[dict] | None) -> InterviewAssistant:
         bank_questions=[],
         blueprint_competencies=competencies,
     )
-    agent._memory.asked_questions.append(_J_SPOKEN_ATS)
-    agent._turn_plan = TurnPlan(question="", response_mode=MODE_ASK)
+    _deliver(agent, SESSION_J_ANCHORS[0], _J_SPOKEN_ATS)
     return agent
 
 
@@ -499,7 +518,7 @@ def test_a_late_guard_pass_after_the_record_keeps_the_same_swap():
     candidate never hears.
     """
     agent = _dup_agent(session_j_competencies())
-    agent._memory.asked_questions.append(_J_SPOKEN_HRIS)
+    _deliver(agent, SESSION_J_ANCHORS[1], _J_SPOKEN_HRIS)
     agent._turn_plan = TurnPlan(
         question="احچيلي عن موقف حقيقي يبيّن تنسيق المقابلات، شنو سويت؟",
         competency_key="interview_coordination",
@@ -559,31 +578,83 @@ def test_turn_log_labels_a_bridge_too(monkeypatch):
 # ── The subject check on its own ─────────────────────────────────────────────
 
 
-_J_HEARD_BEFORE_TURN_6 = [
-    _J_GREETING_RECORD,
+#: What the real record path puts in ``coverage_evidence`` before turn 6: the
+#: greeting AS HEARD (not its never-spoken rewrite), each spoken question, and
+#: the blueprint wording of each anchor that was delivered.
+_J_EVIDENCE_BEFORE_TURN_6 = [
+    _J_GREETING,
     _J_SPOKEN_ATS,
+    SESSION_J_ANCHORS[0],
     _J_SPOKEN_HRIS,
+    SESSION_J_ANCHORS[1],
     _J_SPOKEN_DOCS,
+    SESSION_J_ANCHORS[2],
 ]
+_J_TITLES = [title for _, title, _, _ in _J_COMPETENCIES]
+
+
+def _j_covered(title: str, evidence: list[str] = _J_EVIDENCE_BEFORE_TURN_6) -> bool:
+    return subject_already_asked(
+        title, evidence, other_subjects=[t for t in _J_TITLES if t != title]
+    )
+
+
+def test_replay_records_the_approved_evidence_before_turn_6():
+    agent, _ = _replay()
+    assert agent._memory.coverage_evidence[:7] == _J_EVIDENCE_BEFORE_TURN_6
+    assert _J_GREETING_RECORD not in agent._memory.coverage_evidence  # never spoken
 
 
 @pytest.mark.parametrize(
-    ("title", "heard"),
+    ("title", "covered"),
     [
         ("الدقة بإدخال البيانات", True),
+        # Approved as covered by د4; its words barely overlap («حفظ» only). It is
+        # the competency REJECTED on turn 6 and marked asked, so it is excluded by
+        # that route and never reaches this check at a decision point.
         ("السرية وحفظ المعلومات", False),
-        ("تنسيق المقابلات", True),  # «تنسق المقابلات» — verb vs noun, one root
+        ("تنسيق المقابلات", True),  # through the delivered anchor «بتنسيق المقابلات»
         ("استخدام HRIS وExcel", True),
         ("الالتزام بالإجراءات والسياسات", False),
-        ("التواصل مع المرشحين", False),  # «مع» is not a subject word
+        ("التواصل مع المرشحين", False),  # «مع مرشح» for scheduling is not the subject
         ("إدارة الوقت والأولويات", False),
-        ("دعم الرواتب والمستحقات", False),  # one shared word is not the subject
+        ("دعم الرواتب والمستحقات", False),  # the payroll line was never spoken
+        # Documented exception (owner, 2026-09-24): approved as covered, invisible
+        # to any word match — zero words shared with what was delivered.
         ("إدارة الملفات والسجلات", False),
         ("مساعدة بالمطابقات والتقارير", False),
     ],
 )
-def test_subject_already_asked_on_session_j(title, heard):
-    assert subject_already_asked(title, _J_HEARD_BEFORE_TURN_6) is heard
+def test_subject_coverage_on_session_j(title, covered):
+    assert _j_covered(title) is covered
+
+
+def test_interview_coordination_needs_the_delivered_anchor_not_just_the_rewording():
+    """The rewording says «تنسق», not «تنسيق»: one title word alone is not coverage."""
+    spoken_only = [e for e in _J_EVIDENCE_BEFORE_TURN_6 if e not in SESSION_J_ANCHORS]
+    assert _j_covered("تنسيق المقابلات", spoken_only) is False
+    assert _j_covered("تنسيق المقابلات") is True
+
+
+def test_documented_exception_never_changes_a_j_decision():
+    """document_management sits after every J pick in P4's order, so reading it as
+    covered (the approved judgement) could not have changed any of them."""
+    agent, rows = _replay()
+    order = [c["competencyKey"] for c in agent._ordered_blueprint_competencies()]
+    for turn in (6, 7, 9, 11):
+        assert order.index(rows[turn]["competency"]) < order.index(
+            "document_management"
+        )
+
+
+def test_the_greeting_rewrite_never_counts_as_asked():
+    """Only the verbatim greeting was heard. A rewrite recorded at turn 0 — even
+    one naming a competency outright — must not cover it."""
+    agent = session_j_agent()
+    agent.mark_verbatim(_J_GREETING)
+    agent.record_agent_reply("شنو خبرتك بدعم الرواتب والمستحقات بالشركة؟")
+    assert agent._memory.coverage_evidence == [_J_GREETING]
+    assert not _j_covered("دعم الرواتب والمستحقات", agent._memory.coverage_evidence)
 
 
 def test_subject_already_asked_in_english():
