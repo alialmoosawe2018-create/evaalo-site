@@ -90,6 +90,35 @@ const greetAt = core.indexOf('let greetingMsg: string;');
 check('the language is resolved before the greeting is built', resolveAt > 0 && resolveAt < greetAt, true);
 check('and the resolution is logged with its source', /\[LANG\][\s\S]{0,200}source=/.test(core), true);
 
+/* ⚠️ DATA FLOW, not ordering. The check above proves the language is resolved
+   BEFORE the greeting — and it passed while the greeting still read the RAW
+   `language`. Once V1 made the link silent, that raw value was `undefined`, and
+   getInitialGreetingMessage treats anything but an explicit 'ar' as English: the
+   candidate was greeted in English and then interviewed in Arabic in an Arabic
+   voice. A correct order with the wrong variable is a dead fix. So these read the
+   arguments actually handed over at each consumer. */
+function callBody(source: string, fn: string): string {
+    const at = source.indexOf(fn + '(');
+    if (at < 0) return '';
+    let depth = 0;
+    for (let i = at + fn.length; i < source.length; i += 1) {
+        if (source[i] === '(') depth += 1;
+        else if (source[i] === ')') {
+            depth -= 1;
+            if (depth === 0) return source.slice(at, i + 1);
+        }
+    }
+    return '';
+}
+const stripComments = (s: string) =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n');
+const greetingCall = stripComments(callBody(core, 'getInitialGreetingMessage'));
+check('the greeting is handed the RESOLVED language', /language:\s*interviewLanguage\b/.test(greetingCall), true);
+check('…and not the raw link value', /language\s*[,}]/.test(greetingCall.replace(/language:\s*interviewLanguage/, '')), false);
+const sttCall = stripComments(callBody(core, 'createSTTRouterConnection'));
+check('speech-to-text is handed the resolved language', /\binterviewLanguage\b/.test(sttCall), true);
+check('…and not the raw link value', /^\s*language,\s*$/m.test(sttCall), false);
+
 /* ── 4. the frontend no longer manufactures a choice ──────────────────────── */
 const sidebar = front('components', 'NewInterviewSidebar.jsx');
 /* Scoped to the VOICE builder's own block: a bare substring search over the whole

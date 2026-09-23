@@ -587,7 +587,9 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         });
       },
       undefined,
-      language,
+      // لغة الجلسة المحلولة لا وسيط الرابط الخام: الرابط صار صامتاً، والخام `undefined`.
+      // خاملٌ في الإنتاج (Speechmatics ثنائي اللغة يتجاهله) لكنه يحكم مسار Deepgram الاحتياطي.
+      interviewLanguage,
       appendLateTailToRecord
     );
   };
@@ -1663,7 +1665,11 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
                 full_name: candidateProfile?.full_name,
                 position: candidateProfile?.position_applied_for || positionParam,
                 company: candidateProfile?.company_applied_to,
-                language,
+                /* ⚠️ `interviewLanguage` لا `language`. كانت هنا الخام، فلمّا صار الرابط صامتاً
+                   (V1، `e9b2cb1`) صار `undefined`، و`getInitialGreetingMessage` لا تعدّ العربية إلا
+                   إن قيلت صراحةً — فحيّت المرشّح بالإنجليزية ثم أكملت المقابلة بالعربية بصوتٍ
+                   عربي. اختبار V1 فحص أن الحسم يسبق التحيّة، لا أن التحيّة تستعمله. */
+                language: interviewLanguage,
               });
             }
             const history = conversationHistory.get(sessionId) || [];
