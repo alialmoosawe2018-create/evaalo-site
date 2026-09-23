@@ -46,6 +46,7 @@ import {
 } from '../services/webhookIdempotency.js';
 import { consumeCredits, adjustCredits } from '../services/billingRuntimeService.js';
 import { creditCostMicro } from '../services/billingEngine.js';
+import { normalizeInterviewLanguage } from '../services/interviewLanguage.js';
 
 const router = express.Router();
 
@@ -292,6 +293,18 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
         
         const body = (campaignData || {}) as Record<string, unknown>;
         const interviewType = String(body.interviewType || '').trim().toLowerCase();
+        /* لغة المقابلة — تُحدَّد هنا وحدها (قرار المالك ٢٠٢٦-٠٩-٢٣)، ولا يغيّرها رابطٌ لاحقاً.
+           الغياب مقبول: حملاتٌ من واجهةٍ أقدم، ونافذة النشر بين الخادم والواجهة. الإلزام
+           في النموذج. أما قيمةٌ غير مفهومة فتُرفض — تخزينها صمتاً يعني تخميناً لاحقاً. */
+        const rawInterviewLanguage = body.interviewLanguage;
+        const interviewLanguage = normalizeInterviewLanguage(rawInterviewLanguage);
+        if (rawInterviewLanguage != null && String(rawInterviewLanguage).trim() !== '' && !interviewLanguage) {
+            return res.status(400).json({
+                success: false,
+                error: 'invalid_interview_language',
+                message: "interviewLanguage must be 'ar' or 'en'.",
+            });
+        }
         const formTemplateId =
             typeof body.formTemplateId === 'string' ? body.formTemplateId.trim() : '';
         const isScreeningForm = interviewType === 'form' || Boolean(formTemplateId);
@@ -434,6 +447,7 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
             criteria,
             jobAdvertisement: jobAdvertisement || undefined,
             interviewType: body.interviewType || undefined,
+            interviewLanguage: interviewLanguage ?? undefined,
             templateType: body.templateType || undefined,
             templateName: body.templateName || undefined,
             publicApplicationToken,

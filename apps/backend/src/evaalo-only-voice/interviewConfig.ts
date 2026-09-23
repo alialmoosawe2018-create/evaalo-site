@@ -4,6 +4,7 @@
  */
 
 /** الأسئلة الإلزامية — 1: أول سؤال (بداية)، 2: Microsoft Office (لاحقاً) */
+import { normalizeInterviewLanguage } from '../services/interviewLanguage.js';
 export type InterviewEvaluationIntent =
   | 'communication'
   | 'clarity'
@@ -468,32 +469,15 @@ export const PHASE1_TOPICS: Record<number, string> = {
 export const POOL_COUNT = Object.keys(PHASE1_TOPICS).length;
 
 /**
- * لغة المقابلة — قرارٌ من مصدرين، بترتيبٍ لا يُخالَف.
+ * لغة الرابط مُطبَّعة — `null` = «لم يقل شيئاً»، وهي قيمةٌ غير «العربية».
  *
- * `parseLinkLanguage` تفرّق بين «طلبَ لغةً» و«لم يقل شيئاً»: الثلاثيّ القديم
- * (`=== 'en' ? en : ar`) كان يسوّي بينهما، فلم يبقَ للحملة موضعٌ تتكلّم فيه.
- *
- * والترتيب هو المعتمد في مسار الفيديو: الرابط الصريح يعلو، والحملة احتياطٌ عند
- * صمته. وما كان يفسده أنّ الرابط لم يكن يصمت أبداً — كان يحمل لغة متصفّح
- * الموظّف، وافتراضُها `en`. (الجلستان `6cfb7d62` و`2718fd5f`، ٢٠٢٦-٠٩-٢٣.)
- *
- * والكردية تُعامل عربيةً هنا كما في كلّ المسار الصوتي: الصوت العربي هو الوحيد
- * الذي يخدمها.
+ * ⚠️ لم تعد تدخل قرار لغة المقابلة: الحملة مرجعٌ وحيد (`services/interviewLanguage.ts`،
+ * قرار المالك ٢٠٢٦-٠٩-٢٣). تبقى لوضع اختبار الصوت الذي لا حملة له. وكانت هنا
+ * `resolveInterviewLanguage(link, campaign)` بقاعدة «الرابط يعلو» — حُذفت عمداً كي لا
+ * يعود أحدٌ إلى استعمالها. والتطبيع واحدٌ في النظام: المطبِّع المشترك نفسه.
  */
 export function parseLinkLanguage(raw?: string | null): 'ar' | 'en' | null {
-  const v = String(raw ?? '').trim().toLowerCase();
-  if (v === 'en' || v === 'english') return 'en';
-  if (v === 'ar' || v === 'arabic' || v === 'ku' || v === 'kurdish' || v === 'ckb') return 'ar';
-  return null;
-}
-
-/** الرابط إن نطق، وإلّا الحملة، وإلّا العربية. */
-export function resolveInterviewLanguage(
-  linkLanguage: 'ar' | 'en' | null,
-  campaignEvaluationLanguage?: unknown
-): 'ar' | 'en' {
-  if (linkLanguage) return linkLanguage;
-  return parseLinkLanguage(String(campaignEvaluationLanguage ?? '')) ?? 'ar';
+  return normalizeInterviewLanguage(raw);
 }
 
 /**

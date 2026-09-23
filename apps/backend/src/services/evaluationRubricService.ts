@@ -128,6 +128,9 @@ export function stripRubricAndTemplateKeysFromCriteria(body: Record<string, unkn
         'formTemplateId',
         'jobAdvertisement',
         'interviewType',
+        // لغة المقابلة حقلٌ علوي في الحملة. لو بقيت هنا لصارت بنداً مُقيَّماً
+        // («interviewLanguage: ar») في المرحلة الأولى، ولغيّرت بصمة المعايير.
+        'interviewLanguage',
         'templateType',
         'templateName',
         'step',

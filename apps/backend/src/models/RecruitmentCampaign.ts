@@ -91,6 +91,13 @@ export interface IRecruitmentCampaign extends Document {
     };
     jobAdvertisement?: string; // إعلان الوظيفة المُولَّد تلقائياً
     interviewType?: string; // process, video, audio
+    /**
+     * لغة المقابلة (الصوت والفيديو) — تُحدَّد عند إنشاء الوظيفة، ومرجعٌ وحيد.
+     * حقلٌ علوي عمداً لا داخل `criteria`: كل مفتاح في `criteria` ليس بنداً معروفاً
+     * يصير بنداً مُقيَّماً في المرحلة الأولى (`deriveLegacyRubricFromCriteria`).
+     * غيابه = حملة أقدم من الحقل ⇒ `resolveCampaignInterviewLanguage` يحتاط.
+     */
+    interviewLanguage?: 'ar' | 'en';
     templateType?: string;
     templateName?: string;
     /** Public token for candidate application links (non-guessable). */
@@ -229,6 +236,11 @@ const RecruitmentCampaignSchema = new Schema<IRecruitmentCampaign>({
     interviewType: {
         type: String,
         required: false
+    },
+    interviewLanguage: {
+        type: String,
+        enum: ['ar', 'en'],
+        required: false,
     },
     templateType: {
         type: String,

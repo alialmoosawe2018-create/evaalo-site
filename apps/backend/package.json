@@ -19,6 +19,7 @@
     "test:voice-english-phase2-plan": "tsx src/scripts/voice-english-phase2-plan-test.ts",
     "test:voice-phase2-wiring": "tsx src/scripts/voice-phase2-wiring-test.ts",
     "test:voice-interview-language": "tsx src/scripts/voice-interview-language-test.ts",
+    "test:interview-language-contract": "tsx src/scripts/interview-language-contract-test.ts",
     "test:headhunter-target-role": "tsx src/scripts/headhunter-target-role-test.ts",
     "test:blueprint-readiness": "tsx src/scripts/blueprint-readiness-test.ts",
     "test:blueprint-gate-pin": "tsx src/scripts/blueprint-gate-pin-test.ts",

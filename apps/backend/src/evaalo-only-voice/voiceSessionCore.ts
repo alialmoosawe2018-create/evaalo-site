@@ -6,7 +6,8 @@ import { createSession, removeSession, touchSession, updateState } from "./sessi
 import { createInterviewState, getInterviewState, removeInterviewState, onExchangeComplete, FOLLOW_UP_MAX_PER_INTERVIEW, FOLLOW_UP_MIN_GAP_TURNS } from "./interviewState.js";
 import { getControllerOutput } from "./interviewController.js";
 import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer, isEndInterviewRequest, buildRequestedClosing, turnDefersBookings } from "./questionEngine.js";
-import { isVoiceTopicMemoryEnabled, parseLinkLanguage, resolveInterviewLanguage } from "./interviewConfig.js";
+import { isVoiceTopicMemoryEnabled, parseLinkLanguage } from "./interviewConfig.js";
+import { resolveCampaignInterviewLanguage } from "../services/interviewLanguage.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
 import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend, shouldHoldForLiveSpeech, LIVE_SPEECH_POLL_MS } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
@@ -179,18 +180,20 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   const candidateId = url.searchParams.get("candidateId") || undefined;
   const language = url.searchParams.get("language") || undefined;
   /**
-   * قفل لغة المقابلة — مصدره رابط المشاركة، وهو المرجع الوحيد لاختيار الصوت
-   * ولغة ردود الايجنت. لا يتغير بتغيّر لغة كلام المرشح؛ يتغير فقط بطلب تحويل
-   * صريح. الكردية تُعامل كعربية لأن الصوت العربي هو الوحيد الذي يخدمها.
-   */
-  /**
-   * لغة الرابط — `null` تعني أنّ الرابط **لم يقل شيئاً**، وهو فرقٌ يقرّر المقابلة.
+   * لغة المقابلة — من الحملة وحدها (قرار المالك ٢٠٢٦-٠٩-٢٣)، وتُحسم في معالج البدء
+   * قبل التحيّة وقبل اختيار الصوت (`resolveCampaignInterviewLanguage`).
    *
-   * كان الحساب ثلاثيّاً: كلّ ما ليس 'en' عربيّ. فاستوى «طلبَ العربية» و«لم يطلب
-   * شيئاً»، ولم يبقَ للحملة موضعٌ تتكلّم فيه.
+   * ⚠️ لغة الرابط **لا تدخل القرار**. كانت لغة متصفّح الموظّف لحظة إنشاء الرابط
+   * (والافتراضي `en`)، فجرت مقابلتا ٢٠٢٦-٠٩-٢٣ بالإنجليزية وحملتاهما عربيّتان — وما
+   * زالت الروابط القديمة تحمل `language=en`. تُقرأ فقط في وضع اختبار الصوت، الذي لا
+   * حملة له أصلاً.
+   *
+   * لا تتغيّر بعد الحسم إلّا بطلبٍ صريح من المرشّح (en→ar). والكردية تُخدَم بالعربية.
    */
   const linkLanguage = parseLinkLanguage(language);
-  let interviewLanguage: 'ar' | 'en' = linkLanguage ?? 'ar';
+  let interviewLanguage: 'ar' | 'en' = 'ar';
+  /** لغة المقابلة المخزّنة في الحملة — تُملأ من سياق الحملة المحمَّل. */
+  let campaignInterviewLanguage: unknown;
   const isVoiceTest = url.searchParams.get("voiceTest") === "1";
   // المسار العام (رابط مشارَك): mode=public => حقن معايير الوظيفة + إرسالها مع الترانسكريبت إلى n8n.
   const sessionMode = url.searchParams.get("mode") === "public" ? ("public" as const) : undefined;
@@ -230,6 +233,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   let resolvedCampaignId: string | undefined = campaignIdParam;
 
   type PublicCampaignContext = {
+    interviewLanguage?: unknown;
     jobCriteria?: Record<string, any>;
     jobAdvertisement?: string;
     resolvedCampaignId?: string;
@@ -252,7 +256,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
       }
       if (!campId) return {};
       const camp = await RecruitmentCampaign.findOne({ campaignId: campId })
-        .select("criteria jobAdvertisement campaignId")
+        .select("criteria jobAdvertisement campaignId interviewLanguage")
         .lean();
       if (!camp) return { resolvedCampaignId: campId };
       const rawCriteria = (camp as any).criteria;
@@ -264,6 +268,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
         jobCriteria: criteriaObj,
         jobAdvertisement: (camp as any).jobAdvertisement || undefined,
         resolvedCampaignId: campId,
+        interviewLanguage: (camp as any).interviewLanguage,
       };
     } catch (err: any) {
       console.warn(`[PUBLIC] ${sessionId.substring(0, 8)}... campaign load failed: ${err?.message || err}`);
@@ -272,6 +277,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
   };
 
   const applyPublicCampaignContext = (ctx: PublicCampaignContext) => {
+    campaignInterviewLanguage = ctx.interviewLanguage;
     if (ctx.jobCriteria && Object.keys(ctx.jobCriteria).length > 0) {
       jobCriteria = ctx.jobCriteria;
     }
@@ -1562,30 +1568,31 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
              * تقولان `evaluationLanguage: 'ar'`؛ وأحد المرشّحَين أجاب بالعربية طوال
              * المقابلة («نعم»، «عربي عند انقلش») وقُيّم على إنجليزيّته.
              *
-             * والترتيب هو نفسه المعتمد في مسار الفيديو ولا يُخالَف: **اختيار الرابط
-             * الصريح يعلو**، والحملة احتياطٌ عند صمته. ما تغيّر أنّ الصمت صار ممكناً —
-             * الواجهة لم تعد تصنع «اختياراً» من لغة المتصفّح.
+             * ⚠️ كانت هنا قاعدة «الرابط الصريح يعلو والحملة احتياط» (V1، `e9b2cb1`). أُلغيت
+             * بقرار المالك: الحملة **مرجعٌ وحيد**، والرابط لا يُقرأ. فالروابط القديمة التي
+             * تحمل `language=en` صارت تتبع حملتها هي أيضاً — ما لم يكن ممكناً تحت القاعدة القديمة.
              *
              * ولا يُنتظر هنا شيءٌ جديد: `campaignContextPromise` انطلق عند الاتصال،
              * والتحيّة لا تُطلب إلّا بعد رسالة العميل، فهو محلولٌ عمليّاً.
              */
-            if (linkLanguage === null) {
+            if (isVoiceTest) {
+              // أداة تطوير بلا حملة: الرابط هو كلّ ما لديها.
+              interviewLanguage = linkLanguage ?? 'ar';
+              console.log(`[LANG] ${sessionId.substring(0, 8)}... resolved=${interviewLanguage} source=voice_test_link`);
+            } else {
               try {
                 await campaignContextPromise;
-                const fromCampaign = String(
-                  (jobCriteria as Record<string, unknown> | undefined)?.evaluationLanguage ?? ''
-                ).toLowerCase();
-                interviewLanguage = resolveInterviewLanguage(null, fromCampaign);
-                console.log(
-                  `[LANG] ${sessionId.substring(0, 8)}... resolved=${interviewLanguage} source=${fromCampaign ? 'campaign' : 'default'}`
-                );
-              } catch (langErr: any) {
-                console.warn(
-                  `[LANG] ${sessionId.substring(0, 8)}... campaign language unavailable (${langErr?.message || langErr}) — keeping ${interviewLanguage}`
-                );
+              } catch {
+                /* المحمِّل يبلع أخطاءه ويُرجع {} — والاحتياط أدناه يعطي العربية */
               }
-            } else {
-              console.log(`[LANG] ${sessionId.substring(0, 8)}... resolved=${interviewLanguage} source=link`);
+              const resolved = resolveCampaignInterviewLanguage({
+                interviewLanguage: campaignInterviewLanguage,
+                criteria: jobCriteria as Record<string, unknown> | undefined,
+              });
+              interviewLanguage = resolved.language;
+              console.log(
+                `[LANG] ${sessionId.substring(0, 8)}... resolved=${interviewLanguage} source=${resolved.source}${linkLanguage ? ` (link said ${linkLanguage} — ignored)` : ''}`
+              );
             }
             /**
              * الرجوع داخل النافذة: الرابط مقفل في قاعدة البيانات (ولهذا لا نسأل

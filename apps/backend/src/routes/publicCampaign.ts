@@ -28,6 +28,7 @@ import {
 } from '../services/stage1EvaluationOutboxService.js';
 import { normalizeStage1EvaluationLanguage } from '../services/stage1EvaluationLanguage.js';
 import { loadCampaignRoles } from '../services/campaignRole.js';
+import { loadCampaignInterviewLanguage } from '../services/interviewLanguage.js';
 import { assertStageOutboundSecurityForTrigger, StageCallbackConfigurationError } from '../services/stageCallbackAuth.js';
 import { extractHoneypotFields, isHoneypotTriggered } from '../constants/n8nStage1.js';
 import { CERTIFICATES_MAX_FILES } from '../shared/formTemplates/index.js';
@@ -86,6 +87,9 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
          * role on record, which leaves the previous behaviour untouched.
          */
         const campaignRole = (await loadCampaignRoles([campaignId])).get(campaignId) || '';
+        /* لغة المقابلة من الحملة — الصفحة تعرض بها، كي لا يرى المرشّح صفحةً بلغة متصفّحه
+           ووكيلاً يتكلّم بلغة الحملة. نفس المحلِّل الذي يستعمله الخادم في الجلسة. */
+        const campaignInterviewLanguage = (await loadCampaignInterviewLanguage(campaignId)).language;
 
         const safe = (
             person: {
@@ -112,6 +116,7 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
                 position_applied_for:
                     campaignRole || fromApplication?.position || person.position_applied_for || '',
                 entryStage: person.entryStage,
+                interviewLanguage: campaignInterviewLanguage,
                 // Consumed timestamps keep the single-use link block working on the
                 // candidate page. Not PII — safe to expose to the link holder.
                 voiceInterviewLinkConsumedAt: fromApplication
@@ -185,6 +190,24 @@ router.get('/interview-candidate', async (req: Request, res: Response) => {
         );
         return res.status(500).json({ success: false, error: 'Failed to load candidate' });
     }
+});
+
+/**
+ * GET /api/public/campaign-interview-language?campaignId=
+ *
+ * For the PUBLIC-link pages (voice `/screening-call`, video `/video-screening-call`),
+ * which hold a campaignId and no candidate yet, and must show the page in the
+ * campaign's interview language before the call starts. Returns the language only
+ * — no campaign content — and an unknown campaignId gets the same Arabic default the
+ * session would use, so the answer reveals nothing about which campaigns exist.
+ */
+router.get('/campaign-interview-language', async (req: Request, res: Response) => {
+    const campaignId = String(req.query.campaignId || '').trim();
+    if (!campaignId) {
+        return res.status(400).json({ success: false, error: 'Missing campaignId' });
+    }
+    const { language } = await loadCampaignInterviewLanguage(campaignId);
+    return res.json({ success: true, data: { interviewLanguage: language } });
 });
 
 /** GET /api/public/campaigns/:pubToken/form-config */

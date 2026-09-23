@@ -14,31 +14,49 @@
  *   useVoiceInterview.js       and sent `language=en` on the socket, always
  *   voiceSessionCore.ts        `=== 'en' ? 'en' : 'ar'` — no campaign, no fallback
  *
- * The precedence rule itself was never wrong, and the video path states it in
- * writing: an explicit choice in the link outranks the campaign; the campaign is
- * the fallback for silence. What was wrong is that THE LINK WAS NEVER SILENT — a
- * browser locale was being promoted to an explicit choice. So the fix is not "the
- * campaign wins"; it is that silence became possible, and the server now asks the
- * campaign when it hears it.
+ * Two stages, recorded because the first one was not enough:
  *
- * ⚠️ Honest limit, recorded so nobody reads more into this than it does: the
- * campaign's own `evaluationLanguage` is itself derived from `body.language` at
- * creation (recruitmentCampaigns.ts ~307), which one of the two creation flows
- * fills from the recruiter's browser too, and which defaults to 'ar' when absent.
- * This change makes the two sources CONSISTENT — it does not make either of them
- * DELIBERATE. A real interview-language chooser is still missing, and that is a
- * product decision, not a bug fix.
+ *   V1 (e9b2cb1, 15b788a) kept the video path's rule — "an explicit link outranks
+ *   the campaign, the campaign is the fallback for silence" — and made the link
+ *   silent. That left every link ALREADY SENT still deciding the interview, since
+ *   each one carried the recruiter's browser locale; and there was still nowhere a
+ *   recruiter actually chose a language.
+ *
+ *   The owner then decided (2026-09-23): the language is set when the job is
+ *   created — a required field, no default — and the campaign is the ONLY
+ *   authority. The link is not an input at all (services/interviewLanguage.ts).
+ *   The REPORT language is a separate question and is deliberately unchanged.
+ *
+ * And one regression V1 caused and this file now pins: the greeting read the RAW
+ * link value, which V1 had made `undefined`, so it came out in English before an
+ * Arabic interview (4475f69). Hence the data-flow checks, not just ordering.
  *
  * Run: npx tsx src/scripts/voice-interview-language-test.ts
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseLinkLanguage, resolveInterviewLanguage } from '../evaalo-only-voice/interviewConfig.js';
+import { parseLinkLanguage } from '../evaalo-only-voice/interviewConfig.js';
+import { resolveCampaignInterviewLanguage } from '../services/interviewLanguage.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const src = (...p: string[]) => readFileSync(join(HERE, '..', ...p), 'utf8');
 const front = (...p: string[]) => readFileSync(join(HERE, '..', '..', '..', 'frontend', 'src', ...p), 'utf8');
+
+/** Body of the first call to `fn(` in `source`, parenthesis-balanced. */
+function callBodyOf(source: string, fn: string): string {
+    const at = source.indexOf(fn + '(');
+    if (at < 0) return '';
+    let depth = 0;
+    for (let i = at + fn.length; i < source.length; i += 1) {
+        if (source[i] === '(') depth += 1;
+        else if (source[i] === ')') {
+            depth -= 1;
+            if (depth === 0) return source.slice(at, i + 1);
+        }
+    }
+    return '';
+}
 
 let failures = 0;
 function check(name: string, actual: unknown, expected: unknown) {
@@ -60,35 +78,60 @@ check('"ar" is a choice', parseLinkLanguage('ar'), 'ar');
 check('and Kurdish is served by the Arabic voice', parseLinkLanguage('ku'), 'ar');
 check('case does not matter', parseLinkLanguage('  EN '), 'en');
 
-/* ── 2. precedence: the link if it spoke, else the campaign, else Arabic ───── */
-check('an explicit English link wins over an Arabic campaign', resolveInterviewLanguage('en', 'ar'), 'en');
-check('an explicit Arabic link wins over an English campaign', resolveInterviewLanguage('ar', 'en'), 'ar');
-check('a silent link hands the decision to the campaign', resolveInterviewLanguage(null, 'en'), 'en');
-check('…in the other direction too', resolveInterviewLanguage(null, 'ar'), 'ar');
-check('a silent link and a silent campaign fall back to Arabic', resolveInterviewLanguage(null, undefined), 'ar');
-check('an unreadable campaign value falls back to Arabic', resolveInterviewLanguage(null, 'klingon'), 'ar');
-check('a Kurdish campaign is served in Arabic', resolveInterviewLanguage(null, 'ku'), 'ar');
-/* The two production sessions, replayed: link silent (after this change) and
-   campaign 'ar' — which is what both campaigns actually carry. */
-check('6cfb7d62 / 2718fd5f would now be conducted in Arabic', resolveInterviewLanguage(null, 'ar'), 'ar');
+/* ── 2. the campaign is the ONLY authority (owner, 2026-09-23) ───────────────
+   V1 shipped "an explicit link wins, the campaign is the fallback for silence".
+   That left every OLD link — each one carrying the recruiter's browser locale —
+   still deciding the interview. The owner then made the campaign the sole
+   authority: the link is not an input at all. */
+check('the campaign field decides', resolveCampaignInterviewLanguage({ interviewLanguage: 'en' }).language, 'en');
+check('…and says so', resolveCampaignInterviewLanguage({ interviewLanguage: 'en' }).source, 'campaign');
+check('the field outranks the old report language',
+    resolveCampaignInterviewLanguage({ interviewLanguage: 'ar', criteria: { evaluationLanguage: 'en' } }).language, 'ar');
+check('a campaign older than the field keeps its report language',
+    resolveCampaignInterviewLanguage({ criteria: { evaluationLanguage: 'en' } }).language, 'en');
+check('…labelled as the legacy path',
+    resolveCampaignInterviewLanguage({ criteria: { evaluationLanguage: 'en' } }).source, 'legacy_evaluation_language');
+check('no campaign at all ⇒ Arabic', resolveCampaignInterviewLanguage(null).language, 'ar');
+check('…labelled as the default', resolveCampaignInterviewLanguage(null).source, 'default');
+check('a junk field value falls through, it is not trusted',
+    resolveCampaignInterviewLanguage({ interviewLanguage: 'klingon', criteria: { evaluationLanguage: 'ar' } }).source,
+    'legacy_evaluation_language');
+check('a Kurdish campaign is served in Arabic', resolveCampaignInterviewLanguage({ interviewLanguage: 'ku' }).language, 'ar');
+/* The two production sessions, replayed against their real campaigns: no field
+   yet, `evaluationLanguage: 'ar'` — and their links said `en`, which is now
+   simply not read. */
+check('6cfb7d62 / 2718fd5f would now be conducted in Arabic',
+    resolveCampaignInterviewLanguage({ criteria: { evaluationLanguage: 'ar' } }).language, 'ar');
 
-/* ── 3. the server actually uses it, before it speaks ─────────────────────── */
+/* ── 3. the server uses the campaign, and never the link ──────────────────── */
 const core = src('evaalo-only-voice', 'voiceSessionCore.ts');
-check('the server parses the link language instead of a ternary',
-    /const linkLanguage = parseLinkLanguage\(language\);/.test(core), true);
-check('and no longer decides it with the old ternary',
-    /language === 'en' \|\| language === 'english' \? 'en' : 'ar'/.test(core), false);
-check('the campaign is consulted when the link is silent',
-    /if \(linkLanguage === null\)[\s\S]{0,400}await campaignContextPromise/.test(core), true);
-check('…and the value it reads is evaluationLanguage',
-    /evaluationLanguage/.test(core), true);
+const exec = (s: string) =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').split(/\r?\n/).filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n');
+const coreCode = exec(core);
+check('the session decides with the shared campaign resolver',
+    /interviewLanguage = resolved\.language;/.test(coreCode) && /resolveCampaignInterviewLanguage\(\{/.test(coreCode), true);
+check('the language starts from Arabic, not from the link',
+    /let interviewLanguage: 'ar' \| 'en' = 'ar';/.test(coreCode), true);
+check('the link-first resolver is gone from the code',
+    /resolveInterviewLanguage\(/.test(coreCode), false);
+check('the link is read ONLY inside the voice-test branch',
+    (coreCode.match(/linkLanguage \?\? 'ar'/g) || []).length === 1 &&
+        /if \(isVoiceTest\) \{[\s\S]{0,200}linkLanguage \?\? 'ar'/.test(coreCode), true);
+check('the campaign field is loaded with the campaign',
+    /\.select\("criteria jobAdvertisement campaignId interviewLanguage"\)/.test(coreCode), true);
 /* The greeting and the TTS voice both follow `interviewLanguage`, so the
-   resolution must happen BEFORE the greeting is built — otherwise the agent
-   says hello in one language and continues in another. */
-const resolveAt = core.indexOf('if (linkLanguage === null)');
+   decision must be made BEFORE the greeting is built. (Ordering alone is not
+   enough — see the data-flow checks below — but it is still necessary.) */
+const decideAt = core.indexOf('resolveCampaignInterviewLanguage({');
 const greetAt = core.indexOf('let greetingMsg: string;');
-check('the language is resolved before the greeting is built', resolveAt > 0 && resolveAt < greetAt, true);
-check('and the resolution is logged with its source', /\[LANG\][\s\S]{0,200}source=/.test(core), true);
+check('the language is decided before the greeting is built', decideAt > 0 && decideAt < greetAt, true);
+check('and the decision is logged with its source', /\[LANG\][\s\S]{0,200}source=\$\{resolved\.source\}/.test(core), true);
+/* The report language is a different question and must not move: the n8n
+   payload still carries the raw link value, exactly as before, and n8nService
+   resolves the report from the campaign's evaluationLanguage first. Pinned. */
+const n8nCall = exec(callBodyOf(core, 'finalizeAndSendVoiceTranscriptToN8N'));
+check('the REPORT language line in the n8n payload is untouched (raw `language`)',
+    /^\s*language,\s*$/m.test(n8nCall), true);
 
 /* ⚠️ DATA FLOW, not ordering. The check above proves the language is resolved
    BEFORE the greeting — and it passed while the greeting still read the RAW
