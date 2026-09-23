@@ -5,7 +5,7 @@
 
 import express from 'express';
 import mongoose from 'mongoose';
-import { countLiveSessions } from '../evaalo-only-voice/sessionStore.js';
+import { liveInterviewSnapshot, startLiveInterviewCounter } from '../services/liveInterviewCount.js';
 
 const router = express.Router();
 
@@ -13,32 +13,31 @@ const router = express.Router();
  * GET /health
  * Health check endpoint.
  *
- * `activeVoiceInterviews` is read by the VPS auto-deployer: replacing the
- * container kills live voice calls outright, so it postpones while this is
- * non-zero. Keep the field name and shape stable.
+ * `activeInterviews` is read by the VPS auto-deployer: no deploy while an
+ * interview is live (owner's rule since launch, 2026-09-23), so it postpones
+ * while this is non-zero — voice live + voice parked in its resume window +
+ * video live. `activeVoiceInterviews` is what the deployer read before that
+ * field existed; the first deploy of this code is gated by a container that
+ * only has it. Keep every field name and shape stable.
  */
 router.get('/', (req, res) => {
-    let activeVoiceInterviews = 0;
-    try {
-        activeVoiceInterviews = countLiveSessions();
-    } catch {
-        /* never let the health check fail over a counter */
-    }
+    startLiveInterviewCounter();
+    const live = liveInterviewSnapshot();
     try {
         const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
-        res.status(200).json({ 
-            status: 'ok', 
+        res.status(200).json({
+            status: 'ok',
             message: 'Backend is healthy',
             database: dbStatus,
-            activeVoiceInterviews,
+            ...live,
             timestamp: new Date().toISOString()
         });
     } catch (error: any) {
-        res.status(200).json({ 
-            status: 'ok', 
+        res.status(200).json({
+            status: 'ok',
             message: 'Backend is healthy',
             database: 'unknown',
-            activeVoiceInterviews,
+            ...live,
             timestamp: new Date().toISOString()
         });
     }
@@ -58,16 +57,11 @@ router.get('/', (req, res) => {
  */
 router.get('/ready', (req, res) => {
     const connected = mongoose.connection.readyState === 1;
-    let activeVoiceInterviews = 0;
-    try {
-        activeVoiceInterviews = countLiveSessions();
-    } catch {
-        /* never let readiness fail over a counter */
-    }
+    startLiveInterviewCounter();
     res.status(connected ? 200 : 503).json({
         status: connected ? 'ready' : 'not_ready',
         database: connected ? 'connected' : 'disconnected',
-        activeVoiceInterviews,
+        ...liveInterviewSnapshot(),
         timestamp: new Date().toISOString(),
     });
 });

@@ -61,10 +61,7 @@ import { conditionalRequireAuth } from '../middleware/conditionalAuth.js';
 import { getPresignedDownloadUrl } from '../services/r2Service.js';
 import { ensureBlueprintForCampaign } from '../services/expertise/ensureBlueprint.js';
 import { shouldSendStage1ToN8n } from '../services/stage1N8nPayloadBuilder.js';
-import {
-    clearVoiceLinkAccess,
-    clearVideoLinkAccess,
-} from '../services/interviewLinkAccess.js';
+import { reopenInterviewLink } from '../services/interviewLinkAccess.js';
 
 const router = express.Router();
 
@@ -498,62 +495,22 @@ router.post(
     async (req: Request, res: Response) => {
         try {
             const id = req.params.id;
-            if (!mongoose.Types.ObjectId.isValid(id) || id.length !== 24) {
-                return res.status(400).json({ success: false, error: 'Invalid candidate ID' });
-            }
-            const stage = String(req.body?.stage || '').trim().toLowerCase();
-            if (stage !== 'voice' && stage !== 'video') {
-                return res.status(400).json({
+            // :id قد يكون Application MongoId (صفوف Stage بعد M2M) — الخدمة تحلّه.
+            const result = await reopenInterviewLink({
+                id,
+                stage: req.body?.stage,
+                applicationId: req.body?.applicationId,
+                campaignId: req.body?.campaignId,
+                organizationId: getOrgId(req),
+            });
+            if (!result.ok) {
+                return res.status(result.status).json({
                     success: false,
-                    error: 'Invalid stage',
-                    message: 'stage must be "voice" or "video"',
+                    error: result.error,
+                    ...(result.message ? { message: result.message } : {}),
                 });
             }
-
-            const bodyApplicationId =
-                typeof req.body?.applicationId === 'string' ? req.body.applicationId.trim() : '';
-            const bodyCampaignId =
-                typeof req.body?.campaignId === 'string' ? req.body.campaignId.trim() : '';
-
-            // :id قد يكون Application MongoId (صفوف Stage بعد M2M)
-            let personId = id;
-            let linkScope: { applicationId?: string; campaignId?: string } = {
-                applicationId: bodyApplicationId || undefined,
-                campaignId: bodyCampaignId || undefined,
-            };
-            const asApp = await CandidateApplication.findOne({
-                _id: id,
-                deletedAt: null,
-            })
-                .select('candidateId applicationId campaignId organizationId')
-                .lean();
-            if (asApp) {
-                personId = String(asApp.candidateId);
-                linkScope = {
-                    applicationId: asApp.applicationId || bodyApplicationId || undefined,
-                    campaignId: asApp.campaignId || bodyCampaignId || undefined,
-                };
-            }
-
-            const existing = await Candidate.findById(personId)
-                .select('organizationId voiceInterviewLinkConsumedAt videoInterviewLinkConsumedAt full_name')
-                .lean();
-            if (!existing) {
-                return res.status(404).json({ success: false, error: 'Candidate not found' });
-            }
-            const reqOrg = getOrgId(req);
-            const candidateOrg = existing.organizationId || DEFAULT_ORG_ID;
-            if (candidateOrg !== reqOrg) {
-                return res.status(404).json({ success: false, error: 'Candidate not found' });
-            }
-
-            const cleared =
-                stage === 'voice'
-                    ? await clearVoiceLinkAccess(personId, linkScope)
-                    : await clearVideoLinkAccess(personId, linkScope);
-            if (!cleared) {
-                return res.status(404).json({ success: false, error: 'Candidate not found' });
-            }
+            const { stage, personId, scope: linkScope } = result;
 
             logAudit(req, {
                 action: 'candidate.interview_link_reset',

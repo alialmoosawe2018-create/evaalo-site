@@ -18,7 +18,6 @@ CONTAINER="evaalo-api"
 HEALTH_URL="https://api.evaalo.com/health"
 # Local, so the reading is the container's own truth even if the tunnel is down.
 BUSY_URL="http://127.0.0.1:5000/api/health"
-MAX_POSTPONE_SEC="${MAX_POSTPONE_SEC:-600}"
 POSTPONE_STATE="/tmp/evaalo-backend-deploy.postponed"
 LOG="$REPO/ops/deploy.log"
 LOCK="/tmp/evaalo-backend-deploy.lock"
@@ -85,16 +84,38 @@ if [ "$LOCAL" = "$REMOTE" ]; then
 fi
 
 # --- Live-interview gate -----------------------------------------------------
-# replace_container() SIGKILLs the process, so a running voice interview dies
-# mid-sentence and the candidate loses it (their reconnect starts an empty
-# session that the evidence gate then rejects). Wait for the call to finish.
+# THE OWNER'S RULE SINCE LAUNCH (2026-09-23): nothing is deployed while an
+# interview is live on the site. replace_container() SIGKILLs the process: a
+# voice call dies mid-sentence, a candidate parked in the 10-minute resume
+# window loses the session (it lives only in this process) and is told the link
+# was used, and a video interview loses its server-side state.
+#
+# So the deploy waits for as long as the count is above zero — there is NO
+# ceiling any more. (Until 2026-09-23 it deployed anyway after 600 s; that broke
+# the rule on exactly the busy day it was written for.) The count cannot stick:
+# a voice call is capped at 15 minutes, a parked session at 10, and a video
+# session stops counting 90 s after its page's last heartbeat.
+#
 # The repo is deliberately NOT advanced here: leaving HEAD on the old commit is
-# what makes the next tick retry the whole deploy. The ceiling exists so a busy
-# day cannot starve a deploy forever.
-# Fail-open on purpose: if the count cannot be read the deploy proceeds, because
-# an unreachable container is exactly the case that most needs replacing.
-LIVE="$(curl -s --max-time 5 "$BUSY_URL" 2>/dev/null \
-  | grep -o '"activeVoiceInterviews":[0-9]*' | cut -d: -f2 || true)"
+# what makes the next tick retry the whole deploy.
+# Fail-open ONLY when the container does not answer at all — an unreachable
+# container is interviewing nobody, and is exactly the one that needs replacing.
+
+# live_interviews <health-json> — the number of live interviews, or nothing if
+# the reply carries no count. `activeInterviews` = voice live + voice parked +
+# video live; a container from before that field existed reports voice only.
+# (Kept a plain function so the backend test suite can run it — see
+#  src/scripts/live-interview-count-test.ts.)
+live_interviews() {
+  local json="$1" n
+  n="$(printf '%s' "$json" | grep -o '"activeInterviews":[0-9]*' | head -1 | cut -d: -f2)"
+  if [ -z "$n" ]; then
+    n="$(printf '%s' "$json" | grep -o '"activeVoiceInterviews":[0-9]*' | head -1 | cut -d: -f2)"
+  fi
+  printf '%s' "$n"
+}
+
+LIVE="$(live_interviews "$(curl -s --max-time 5 "$BUSY_URL" 2>/dev/null || true)")"
 if [ -n "${LIVE:-}" ] && [ "$LIVE" -gt 0 ] 2>/dev/null; then
   if [ "$(cut -d' ' -f1 "$POSTPONE_STATE" 2>/dev/null || true)" != "$REMOTE" ]; then
     echo "$REMOTE $(date +%s)" > "$POSTPONE_STATE"
@@ -105,11 +126,8 @@ if [ -n "${LIVE:-}" ] && [ "$LIVE" -gt 0 ] 2>/dev/null; then
     ''|*[!0-9]*) SINCE="$(date +%s)"; echo "$REMOTE $SINCE" > "$POSTPONE_STATE" ;;
   esac
   WAITED=$(( $(date +%s) - SINCE ))
-  if [ "$WAITED" -lt "$MAX_POSTPONE_SEC" ]; then
-    log "POSTPONED: $LIVE live voice interview(s) — waited ${WAITED}s/${MAX_POSTPONE_SEC}s, retry next tick"
-    exit 0
-  fi
-  log "WARN: $LIVE live interview(s) but waited ${WAITED}s — ceiling reached, deploying anyway"
+  log "POSTPONED: $LIVE live interview(s) — waiting ${WAITED}s so far; no deploy while an interview is running"
+  exit 0
 fi
 rm -f "$POSTPONE_STATE"
 

@@ -1127,15 +1127,10 @@ const WrittenInterview = () => {
                                                             getShareData={buildShareData}
                                                             t={t}
                                                             shareTitle={t('writtenInterviewShareTitle')}
-                                                            interviewLinkReset={{
-                                                                stage: 'voice',
-                                                                consumedAt: candidate.voiceInterviewLinkConsumedAt,
-                                                                onReset: () =>
-                                                                    fetchCandidates({
-                                                                        background: true,
-                                                                        skipInterim: true,
-                                                                    }),
-                                                            }}
+                                                            /* لا إعادة فتح هنا: رابط الصوت يُعاد من المرحلة ٢
+                                                               (قرار المالك ٢٠٢٦-٠٩-٢٣) — هناك يظهر كل من قُفل
+                                                               رابطه الصوتي، ومنه مرشّحو الرابط العام الذين لا
+                                                               تعرضهم هذه الصفحة أصلاً. */
                                                         />
                                                     </div>
                                                 </td>

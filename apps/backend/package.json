@@ -21,6 +21,8 @@
     "test:voice-interview-language": "tsx src/scripts/voice-interview-language-test.ts",
     "test:interview-language-contract": "tsx src/scripts/interview-language-contract-test.ts",
     "test:voice-language-runtime": "tsx --experimental-test-module-mocks src/scripts/voice-language-runtime-test.ts",
+    "test:interview-link-reopen-runtime": "tsx --experimental-test-module-mocks src/scripts/interview-link-reopen-runtime-test.ts",
+    "test:live-interview-count": "tsx src/scripts/live-interview-count-test.ts",
     "test:headhunter-target-role": "tsx src/scripts/headhunter-target-role-test.ts",
     "test:blueprint-readiness": "tsx src/scripts/blueprint-readiness-test.ts",
     "test:blueprint-gate-pin": "tsx src/scripts/blueprint-gate-pin-test.ts",

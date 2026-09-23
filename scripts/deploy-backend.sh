@@ -27,6 +27,15 @@ die() { printf '\033[31m[deploy:backend] GATE FAILED:\033[0m %s\n' "$*" >&2; exi
 [ -d "$M" ] || die "monorepo backend not found: $M"
 [ -d "$D/.git" ] || die "deploy mirror not found: $D (expected a git clone of evaalo-backend)"
 
+# --- Gate 0: live interviews (the owner's rule since launch, 2026-09-23) -----
+# Not a refusal here: the VPS deployer re-reads the count itself and will not
+# swap the container while any interview is live, however long that takes.
+# Said up front so nobody reads a quiet VPS as a failed deploy.
+say "Gate 0 — interviews live on the site right now?"
+if ! node "$ROOT/scripts/check-live-interviews.mjs"; then
+  say "  → the VPS will POSTPONE the container swap until they end (no deploy during an interview)."
+fi
+
 # --- Gate 1: monorepo backend committed (no uncommitted app changes) ---------
 say "Gate 1/5 — monorepo apps/backend is committed"
 if [ -n "$(git -C "$ROOT" status --porcelain apps/backend | grep -v '^??' || true)" ]; then

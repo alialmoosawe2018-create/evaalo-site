@@ -486,7 +486,15 @@ const VideoInterview = () => {
 
     // Live: refresh the video board in the background when relevant domain events arrive.
     useLiveRefresh(
-        ['VideoEvaluationCompleted', 'VideoSessionCompleted', 'CandidateStatusChanged', 'CandidateApplied'],
+        // InterviewLinkAccessChanged: زرّ إعادة الفتح لا يظهر إلّا والرابط مقفل،
+        // فبلا هذا الحدث تبقى الصفحة تقول «مفتوح» بلا زرّ حتى إعادة التحميل.
+        [
+            'VideoEvaluationCompleted',
+            'VideoSessionCompleted',
+            'CandidateStatusChanged',
+            'CandidateApplied',
+            'InterviewLinkAccessChanged',
+        ],
         () => fetchCandidates({ background: true, skipInterim: true }),
     );
 

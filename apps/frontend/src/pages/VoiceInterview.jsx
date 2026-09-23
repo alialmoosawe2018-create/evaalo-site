@@ -1131,11 +1131,13 @@ const VoiceInterview = () => {
                                                         t={t}
                                                         shareTitle={t('voiceInterviewShareTitle')}
                                                         interviewLinkReset={{
-                                                            // هذه المرحلة تشارك رابط /video-interview-call، والبوابة التي
-                                                            // تحجبه هي videoInterviewLinkConsumedAt؛ استهداف مرحلة voice
-                                                            // كان يفتح علماً آخر فيبقى الرابط المُشارك "مكتملاً".
-                                                            stage: 'video',
-                                                            consumedAt: candidate.videoInterviewLinkConsumedAt,
+                                                            // رابط **الصوت** يُعاد من هنا، كلّه (قرار المالك ٢٠٢٦-٠٩-٢٣):
+                                                            // هذه صفحة من أجرى المقابلة الصوتية، ومنها وحدها يُرى مرشّح
+                                                            // الرابط العام (`entryStage: 'audio'`) — المرحلة ١ لا تعرضه، فلم
+                                                            // يكن لرابطه الصوتي زرّ إعادة في أيّ مكان. ورابط الفيديو الذي
+                                                            // يشاركه زرّ هذه الصفحة يُعاد من المرحلة ٣.
+                                                            stage: 'voice',
+                                                            consumedAt: candidate.voiceInterviewLinkConsumedAt,
                                                             onReset: () =>
                                                                 fetchCandidates({
                                                                     background: true,

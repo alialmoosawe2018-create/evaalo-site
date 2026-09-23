@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Candidate from '../models/Candidate.js';
 import CandidateApplication from '../models/CandidateApplication.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
@@ -302,6 +303,73 @@ export async function clearVoiceLinkAccess(
         });
     }
     return changed;
+}
+
+export type ReopenInterviewLinkResult =
+    | {
+          ok: true;
+          stage: 'voice' | 'video';
+          personId: string;
+          scope: { applicationId?: string; campaignId?: string };
+      }
+    | { ok: false; status: 400 | 404; error: string; message?: string };
+
+/**
+ * HR reopens a spent interview link — what `POST /api/candidates/:id/interview-link-reset`
+ * does, lifted out of the route so it can be exercised end to end.
+ *
+ * `id` is the stage row's id: an Application MongoId on every board since M2M
+ * (the person's id on a legacy row). The application found from it decides the
+ * scope, so reopening one campaign's link never opens the same person's link in
+ * another campaign.
+ *
+ * Which board calls it with which stage is a product decision (owner,
+ * 2026-09-23): the VOICE link from Stage 2, the VIDEO link from Stage 3.
+ */
+export async function reopenInterviewLink(input: {
+    id: string;
+    stage: unknown;
+    applicationId?: unknown;
+    campaignId?: unknown;
+    organizationId: string;
+}): Promise<ReopenInterviewLinkResult> {
+    const id = String(input.id || '');
+    if (!mongoose.Types.ObjectId.isValid(id) || id.length !== 24) {
+        return { ok: false, status: 400, error: 'Invalid candidate ID' };
+    }
+    const stage = String(input.stage || '').trim().toLowerCase();
+    if (stage !== 'voice' && stage !== 'video') {
+        return { ok: false, status: 400, error: 'Invalid stage', message: 'stage must be "voice" or "video"' };
+    }
+    const bodyApplicationId = typeof input.applicationId === 'string' ? input.applicationId.trim() : '';
+    const bodyCampaignId = typeof input.campaignId === 'string' ? input.campaignId.trim() : '';
+
+    let personId = id;
+    let scope: { applicationId?: string; campaignId?: string } = {
+        applicationId: bodyApplicationId || undefined,
+        campaignId: bodyCampaignId || undefined,
+    };
+    const asApp = await CandidateApplication.findOne({ _id: id, deletedAt: null })
+        .select('candidateId applicationId campaignId organizationId')
+        .lean();
+    if (asApp) {
+        personId = String(asApp.candidateId);
+        scope = {
+            applicationId: asApp.applicationId || bodyApplicationId || undefined,
+            campaignId: asApp.campaignId || bodyCampaignId || undefined,
+        };
+    }
+
+    const existing = await Candidate.findById(personId).select('organizationId').lean();
+    if (!existing) return { ok: false, status: 404, error: 'Candidate not found' };
+    if ((existing.organizationId || DEFAULT_ORG_ID) !== input.organizationId) {
+        return { ok: false, status: 404, error: 'Candidate not found' };
+    }
+
+    const cleared =
+        stage === 'voice' ? await clearVoiceLinkAccess(personId, scope) : await clearVideoLinkAccess(personId, scope);
+    if (!cleared) return { ok: false, status: 404, error: 'Candidate not found' };
+    return { ok: true, stage, personId, scope };
 }
 
 export async function clearVideoLinkAccess(

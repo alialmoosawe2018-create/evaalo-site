@@ -101,6 +101,9 @@ export default function InterviewLinkResetButton({
     })();
 
     const isConsumed = Boolean(consumedAt);
+    /* يسمّي الرابط: صفحة المرحلة ٢ تحمل زرّ مشاركة رابط الفيديو وزرّ إعادة رابط
+       الصوت معاً، و«إعادة فتح الرابط» بلا اسمٍ هناك لا يقول أيّ الرابطين. */
+    const btnLabel = t(stage === 'voice' ? 'interviewLinkReset_btnVoice' : 'interviewLinkReset_btnVideo');
 
     /** رسالة النتيجة — تحلّ محلّ window.alert، وتختفي وحدها. */
     const statusNote = status ? (
@@ -128,9 +131,9 @@ export default function InterviewLinkResetButton({
                         onClick={askConfirm}
                         onMouseDown={(e) => e.stopPropagation()}
                         disabled={loading}
-                        title={t('interviewLinkReset_btn')}
+                        title={btnLabel}
                     >
-                        {loading ? '…' : t('interviewLinkReset_btn')}
+                        {loading ? '…' : btnLabel}
                     </button>
                 ) : null}
                 {isConsumed && confirming ? (
@@ -176,9 +179,9 @@ export default function InterviewLinkResetButton({
                     onClick={askConfirm}
                     disabled={loading}
                     style={smallBtn}
-                    title={t('interviewLinkReset_btn')}
+                    title={btnLabel}
                 >
-                    {loading ? '…' : t('interviewLinkReset_btn')}
+                    {loading ? '…' : btnLabel}
                 </button>
             ) : null}
             {isConsumed && confirming ? (
