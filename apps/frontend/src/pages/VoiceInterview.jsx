@@ -535,7 +535,9 @@ const VoiceInterview = () => {
             candidateId,
             campaignId,
             applicationId: resolveShareApplicationId(candidate),
-            language: currentLang,
+            // بلا لغة: الحملة تقرّر لغة المقابلة (قرار المالك ٢٠٢٦-٠٩-٢٣)،
+            // والخادم يحسمها للوكيل. حقنُ لغة متصفّح الموظّف هنا هو ما جعل
+            // مقابلاتٍ عربية تُفتتح بالإنجليزية.
         });
         const interviewLink = absoluteAppUrl(`/video-interview-call?${q.toString()}`);
 

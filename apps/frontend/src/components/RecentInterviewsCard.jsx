@@ -463,9 +463,8 @@ const RecentInterviewsCard = ({ variant = 'dashboard' }) => {
             candidateId,
             campaignId: camp,
             applicationId: resolveShareApplicationId(interview),
-            // الصوت بلا لغة (الحملة تقرّر في الخادم — V1)، والفيديو كما كان تماماً:
-            // مسار الفيديو خطّةٌ أخرى وجلسةٌ أخرى، فلا يُمسّ من هنا.
-            language: useVideo ? currentLang : undefined,
+            // بلا لغة للمسارين: الحملة تقرّر لغة المقابلة (قرار المالك
+            // ٢٠٢٦-٠٩-٢٣). الصوت سبق، والفيديو يلحق به الآن.
         });
         const interviewLink = useVideo
             ? absoluteAppUrl(`/video-interview-call?${q.toString()}`)

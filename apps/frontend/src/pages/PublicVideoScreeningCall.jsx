@@ -25,14 +25,6 @@ import '../styles.css';
 
 const API_BASE = API_BASE_URL;
 
-function parseUrlLanguage(raw) {
-  const v = (raw || '').toLowerCase();
-  if (v === 'en' || v === 'english') return 'en';
-  if (v === 'ku' || v === 'kurdish' || v === 'ckb') return 'ku';
-  if (v === 'ar' || v === 'arabic') return 'ar';
-  return null;
-}
-
 const PublicVideoScreeningCall = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -55,13 +47,30 @@ const PublicVideoScreeningCall = () => {
 
   const isRtl = currentLang === 'ar' || currentLang === 'ku';
 
+  /* لغة المقابلة تقرّرها الحملة وحدها (قرار المالك ٢٠٢٦-٠٩-٢٣)، والخادم يحسمها
+     للوكيل. والصفحة تُعرض بها — لا بلغة `?language=`، فالروابط القديمة تحمل فيه
+     لغة متصفّح الموظّف. استثناء: الكردية تبقى في حملةٍ عربية. */
   useEffect(() => {
-    const fromUrl = parseUrlLanguage(searchParams.get('language'));
-    if (fromUrl && fromUrl !== currentLang) {
-      changeLanguage(fromUrl);
-    }
+    if (!campaignId) return undefined;
+    let cancelled = false;
+    fetch(`${API_BASE}/api/public/campaign-interview-language?campaignId=${encodeURIComponent(campaignId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const lang = data?.data?.interviewLanguage;
+        const campaignLang = lang === 'en' ? 'en' : lang === 'ar' ? 'ar' : null;
+        if (campaignLang && campaignLang !== currentLang && !(campaignLang === 'ar' && currentLang === 'ku')) {
+          changeLanguage(campaignLang);
+        }
+      })
+      .catch(() => {
+        /* عرضٌ فقط — الوكيل يتكلّم بلغة الحملة على أيّ حال */
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [campaignId]);
 
   const handleStart = async (e) => {
     e?.preventDefault?.();
@@ -99,7 +108,7 @@ const PublicVideoScreeningCall = () => {
       const params = new URLSearchParams();
       params.set('candidateId', newId);
       if (campaignId) params.set('campaignId', campaignId);
-      if (currentLang) params.set('language', currentLang);
+      // بلا `language`: الحملة تقرّرها، وصفحة المكالمة تقرأها من الحملة نفسها.
       navigate(`/video-interview-call?${params.toString()}`);
     } catch (_) {
       setFormError(t('publicScreening_genericError'));

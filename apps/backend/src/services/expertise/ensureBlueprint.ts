@@ -9,6 +9,7 @@ import RecruitmentCampaign from '../../models/RecruitmentCampaign.js';
 import JobExpertiseProfile, { type IJobExpertiseProfile } from '../../models/JobExpertiseProfile.js';
 import InterviewBlueprint, { type IInterviewBlueprint } from '../../models/InterviewBlueprint.js';
 import { generateExpertiseAndBlueprint, BLUEPRINT_STYLE_VERSION } from './blueprintGenerator.js';
+import { resolveCampaignInterviewLanguage } from '../interviewLanguage.js';
 
 /** هل ميزة الـBlueprint مفعّلة؟ (افتراضياً مفعّلة ما لم تُضبط على false صراحةً). */
 export function isBlueprintFeatureEnabled(): boolean {
@@ -248,7 +249,28 @@ async function ensureBlueprintForCampaignUncached(
     const organizationId = campaign.organizationId;
     const createdByClerkUserId = campaign.createdByClerkUserId;
 
-    // 3) ولّد Profile + Blueprint.
+    /*
+     * 3) ولّد Profile + Blueprint — **بلغة المقابلة نفسها**.
+     *
+     * لماذا يُمرَّر صراحةً: `detectLanguage` في المولّد
+     * (`blueprintGenerator.ts:169`) يعيد `'ar'` في فرعيه كليهما — عربيةٌ
+     * مثبّتة بالسلك، لا استنتاج. فكل مخطّطة تخرج عربية مهما كانت الحملة.
+     * ولو ضبطنا لغة الوكيل على الإنجليزية دون هذا السطر لتكلّم الوكيل
+     * الإنجليزية بينما تصله أهداف الكفاءات ومرتكزاتها وأدلّتها بالعربية —
+     * أي استبدلنا عطباً بعطب.
+     *
+     * والحملة هي المصدر عمداً: لا يُستنتَج من نصّ المعايير. الحملات العربية
+     * لا تتأثّر إطلاقاً — تُحسم إلى `'ar'` في الحالتين.
+     *
+     * ⚠️ والمخطّطة تُقفل مرّة واحدة: حملةٌ تحمل مخطّطة مقفلة تبقى بلغتها حتى
+     * تُستبدل بـ`BLUEPRINT_STYLE_VERSION`. (قِيس 2026-09-23: صفر من ٤٣ حملة
+     * إنتاجية إنجليزية، فلا حالة قائمة تحتاج إعادة توليد.)
+     */
+    const { language: interviewLanguage, source: interviewLanguageSource } =
+        resolveCampaignInterviewLanguage(campaign as { interviewLanguage?: unknown; criteria?: Record<string, unknown> | null });
+    console.log(
+        `🗣️ ensureBlueprintForCampaign ${id}: generating in ${interviewLanguage} (source=${interviewLanguageSource})`
+    );
     const generated = await generateExpertiseAndBlueprint(
         {
             criteria: (campaign.criteria && typeof campaign.criteria === 'object')
@@ -256,7 +278,7 @@ async function ensureBlueprintForCampaignUncached(
                 : {},
             jobAdvertisement: campaign.jobAdvertisement,
         },
-        fastModel ? { model: fastModel } : {}
+        { language: interviewLanguage, ...(fastModel ? { model: fastModel } : {}) }
     );
 
     const profileId = randomUUID();

@@ -1,39 +1,52 @@
 /**
- * The interview agent is told what language to speak — it never guesses.
+ * The interview agent is told what language to speak — it never guesses, and the
+ * CAMPAIGN is the only thing that decides.
  *
- * 🔴 THE DEFECT THIS GUARDS (production, 2026-09-18, Sales Manager / Baghdad).
- * An Arabic interview opened with:
+ * 🔴 DEFECT ONE (production, 2026-09-18, Sales Manager / Baghdad). An Arabic
+ * interview opened with:
  *
  *     ai agent: Hello علي محمود let's begin.
  *               Walk me through your sales process from prospecting to close.
  *     user:     Can we speak in Arabic? Please?
  *
- * Nothing was misconfigured in the campaign. The blueprint's language was "ar",
- * its ten competencies, anchor questions and rubrics were Arabic, and the
- * criteria carried evaluationLanguage "ar". The agent was simply never told:
- * `/start` read the language from the REQUEST BODY alone, the share link for a
- * freshly created campaign carries no `lang`, so `metadata.language` was omitted
- * and the agent fell back to its own `INITIAL_GREETING_LANGUAGE` secret.
+ * `/start` read the language from the REQUEST BODY alone; a freshly created
+ * campaign's link carries no `lang`, so `metadata.language` was omitted and the
+ * agent fell back to its own `INITIAL_GREETING_LANGUAGE` secret.
  *
- * ⚠️ The cruel part: that fallback chain already existed — for the SCORER.
- * `/end` sends n8n `session.language || blueprintSnapshot.language || 'auto'`,
- * which is why the transcript was scored as Arabic while the interviewer spoke
- * English. Same file, same session, two different rules. These checks exist so
- * the two cannot drift apart again.
+ * 🔴 DEFECT TWO (2026-09-23). The fix added a chain — link → blueprint →
+ * criteria — and the LINK still won, because every link builder stamped the
+ * recruiter's browser locale (`en` by default) into `?language=`. Two Arabic
+ * campaigns were interviewed in English. Worse, the criteria fallback was never
+ * reachable on the normal path: the campaign was loaded ONLY inside the
+ * `public_screening` branch, so the link was the sole non-empty input.
  *
- * ⚠️ Comments are stripped before matching, so commenting a guard out does not
- * satisfy a check.
+ * ✅ THE RULE NOW (owner, 2026-09-23): the language is chosen when the job is
+ * created and lives on the campaign. Not the link, not the recruiter's browser,
+ * not the candidate's. The language changes the SHAPE of the interview, so two
+ * candidates in one campaign must not be interviewed in two languages and then
+ * ranked against each other.
  *
- * Read-only. Exits non-zero when the wiring is broken.
+ * ⚠️ REPORT language is a different question and is deliberately untouched:
+ * `/end` still sends n8n `session.language || blueprintSnapshot.language ||
+ * 'auto'`. An Arabic interview with an English report is a legitimate request.
+ *
+ * ⚠️ Why this file mixes two kinds of check: L1–L3 CALL the real resolver, so
+ * they test behaviour. L4–L8 read the route source, because the handler cannot
+ * be invoked without Express and Mongo. The source checks are written to catch
+ * the specific way this defect returns — a correct resolver that is not what
+ * reaches the agent. Comments are stripped before matching, so commenting a
+ * guard out does not satisfy a check.
  *
  * Run: npm run test:agent-language-inheritance
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveCampaignInterviewLanguage } from '../services/interviewLanguage.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROUTE = join(HERE, '..', 'routes', 'videoInterview.ts');
+const ENSURE = join(HERE, '..', 'services', 'expertise', 'ensureBlueprint.ts');
 
 let pass = 0;
 let fail = 0;
@@ -50,11 +63,11 @@ function check(name: string, fn: () => void): void {
 }
 
 /** Comments blanked out; newlines and offsets preserved. */
-function stripComments(src: string): string {
+function stripComments(source: string): string {
     const NL = String.fromCharCode(10);
     let out = '';
     let inBlock = false;
-    for (const line of src.split(NL)) {
+    for (const line of source.split(NL)) {
         let kept = '';
         let i = 0;
         while (i < line.length) {
@@ -83,116 +96,170 @@ function stripComments(src: string): string {
 }
 
 const src = stripComments(readFileSync(ROUTE, 'utf8'));
+const ensureSrc = stripComments(readFileSync(ENSURE, 'utf8'));
 
-function bodyOf(opener: string, closer: string): string {
-    const start = src.indexOf(opener);
-    if (start < 0) throw new Error(`could not find "${opener}" — has it been renamed?`);
-    const end = src.indexOf(closer, start);
-    if (end < 0) throw new Error(`could not find the end of "${opener}"`);
-    return src.slice(start, end + closer.length);
-}
+// ── Behaviour: the rule itself, executed ─────────────────────────────────────
 
-check('L1 the agent language has one resolver, and it consults the blueprint', () => {
-    const body = bodyOf('function resolveAgentLanguage', '\n}');
-    /*
-     * ⚠️ The USE, not the parameter name. A first version searched for the bare
-     * identifier and stayed green when the blueprint line was deleted outright —
-     * the signature still declared it. Found by mutation M3, not by reading.
-     */
-    if (!/normalizeAgentLanguage\(blueprintLanguage\)/.test(body)) {
-        throw new Error(
-            'resolveAgentLanguage no longer looks at the blueprint language. That is the ' +
-                'whole point: the campaign knows the interview is Arabic even when the link ' +
-                'is silent.'
-        );
+check('L1 the campaign field decides, and it is reported as the source', () => {
+    const en = resolveCampaignInterviewLanguage({ interviewLanguage: 'en' });
+    if (en.language !== 'en' || en.source !== 'campaign') {
+        throw new Error(`expected en/campaign, got ${en.language}/${en.source}`);
     }
-    if (!/normalizeAgentLanguage\(criteriaLanguage\)/.test(body)) {
-        throw new Error('the campaign criteria (evaluationLanguage) are no longer the last resort');
+    const ar = resolveCampaignInterviewLanguage({ interviewLanguage: 'ar' });
+    if (ar.language !== 'ar' || ar.source !== 'campaign') {
+        throw new Error(`expected ar/campaign, got ${ar.language}/${ar.source}`);
     }
 });
 
-check('L2 🔴 the link wins, then the blueprint, then the criteria — in that order', () => {
-    const body = bodyOf('function resolveAgentLanguage', '\n}');
-    const order = ['linkLanguage', 'blueprintLanguage', 'criteriaLanguage'].map((n) =>
-        body.indexOf(`normalizeAgentLanguage(${n})`)
-    );
-    if (order.some((i) => i < 0)) {
-        throw new Error('one of the three sources is no longer normalized through the same funnel');
+check('L2 🔴 the campaign OVERRIDES the legacy report language, never the reverse', () => {
+    // The whole point: an English campaign whose report is Arabic is a valid
+    // combination, and the interview must follow the campaign.
+    const r = resolveCampaignInterviewLanguage({
+        interviewLanguage: 'en',
+        criteria: { evaluationLanguage: 'ar' },
+    });
+    if (r.language !== 'en') {
+        throw new Error(`the report language won over the campaign field (${r.language})`);
     }
-    if (!(order[0] < order[1] && order[1] < order[2])) {
-        throw new Error(
-            'the precedence changed. A recruiter who explicitly chooses English must still get ' +
-                'English — the blueprint is a fallback for silence, never an override.'
-        );
-    }
-    /*
-     * ⚠️ `||` specifically. A first version of this check only asserted the
-     * ORDER of the three names, which `Math.min`, an array `.find`, or a
-     * reversed ternary would all satisfy while changing the semantics.
-     */
-    const chain = body.match(/normalizeAgentLanguage\(linkLanguage\)\s*\|\|/);
-    if (!chain) throw new Error('the sources are no longer short-circuited with || — read this again');
 });
 
-for (const site of [
-    { name: 'L3 /start', variable: 'startAgentLanguage', link: 'sessionLanguage' },
-    { name: 'L4 /prepare', variable: 'prepareAgentLanguage', link: 'prepareLanguage' },
-]) {
-    check(`${site.name} dispatches the agent with the RESOLVED language`, () => {
-        const decl = src.indexOf(`const ${site.variable} = resolveAgentLanguage(`);
-        if (decl < 0) {
+check('L3 a campaign from before the field keeps the language it has behaved with', () => {
+    const legacy = resolveCampaignInterviewLanguage({ criteria: { evaluationLanguage: 'en' } });
+    if (legacy.language !== 'en' || legacy.source !== 'legacy_evaluation_language') {
+        throw new Error(`expected en/legacy_evaluation_language, got ${legacy.language}/${legacy.source}`);
+    }
+    // And with nothing at all, Arabic — the same default the agent falls to.
+    const bare = resolveCampaignInterviewLanguage(null);
+    if (bare.language !== 'ar' || bare.source !== 'default') {
+        throw new Error(`expected ar/default, got ${bare.language}/${bare.source}`);
+    }
+});
+
+// ── Wiring: what actually reaches the agent ──────────────────────────────────
+
+const SITES = [
+    { name: '/start', variable: 'startAgentLanguage', campaignId: 'normalizedCampaignId' },
+    { name: '/prepare', variable: 'prepareAgentLanguage', campaignId: 'prepareCampaignId' },
+];
+
+for (const site of SITES) {
+    check(`L4 ${site.name} resolves the language from the CAMPAIGN`, () => {
+        const decl = `const { language: ${site.variable}, source:`;
+        if (!src.includes(decl)) {
             throw new Error(
-                `${site.variable} is not built by resolveAgentLanguage. This dispatch site is ` +
-                    `back to whatever the request happened to carry.`
+                `${site.variable} is no longer built by destructuring the shared resolver. ` +
+                    `If it is back to reading the request body, the link decides again.`
             );
         }
-        if (!src.includes(`{ language: ${site.variable} }`)) {
+        const at = src.indexOf(decl);
+        const stmt = src.slice(at, src.indexOf(';', at));
+        if (!stmt.includes('loadCampaignInterviewLanguage(')) {
+            throw new Error(`${site.name} does not call loadCampaignInterviewLanguage`);
+        }
+        if (!stmt.includes(site.campaignId)) {
+            throw new Error(
+                `${site.name} resolves the language for some other campaign than ${site.campaignId}`
+            );
+        }
+    });
+
+    check(`L5 ${site.name} sends the language UNCONDITIONALLY`, () => {
+        /*
+         * This is the check that matters most. `worker.py`'s session_language()
+         * falls back to INITIAL_GREETING_LANGUAGE only when the key is ABSENT,
+         * and a conditional spread is exactly how it went missing. A resolver
+         * can be correct, tested, and still never reach the agent.
+         */
+        if (!src.includes(`language: ${site.variable},`)) {
             throw new Error(`the agent metadata no longer carries ${site.variable}`);
         }
-        /*
-         * ⚠️ And the OLD form must be gone. Keeping `normalizeAgentLanguage(link)`
-         * at a dispatch site is exactly the defect — the resolver can exist,
-         * be tested, and never be the thing that actually ships to the agent.
-         */
-        if (src.includes(`{ language: normalizeAgentLanguage(${site.link})! }`)) {
+        if (src.includes(`...(${site.variable} ? { language: ${site.variable} } : {})`)) {
             throw new Error(
-                `${site.name} still passes the link language straight through. A link without ` +
-                    `lang then sends NOTHING and the agent greets in its env default — which on ` +
-                    `production is not Arabic.`
+                `${site.name} sends the language conditionally again. When the key is omitted ` +
+                    `the agent greets in its env default — which on production is not Arabic.`
             );
         }
     });
 }
 
-check('L5 the resolver runs after the blueprint is known, not before', () => {
+check('L6 🔴 the share link is not an input to the agent language any more', () => {
     /*
-     * Ordering, not presence. `sessionLanguage` is computed near the top of
-     * /start from the request body; the blueprint is only resolved hundreds of
-     * lines later. A resolver call hoisted above `buildBlueprintSnapshot` would
-     * compile, read `undefined`, and silently restore the old behaviour.
+     * `sessionLanguage` and `prepareLanguage` still exist — they are the REPORT
+     * language and the /prepare request echo. What must never return is either
+     * one feeding the agent's language.
      */
-    const snapshot = src.indexOf('const blueprintSnapshot = buildBlueprintSnapshot(');
-    const resolved = src.indexOf('const startAgentLanguage = resolveAgentLanguage(');
-    if (snapshot < 0 || resolved < 0) throw new Error('could not locate both statements in /start');
-    if (resolved < snapshot) {
+    if (/resolveAgentLanguage|normalizeAgentLanguage/.test(src)) {
         throw new Error(
-            'startAgentLanguage is computed BEFORE the blueprint snapshot exists, so the ' +
-                'blueprint fallback reads undefined and the fix is dead code'
+            'the old link-first resolver is back in videoInterview.ts. The campaign is the ' +
+                'only authority; a per-route resolver is how the two stages drifted apart.'
+        );
+    }
+    /*
+     * Scoped to the two LiveKit metadata literals on purpose. `language:
+     * prepareLanguage` also appears as a `req.body` DESTRUCTURING rename, and
+     * `...(sessionLanguage ? ...)` is the session row that feeds the REPORT —
+     * both legitimate. Only what is handed to the agent is forbidden.
+     */
+    for (const site of SITES) {
+        const at = src.indexOf(`language: ${site.variable},`);
+        if (at < 0) continue;
+        const literalStart = src.lastIndexOf('const metadata', at);
+        if (literalStart < 0) continue;
+        const block = src.slice(literalStart, at);
+        for (const linkVar of ['sessionLanguage', 'prepareLanguage']) {
+            if (new RegExp(`language:\\s*${linkVar}\\b`).test(block)) {
+                throw new Error(
+                    `${linkVar} (the link) is being sent to the agent as its language again, ` +
+                        `in the ${site.name} metadata`
+                );
+            }
+        }
+    }
+});
+
+check('L7 the blueprint is generated in the interview language', () => {
+    /*
+     * Not cosmetic. `detectLanguage` in blueprintGenerator.ts is literally
+     * `? 'ar' : 'ar'`, so without an explicit language EVERY blueprint is
+     * Arabic. An English campaign would then have an English-speaking agent
+     * holding Arabic competency objectives, anchors and evidence.
+     */
+    if (!ensureSrc.includes('resolveCampaignInterviewLanguage(')) {
+        throw new Error('ensureBlueprint no longer resolves the campaign language');
+    }
+    /*
+     * Scoped to the CALL, not the file. `const { language: interviewLanguage }`
+     * is the destructuring of the resolver's own result and matches any naive
+     * search — so a version that resolves the language and then forgets to pass
+     * it would still look correct.
+     */
+    const callAt = ensureSrc.indexOf('await generateExpertiseAndBlueprint(');
+    if (callAt < 0) throw new Error('could not find the generation call in ensureBlueprint');
+    const call = ensureSrc.slice(callAt, ensureSrc.indexOf('\n    );', callAt));
+    if (!/language:\s*interviewLanguage/.test(call)) {
+        throw new Error(
+            'the resolved language is not passed into generateExpertiseAndBlueprint, so the ' +
+                'blueprint falls back to detectLanguage — which returns Arabic for every input'
         );
     }
 });
 
-check('L6 /end keeps its own blueprint fallback — the two must not drift', () => {
+check('L8 /end keeps its own report-language chain — the two must not drift', () => {
     /*
-     * The scorer's chain is what proved the interviewer was the odd one out. If
-     * it is ever removed, the transcript would be scored in the wrong language
-     * and this whole family of defects returns from the other end.
+     * The scorer's chain is what proved the interviewer was the odd one out, and
+     * it is deliberately NOT the campaign rule: the report may be in a different
+     * language than the interview. If it is ever removed, the transcript is
+     * scored in the wrong language and this family of defects returns from the
+     * other end.
      */
     if (!/session as any\)\?\.blueprintSnapshot\?\.language/.test(src)) {
         throw new Error(
             '/end no longer falls back to the blueprint language when sending the transcript ' +
                 'to n8n — the scorer is now guessing too'
         );
+    }
+    if (!/session as any\)\?\.language/.test(src)) {
+        throw new Error('/end no longer prefers the session (link) language for the REPORT');
     }
 });
 

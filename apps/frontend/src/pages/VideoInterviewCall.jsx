@@ -8,7 +8,6 @@ import InterviewCompletedScreen from '../components/InterviewCompletedScreen';
 import InterviewLinkBlocked from '../components/InterviewLinkBlocked.jsx';
 import { isVideoInterviewLinkConsumed, INTERVIEW_LINK_ALREADY_USED } from '../utils/interviewLinkAccess.js';
 import { blueprintGateDecision } from '../utils/blueprintGate.js';
-import { parseInterviewUrlLanguage } from '../utils/interviewShareLink.js';
 import { localizeCatalogLabel } from '../utils/localizeCatalogLabel.js';
 import useLiveKitToken from '../hooks/useLiveKitToken';
 import useLiveKitState from '../hooks/useLiveKitState';
@@ -543,10 +542,10 @@ const VideoInterviewCall = () => {
                     candidateId: effectiveCandidateId,
                     campaignId: campaignId || undefined,
                     applicationId: resolvedApplicationId || undefined,
-                    // /start قد يعيد استخدام الغرفة المحضّرة هنا دون dispatch
-                    // جديد، فيجب أن يحمل الإحماء قفل اللغة نفسه.
-                    language:
-                        parseInterviewUrlLanguage(searchParams.get('language')) || currentLang,
+                    // بلا لغة عمداً: الخادم يحسمها من الحملة (قرار المالك
+                    // ٢٠٢٦-٠٩-٢٣). إرسالها من هنا هو بالضبط ما جعل مقابلات
+                    // عربية تُفتتح بالإنجليزية — الرابط كان يحمل لغة متصفّح
+                    // الموظّف، `en` افتراضاً.
                 }),
                 signal: controller.signal
             })
@@ -680,13 +679,36 @@ const VideoInterviewCall = () => {
         localizeCatalogLabel(candidate?.position_applied_for || candidate?.positionAppliedFor || '', currentLang) ||
         t('videoInterview_positionFallback');
 
+    /* لغة المقابلة تقرّرها الحملة وحدها (قرار المالك ٢٠٢٦-٠٩-٢٣)، والخادم يحسمها
+       للوكيل. والصفحة تُعرض بها — لا بلغة `?language=`، فالروابط القديمة تحمل
+       فيه لغة متصفّح الموظّف. استثناء: الكردية تبقى في حملةٍ عربية. */
     useEffect(() => {
-        const fromUrl = parseInterviewUrlLanguage(searchParams.get('language'));
-        if (fromUrl && fromUrl !== currentLang) {
-            changeLanguage(fromUrl);
-        }
+        if (!campaignId) return undefined;
+        let cancelled = false;
+        fetch(
+            `${API_BASE}/api/public/campaign-interview-language?campaignId=${encodeURIComponent(campaignId)}`
+        )
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+                if (cancelled) return;
+                const lang = data?.data?.interviewLanguage;
+                const campaignLang = lang === 'en' ? 'en' : lang === 'ar' ? 'ar' : null;
+                if (
+                    campaignLang &&
+                    campaignLang !== currentLang &&
+                    !(campaignLang === 'ar' && currentLang === 'ku')
+                ) {
+                    changeLanguage(campaignLang);
+                }
+            })
+            .catch(() => {
+                /* عرضٌ فقط — الوكيل يتكلّم بلغة الحملة على أيّ حال */
+            });
+        return () => {
+            cancelled = true;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchParams]);
+    }, [campaignId]);
 
     const isRtl = currentLang === 'ar' || currentLang === 'ku';
     const candidateSubtitle =
@@ -2894,8 +2916,7 @@ const VideoInterviewCall = () => {
                     campaignId: campaignId,
                     applicationId: resolvedApplicationId || undefined,
                     interviewMode: 'video',
-                    language:
-                        parseInterviewUrlLanguage(searchParams.get('language')) || currentLang,
+                    // بلا لغة — انظر التعليق في /prepare أعلاه.
                 })
             });
 
