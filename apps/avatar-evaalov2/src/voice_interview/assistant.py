@@ -2034,6 +2034,17 @@ class InterviewAssistant(Agent):
         # (and teardown) follows on a LATER turn, so the candidate gets a real
         # chance to answer "anything to add?" first.
         if not mem.wrap_up_offered and len(mem.asked_questions) >= _wrap_up_min_questions():
+            # Never on a pass that comes after this turn's speech was fixed: the
+            # candidate hears the first pass's line whatever this pass returns,
+            # so an offer made here would exist only in memory, and the next turn
+            # would close the interview on «أكو شي تحب تضيفه؟» nobody heard. The
+            # heard line stands, and nothing about the wrap-up is recorded.
+            if self._speech_fixed(turn):
+                logger.info(
+                    "[reply-guard] %s flagged after the speech was fixed; no wrap-up",
+                    reason,
+                )
+                return text
             mem.wrap_up_offered = True
             self._wrap_up_trigger = "no_fresh_anchor"  # telemetry only
             self._winddown_turn = turn
