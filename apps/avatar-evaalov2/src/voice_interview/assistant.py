@@ -893,7 +893,9 @@ class InterviewAssistant(Agent):
         # Which rule ended the interview. ``endedBy`` on the session says only
         # what the BROWSER did (page_hide / user_action / room_disconnect); none
         # of its values distinguish "the agent decided to stop" from "the
-        # candidate walked away", nor which guard fired. Both are telemetry.
+        # candidate walked away", nor which guard fired. Both are telemetry —
+        # except that the post-wrap-up guard reads "hard_question_cap" (a cap
+        # wrap-up has no tied-question exception).
         self._wrap_up_trigger: str = ""
         self._end_record_sent: bool = False
         # Wind-down state machine (offer wrap-up → final closing → conclude). The
@@ -1949,10 +1951,18 @@ class InterviewAssistant(Agent):
         # وداع. القائمة الآن قائمة استثناء لا قائمة سماح، فأي وضع يُضاف مستقبلاً
         # يُغلق افتراضياً بدل أن يصمت.
         # (WAIT و ACKNOWLEDGE يعودان قبل هذا السطر، فهما مستثنيان أصلاً.)
+        #
+        # A wrap-up offered by the HARD CAP has no such exception. Its turn carries
+        # no plan, so the "active question" is still the last competency's: a
+        # clarification re-explained that question and a result follow-up asked
+        # about it, after «أكو شي تحب تضيفه؟» — new turns the cap exists to stop.
         if (
             mem.wrap_up_offered
             and not mem.final_closing_sent
-            and not self._turn_is_tied_to_active_question(mode)
+            and (
+                self._wrap_up_trigger == "hard_question_cap"
+                or not self._turn_is_tied_to_active_question(mode)
+            )
         ):
             mem.final_closing_sent = True
             # The guard replaced the LLM's turn, so the model never calls
@@ -2717,8 +2727,14 @@ class InterviewAssistant(Agent):
             and len(mem.asked_questions) >= _wrap_up_max_questions()
         ):
             mem.wrap_up_offered = True
-            self._wrap_up_trigger = "hard_question_cap"  # telemetry only
-            self._winddown_turn = mem.turn_index
+            # Not telemetry only: the post-wrap-up guard reads it (no tied exception).
+            self._wrap_up_trigger = "hard_question_cap"
+            # This runs inside on_user_turn_completed, BEFORE
+            # _update_memory_post_decision advances turn_index; the reply is
+            # guarded at the advanced index. Stamped with the old index, the memo
+            # never matched, and the guard spoke the final closing on this very
+            # turn — the offer was never heard.
+            self._winddown_turn = mem.turn_index + 1
             self._winddown_line = _WRAP_UP_PROMPT_AR
             logger.info(
                 "[interview] hard question cap reached (%d) → offering wrap-up",
