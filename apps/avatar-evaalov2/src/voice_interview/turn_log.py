@@ -72,6 +72,8 @@ def build_record(
     competency_budget: dict[str, int] | None,
     asked_competency_keys: Any,
     guard_swap: dict[str, str] | None = None,
+    attempted_competency_count: int = 0,
+    delivered_competency_count: int = 0,
 ) -> dict[str, Any]:
     """Flatten one agent turn into a JSON-safe record.
 
@@ -121,7 +123,13 @@ def build_record(
         ),
         "followupSkipReason": _clip(followup_skip_reason, 60),
         "competencyBudgetSpent": dict(competency_budget or {}),
+        # Historical, unchanged: every attempted key, pack step keys included.
         "askedCompetencyCount": len(asked_competency_keys or ()),
+        # Blueprint competencies only, both — attempted vs delivered is comparable.
+        # Delivered = its own question went to speech without a guard replacement
+        # (see InterviewMemory.delivered_competency_keys for its two known limits).
+        "attemptedCompetencyCount": int(attempted_competency_count),
+        "deliveredCompetencyCount": int(delivered_competency_count),
         "guardSwap": (
             {
                 "to": _clip(g.get("to"), 40),
@@ -155,6 +163,8 @@ def build_end_record(
     final_closing_sent: bool,
     wrap_up_offered: bool,
     turn_index: int,
+    attempted_competency_count: int = 0,
+    delivered_competency_count: int = 0,
 ) -> dict[str, Any]:
     """Who ended the interview, and on which rule.
 
@@ -182,6 +192,8 @@ def build_end_record(
         "finalClosingSent": bool(final_closing_sent),
         "questionsAsked": int(questions_asked),
         "askedCompetencyCount": len(asked_competency_keys or ()),
+        "attemptedCompetencyCount": int(attempted_competency_count),
+        "deliveredCompetencyCount": int(delivered_competency_count),
         "totalCompetencies": int(total_competencies),
         "endTurnIndex": int(turn_index),
     }
@@ -240,12 +252,15 @@ class TurnLogSink:
 
             if record.get("kind") == "end":
                 logger.info(
-                    "[turn-log] END trigger=%s wrapUp=%s questions=%s competencies=%s/%s closing=%s",
+                    "[turn-log] END trigger=%s wrapUp=%s questions=%s competencies=%s/%s "
+                    "attempted=%s delivered=%s closing=%s",
                     record.get("endTrigger") or "-",
                     record.get("wrapUpTrigger") or "-",
                     record.get("questionsAsked"),
                     record.get("askedCompetencyCount"),
                     record.get("totalCompetencies"),
+                    record.get("attemptedCompetencyCount"),
+                    record.get("deliveredCompetencyCount"),
                     record.get("finalClosingSent"),
                 )
                 self._publish(record)

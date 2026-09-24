@@ -373,7 +373,22 @@ class InterviewMemory:
     interview_path_key: str = ""
     track_anchor_cursor: int = 0
     pending_path_advance: bool = False
+    # ATTEMPTED / PLANNED competency keys — NOT proof of delivered coverage.
+    # Every competency the picker planned for a question, a P4 rejection, or a
+    # question closed on skip/advance; it also carries pack/bank step keys that are
+    # not blueprint competencies. Every picker reads it so nothing is served twice.
+    # Coverage is ``delivered_competency_keys`` below.
     asked_competency_keys: set[str] = field(default_factory=set)
+    # DELIVERED: the competency's own question was sent to the speech path without
+    # the reply guard replacing it (an anchor, bridge or wrap-up in its place does
+    # not count; a question P4 installed does; a plan that merely inherited the
+    # current key does not). Rules: ``_delivered_competency``. Always a subset
+    # of the attempted set; never removed. Two known limits, both outside release 1:
+    #   * a model rewording that drifts to another subject is not detected — the
+    #     planned competency still counts (planned vs spoken is its own release);
+    #   * a candidate interrupting playback is not detected — "sent to speech" is
+    #     not proof the whole question was heard.
+    delivered_competency_keys: set[str] = field(default_factory=set)
     rejected_competency_keys: set[str] = field(default_factory=set)
     current_competency_key: str = ""
     # Depth spent inside each competency (follow-ups, hook probes, bank fillers).
@@ -919,7 +934,7 @@ class InterviewAssistant(Agent):
         self._dup_swap_line: str | None = None
         # Telemetry only: (turn_index, what the guard replaced and with what).
         # Read once by record_agent_reply, never by any decision.
-        self._guard_swap: tuple[int, dict[str, str]] | None = None
+        self._guard_swap: tuple[int, dict[str, Any]] | None = None
         # (turn_index, anchor text) the guard swapped in this turn — the anchor
         # the candidate actually heard, which can differ from the plan's.
         self._delivered_anchor: tuple[int, str] | None = None
@@ -1165,12 +1180,15 @@ class InterviewAssistant(Agent):
         self._end_record_sent = True
         try:
             mem = self._memory
+            attempted, delivered = self._blueprint_competency_counts()
             sink.emit_end(
                 build_end_record(
                     trigger=trigger,
                     wrap_up_trigger=self._wrap_up_trigger,
                     questions_asked=len(mem.asked_questions or ()),
                     asked_competency_keys=mem.asked_competency_keys,
+                    attempted_competency_count=attempted,
+                    delivered_competency_count=delivered,
                     total_competencies=len(self._blueprint_competencies or ()),
                     final_closing_sent=bool(getattr(mem, "final_closing_sent", False)),
                     wrap_up_offered=bool(getattr(mem, "wrap_up_offered", False)),
@@ -1991,8 +2009,24 @@ class InterviewAssistant(Agent):
         # the fault was looking for a replacement among the three spent anchors
         # only. The next uncovered competency comes before the wrap-up and the
         # role-neutral bridge below, which are for when nothing is left.
-        if is_dup:
-            swapped = self._swap_duplicate_for_uncovered_competency(turn, recent)
+        #
+        # A presupposing rejection takes the same path. In interview (A) of the
+        # 2026-09 measurement round, two planned questions were rejected for
+        # presupposing and replaced by generic bridges, and a third rejection got
+        # the wrap-up — with five competencies never asked. A garbled hybrid token
+        # keeps its old path: no evidence says it should move.
+        #
+        # Not on a pass that comes after this turn's speech was fixed: once the
+        # first pass's rewrite is cached (``_reframe_turn``), reframe_bare_question
+        # returns it whatever this pass decides, so a presupposing swap here would
+        # move the interview to a competency the candidate never hears. That pass
+        # keeps the path it had before presupposing reached P4.
+        if reason == "duplicate" or (
+            reason == "presupposing" and not self._speech_fixed(turn)
+        ):
+            swapped = self._swap_duplicate_for_uncovered_competency(
+                turn, recent, reason=reason
+            )
             if swapped is not None:
                 return swapped
         # No fresh question is left, so a replacement would just recycle a covered
@@ -2041,15 +2075,20 @@ class InterviewAssistant(Agent):
         return text
 
     def _swap_duplicate_for_uncovered_competency(
-        self, turn: int, recent: list[str]
+        self, turn: int, recent: list[str], reason: str = "duplicate"
     ) -> str | None:
         """The next blueprint competency the candidate has not heard, or None.
 
-        "Not heard" is checked four ways: the competency keys already asked (plus
-        the one just rejected, whose rephrase WAS the duplicate), the ledger for
-        that competency's own subject, whether a DELIVERED question already asked
-        for its substance (``subject_already_asked`` over ``coverage_evidence``),
-        and whether its own question would repeat a recent one word for word.
+        Called when the guard rejected the model's question as a ``duplicate`` or
+        as ``presupposing`` (``reason``); never for a hybrid token.
+
+        "Not heard" is checked four ways: the competency keys already attempted
+        (plus the one just rejected), the ledger for that competency's own
+        subject, whether a DELIVERED question already asked for its substance
+        (``subject_already_asked`` over ``coverage_evidence``), and whether its own
+        question would repeat a recent one word for word. For a presupposing
+        rejection a fifth: its own question must not presuppose either, or the
+        swap would say exactly what was just thrown away.
 
         The broad topic classifier is deliberately NOT used here (2026-09-24): it
         files «بيانات» and «الأدلة» under one bucket, which hid HR analytics in L
@@ -2095,6 +2134,14 @@ class InterviewAssistant(Agent):
             if is_semantic_duplicate_question(spoken, recent):
                 excluded.append(f"{ckey}=template_dup")
                 continue
+            # Duplicates keep their proven behaviour: this check is for
+            # presupposing only. «اذكرلي حالة… شنو الخطوات اللي سويتها؟» is how
+            # many blueprint objectives are written.
+            if reason == "presupposing" and presupposes_unstated_act(
+                spoken, mem.candidate_turns
+            ):
+                excluded.append(f"{ckey}=presupposing")
+                continue
             break
         else:
             self._p4_exclusions = (turn, ", ".join(excluded))
@@ -2105,15 +2152,16 @@ class InterviewAssistant(Agent):
             return None
 
         if rejected:
-            # Its rephrase repeated a question the candidate already heard, so the
-            # subject is covered; left unmarked, the picker serves it again next
-            # turn and the guard has to swap it again.
+            # Attempted, NOT delivered. Left unmarked, the picker serves it again
+            # next turn and the guard rejects it again — for a presupposing
+            # objective, every turn, which is the loop this line prevents. (For a
+            # duplicate, its rephrase repeated a question already heard.)
             mem.asked_competency_keys.add(rejected)
-        self._note_guard_swap(turn, "competency", reason="duplicate", to_competency=ckey)
+        self._note_guard_swap(turn, "competency", reason=reason, to_competency=ckey)
         mem.current_competency_key = ckey
         mem.pending_competency_key = ckey
         # A fresh competency ask in its own right: record_agent_reply marks THIS
-        # competency asked, and spends no follow-up budget on it.
+        # competency attempted AND delivered, and spends no follow-up budget on it.
         new_plan = TurnPlan(
             question=spoken,
             competency_key=ckey,
@@ -2128,7 +2176,8 @@ class InterviewAssistant(Agent):
         self._dup_swap_plan = new_plan
         self._dup_swap_line = line
         logger.info(
-            "[reply-guard] duplicate replaced with uncovered competency %s (planned %s)",
+            "[reply-guard] %s replaced with uncovered competency %s (planned %s)",
+            reason,
             ckey,
             rejected or "-",
         )
@@ -2144,6 +2193,68 @@ class InterviewAssistant(Agent):
         if self._delivered_anchor is not None and self._delivered_anchor[0] == turn:
             return
         self._delivered_anchor = (turn, anchor)
+
+    # Plans that carry their competency's OWN question: the competency picker's and
+    # P4's (competency_engine), and the pack's steps for a competency, whether
+    # reached in order (path_step) or by a jump (competency_jump). Any other plan
+    # inherits the current key in ``_set_turn_recommendation`` — a bank anchor,
+    # the closing line — and asks nothing of that competency.
+    _OWN_QUESTION_SOURCES = ("competency_engine", "competency_jump", "path_step")
+
+    def _delivered_competency(self, plan: TurnPlan, swap: dict[str, Any] | None) -> str:
+        """The competency whose own question THIS turn sent to speech unreplaced, or "".
+
+        * Only an own-question plan (``_OWN_QUESTION_SOURCES``) counts.
+        * A swap made AFTER this turn's speech was fixed (``_speech_fixed``)
+          changed nothing that was said: the planned question — as reworded — was
+          spoken. A competency such a swap installed was never heard; the credit
+          stays with the one it replaced. A bridge, anchor or wrap-up it chose
+          replaced nothing.
+        * Otherwise the wind-down line (the wrap-up offer or the final closing),
+          or an anchor/bridge the guard put in its place, means the question was
+          not sent. A P4 swap installs its own plan, whose question was sent.
+
+        See ``InterviewMemory.delivered_competency_keys`` for what this does NOT
+        prove (drift, interrupted playback).
+        """
+        own = self._OWN_QUESTION_SOURCES
+        planned = (plan.competency_key or "") if (plan.source or "") in own else ""
+        if swap is not None and swap.get("_afterSpeech"):
+            if (swap.get("to") or "") == "competency":
+                spoken_source = swap.get("_fromSource") or ""
+                return (
+                    (swap.get("fromCompetency") or "") if spoken_source in own else ""
+                )
+            return planned
+        turn = self._memory.turn_index
+        if self._winddown_turn == turn and self._winddown_line is not None:
+            return ""
+        if swap is None:
+            return planned
+        return planned if (swap.get("to") or "") == "competency" else ""
+
+    def _speech_fixed(self, turn: int) -> bool:
+        """True once this turn's spoken line is decided and a guard verdict can no
+        longer change it: a rewrite is cached for the turn, and every later
+        ``reframe_bare_question`` call in it returns that line."""
+        return self._reframe_turn == turn
+
+    def _blueprint_competency_counts(self) -> tuple[int, int]:
+        """(attempted, delivered), both over the blueprint's own competencies.
+
+        ``askedCompetencyCount`` stays as it always was — every attempted key,
+        pack step keys included — so older turn logs remain comparable; these two
+        share one basis, so attempted minus delivered means something.
+        """
+        keys = {
+            str(c.get("competencyKey") or c.get("key") or "").strip()
+            for c in (self._blueprint_competencies or ())
+        } - {""}
+        mem = self._memory
+        return (
+            len(mem.asked_competency_keys & keys),
+            len(mem.delivered_competency_keys & keys),
+        )
 
     def _p4_excluded_for(self, turn: int) -> str:
         found = self._p4_exclusions
@@ -2190,7 +2301,10 @@ class InterviewAssistant(Agent):
         to_competency: str = "",
         p4_excluded: str = "",
     ) -> None:
-        """Telemetry only: what the guard threw away, and what it put in its place.
+        """What the guard threw away, and what it put in its place.
+
+        Telemetry, and read by two decisions of this turn: whether its plan
+        question counts as delivered, and the presupposing reword guard.
 
         Taken BEFORE any plan swap, so ``fromCompetency`` is still the picker's
         intent. Without it a swapped turn logs the replacement as if the picker
@@ -2213,6 +2327,11 @@ class InterviewAssistant(Agent):
                 "fromQuestion": ((plan.question if plan else "") or ""),
                 "toCompetency": to_competency,
                 "p4Excluded": p4_excluded,
+                # Not telemetry (build_record does not copy either): whether this
+                # swap came after the turn's speech was fixed, and the source of
+                # the plan it replaced — see ``_delivered_competency``.
+                "_afterSpeech": self._speech_fixed(turn),
+                "_fromSource": ((plan.source if plan else "") or ""),
             },
         )
 
@@ -2347,9 +2466,39 @@ class InterviewAssistant(Agent):
         if not rewritten:
             return text
         out = enforce_single_question_response(rewritten, self._turn_plan)
+        if self._rewording_reintroduces_presupposition(turn, text, out):
+            # ``_reframe_text`` still holds ``text``, so the second pass agrees.
+            logger.info(
+                "[framing-guard] rewrite presupposes an unclaimed act; keeping the replacement as written"
+            )
+            return text
         self._reframe_text = out
         logger.info("[framing-guard] question reframed (mode=%s reason=%s)", mode, reason)
         return out
+
+    def _rewording_reintroduces_presupposition(
+        self, turn: int, replacement: str, rewrite: str
+    ) -> bool:
+        """True when the rewrite of a presupposing swap would undo the swap.
+
+        The rewrite can do it: in interview K a swapped-in template with no
+        presupposition («…حالة offboarding اشتغلت عليها، شنو خطواتك…») was
+        reworded into «…شنو الخطوات اللي سويتها…». That turn was a DUPLICATE swap,
+        and duplicate swaps keep their rewrites as before (release 1 scope). This
+        applies only to a turn the guard replaced for ``presupposing``, and only
+        when the replacement itself is safe: it does not presuppose, and it is in
+        the interview's language (a raw English anchor is not a better thing to
+        say to an Arabic candidate).
+        """
+        swap = self._guard_swap
+        if swap is None or swap[0] != turn or swap[1].get("reason") != "presupposing":
+            return False
+        said = self._memory.candidate_turns
+        return (
+            presupposes_unstated_act(rewrite, said)
+            and not presupposes_unstated_act(replacement, said)
+            and not self.reply_language_mismatch(replacement)
+        )
 
     def _update_experience_track(self, text: str) -> None:
         mem = self._memory
@@ -3192,8 +3341,12 @@ class InterviewAssistant(Agent):
         # Emitted BEFORE the ``not plan`` bail-out on purpose: a turn the picker
         # never planned is exactly the kind we most need to see, because it is
         # invisible everywhere else. Wrapped so telemetry can never break a turn.
+        # The counts are taken BEFORE this turn's own question is marked (below),
+        # exactly as askedCompetencyCount has always been; a competency the guard
+        # rejected this turn is already in them. The END record has the final numbers.
         if self._turn_log_sink is not None:
             try:
+                attempted, delivered = self._blueprint_competency_counts()
                 self._turn_log_sink.emit(
                     build_turn_log_record(
                         turn_index=mem.turn_index,
@@ -3206,6 +3359,8 @@ class InterviewAssistant(Agent):
                         followup_skip_reason=self._last_followup_skip,
                         competency_budget=mem.competency_followup_counts,
                         asked_competency_keys=mem.asked_competency_keys,
+                        attempted_competency_count=attempted,
+                        delivered_competency_count=delivered,
                         guard_swap=this_turn_swap,
                     )
                 )
@@ -3292,17 +3447,21 @@ class InterviewAssistant(Agent):
                 mem.sent_question_guard.add(plan.question_id)
         if plan.source in ("bank", "track_anchor") and count_question_marks(guarded) >= 1:
             mem.anchor_questions_sent += 1
-        # Mark a competency covered the moment it is ASKED (any source, not just
+        # Mark a competency ATTEMPTED the moment it is asked (any source, not just
         # the coverage floor), so it is never re-served as a new question later —
         # the main cause of repeated same-competency questions after the candidate
         # skips. Follow-up/clarify stay on the already-active competency, so they
         # must not (re)mark here; the picker skips asked_competency_keys.
+        # DELIVERED only when the guard did not put something else in its place.
         if (
             plan.competency_key
             and count_question_marks(guarded) >= 1
             and mode not in (MODE_FOLLOW_UP, MODE_CLARIFY)
         ):
             mem.asked_competency_keys.add(plan.competency_key)
+            credited = self._delivered_competency(plan, this_turn_swap)
+            if credited:
+                mem.delivered_competency_keys.add(credited)
         if plan.step_key:
             mem.pending_step_key = plan.step_key
         if plan.cluster_key:

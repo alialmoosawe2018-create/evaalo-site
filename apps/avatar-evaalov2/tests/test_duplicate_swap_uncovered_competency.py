@@ -306,7 +306,9 @@ def _replay(
         assert monkeypatch is not None
         # Exactly the control flow before this change: anchor → wrap-up → bridge.
         monkeypatch.setattr(
-            agent, "_swap_duplicate_for_uncovered_competency", lambda turn, recent: None
+            agent,
+            "_swap_duplicate_for_uncovered_competency",
+            lambda turn, recent, reason="duplicate": None,
         )
     rows = asyncio.run(replay_session_j(agent))
     return agent, {row["turn"]: row for row in rows}
