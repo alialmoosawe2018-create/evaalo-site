@@ -1,0 +1,42 @@
+{
+  "language_note": "SYNTHETIC fixture - no candidate data. Reproduces only the malformed structure of n8n execution 1945.",
+  "blueprint": [
+    {
+      "competencyKey": "synthetic_competency_a",
+      "assessed": true,
+      "score": 2,
+      "evidence": {
+        "claim": "Synthetic claim.",
+        "situation": "Synthetic situation.",
+        "action": "Synthetic action.",
+        "result": "Synthetic result.",
+        "quote": \"نص اصطناعي للاختبار فقط\""
+      },
+      "redFlagsDetected": []
+    },
+    {
+      "competencyKey": "synthetic_competency_b",
+      "assessed": true,
+      "score": 3,
+      "evidence": {
+        "claim": "Synthetic claim.",
+        "situation": "Synthetic situation.",
+        "action": "Synthetic action.",
+        "result": "Synthetic result.",
+        "quote": "نص اصطناعي سليم"
+      },
+      "redFlagsDetected": []
+    }
+  ],
+  "generic": {
+    "role_judgment_problem_solving": { "rating": "Intermediate", "assessed": true, "evidence": "Synthetic." },
+    "ownership_accountability": { "rating": "Intermediate", "assessed": true, "evidence": "Synthetic." },
+    "learning_adaptability": { "rating": "Intermediate", "assessed": true, "evidence": "Synthetic." },
+    "overall_role_fit": { "rating": "Intermediate", "assessed": true, "evidence": "Synthetic." }
+  },
+  "critical_concerns": [],
+  "summary": "Synthetic assessment for the parser-failure regression.",
+  "strengths": [],
+  "weaknesses": [],
+  "overall_role_fit_narrative": "Synthetic."
+}
