@@ -25,6 +25,15 @@ replay feeds the previous question verbatim there, which gets the same verdict.
 
 The replay also stops short of the reframe model (no LLM in tests), so it shows
 the question the guard HANDS to the reframe, not the reframe's final wording.
+
+LEGACY: session J ran on a build whose ``decision_frame`` log line called the
+question picker a SECOND time, and that second pick replaced the turn's plan. The
+agent no longer does this (tests/test_single_picker_call.py). This replay
+re-creates the second pick, in the harness only (``_emulate_legacy_double_pick``),
+so J stays a faithful record of what production ran: on turn 6 the model was told
+a result follow-up, while the guard and the turn log saw a competency question —
+the plan under which production's duplicate verdict, and every expectation
+below, were made.
 """
 
 from __future__ import annotations
@@ -35,8 +44,9 @@ import pytest
 from livekit.agents.llm import ChatContext, ChatMessage
 from livekit.agents.llm.tool_context import StopResponse
 
-from voice_interview.active_question import MODE_ASK, TurnPlan
+from voice_interview.active_question import MODE_ASK, MODE_WAIT, TurnPlan
 from voice_interview.assistant import InterviewAssistant, TtsRouteContext
+from voice_interview.config import interview_wait_nudge_enabled
 from voice_interview.entity_policy import DIFFICULTY_FOLLOWUP_POOL
 from voice_interview.heuristics import is_semantic_duplicate_question
 from voice_interview.subject_coverage import subject_already_asked
@@ -238,7 +248,35 @@ def session_j_agent() -> InterviewAssistant:
     )
 
 
-async def replay_session_j(agent: InterviewAssistant) -> list[dict]:
+def _emulate_legacy_double_pick(agent: InterviewAssistant) -> None:
+    """LEGACY, replay-only: re-create the second question pick session J ran with.
+
+    J's build passed ``self._pick_recommended_question(...)`` as an argument of the
+    ``decision_frame`` log line, so the picker ran again — stateful — right before
+    ``_update_memory_post_decision``, on every turn that did not stop to wait (the
+    wait branch raised before that line). This wrapper makes that same call at that
+    same point. It exists only so this replay stays a record of what production
+    ran; the agent itself picks once (tests/test_single_picker_call.py).
+    """
+    update = agent._update_memory_post_decision
+
+    def update_after_the_legacy_second_pick(diag, action):
+        plan = agent._turn_plan
+        waiting = action == "wait_for_completion" or bool(
+            plan and plan.response_mode == MODE_WAIT
+        )
+        if not (waiting and not interview_wait_nudge_enabled()):
+            agent._pick_recommended_question(
+                diag, agent._memory, diag.get("link_policy") or {}
+            )
+        return update(diag, action)
+
+    agent._update_memory_post_decision = update_after_the_legacy_second_pick
+
+
+async def replay_session_j(
+    agent: InterviewAssistant, *, legacy_double_pick: bool = True
+) -> list[dict]:
     """Drive the real agent through session J, one production turn at a time.
 
     Each spoken turn runs the guard TWICE, in production's order: tts_node first,
@@ -246,7 +284,12 @@ async def replay_session_j(agent: InterviewAssistant) -> list[dict]:
     spoke (the transcript is TTS-aligned), and only then the record. The agent
     log shows this order: one «[reply-guard]» line per bridged turn, not two, and
     each ``[turn-log]`` line lands just after TTS synthesis ends.
+
+    ``legacy_double_pick`` (on by default: J is a historical replay) re-creates
+    the second question pick J's build made; see ``_emulate_legacy_double_pick``.
     """
+    if legacy_double_pick:
+        _emulate_legacy_double_pick(agent)
     agent._turn_log_sink = TurnLogSink(object())
     agent.mark_verbatim(_J_GREETING)
     agent.record_agent_reply(_J_GREETING_RECORD)
@@ -575,6 +618,39 @@ def test_turn_log_labels_a_bridge_too(monkeypatch):
     swap = rows[6]["record"]["guardSwap"]
     assert swap["to"] == "bridge"
     assert swap["fromCompetency"] == "confidentiality_and_discretion"
+
+
+# ── The legacy second pick lives only in this replay ─────────────────────────
+
+
+def _picks_per_turn(*, legacy: bool) -> list[int]:
+    agent = session_j_agent()
+    counts: list[int] = []
+    pick = agent._pick_recommended_question
+    start = agent.on_user_turn_completed
+
+    def counted(diag, mem, link_policy):
+        counts[-1] += 1
+        return pick(diag, mem, link_policy)
+
+    async def turn(ctx, msg):
+        counts.append(0)
+        return await start(ctx, msg)
+
+    agent._pick_recommended_question = counted
+    agent.on_user_turn_completed = turn
+    asyncio.run(replay_session_j(agent, legacy_double_pick=legacy))
+    return counts
+
+
+def test_the_legacy_second_pick_lives_only_in_this_replay():
+    """On J's script the agent itself picks once per turn. The harness adds the
+    second pick J's build made — on every turn except turn 8, which waited
+    («…لان.») and so never reached the log line."""
+    assert _picks_per_turn(legacy=False) == [1] * len(SESSION_J_SCRIPT)
+    assert _picks_per_turn(legacy=True) == [
+        1 if turn == 8 else 2 for turn, _, _ in SESSION_J_SCRIPT
+    ]
 
 
 # ── The subject check on its own ─────────────────────────────────────────────

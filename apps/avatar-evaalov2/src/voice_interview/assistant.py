@@ -873,6 +873,9 @@ class InterviewAssistant(Agent):
         self._role_key = (role_key or "").strip()
         self._turn_recommended: str | None = None
         self._turn_recommended_source: str = ""
+        # What the decision frame told the model this turn — the turn's one pick.
+        # The decision_frame log line prints this; it must never pick again.
+        self._turn_frame_recommended: str | None = None
         self._turn_clarify_fallback: str | None = None
         self._turn_clarify_source: str = ""
         self._turn_plan: TurnPlan | None = None
@@ -3553,6 +3556,7 @@ class InterviewAssistant(Agent):
         ctx_block = self._memory_context_block(diag)
         link_policy = diag.get("link_policy") or {}
         recommended = self._pick_recommended_question(diag, mem, link_policy)
+        self._turn_frame_recommended = recommended
         body: str | None = None
 
         if diag.get("is_topic_change_request"):
@@ -3945,6 +3949,7 @@ class InterviewAssistant(Agent):
             self._turn_cross_domain_guard = "pass"
             self._turn_recommended = None
             self._turn_recommended_source = ""
+            self._turn_frame_recommended = None
             self._turn_clarify_fallback = None
             self._turn_clarify_source = ""
             self._turn_plan = None
@@ -4006,14 +4011,18 @@ class InterviewAssistant(Agent):
                     ),
                 )
 
+            # The recommendation the frame already gave the model. This argument
+            # used to CALL the picker again — evaluated at every log level — and
+            # that second, stateful pick replaced the turn's plan: the guard, the
+            # turn log, coverage and the post-decision bookkeeping below all read
+            # a question the model was never told to ask. (The memory= snapshot
+            # was taken after that second pick; it is now taken after the one.)
             logger.info(
                 "decision_frame | turn=%s diag=%s link_policy=%s recommended=%r memory=%s action=%s frame=%s",
                 self._memory.turn_index + 1,
                 {k: v for k, v in diag.items() if k not in ("disabled", "link_policy")},
                 diag.get("link_policy"),
-                self._pick_recommended_question(
-                    diag, self._memory, diag.get("link_policy") or {}
-                ),
+                self._turn_frame_recommended,
                 self._memory.snapshot(),
                 action,
                 "yes" if frame else "no",

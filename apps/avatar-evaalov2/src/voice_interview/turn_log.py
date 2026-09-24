@@ -82,6 +82,18 @@ def build_record(
     transcript actually contains is what separates "this competency was never
     asked" from "it was asked but the wording lost the subject".
 
+    The plan is the ONE pick the decision frame gave the model. Three turns
+    differ: a guard swap replaces it (see below); the hard-cap wrap-up installs
+    no plan; and a wait-timeout reply clears the plan although the model is told
+    the silent turn's recommendation — so empty plan fields do not mean the
+    model was told nothing. Records written while the decision_frame log
+    line still called the picker a second time followed that second pick —
+    often a different question or competency. Every field derived from the plan
+    or from the bookkeeping it drives (plannedQuestion, competencyKey,
+    planSource, responseMode, the follow-up fields, guardSwap, the competency
+    counts and competencyBudgetSpent) is therefore not directly comparable
+    across that change.
+
     ``guardSwap`` is set when the reply guard threw the model's question away
     («to»: bank_anchor / competency / bridge, and why). A competency swap
     installs a new plan, so ``competencyKey`` then names the REPLACEMENT and
