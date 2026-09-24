@@ -57,7 +57,7 @@ import {
     isLegacyVideoEvaluation,
     qualitativeBandFromTenScore,
     resolveVideoRecommendation,
-    shouldHideOverallScore,
+    videoOverallScoreForDisplay,
 } from '../utils/videoInterviewEvalDisplay.js';
 
 /** المرحلة لمسار المقارنة (Stage 3). */
@@ -549,7 +549,10 @@ const VideoInterview = () => {
             position,
             companyLine,
             link: interviewLink,
-            score: candidate.videoInterviewEvaluation?.overall_score || 0,
+            score: (() => {
+                const shown = videoOverallScoreForDisplay(candidate.videoInterviewEvaluation);
+                return shown == null ? '—' : `${shown}%`;
+            })(),
             recommendation: translateRecLabel(
                 resolveVideoRecommendation(candidate.videoInterviewEvaluation)
             ),
@@ -863,7 +866,8 @@ const VideoInterview = () => {
                                     ) : null}
                                     {filteredCandidates.map((candidate, index) => {
                                         const evaluation = candidate.videoInterviewEvaluation;
-                                        const scoreColors = getScoreColor(evaluation?.overall_score || 0);
+                                        const shownScore = videoOverallScoreForDisplay(evaluation);
+                                        const scoreColors = getScoreColor(shownScore ?? 0);
                                         const recCanon = resolveVideoRecommendation(evaluation);
                                         const recColors = getRecommendationColor(recCanon);
                                         const finalHrEvaluationText = buildVideoFinalHrText(
@@ -883,7 +887,6 @@ const VideoInterview = () => {
                                             ? blueprintRowsToCompetencyChips(buildBlueprintCompetencyRows(evaluation), t)
                                             : [];
                                         const insufficientEval = isInsufficientVideoEvaluation(evaluation);
-                                        const hideScore = shouldHideOverallScore(evaluation);
                                         const evalStrengths = normalizeStageEvalStringList(evaluation?.strengths);
                                         const evalWeaknesses = normalizeStageEvalStringList(evaluation?.weaknesses);
                                         const candidateId = candidate._id || candidate.id;
@@ -1165,20 +1168,22 @@ const VideoInterview = () => {
                                                         alignItems: 'center',
                                                         gap: '10px'
                                                     }}>
-                                                        {/* An insufficient interview still carries a computed
-                                                            percentage; showing it reads as a real pass mark, so
-                                                            it is withheld and the verdict is shown on its own. */}
+                                                        {/* No score is shown as a neutral dash, never 0%: an
+                                                            insufficient interview's computed percentage reads as
+                                                            a real pass mark, and a candidate with NO evaluation
+                                                            yet (still scoring, or the scorer failed and sent
+                                                            nothing) has no score at all. */}
                                                         <div style={{
                                                             display: 'inline-block',
                                                             padding: '8px 16px',
                                                             borderRadius: '8px',
-                                                            background: hideScore ? 'rgba(148, 163, 184, 0.15)' : scoreColors.bg,
-                                                            color: hideScore ? '#94A3B8' : scoreColors.text,
+                                                            background: shownScore == null ? 'rgba(148, 163, 184, 0.15)' : scoreColors.bg,
+                                                            color: shownScore == null ? '#94A3B8' : scoreColors.text,
                                                             fontWeight: 700,
                                                             fontSize: '18px',
                                                             lineHeight: 1.2
                                                         }}>
-                                                            {hideScore ? '—' : `${evaluation?.overall_score ?? 0}%`}
+                                                            {shownScore == null ? '—' : `${shownScore}%`}
                                                         </div>
                                                         {insufficientEval ? (
                                                             <div style={{

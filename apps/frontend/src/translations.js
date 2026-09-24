@@ -1125,7 +1125,7 @@ export const translations = {
         videoInterviewAwaitingEvalDetail: "Video evaluation has not been completed yet.",
         videoInterviewHeading: "Video evaluations",
         videoInterview_shareBody:
-            "📋 Video evaluation report\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}🔗 Interview link:\n{link}\n\n⭐ Overall score: {score}%\n🎯 Recommendation: {recommendation}\n📧 Email: {email}\n📱 Phone: {phone}",
+            "📋 Video evaluation report\n\n👤 Candidate: {name}\n💼 Role: {position}\n{companyLine}🔗 Interview link:\n{link}\n\n⭐ Overall score: {score}\n🎯 Recommendation: {recommendation}\n📧 Email: {email}\n📱 Phone: {phone}",
         videoInterview_shareNavigatorTitle: "Evaluation report — {name}",
         videoInterview_shareCopyOk: "Candidate details copied to clipboard.",
         videoInterview_shareCopyPrompt: "Copy the text below:",
@@ -2850,7 +2850,7 @@ export const translations = {
         videoInterviewAwaitingEvalDetail: "لم يكتمل تقييم الفيديو بعد.",
         videoInterviewHeading: "تقييمات الفيديو",
         videoInterview_shareBody:
-            "📋 تقرير تقييم الفيديو\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}🔗 رابط المقابلة:\n{link}\n\n⭐ الدرجة الإجمالية: {score}%\n🎯 التوصية: {recommendation}\n📧 البريد: {email}\n📱 الهاتف: {phone}",
+            "📋 تقرير تقييم الفيديو\n\n👤 المرشح: {name}\n💼 الوظيفة: {position}\n{companyLine}🔗 رابط المقابلة:\n{link}\n\n⭐ الدرجة الإجمالية: {score}\n🎯 التوصية: {recommendation}\n📧 البريد: {email}\n📱 الهاتف: {phone}",
         videoInterview_shareNavigatorTitle: "تقرير التقييم — {name}",
         videoInterview_shareCopyOk: "تم نسخ معلومات المرشح.",
         videoInterview_shareCopyPrompt: "انسخ النص التالي:",
@@ -4575,7 +4575,7 @@ export const translations = {
         videoInterviewAwaitingEvalDetail: "هەڵسەنگاندنی ڤیدیۆ هێشتا تەواو نەبووە.",
         videoInterviewHeading: "هەڵسەنجاندنەکانی ڤیدیۆ",
         videoInterview_shareBody:
-            "📋 ڕاپۆرتی هەڵسەنجاندنی ڤیدیۆ\n\n👤 کاندید: {name}\n💼 پۆست: {position}\n{companyLine}🔗 بەستەری چاوپێکەوتن:\n{link}\n\n⭐ نمرەی گشتی: {score}%\n🎯 پێشنیار: {recommendation}\n📧 ئیمەیڵ: {email}\n📱 مۆبایل: {phone}",
+            "📋 ڕاپۆرتی هەڵسەنجاندنی ڤیدیۆ\n\n👤 کاندید: {name}\n💼 پۆست: {position}\n{companyLine}🔗 بەستەری چاوپێکەوتن:\n{link}\n\n⭐ نمرەی گشتی: {score}\n🎯 پێشنیار: {recommendation}\n📧 ئیمەیڵ: {email}\n📱 مۆبایل: {phone}",
         videoInterview_shareNavigatorTitle: "ڕاپۆرت — {name}",
         videoInterview_shareCopyOk: "زانیاریی کاندید لەبەرکرا.",
         videoInterview_shareCopyPrompt: "ەوەی ژێرەوە لەبەر بگرە:",

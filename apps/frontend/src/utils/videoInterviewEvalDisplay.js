@@ -278,6 +278,20 @@ export function shouldHideOverallScore(evaluation) {
 }
 
 /**
+ * The overall score to SHOW, or null when there is none. An interview with no
+ * evaluation — still being scored, or the scorer failed and deliberately sent
+ * nothing (n8n 93a52261) — has no score, and printing the missing value as 0%
+ * reads as a real, failing result. A genuine scored 0 is still shown as 0.
+ */
+export function videoOverallScoreForDisplay(evaluation) {
+    if (shouldHideOverallScore(evaluation)) return null;
+    const raw = evaluation?.overall_score;
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+}
+
+/**
  * The recommendation to display. An interview that covered too little of the role
  * cannot support a pass, so it always reads Reject — the v2 scorer now says so
  * itself, but records written before that fix still carry a stale "Consider".

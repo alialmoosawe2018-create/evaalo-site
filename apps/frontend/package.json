@@ -43,7 +43,8 @@
     "test:invite-role": "node src/utils/headHunterInviteRole.test.mjs",
     "test:blueprint-gate": "node src/utils/blueprintGate.test.mjs",
     "test:video-transcript": "node src/utils/videoTranscriptSerialize.test.mjs",
-    "test:video-turn-log": "node src/utils/videoTurnLog.test.mjs"
+    "test:video-turn-log": "node src/utils/videoTurnLog.test.mjs",
+    "test:video-eval-display": "node src/utils/videoInterviewEvalDisplay.test.mjs"
   },
   "browserslist": {
     "production": [
