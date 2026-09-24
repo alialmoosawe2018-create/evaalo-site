@@ -897,6 +897,11 @@ class InterviewAssistant(Agent):
         # except that the post-wrap-up guard reads "hard_question_cap" (a cap
         # wrap-up has no tied-question exception).
         self._wrap_up_trigger: str = ""
+        # True once a HARD-CAP wrap-up offer was recorded as spoken (record_agent_reply,
+        # which runs only after LiveKit authorised the reply and the TTS produced its
+        # whole transcript). Until then the cap offer is only planned: a new user turn
+        # re-offers it instead of closing on an offer nobody heard.
+        self._cap_wrap_up_recorded: bool = False
         self._end_record_sent: bool = False
         # Wind-down state machine (offer wrap-up → final closing → conclude). The
         # reply-guard runs twice per turn (transcription_node + tts_node), so it
@@ -1964,6 +1969,18 @@ class InterviewAssistant(Agent):
                 or not self._turn_is_tied_to_active_question(mode)
             )
         ):
+            # A cap offer that was never recorded as spoken (its reply was cancelled
+            # by the candidate's next turn) does not earn the closing: offer it again.
+            if (
+                self._wrap_up_trigger == "hard_question_cap"
+                and not self._cap_wrap_up_recorded
+            ):
+                self._winddown_turn = turn
+                self._winddown_line = _WRAP_UP_PROMPT_AR
+                logger.info(
+                    "[reply-guard] hard-cap wrap-up not spoken yet; offering it again"
+                )
+                return _WRAP_UP_PROMPT_AR
             mem.final_closing_sent = True
             # The guard replaced the LLM's turn, so the model never calls
             # end_interview. Trigger the same teardown ourselves after the closing
@@ -2722,10 +2739,14 @@ class InterviewAssistant(Agent):
         # anchors forever and never concludes (observed: 24+ questions, no wrap-up).
         # Offer the single wrap-up once; the closing + teardown follow on later turns
         # via the existing wind-down state machine.
-        if (
-            not mem.wrap_up_offered
-            and len(mem.asked_questions) >= _wrap_up_max_questions()
-        ):
+        # A cap offer that was planned but never recorded as spoken (its reply was
+        # cancelled by the candidate's next turn) is planned again, never skipped.
+        cap_offer_pending = (
+            self._wrap_up_trigger == "hard_question_cap"
+            and not self._cap_wrap_up_recorded
+        )
+        cap_reached = len(mem.asked_questions) >= _wrap_up_max_questions()
+        if (not mem.wrap_up_offered or cap_offer_pending) and cap_reached:
             mem.wrap_up_offered = True
             # Not telemetry only: the post-wrap-up guard reads it (no tied exception).
             self._wrap_up_trigger = "hard_question_cap"
@@ -3342,6 +3363,12 @@ class InterviewAssistant(Agent):
         plan = self._turn_plan
         guarded = enforce_single_question_response(text, plan)
         mem.record_question(guarded)
+        # The delivery boundary for the hard-cap offer (see _cap_wrap_up_recorded).
+        if (
+            self._wrap_up_trigger == "hard_question_cap"
+            and guarded.strip() == _WRAP_UP_PROMPT_AR.strip()
+        ):
+            self._cap_wrap_up_recorded = True
 
         mode = plan.response_mode if plan else MODE_ASK
         question_text = extract_primary_question(guarded) or (
