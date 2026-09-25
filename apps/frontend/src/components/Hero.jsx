@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { CONTACT_EMAIL } from '../constants/contact';
 
 const Hero = () => {
     const { t } = useLanguage();
@@ -11,10 +12,14 @@ const Hero = () => {
         navigate('/login');
     };
 
-    /* Scrolls to the next section down the page ("Why evaalo"), not to Features. */
-    const scrollToNextSection = () => {
-        document.getElementById('why')?.scrollIntoView({ behavior: 'smooth' });
-    };
+    /*
+     * The secondary hero action is "Request demo" — it opens a mail to the team
+     * rather than scrolling to "Why evaalo". The subject is pre-filled so the
+     * request is recognisable in the inbox without the visitor typing one.
+     */
+    const requestDemoHref = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
+        t('requestDemoEmailSubject')
+    )}`;
 
     return (
         <section className="hero" id="hero">
@@ -108,8 +113,8 @@ const Hero = () => {
                                 <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                         </button>
-                        <a href="#why" className="btn btn-secondary btn-large" onClick={scrollToNextSection}>
-                            <span>{t('learnMore')}</span>
+                        <a href={requestDemoHref} className="btn btn-secondary btn-large">
+                            <span>{t('requestDemo')}</span>
                         </a>
 
                         <div className="hero-features">
