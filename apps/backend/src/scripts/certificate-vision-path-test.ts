@@ -18,17 +18,26 @@
  * ⚠️ One PDF case per process. pdf-parse carries state from one document to the
  * next inside a process. Measured while writing this file: hand-built minimal
  * PDFs (non-embedded Helvetica) extract correctly only when parsed first; the
- * Chrome-generated fixtures below are stable for text PDFs, but the image-only
- * one returned PARSE_FAILED instead of EMPTY_CV once in 12 parses when it was not
- * the first. So each case that parses a PDF runs in its own child process, where
+ * Chrome-generated text fixtures below are stable, but a Chrome-printed
+ * image-only page returned PARSE_FAILED instead of EMPTY_CV once in 12 parses
+ * when it was not the first. So each case that parses a PDF runs in its own child process, where
  * its fixture is the first document read. Do not fold them back into one run.
  *
- * All fixtures are synthetic. The three PDFs in fixtures/certificate-*.synthetic.pdf
- * were printed by headless Chrome (Puppeteer page.pdf) from inline HTML: a
- * completion certificate with an invented holder and board, a page holding only
- * that name and an ID, and a page of vector shapes with no text layer. Image
- * bytes are a made-up JPEG shell. Nothing is copied from real uploads — this
- * repository is public.
+ * All fixtures are synthetic. The good and thin PDFs were printed by headless
+ * Chrome (Puppeteer page.pdf) from inline HTML: a completion certificate with an
+ * invented holder and board, and a page holding only that name and an ID. The
+ * scanned PDF is built the way a scanner writes a page: one page whose only
+ * content is a single JPEG of drawn shapes (DCTDecode image XObject) — no fonts,
+ * no text operators, no Info dictionary. Image bytes in the image cases are a
+ * made-up JPEG shell. Nothing is copied from real uploads — this repository is
+ * public.
+ *
+ * ⚠️ Do not go back to a Chrome-printed text-free page for the scanned fixture.
+ * It is a valid PDF, but pdf-parse 1.1.4 (pdf.js 1.10) throws `bad XRef entry`
+ * on it under Linux — Node 20 in the production container, Node 22 in CI — so
+ * it lands on PARSE_FAILED there while Windows returns EMPTY_CV. That made the
+ * guard below fail in CI only (2026-09-25). The single-image page returns
+ * EMPTY_CV and parses even with pdf-parse loaded on its own.
  *
  * Run: npm run test:certificate-vision-path
  */
@@ -319,11 +328,15 @@ function runAll(): void {
     let total = 0;
     let failed = 0;
     const failedCases: string[] = [];
+    // Repeated after the summary: the CI suite runner prints only the last 40
+    // lines of a failing suite, which cut off the one line that said why.
+    const failedChecks: string[] = [];
     for (const name of Object.keys(CASES)) {
         const r = spawnSync(process.execPath, [...process.execArgv, self, name], { encoding: 'utf8' });
         const out = (r.stdout || '') + (r.stderr || '');
         for (const line of out.split(/\r?\n/)) {
             if (/^\s+[✓✗]/.test(line) || /^\s*(\d|guard|·)/.test(line) || line.startsWith('\n')) console.log(line);
+            if (/^\s+✗/.test(line)) failedChecks.push(`${name}:${line.trim().slice(1)}`);
         }
         const m = out.match(/@@RESULT \S+ (\d+) (\d+)/);
         if (!m) {
@@ -339,6 +352,7 @@ function runAll(): void {
     console.log(`\n[certificate-vision-path] ${total} passed, ${failed} failed across ${Object.keys(CASES).length} isolated runs`);
     if (failed || failedCases.length) {
         for (const c of failedCases) console.error(`  FAILED CASE: ${c}`);
+        for (const c of failedChecks) console.error(`  FAILED CHECK: ${c}`);
         process.exit(1);
     }
 }
