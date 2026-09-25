@@ -35,6 +35,7 @@ import { deriveCertificateTitle } from './certificateTitle.js';
 import {
     readCertificateWithVision,
     formatVisionRead,
+    isReadableCertificateType,
     CERT_VISION_MAX_PER_APPLICATION,
 } from './certificateVisionReader.js';
 
@@ -309,9 +310,20 @@ export function meaningfulCertificateChars(text: string, holderName?: string): n
         .trim().length;
 }
 
-async function buildCertificatesTextForN8n(
+/**
+ * Seam for the path tests only. Production passes nothing, so the real
+ * `readCertificateWithVision` is used; a test hands in a fake so it can prove the
+ * reader is REACHED through this function — the thing the reader's own unit test
+ * could never show, and why the image path stayed dead behind a green suite.
+ */
+export interface CertificateTextDeps {
+    readVision?: typeof readCertificateWithVision;
+}
+
+export async function buildCertificatesTextForN8n(
     files: CandidateData['files'],
-    holderName?: string
+    holderName?: string,
+    deps: CertificateTextDeps = {}
 ): Promise<{
     certificatesText: string;
     certificatesCount: number;
@@ -325,6 +337,7 @@ async function buildCertificatesTextForN8n(
 } | null> {
     const certs = (files || []).filter((f) => attachmentKind(f) === 'certificate');
     if (!certs.length) return null;
+    const readVision = deps.readVision ?? readCertificateWithVision;
     const parts: string[] = [];
     const titles: Record<string, string> = {};
     let idx = 0;
@@ -339,8 +352,11 @@ async function buildCertificatesTextForN8n(
             parts.push(`${label} (file unavailable)`);
             continue;
         }
+        // Declared outside the try so the failure branch below can hand the same
+        // bytes to the vision reader. Stays null if the read itself fails.
+        let buf: Buffer | null = null;
         try {
-            const buf = await readFile(diskPath);
+            buf = await readFile(diskPath);
             const text = await extractTextFromCv(buf, f.mimeType || '', f.originalName || f.filename);
             const title = deriveCertificateTitle(text);
 
@@ -353,7 +369,7 @@ async function buildCertificatesTextForN8n(
                 // costs a call.
                 if (visionReads < CERT_VISION_MAX_PER_APPLICATION) {
                     visionReads += 1;
-                    const seen = await readCertificateWithVision(
+                    const seen = await readVision(
                         buf,
                         f.mimeType || '',
                         f.originalName || f.filename
@@ -379,6 +395,40 @@ async function buildCertificatesTextForN8n(
             if (title && f.filename) titles[String(f.filename)] = title;
         } catch (err) {
             const code = err instanceof CvExtractionError ? err.code : 'PARSE_FAILED';
+            /* S16 (2026-09-25). An image, or a PDF with no text layer at all, is
+               exactly what the vision reader was written for — but
+               extractTextFromCv throws for both (UNSUPPORTED_TYPE / EMPTY_CV), so
+               the reader, which sat below that call, was never reached for them.
+               Production logged zero vision reads while 4 of 6 uploaded
+               certificates in one organisation went unread.
+
+               Only these two codes qualify, and only for a type the reader
+               accepts. PARSE_FAILED — a corrupt file, a failed read — never
+               does: that is a broken file, not a certificate whose text is in
+               the image. Anything the reader cannot or will not read falls
+               through to the unchanged notes below. */
+            const mime = f.mimeType || '';
+            const name = f.originalName || f.filename;
+            const visionEligible =
+                (code === 'EMPTY_CV' || code === 'UNSUPPORTED_TYPE') &&
+                isReadableCertificateType(mime, name);
+            if (visionEligible && buf && visionReads < CERT_VISION_MAX_PER_APPLICATION) {
+                visionReads += 1;
+                let seen: Awaited<ReturnType<typeof readCertificateWithVision>> = null;
+                try {
+                    seen = await readVision(buf, mime, name);
+                } catch {
+                    // The real reader never throws; this only keeps a thrown error
+                    // from escaping the loop and dropping every certificate.
+                    seen = null;
+                }
+                if (seen) {
+                    visionRecovered += 1;
+                    parts.push(`${label}\n${formatVisionRead(seen)}`);
+                    if (f.filename) titles[String(f.filename)] = seen.title;
+                    continue;
+                }
+            }
             // Every branch carries CERT_NOT_EXTRACTED verbatim. Two of these used
             // to say "no readable text" and "could not read certificate", neither
             // of which contains the phrase the prompt actually looks for — so the
