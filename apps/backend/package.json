@@ -88,6 +88,7 @@
     "test:stage1-form-defaults": "tsx src/scripts/stage1-form-defaults-test.ts",
     "test:stage1-spam-gate": "tsx src/scripts/stage1-spam-gate-test.ts",
     "test:stage1-outbox-payload-fields": "tsx src/scripts/stage1-outbox-payload-fields-test.ts",
+    "test:public-apply-languages": "tsx src/scripts/public-apply-languages-test.ts",
     "test:campaign-compare-security": "tsx src/scripts/campaign-compare-security-test.ts",
     "build:campaign-compare-stage1-draft": "node scripts/build-campaign-compare-stage1-draft.mjs",
     "build:campaign-compare-stage2-draft": "node scripts/build-campaign-compare-stage2-draft.mjs",

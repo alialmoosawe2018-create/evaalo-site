@@ -29,6 +29,7 @@ import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import {
     buildSubmissionInputFromRequest,
     mergeValidatedIntoCandidateData,
+    normalizeLanguagesToStringArray,
     validateApplicationSubmission,
 } from '../services/applicationSubmitValidation.js';
 import {
@@ -64,33 +65,6 @@ import { shouldSendStage1ToN8n } from '../services/stage1N8nPayloadBuilder.js';
 import { reopenInterviewLink } from '../services/interviewLinkAccess.js';
 
 const router = express.Router();
-
-/** الاستمارة قد ترسل languages كـ [{ name, level }] بينما المخطط يخزن string[] */
-function normalizeLanguagesToStringArray(input: unknown): string[] {
-    if (!Array.isArray(input)) return [];
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const item of input) {
-        let s = '';
-        if (typeof item === 'string') {
-            s = item.trim();
-        } else if (item && typeof item === 'object' && item !== null && 'name' in item) {
-            const name = String((item as { name?: string }).name || '').trim();
-            const level = String((item as { level?: string }).level || '').trim();
-            if (!name && !level) s = '';
-            else if (level) s = `${name} (${level})`;
-            else s = name;
-        } else {
-            s = String(item ?? '').trim();
-        }
-        if (!s) continue;
-        const key = s.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        out.push(s);
-    }
-    return out;
-}
 
 // GET /api/candidates - جلب جميع المرشحين
 // قائمة المرشحين — لوحات HR المصادقة فقط (التدفقات العامة للمرشح تستخدم POST / و GET /:id).
