@@ -19,7 +19,7 @@
       "node": "Basic LLM Chain",
       "path": "messages.messageValues.0.message",
       "find": "- Position, experience, education, skills, or cover letter contain nonsense, lorem ipsum, ads, or unrelated spam\n",
-      "replace": "- The job, experience, education, skills, languages or certifications fields contain nonsense, lorem ipsum, advertising, links to sell something, or spam text\n"
+      "replace": "- ANY field (name, job, experience, current company, location, education, LinkedIn, skills, languages, certifications, availability or salary) contains nonsense, lorem ipsum, advertising, links to sell something, or spam text\n"
     },
     {
       "node": "Basic LLM Chain",

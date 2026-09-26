@@ -135,6 +135,12 @@ function testSystemMessage() {
         assert.ok(after.includes(never), `never-a-reason listed: ${never}`);
     }
     assert.ok(after.includes('You judge only whether this is spam, never whether the applicant fits the job.'));
+    // Spam in ANY field stays a reject. A first draft listed only some fields, and spam placed only in
+    // location / current company / LinkedIn slipped to 3-4 of 5 rejections in the replay (G4).
+    const rule = after.split('\n').find((l) => l.includes('contains nonsense, lorem ipsum, advertising')) || '';
+    for (const field of ['name', 'job', 'experience', 'current company', 'location', 'education', 'LinkedIn', 'skills', 'languages', 'certifications', 'availability', 'salary']) {
+        assert.ok(rule.includes(field), `the spam rule covers the ${field} field`);
+    }
     assert.ok(after.startsWith('='), 'still an n8n expression field');
     assert.ok(!after.includes('{{'), 'the system message stays literal (no expressions)');
 }
