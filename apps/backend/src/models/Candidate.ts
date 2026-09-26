@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { DEFAULT_ORG_ID, SYSTEM_ACTOR_ID } from '../config/multiTenant.js';
 import type { CandidateEvaluationContext } from '../shared/formTemplates/index.js';
+import { DEFAULT_SALARY_CURRENCY } from '../shared/salaryCurrency.js';
 import { tenantGuardPlugin } from './plugins/tenantGuard.js';
 
 // Interface للمرشح
@@ -361,7 +362,7 @@ const CandidateSchema = new Schema<ICandidate>({
     },
     salaryCurrency: {
         type: String,
-        default: 'USD'
+        default: DEFAULT_SALARY_CURRENCY
     },
     coverLetter: {
         type: String,

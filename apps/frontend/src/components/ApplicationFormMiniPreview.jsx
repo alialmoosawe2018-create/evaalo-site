@@ -147,9 +147,9 @@ function SectionAdditional() {
             </Field>
             <Field label="Expected Salary">
                 <div className="afmp-salary">
-                    <input type="number" readOnly value={7500} />
-                    <select disabled value="USD">
-                        <option value="USD">USD — دولار أمريكي ($)</option>
+                    <input type="number" readOnly value={1500000} />
+                    <select disabled value="IQD">
+                        <option value="IQD">IQD — دينار عراقي</option>
                     </select>
                 </div>
             </Field>

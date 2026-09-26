@@ -35,7 +35,17 @@ import {
     formatFileSize,
     mergeCertificateSelection,
 } from '../../constants/certificateUpload.js';
+import {
+    composeEducationForSubmit,
+    isEducationInProgressEligible,
+    normalizeRestoredDraft,
+} from '../../utils/applicationFormDefaults.js';
 import '../../styles.css';
+
+/* Not a form field id: submit only posts field ids, so this flag never reaches
+   the server (which rejects unknown keys). It changes what is sent for
+   highest_education_level — see composeEducationForSubmit. */
+const EDUCATION_IN_PROGRESS_KEY = 'highest_education_in_progress';
 
 function storageKeyForPub(pubToken) {
     return `evaalo_pub_form_${pubToken}`;
@@ -318,7 +328,7 @@ export default function DynamicApplicationForm({ pubToken }) {
                             resolved.displayTitle || parsed.position_applied_for;
                     }
                 }
-                setFormValues({ ...initial, ...parsed });
+                setFormValues({ ...initial, ...normalizeRestoredDraft(parsed) });
                 if (Array.isArray(parsed.skills)) {
                     /* skills restored via formValues */
                 }
@@ -565,6 +575,8 @@ export default function DynamicApplicationForm({ pubToken }) {
                     body.append(field.id, JSON.stringify(val ?? []));
                 } else if (field.type === 'boolean') {
                     body.append(field.id, val ? 'true' : 'false');
+                } else if (field.id === 'highest_education_level') {
+                    body.append(field.id, composeEducationForSubmit(val, formValues[EDUCATION_IN_PROGRESS_KEY]) ?? '');
                 } else {
                     body.append(field.id, val ?? '');
                 }
@@ -878,12 +890,35 @@ export default function DynamicApplicationForm({ pubToken }) {
                     <LanguageStyleSingleSelect
                         id={field.id}
                         value={formValues[field.id] ?? ''}
-                        onChange={(val) => handleInputChange(field.id, val)}
+                        onChange={(val) => {
+                            if (!isEducationInProgressEligible(val)) {
+                                setFormValues((prev) => ({ ...prev, [EDUCATION_IN_PROGRESS_KEY]: false }));
+                            }
+                            handleInputChange(field.id, val);
+                        }}
                         options={educationOptions}
                         placeholder={t('formField_highest_education_level_ph')}
                         aria-label={fieldLabel(t, field)}
                         listboxId="dynamic-education-menu"
                     />
+                    {isEducationInProgressEligible(formValues[field.id]) && (
+                        <div className="checkbox-group">
+                            <label className="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    id={EDUCATION_IN_PROGRESS_KEY}
+                                    checked={!!formValues[EDUCATION_IN_PROGRESS_KEY]}
+                                    onChange={(e) =>
+                                        setFormValues((prev) => ({
+                                            ...prev,
+                                            [EDUCATION_IN_PROGRESS_KEY]: e.target.checked,
+                                        }))
+                                    }
+                                />
+                                <span>{t('formField_highest_education_in_progress')}</span>
+                            </label>
+                        </div>
+                    )}
                     {hasError && <span className="error-message">{hasError}</span>}
                 </div>
             );

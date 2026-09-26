@@ -31,6 +31,13 @@ import {
     languageLevelLabel,
     SALARY_CURRENCY_OPTIONS,
 } from '../utils/formSelectOptions.js';
+import {
+    composeEducationForSubmit,
+    DEFAULT_SALARY_CURRENCY,
+    isEducationInProgressEligible,
+    normalizeRestoredDraft,
+    normalizeSalaryCurrency,
+} from '../utils/applicationFormDefaults.js';
 import '../styles.css';
 import apiClient, { ApiError } from '../services/apiClient.js';
 
@@ -119,11 +126,15 @@ const LegacyApplicationForm = () => {
         // Additional
         availability: '',
         expectedSalary: '',
-        salaryCurrency: 'USD',
+        salaryCurrency: DEFAULT_SALARY_CURRENCY,
         coverLetter: '',
         hearAboutUs: '',
         agreeToTerms: false
     });
+    /* Kept OUT of formData on purpose: every formData key is posted, and the
+       server rejects any key the campaign's form doesn't define (400). It only
+       changes what is sent for highest_education_level. */
+    const [educationInProgress, setEducationInProgress] = useState(false);
     const [skills, setSkills] = useState([]);
     const [languages, setLanguages] = useState([]);
     const [errors, setErrors] = useState({});
@@ -193,11 +204,6 @@ const LegacyApplicationForm = () => {
                     delete parsed.salaryMin;
                     delete parsed.salaryMax;
                 }
-                const allowedCurrency = ['USD', 'IQD'];
-                if (parsed.salaryCurrency != null) {
-                    const c = String(parsed.salaryCurrency).trim().toUpperCase();
-                    parsed.salaryCurrency = allowedCurrency.includes(c) ? c : 'USD';
-                }
                 delete parsed.files;
                 delete parsed.cv;
                 delete parsed.photo;
@@ -212,7 +218,7 @@ const LegacyApplicationForm = () => {
                         parsed.position_applied_for = resolved.displayTitle || parsed.position_applied_for;
                     }
                 }
-                setFormData(prev => ({ ...prev, ...parsed }));
+                setFormData(prev => ({ ...prev, ...normalizeRestoredDraft(parsed) }));
             } catch (e) {
                 console.error('Error loading saved form data:', e);
             }
@@ -227,12 +233,7 @@ const LegacyApplicationForm = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        const nextValue =
-            name === 'salaryCurrency'
-                ? ['USD', 'IQD'].includes(String(value).toUpperCase())
-                    ? String(value).toUpperCase()
-                    : 'USD'
-                : value;
+        const nextValue = name === 'salaryCurrency' ? normalizeSalaryCurrency(value) : value;
         setFormData(prev => ({
             ...prev,
             [name]: nextValue
@@ -514,6 +515,8 @@ const LegacyApplicationForm = () => {
                 } else if (key === 'agreeToTerms') {
                     // Handle boolean
                     formDataToSend.append(key, dataToSend[key] ? 'true' : 'false');
+                } else if (key === 'highest_education_level') {
+                    formDataToSend.append(key, composeEducationForSubmit(dataToSend[key], educationInProgress) || '');
                 } else {
                     formDataToSend.append(key, dataToSend[key] || '');
                 }
@@ -574,9 +577,10 @@ const LegacyApplicationForm = () => {
                 position_applied_for: '', company_applied_to: '', years_of_experience: '', current_company: '',
                 highest_education_level: '', linkedin: '',
                 skills: [], languages: [], certifications: '',
-                availability: '', expectedSalary: '', salaryCurrency: 'USD',
+                availability: '', expectedSalary: '', salaryCurrency: DEFAULT_SALARY_CURRENCY,
                 coverLetter: '', hearAboutUs: '', agreeToTerms: false
             });
+            setEducationInProgress(false);
             setSkills([]);
             setLanguages([]);
             setLanguageInputValue('');
@@ -1149,17 +1153,32 @@ const LegacyApplicationForm = () => {
                     <LanguageStyleSingleSelect
                         id="highest_education_level"
                         value={formData.highest_education_level}
-                        onChange={(val) =>
+                        onChange={(val) => {
+                            if (!isEducationInProgressEligible(val)) setEducationInProgress(false);
                             handleInputChange({
                                 target: { name: 'highest_education_level', value: val },
-                            })
-                        }
+                            });
+                        }}
                         options={educationOptions}
                         placeholder={fph('highest_education_level')}
                         aria-label={ft('highest_education_level')}
                         listboxId="form-highest-education-menu"
                         disabled={isPreviewMode}
                     />
+                    {isEducationInProgressEligible(formData.highest_education_level) && (
+                        <div className="checkbox-group">
+                            <label className="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    id="highest_education_in_progress"
+                                    checked={educationInProgress}
+                                    onChange={(e) => setEducationInProgress(e.target.checked)}
+                                    disabled={isPreviewMode}
+                                />
+                                <span>{t('formField_highest_education_in_progress')}</span>
+                            </label>
+                        </div>
+                    )}
                 </div>
 
                 <div className="form-group">
@@ -1272,11 +1291,7 @@ const LegacyApplicationForm = () => {
                         className="salary-currency-select"
                         aria-label={ft('salaryCurrency')}
                         listboxId="form-salary-currency-menu"
-                        value={
-                            ['USD', 'IQD'].includes(String(formData.salaryCurrency || '').toUpperCase())
-                                ? String(formData.salaryCurrency).trim().toUpperCase()
-                                : 'USD'
-                        }
+                        value={normalizeSalaryCurrency(formData.salaryCurrency)}
                         onChange={(val) =>
                             handleInputChange({ target: { name: 'salaryCurrency', value: val } })
                         }

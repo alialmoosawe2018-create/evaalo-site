@@ -31,6 +31,7 @@ import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
 import { extractTextFromCv, CvExtractionError } from './cvTextExtractor.js';
 import { CV_ACCEPTED_MIME_TYPES } from '../shared/formTemplates/types.js';
+import { DEFAULT_SALARY_CURRENCY } from '../shared/salaryCurrency.js';
 import { deriveCertificateTitle } from './certificateTitle.js';
 import {
     readCertificateWithVision,
@@ -622,7 +623,7 @@ const sendToN8NImpl = async (candidateData: CandidateData, campaignId?: string):
             expectedSalary: candidateData.expectedSalary || null,
             salaryMin: candidateData.salaryMin || null,
             salaryMax: candidateData.salaryMax || null,
-            salaryCurrency: candidateData.salaryCurrency || 'USD',
+            salaryCurrency: candidateData.salaryCurrency || DEFAULT_SALARY_CURRENCY,
             availability: candidateData.availability || null,
             coverLetter: candidateData.coverLetter || '',
             hearAboutUs: candidateData.hearAboutUs || null,

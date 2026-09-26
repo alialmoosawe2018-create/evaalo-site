@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import mongoose, { Schema, Document, Types } from 'mongoose';
 import { DEFAULT_ORG_ID } from '../config/multiTenant.js';
 import type { CandidateEvaluationContext } from '../shared/formTemplates/index.js';
+import { DEFAULT_SALARY_CURRENCY } from '../shared/salaryCurrency.js';
 import { tenantGuardPlugin } from './plugins/tenantGuard.js';
 
 /** أنواع مرفقات التقديم (أوسع من files القديمة). */
@@ -304,7 +305,7 @@ const CandidateApplicationSchema = new Schema<ICandidateApplication>(
         expectedSalary: { type: String, trim: true },
         salaryMin: { type: String, trim: true },
         salaryMax: { type: String, trim: true },
-        salaryCurrency: { type: String, default: 'USD' },
+        salaryCurrency: { type: String, default: DEFAULT_SALARY_CURRENCY },
         coverLetter: { type: String, trim: true },
         hearAboutUs: { type: String, trim: true },
         agreeToTerms: { type: Boolean, default: false },

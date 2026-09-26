@@ -267,7 +267,47 @@ function testRejectCertificateWrongMimeOrSize() {
     assert.ok(tooBig.errors.some((e) => e.field === 'certificates'));
 }
 
+/**
+ * The two values the application forms now send (2026-09-26) must pass every
+ * campaign's stored form: the IQD currency default, and an education level with
+ * the "still studying" suffix (the field is free text, so no snapshot change).
+ */
+function testCurrencyAndInProgressEducationAccepted() {
+    const binding = createFormBindingForTemplate(DEFAULT_FORM_TEMPLATE_ID);
+    for (const salaryCurrency of ['IQD', 'USD']) {
+        const ok = validateApplicationSubmission(binding.snapshot, {
+            body: validBody({ expectedSalary: '700000', salaryCurrency }),
+            files: validFiles(),
+        });
+        assert.equal(ok.ok, true, `${salaryCurrency} must be accepted`);
+        assert.equal(ok.normalized.salaryCurrency, salaryCurrency);
+    }
+    const eur = validateApplicationSubmission(binding.snapshot, {
+        body: validBody({ expectedSalary: '700000', salaryCurrency: 'EUR' }),
+        files: validFiles(),
+    });
+    assert.equal(eur.ok, false, 'a currency the form does not offer is still rejected');
+    assert.ok(eur.errors.some((e) => e.field === 'salaryCurrency'));
+
+    const student = validateApplicationSubmission(binding.snapshot, {
+        body: validBody({ highest_education_level: 'bachelor (in progress)' }),
+        files: validFiles(),
+    });
+    assert.equal(student.ok, true, 'the in-progress education value must be accepted');
+    assert.equal(student.normalized.highest_education_level, 'bachelor (in progress)');
+
+    // The checkbox flag itself is never posted — if it were, it would be rejected.
+    const leaked = validateApplicationSubmission(binding.snapshot, {
+        body: validBody({ highest_education_in_progress: 'true' }),
+        files: validFiles(),
+    });
+    assert.equal(leaked.ok, false, 'the checkbox flag is not a form field and must never be sent');
+}
+
 function main() {
+    testCurrencyAndInProgressEducationAccepted();
+    console.log('✓ IQD/USD and "bachelor (in progress)" accepted; EUR and the checkbox flag rejected');
+
     testValidMinimalSubmit();
     console.log('✓ valid minimal submit');
 

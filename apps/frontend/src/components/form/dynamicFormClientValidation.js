@@ -1,3 +1,5 @@
+import { DEFAULT_SALARY_CURRENCY } from '../../utils/applicationFormDefaults.js';
+
 function asTrimmedString(v) {
     if (v === undefined || v === null) return '';
     return String(v).trim();
@@ -162,7 +164,7 @@ export function buildInitialFormValues(fields) {
         } else if (field.type === 'string_array' || field.type === 'language_array') {
             values[field.id] = [];
         } else if (field.id === 'salaryCurrency') {
-            values[field.id] = 'USD';
+            values[field.id] = DEFAULT_SALARY_CURRENCY;
         } else if (field.type !== 'file') {
             values[field.id] = '';
         }

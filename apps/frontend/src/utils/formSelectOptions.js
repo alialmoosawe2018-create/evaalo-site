@@ -122,7 +122,8 @@ export function languageLevelLabel(t, levelValue) {
     return key ? t(key) : levelValue;
 }
 
+/** IQD first: it is the default (utils/applicationFormDefaults.js). */
 export const SALARY_CURRENCY_OPTIONS = [
-    { value: 'USD', label: 'USD' },
     { value: 'IQD', label: 'IQD' },
+    { value: 'USD', label: 'USD' },
 ];

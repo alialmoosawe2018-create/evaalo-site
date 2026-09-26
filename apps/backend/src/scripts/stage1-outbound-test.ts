@@ -152,7 +152,49 @@ async function testOptionalModeMissingSecretsLegacyOutbound(): Promise<void> {
     );
 }
 
+/**
+ * 2026-09-26: a missing currency used to be filled in as USD, so an Iraqi
+ * applicant's typed "700000" reached the AI screener as 700,000 US dollars.
+ * The default is now IQD (the owner's decision) — and a currency the applicant
+ * DID choose must still pass through untouched.
+ */
+async function testSalaryCurrencyDefault(): Promise<void> {
+    await withEnv(
+        {
+            N8N_WEBHOOK_URL: N8N_WEBHOOK,
+            STAGE_CALLBACK_SECURITY_MODE: 'optional',
+            N8N_STAGE_INBOUND_SECRET: undefined,
+            STAGE_CALLBACK_SIGNING_SECRET: undefined,
+            STAGE_CALLBACK_ALLOWLIST: undefined,
+            PUBLIC_API_URL: 'http://localhost:5000',
+        },
+        async () => {
+            for (const [given, expected] of [
+                [undefined, 'IQD'],
+                ['', 'IQD'],
+                ['USD', 'USD'],
+                ['IQD', 'IQD'],
+            ] as const) {
+                const { restore, capture } = stubFetch();
+                try {
+                    const stub = given === undefined
+                        ? { ...CANDIDATE_STUB, expectedSalary: '700000' }
+                        : { ...CANDIDATE_STUB, expectedSalary: '700000', salaryCurrency: given };
+                    assert.equal(await sendToN8N(stub), true);
+                    assert.equal(capture.body!.salaryCurrency, expected, `currency ${String(given)} → ${expected}`);
+                    assert.equal(capture.body!.expectedSalary, '700000');
+                } finally {
+                    restore();
+                }
+            }
+        }
+    );
+}
+
 async function main(): Promise<void> {
+    await testSalaryCurrencyDefault();
+    console.log('✓ a missing salary currency is sent as IQD; a chosen one passes through');
+
     await testRequiredModeIncludesSecureBundle();
     console.log('✓ required mode + test secrets → callbackUrl + inboundSecret on Stage 1 payload');
 
