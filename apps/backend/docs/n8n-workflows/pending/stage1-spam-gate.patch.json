@@ -1,0 +1,37 @@
+{
+  "_warning": "PROPOSED, NOT PUBLISHED (2026-09-26). A patch against Stage 1 version fade64a7 (the published claim guard) that edits ONLY the anti-spam gate node \"Basic LLM Chain\". Never import this file. Test: npm run test:stage1-spam-gate. Why: once the typed form fields reach n8n (S0), the gate rejected 3 of 28 real applicants (15/140 replay runs vs 0/140 with empty fields) and a gate reject is stored as score 0 / Reject. It read the job line as the applicant's own claim of seniority, treated a reused cover letter as a contradiction, and its contradiction rule had no limits. On ?pub= links the job line IS the applicant's own pick (never reconciled to the campaign role), so the new label says it can be either.",
+  "workflowId": "93b459bc-4db3-4829-822a-1b9e4c39ac00",
+  "baseVersionId": "fade64a7-faf4-457c-9262-e47e52f9e5f0",
+  "parameterEdits": [
+    {
+      "node": "Basic LLM Chain",
+      "path": "text",
+      "find": "\nposition: {{ $('Webhook').item.json.body.position_applied_for }}\n",
+      "replace": "\njob selected on the form (the employer's vacancy or the applicant's own pick - says nothing about the applicant's seniority): {{ $('Webhook').item.json.body.position_applied_for }}\n"
+    },
+    {
+      "node": "Basic LLM Chain",
+      "path": "text",
+      "find": "\ncover letter: {{ $('Webhook').item.json.body.coverLetter }}",
+      "replace": ""
+    },
+    {
+      "node": "Basic LLM Chain",
+      "path": "messages.messageValues.0.message",
+      "find": "- Position, experience, education, skills, or cover letter contain nonsense, lorem ipsum, ads, or unrelated spam\n",
+      "replace": "- The job, experience, education, skills, languages or certifications fields contain nonsense, lorem ipsum, advertising, links to sell something, or spam text\n"
+    },
+    {
+      "node": "Basic LLM Chain",
+      "path": "messages.messageValues.0.message",
+      "find": "- Fields clearly contradict each other\n",
+      "replace": "- The applicant's OWN fields contradict each other in a way no genuine applicant's could (a field that is itself a copy of another field's gibberish, or values that are plainly machine-generated)\n"
+    },
+    {
+      "node": "Basic LLM Chain",
+      "path": "messages.messageValues.0.message",
+      "find": "ACCEPT (valid: true) if data looks like a genuine job seeker. Minor typos and empty optional fields are OK.\n",
+      "replace": "ACCEPT (valid: true) if data looks like a genuine job seeker. Minor typos and empty optional fields are OK.\n\nThese describe a real applicant and are NEVER a reason to reject:\n- the selected job does not match the applicant's experience, education, seniority or background (a junior applying to a senior job, a career changer, an over-qualified applicant)\n- a location, city or country different from the job's\n- education marked \"(in progress)\" - a current student\n- any salary amount or any currency\n- polished, formal or AI-assisted wording\n- Arabic or Kurdish names and text, or such names written in Latin letters\nYou judge only whether this is spam, never whether the applicant fits the job.\n"
+    }
+  ]
+}
