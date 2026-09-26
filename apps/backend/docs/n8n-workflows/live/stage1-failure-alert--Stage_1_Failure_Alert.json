@@ -1,0 +1,66 @@
+{
+  "_exportedFrom": "n8n live (n8n.evaalo.com)",
+  "_exportedAt": "2026-09-26",
+  "_warning": "BASELINE SNAPSHOT OF THE LIVE WORKFLOW. The recipient address is redacted here (the live node holds the owner's inbox) and the credentials block is stripped like every baseline here (the live node uses the Gmail credential named 'Gmail account'). Stage 1 v.2 points at this id through settings.errorWorkflow: if it is ever recreated under a new id, update that setting too, or every Stage 1 stop becomes silent.",
+  "id": "kVGT46meJL5BUQP2",
+  "name": "Stage 1 Failure Alert",
+  "active": true,
+  "versionId": "d72b0f56-9e1c-4f9d-93aa-3759ad5b3dbb",
+  "updatedAt": "2026-09-25T22:41:03.595Z",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "nodes": [
+    {
+      "id": "39d0a3e2-21cb-4bae-bf84-cfb79fa0d5fa",
+      "name": "On Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "1734d9b1-e11d-4ec7-b43f-ecf6cf5ea0d2",
+      "name": "Email Owner",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "<owner inbox - redacted in the repo>",
+        "subject": "=⚠️ Evaalo n8n failure: {{ $json.workflow.name }} (execution {{ $json.execution.id }})",
+        "emailType": "text",
+        "message": "=An n8n workflow run failed and was stopped. No verdict was sent for this run.\n\nWorkflow: {{ $json.workflow.name }} ({{ $json.workflow.id }})\nExecution: {{ $json.execution.id }}\nLink: {{ $json.execution.url }}\nFailed node: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error.message }}\nMode: {{ $json.execution.mode }}\nAlert time: {{ $now.toISO() }}\n\nOpen the execution link to see where it stopped. Candidate data is deliberately not included in this email.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "webhookId": "a8b055c2-37f0-4736-8701-f03e80a877fe"
+    }
+  ],
+  "connections": {
+    "On Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Email Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp"
+  }
+}

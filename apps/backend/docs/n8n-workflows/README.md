@@ -27,7 +27,7 @@ n8n are referenced by id, never inlined, and the scan came back clean.
 
 | File | Workflow | id | nodes | webhook |
 |---|---|---|---|---|
-| `stage1-screening--Stage_1_v2` | Stage 1 v.2 — CV/written screening | `93b459bc…` | 26 | `cc4f6e33` |
+| `stage1-screening--Stage_1_v2` | Stage 1 v.2 — CV/written screening | `93b459bc…` | 29 | `cc4f6e33` |
 | `stage2-voice--stage_2_v2` | stage 2 v.2 — voice interview scoring | `BB87WRQQ…` | 18 | `c7ab59d7` |
 | `stage3-video--stage_3_v2` | stage 3 v.2 — video interview scoring | `dWJzDwAd…` | 17 | `2414e184` |
 | `compare-stage1--…` | Campaign Compare — Stage 1 (Secure ) | `tk2tAop5…` | 14 | `9391209e` |
@@ -36,6 +36,72 @@ n8n are referenced by id, never inlined, and the scan came back clean.
 | `headhunter--AI_Head_hunter` | AI Head hunter | `GlhDGC23…` | 43 | `c92f31a7` |
 | `cv-comparison--CV_Comparison` | CV Comparison | `hmPyS1Hy…` | 17 | `5a2e23d9` |
 | `log-alerts--Evaalo_Log_Alerts` | Evaalo Log Alerts | `lubD2hXc…` | 2 | `evaalo-log-alerts` |
+| `stage1-failure-alert--Stage_1_Failure_Alert` | Stage 1 Failure Alert — Error Trigger → Gmail to the owner | `kVGT46me…` | 2 | — (error workflow) |
+
+**Stage 1 failure alert (2026-09-26).** Stage 1 answers "Accepted" to the backend before it
+evaluates, so a run that dies later was invisible: no verdict, no retry, no signal. Stage 1's
+`settings.errorWorkflow` now points at `kVGT46meJL5BUQP2`, which emails the owner the workflow,
+execution id, link, failed node and error — never candidate data. Proven end to end on
+execution 1963 → alert 1964. n8n does **not** fire an error workflow for manual runs. If the
+alert workflow is ever recreated under a new id, update Stage 1's setting too.
+
+**Stage 1 refreshed 2026-09-26** to live version `030e2370` (was `a7bef750` of 2026-09-06,
+which no longer matched what runs): +2 nodes (`Email Validity Gate`, `Note Email Typo`),
+the weighted scorer with the role-fit floor, must-haves and the experience cap, the
+"evidence comes from the record" prompt, the salary line reading `expectedSalary`, and
+the callback's `red_flags` / `status` fields. Scanned: no credential values, no personal data.
+
+**Stage 1 claim guard published 2026-09-26 00:06Z → version `fade64a7`** (29 nodes: + `Stage 1
+Claim Guard` between the Assessment LLM and Scoring, + 16 prompt edits). The baseline here was
+built as the archived pre-guard version (`archive/…--ec1f1214-before-claim-guard.json`) plus the
+patch in `pending/`, and matches the published workflow by fingerprint (nodes `85a12226748f865e`,
+connections `9c80cc89cdfb6da4`, computed on both sides). Rollback: re-import
+`/root/s1_backup_before_phase1_final_20260926.json` on the VPS, publish, restart n8n.
+
+## `pending/` — proposed changes, NOT live
+
+A change to a live workflow that has been designed and tested but not published.
+Stored as a **patch against a `live/` baseline** (find/replace anchors + any new node's
+code in its own file), never as an importable workflow: a full export would carry the
+live id and webhook path and recreate the decoy hazard described below.
+
+| File | What | Base version | Test |
+|---|---|---|---|
+| `stage1-claim-guard.patch.json` + `stage1-claim-guard.node.js` | **PUBLISHED 2026-09-26 (`fade64a7`) — kept because the test rebuilds the live workflow from the archived base + this patch.** Stage 1 claim guard: a verifiable criterion supported only by an application field or the cover letter scores 0 (`not_assessed`); the job applied for never raises an integrity concern (S24); employer-written custom criteria are audit-only; FAILS CLOSED — unreadable criteria, unparseable evaluator output (S26) or an internal error stop the run with no verdict, and the stop message names the candidate / campaign / application ids for the alert email. ⚠️ The node's own header comment still reads "PROPOSED, NOT LIVE": it is part of the published code, so it changes only with the next publish | `ec1f1214` | `npm run test:stage1-claim-guard` |
+
+### Re-sending a Stage 1 application the guard stopped
+
+Stage 1 answers "Accepted" before it evaluates, so when the guard stops a run the backend has
+already marked that dispatch `delivered` — and a delivered row is never picked up again
+(`flushStage1EvaluationOutboxEntry` claims only `pending`/`failed` rows under 5 attempts;
+`stage1-redispatch-one` prints "NOTHING SENT" for it; `verify-stage1-victims` counts only
+applications with NO row). The alert email's `Error:` line names the ids. Put the row back in
+the queue; the 5-minute sweep (`processPendingStage1EvaluationOutbox`) re-sends it:
+
+```bash
+docker exec -i evaalo-api node - <<'EOF'
+const { MongoClient } = require('mongodb');
+(async () => {
+  const c = await MongoClient.connect(process.env.MONGODB_URI);
+  const r = await c.db().collection('stage1_evaluation_outbox').updateMany(
+    { candidateId: '<candidate id>', campaignId: '<campaign id>', status: 'delivered' },
+    { $set: { status: 'pending', attempts: 0, lastError: 'reset after a Stage 1 guard stop' } });
+  console.log('rows reset', r.modifiedCount); await c.close();
+})();
+EOF
+```
+
+Verified 2026-09-26: the connection, database (`evaalo`) and collection resolve from inside
+`evaalo-api` (read-only count). The update itself has not been run against a real stop yet.
+Fix the cause first — a criteria-read failure (the backend's swallowed campaign lookup, F6)
+may be transient; a deterministic one will stop again. The durable fix is backend work:
+`sendToN8NImpl` should refuse to send when a campaign is named but cannot be loaded, so the
+outbox retries on its own instead of shipping a request with no criteria.
+
+The test builds the candidate workflow in memory from `live/` + the patch and runs the
+guard and the live scorer together. **Never import a pending file.** Applying one to
+n8n is a separate, reviewed step; after it goes live, re-export `live/` and delete the
+pending files.
 
 ## `archive/` — do not import
 
@@ -89,6 +155,21 @@ Edit, then publish. **Never unpublish a live workflow hoping to republish it** �
 MCP publish API hits a self-conflict on the workflow's own webhook registration and
 cannot re-activate it, which once left an orphaned registration returning 200 while
 executing nothing. Recovery required toggling Active in the n8n UI by hand.
+
+**Server-side publish (the big workflows, whose code the MCP mangles):** `n8n export:workflow`
+→ patch the export inside the container → `n8n import:workflow` → `n8n publish:workflow`.
+`import:workflow` **deactivates** the workflow and the running n8n drops its webhook: it answers
+404 until `docker restart n8n-server-n8n-1` (~25 s). Restart only with no execution running and
+no live interview, then confirm the path answers 400 to an empty POST and that every other
+production path is still registered — probe with GET, which never runs a workflow ("did you
+mean to make a POST" = registered).
+
+**Testing a change on the real runtime before it touches production:** import the patched
+export as a NEW workflow (new id, a random dead webhook path, no `errorWorkflow`), activate it
+with the MCP `publish_workflow` (a first publish registers immediately, no restart), send
+synthetic multipart requests with `dry0…` ids and an invalid callback token, then unpublish and
+archive it. MCP `execute_workflow` cannot do this for Stage 1: it sends no binary, and Spam
+Pre-Check rejects a submission without a CV file (`missing_cv`).
 
 ## Refreshing this baseline
 
