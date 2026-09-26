@@ -109,6 +109,33 @@ may be transient; a deterministic one will stop again. The durable fix is backen
 `sendToN8NImpl` should refuse to send when a campaign is named but cannot be loaded, so the
 outbox retries on its own instead of shipping a request with no criteria.
 
+### Re-evaluating an applicant the anti-spam gate rejected by mistake
+
+A gate reject is a real callback, not a stop. `Reject Application` posts `overall_score` 0,
+`recommendation` Reject and `rejectCode` `ai_spam`. The backend then sets the application's `status`
+to `rejected` and appends `[n8n:ai_spam] <reason>` to its notes (`applyN8nRejectHandling`,
+`stageWebhookMerge.ts`).
+
+The applicant cannot fix it by applying again: a second submission is refused with 400
+`APPLICATION_EXISTS`. The outbox row is `delivered`, so it is never re-sent on its own.
+
+**Procedure:**
+1. Find the application: its notes carry `[n8n:ai_spam]` and its written evaluation scores 0.
+2. Take its `candidateId` and `campaignId`.
+3. Run the **same reset** as above, with `lastError: 'reset: re-evaluate after a wrong gate reject'`.
+4. Within 5 minutes the sweep re-sends it, and it is evaluated with the CURRENT gate.
+
+**Why the reject is replaced:** the success callback (`HTTP Request` node) sends `status` = the
+Scoring status (`scored` / `manual_review` / `insufficient_data`).
+- `applyN8nRejectHandling` sets `rejected` only when the callback carries NO status.
+- `server.ts` then writes `updateData.status = data.status`, which replaces `rejected`.
+- `mergeEval` overwrites the stored score, recommendation and narratives with the new evaluation.
+
+**What stays, and what it costs:**
+- The old `[n8n:ai_spam]` line stays in the notes; remove it by hand if wanted.
+- It costs one screening credit.
+- Proven by reading the code (the lines above), not yet by running it against a real wrong reject.
+
 The test builds the candidate workflow in memory from `live/` + the patch and runs the
 guard and the live scorer together. **Never import a pending file.** Applying one to
 n8n is a separate, reviewed step; after it goes live, re-export `live/` and delete the
