@@ -244,10 +244,17 @@ export async function flushStage1EvaluationOutboxEntry(outboxId: string): Promis
               })
             : null;
         const personId = candidate._id?.toString?.() || String(candidate._id);
+        /* `.toObject()` is the whole fix for S0. `findApplicationForCallback`
+           returns a HYDRATED document (the callback path saves it), and the row
+           builder spreads it: `{ ...hydratedDoc }` copies no fields at all, only
+           Mongoose internals. Since 2026-09-06 (37cbe34) every Stage 1 dispatch
+           reached the evaluator with skills, languages, experience, education,
+           salary, availability and the cover letter EMPTY — only the handful of
+           keys the builder names explicitly survived. A plain object spreads. */
         const candidateObj = application
             ? {
                   ...applicationToStageListRow(
-                      application as unknown as Record<string, unknown>,
+                      application.toObject() as Record<string, unknown>,
                       candidate as unknown as Record<string, unknown>
                   ),
                   _id: personId,
