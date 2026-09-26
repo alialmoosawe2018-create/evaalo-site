@@ -1,14 +1,14 @@
 {
   "_exportedFrom": "n8n live (n8n.evaalo.com)",
-  "_exportedAt": "2026-09-26T17:30:00Z",
-  "_warning": "BASELINE SNAPSHOT OF THE LIVE WORKFLOW. Do NOT import over production without checking webhook path collisions first. Spam gate v2 PUBLISHED 2026-09-26 17:26Z as 90c8211f; rollback: re-import /root/s1_backup_before_spamgate_20260926.json (= fade64a7), publish, restart n8n.",
+  "_exportedAt": "2026-09-26",
+  "_warning": "ARCHIVED 2026-09-26: Stage 1 as published at fade64a7 (claim guard), replaced by version 90c8211f (spam gate v2). Kept as the BASE for test:stage1-spam-gate and the TARGET for test:stage1-claim-guard. NEVER import this file.",
   "id": "93b459bc-4db3-4829-822a-1b9e4c39ac00",
   "name": "Stage 1 v.2",
   "active": true,
   "description": null,
-  "versionId": "90c8211f-2704-4e6d-a879-df9f90b86897",
-  "activeVersionId": "90c8211f-2704-4e6d-a879-df9f90b86897",
-  "updatedAt": "2026-09-26T17:26:30.000Z",
+  "versionId": "fade64a7-faf4-457c-9262-e47e52f9e5f0",
+  "activeVersionId": "fade64a7-faf4-457c-9262-e47e52f9e5f0",
+  "updatedAt": "2026-09-26T00:06:17.000Z",
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
@@ -38,11 +38,11 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "=Full_Name: {{ $('Webhook').item.json.body.full_name }}\nemail: {{ $('Webhook').item.json.body.email }}\nphone: {{ $('Webhook').item.json.body.phone }}\nlocation: {{ $('Webhook').item.json.body.location }}\njob selected on the form (the employer's vacancy or the applicant's own pick - says nothing about the applicant's seniority): {{ $('Webhook').item.json.body.position_applied_for }}\nexperience: {{ $('Webhook').item.json.body.years_of_experience }}\ncurrent company: {{ $('Webhook').item.json.body.current_company }}\neducation: {{ $('Webhook').item.json.body.highest_education_level }}\nlinkedin: {{ $('Webhook').item.json.body.linkedin }}\nskills: {{ $('Webhook').item.json.body.skills }}\nlanguages: {{ $('Webhook').item.json.body.languages }}\ncertifications: {{ $('Webhook').item.json.body.certifications }}\navailability: {{ $('Webhook').item.json.body.availability }}\nsalary: {{ $('Webhook').item.json.body.expectedSalary ? ($('Webhook').item.json.body.expectedSalary + ' ' + ($('Webhook').item.json.body.salaryCurrency || '')).trim() : 'not provided' }}",
+        "text": "=Full_Name: {{ $('Webhook').item.json.body.full_name }}\nemail: {{ $('Webhook').item.json.body.email }}\nphone: {{ $('Webhook').item.json.body.phone }}\nlocation: {{ $('Webhook').item.json.body.location }}\nposition: {{ $('Webhook').item.json.body.position_applied_for }}\nexperience: {{ $('Webhook').item.json.body.years_of_experience }}\ncurrent company: {{ $('Webhook').item.json.body.current_company }}\neducation: {{ $('Webhook').item.json.body.highest_education_level }}\nlinkedin: {{ $('Webhook').item.json.body.linkedin }}\nskills: {{ $('Webhook').item.json.body.skills }}\nlanguages: {{ $('Webhook').item.json.body.languages }}\ncertifications: {{ $('Webhook').item.json.body.certifications }}\navailability: {{ $('Webhook').item.json.body.availability }}\nsalary: {{ $('Webhook').item.json.body.expectedSalary ? ($('Webhook').item.json.body.expectedSalary + ' ' + ($('Webhook').item.json.body.salaryCurrency || '')).trim() : 'not provided' }}\ncover letter: {{ $('Webhook').item.json.body.coverLetter }}",
         "messages": {
           "messageValues": [
             {
-              "message": "=You are a strict anti-spam validator for job applications.\n\nThe email address is NOT yours to judge. It is validated deterministically before you see it: malformed, placeholder and disposable addresses are rejected upstream, and a mistyped domain is deliberately allowed through and flagged for the recruiter. NEVER return valid:false because of the email, and never mention the email address in your reason.\n\nREJECT (valid: false) if ANY apply:\n- Name is gibberish, keyboard mash, or not a real person name\n- Phone is fake, too short, or all same digits\n- ANY field (name, job, experience, current company, location, education, LinkedIn, skills, languages, certifications, availability or salary) contains nonsense, lorem ipsum, advertising, links to sell something, or spam text\n- Content looks automated, bot-generated, or test data (asdf, 123456, test test)\n- The applicant's OWN fields contradict each other in a way no genuine applicant's could (a field that is itself a copy of another field's gibberish, or values that are plainly machine-generated)\n\nACCEPT (valid: true) if data looks like a genuine job seeker. Minor typos and empty optional fields are OK.\n\nThese describe a real applicant and are NEVER a reason to reject:\n- the selected job does not match the applicant's experience, education, seniority or background (a junior applying to a senior job, a career changer, an over-qualified applicant)\n- a location, city or country different from the job's\n- education marked \"(in progress)\" - a current student\n- any salary amount or any currency\n- polished, formal or AI-assisted wording\n- Arabic or Kurdish names and text, or such names written in Latin letters\nYou judge only whether this is spam, never whether the applicant fits the job.\n\nReturn JSON only: {\"valid\": boolean, \"reason\": \"short explanation\"}"
+              "message": "=You are a strict anti-spam validator for job applications.\n\nThe email address is NOT yours to judge. It is validated deterministically before you see it: malformed, placeholder and disposable addresses are rejected upstream, and a mistyped domain is deliberately allowed through and flagged for the recruiter. NEVER return valid:false because of the email, and never mention the email address in your reason.\n\nREJECT (valid: false) if ANY apply:\n- Name is gibberish, keyboard mash, or not a real person name\n- Phone is fake, too short, or all same digits\n- Position, experience, education, skills, or cover letter contain nonsense, lorem ipsum, ads, or unrelated spam\n- Content looks automated, bot-generated, or test data (asdf, 123456, test test)\n- Fields clearly contradict each other\n\nACCEPT (valid: true) if data looks like a genuine job seeker. Minor typos and empty optional fields are OK.\n\nReturn JSON only: {\"valid\": boolean, \"reason\": \"short explanation\"}"
             }
           ]
         },

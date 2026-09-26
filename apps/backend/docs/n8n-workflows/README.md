@@ -58,6 +58,16 @@ patch in `pending/`, and matches the published workflow by fingerprint (nodes `8
 connections `9c80cc89cdfb6da4`, computed on both sides). Rollback: re-import
 `/root/s1_backup_before_phase1_final_20260926.json` on the VPS, publish, restart n8n.
 
+**Stage 1 spam gate v2 published 2026-09-26 17:26Z → version `90c8211f`** (still 29 nodes;
+only `Basic LLM Chain` changed). `live/` was built as the archived `fade64a7`
+(`archive/…--fade64a7-before-spam-gate.json`) plus `pending/stage1-spam-gate.patch.json`. It matches
+the ACTIVE version on the server by fingerprint: nodes `0acd8fd584196bdf` and connections `9c80cc89cdfb6da4`,
+computed on both sides from `workflow_history` at `activeVersionId`. On the server the active gate
+hashes to sys `7a9fafee…` and text `6ab18784…`, and the claim guard and Scoring are unchanged. n8n was
+down for 28 s during the restart, with no interview and no execution running, and all 9 webhook
+workflows re-registered. Rollback: re-import `/root/s1_backup_before_spamgate_20260926.json` (= `fade64a7`)
+on the VPS, publish, restart n8n.
+
 ## `pending/` — proposed changes, NOT live
 
 A change to a live workflow that has been designed and tested but not published.
@@ -68,7 +78,7 @@ live id and webhook path and recreate the decoy hazard described below.
 | File | What | Base version | Test |
 |---|---|---|---|
 | `stage1-claim-guard.patch.json` + `stage1-claim-guard.node.js` | **PUBLISHED 2026-09-26 (`fade64a7`) — kept because the test rebuilds the live workflow from the archived base + this patch.** Stage 1 claim guard: a verifiable criterion supported only by an application field or the cover letter scores 0 (`not_assessed`); the job applied for never raises an integrity concern (S24); employer-written custom criteria are audit-only; FAILS CLOSED — unreadable criteria, unparseable evaluator output (S26) or an internal error stop the run with no verdict, and the stop message names the candidate / campaign / application ids for the alert email. ⚠️ The node's own header comment still reads "PROPOSED, NOT LIVE": it is part of the published code, so it changes only with the next publish | `ec1f1214` | `npm run test:stage1-claim-guard` |
-| `stage1-spam-gate.patch.json` | **PROPOSED, NOT PUBLISHED (2026-09-26).** Edits only the anti-spam gate `Basic LLM Chain`. Once S0 sends the typed fields, the old gate rejected 3 of 28 real applicants (15/140 replay runs; a gate reject is stored as 0/Reject). The patch gives the job line a neutral label, because on `?pub=` links the applicant picks it. It removes the cover letter from the gate, limits contradictions to the applicant's own fields, and lists what is never spam. Pre-registered replay (v2): 0/140 rejections on the S0 bodies (the old gate, same harness: 18-22/140); 0/40 on held-out honest cases; 0/140 on today's traffic; every one of the 13 non-cover-letter spam cases still caught; and 13 harder probes (Arabic-script spam, fluent bot text, spam in a single field such as location or LinkedIn, planted instructions in skills) all caught 5/5. v1 listed only some fields in the reject rule, and spam placed only in location, company or LinkedIn slipped to 3-4 of 5, so v2 names every field. Pretest on a temporary copy (execution 1985): the patch applied by hash to the server export, and the real runtime rendered the gate prompt byte-identical to the replay harness. Publish with the server-side recipe below; archive `fade64a7` and point the test's base at it in the same commit that refreshes `live/` | `fade64a7` | `npm run test:stage1-spam-gate` |
+| `stage1-spam-gate.patch.json` | **PUBLISHED 2026-09-26 17:26Z (`90c8211f`) — kept because the test rebuilds the live workflow from the archived fade64a7 + this patch.** Edits only the anti-spam gate `Basic LLM Chain`. Once S0 sends the typed fields, the old gate rejected 3 of 28 real applicants (15/140 replay runs; a gate reject is stored as 0/Reject). The patch gives the job line a neutral label, because on `?pub=` links the applicant picks it. It removes the cover letter from the gate, limits contradictions to the applicant's own fields, and lists what is never spam. Pre-registered replay (v2): 0/140 rejections on the S0 bodies (the old gate, same harness: 18-22/140); 0/40 on held-out honest cases; 0/140 on today's traffic; every one of the 13 non-cover-letter spam cases still caught; and 13 harder probes (Arabic-script spam, fluent bot text, spam in a single field such as location or LinkedIn, planted instructions in skills) all caught 5/5. v1 listed only some fields in the reject rule, and spam placed only in location, company or LinkedIn slipped to 3-4 of 5, so v2 names every field. Pretest on a temporary copy (execution 1985): the patch applied by hash to the server export, and the real runtime rendered the gate prompt byte-identical to the replay harness. Publish with the server-side recipe below; archive `fade64a7` and point the test's base at it in the same commit that refreshes `live/` | `fade64a7` | `npm run test:stage1-spam-gate` |
 
 ### Re-sending a Stage 1 application the guard stopped
 

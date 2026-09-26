@@ -16,9 +16,9 @@
  * scorer, not a connection, not the error workflow — and the gate keeps its
  * email rule, its reject list and its JSON-only answer format.
  *
- * Base: while the patch is unpublished the base is live/ (= fade64a7). After it
- * is published, archive fade64a7 and point BASE_FILE at the archive, as the
- * claim-guard test does.
+ * PUBLISHED 2026-09-26 as version 90c8211f. The base is the archived fade64a7,
+ * and base + patch must equal the live baseline node for node (the same check
+ * the claim-guard test makes for its own patch).
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -27,7 +27,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DOCS = path.resolve(HERE, '../../docs/n8n-workflows');
-const BASE_FILE = path.join(DOCS, 'live/stage1-screening--Stage_1_v2.json');
+const BASE_FILE = path.join(DOCS, 'archive/stage1-screening--Stage_1_v2--fade64a7-before-spam-gate.json');
+const LIVE_FILE = path.join(DOCS, 'live/stage1-screening--Stage_1_v2.json');
 const PATCH_FILE = path.join(DOCS, 'pending/stage1-spam-gate.patch.json');
 const GATE = 'Basic LLM Chain';
 
@@ -145,8 +146,22 @@ function testSystemMessage() {
     assert.ok(!after.includes('{{'), 'the system message stays literal (no expressions)');
 }
 
+function testBasePlusPatchIsTheLiveBaseline() {
+    const live = JSON.parse(fs.readFileSync(LIVE_FILE, 'utf8')) as Json & { nodes: Json[]; connections: Json };
+    const patched = buildPatched();
+    const deep = (v: unknown): unknown => Array.isArray(v) ? v.map(deep)
+        : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v as Json).sort().map((k) => [k, deep((v as Json)[k])])) : v;
+    const norm = (nodes: Json[]) => JSON.stringify(deep(nodes.map((n) => { const { position, id, credentials, ...rest } = n as Json; return rest; })
+        .sort((a, b) => String(a.name).localeCompare(String(b.name)))));
+    assert.equal(norm(patched.nodes), norm(live.nodes), 'base + patch IS the published workflow (every node)');
+    assert.equal(JSON.stringify(deep(patched.connections)), JSON.stringify(deep(live.connections)), 'base + patch IS the published workflow (connections)');
+    assert.equal(live.versionId, '90c8211f-2704-4e6d-a879-df9f90b86897', 'live baseline is the published version');
+}
+
 testPatchTargetsThisBase();
 console.log('✓ the patch targets this workflow at fade64a7 and edits only "Basic LLM Chain"');
+testBasePlusPatchIsTheLiveBaseline();
+console.log('✓ archived fade64a7 + patch IS the published workflow (90c8211f), node for node');
 testNothingElseChanges();
 console.log('✓ every other node (If, evaluator, claim guard, scorer…), every connection and the error workflow are byte-identical');
 testTemplate();

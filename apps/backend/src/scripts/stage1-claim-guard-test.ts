@@ -31,9 +31,11 @@ type Json = Record<string, any>;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DOCS = join(HERE, '../../docs/n8n-workflows');
 // PUBLISHED 2026-09-26 as version fade64a7. The test rebuilds it from the version it replaced
-// (archived) plus the patch, and checks the result equals the live baseline node for node.
+// (archived) plus the patch, and checks the result equals fade64a7 node for node. fade64a7 was
+// itself replaced the same day by 90c8211f (spam gate v2, test:stage1-spam-gate), so it now
+// lives in archive/ too.
 const base = JSON.parse(readFileSync(join(DOCS, 'archive/stage1-screening--Stage_1_v2--ec1f1214-before-claim-guard.json'), 'utf8')) as Json;
-const published = JSON.parse(readFileSync(join(DOCS, 'live/stage1-screening--Stage_1_v2.json'), 'utf8')) as Json;
+const published = JSON.parse(readFileSync(join(DOCS, 'archive/stage1-screening--Stage_1_v2--fade64a7-before-spam-gate.json'), 'utf8')) as Json;
 const patch = JSON.parse(readFileSync(join(DOCS, 'pending/stage1-claim-guard.patch.json'), 'utf8')) as Json;
 const GUARD = readFileSync(join(DOCS, 'pending', patch.addNode.jsCodeFile), 'utf8');
 
