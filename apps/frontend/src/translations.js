@@ -3975,7 +3975,7 @@ export const translations = {
         formValidation_minItems: "لانیکەم {min} دانە بۆ {field} زیاد بکە",
         formValidation_invalidFormat: "شێوازی {field} نادروستە",
         formValidation_file: "فایلێکی دروست بۆ {field} بار بکە",
-        // Draft (2026-09-27) — awaiting the owner's confirmation of the Kurdish wording.
+        // Shipped as drafted (2026-09-27, owner's decision); not yet reviewed by a Kurdish reader.
         formValidation_cvType: "تکایە CVەکەت بە شێوەی PDF یان Word (DOCX) یان دەق (TXT) بار بکە.",
         formUpload_cvKeptPrevious: "فایلە پێشووەکەت هێشتا هاوپێچ کراوە.",
         formValidation_maxFileSize: "قەبارەی فایل دەبێت کەمتر بێت لە {max}",
