@@ -41,6 +41,7 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
+import { buildSyntheticDocx, para } from './lib/syntheticDocx.js';
 
 type Json = Record<string, any>;
 let pass = 0;
@@ -128,7 +129,11 @@ function syntheticCv(): Blob {
 // The request body, built the way DynamicApplicationForm.jsx submits it: one
 // entry per field in the config the browser loaded, arrays as JSON, booleans as
 // 'true'/'false', then the files, the honeypot and the evaluation language.
-function buildBrowserBody(fields: Array<{ id: string; type: string }>, values: Json): FormData {
+function buildBrowserBody(
+    fields: Array<{ id: string; type: string }>,
+    values: Json,
+    cv: { blob: Blob; name: string } = { blob: syntheticCv(), name: 'resume.txt' },
+): FormData {
     const body = new FormData();
     for (const field of fields) {
         if (field.type === 'file') continue;
@@ -141,7 +146,7 @@ function buildBrowserBody(fields: Array<{ id: string; type: string }>, values: J
             body.append(field.id, val ?? '');
         }
     }
-    body.append('cv', syntheticCv(), 'resume.txt');
+    body.append('cv', cv.blob, cv.name);
     body.append('website', '');
     body.append('evaluationLanguage', 'en');
     return body;
@@ -322,6 +327,21 @@ async function main(): Promise<void> {
             assert.equal(res5.status, 201, `status ${res5.status}: ${JSON.stringify(await res5.json().catch(() => ({})))}`);
         });
 
+        // ── A Word CV the phone labelled octet-stream (S45) ─────────────────
+        // The public route must store it under its real type, like the legacy route.
+        const docx = await buildSyntheticDocx({ body: para('PUBLIC-DOCX synthetic Word CV body') });
+        const email6 = 'public-octet-docx@example.com';
+        const res6 = await apply(
+            PUB,
+            buildBrowserBody(fields, typedValues(email6, []), { blob: new Blob([docx], { type: 'application/octet-stream' }), name: 'cv.docx' }),
+        );
+        await test('a Word CV sent as octet-stream is accepted and stored under its real type', async () => {
+            assert.equal(res6.status, 201, `status ${res6.status}: ${JSON.stringify(await res6.json().catch(() => ({})))}`);
+            const p = await personByEmail(email6);
+            const cv = (p?.files || []).find((f: Json) => f.kind === 'cv') as Json | undefined;
+            assert.equal(cv?.mimeType, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        });
+
         // Every dispatch is fire-and-forget; let each one finish (and mark its
         // row) before the database closes under it.
         const applications = await CandidateApplication.countDocuments({ organizationId: ORG });
@@ -330,7 +350,7 @@ async function main(): Promise<void> {
             await new Promise((r) => setTimeout(r, 50));
         }
         await test('one Stage 1 request per application, each row delivered', async () => {
-            assert.equal(applications, 5, `applications: ${applications}`);
+            assert.equal(applications, 6, `applications: ${applications}`);
             assert.equal(sentToN8n.length, applications, `n8n requests: ${sentToN8n.length}`);
             assert.equal(await Stage1EvaluationOutbox.countDocuments({}), applications);
             assert.equal(await Stage1EvaluationOutbox.countDocuments({ status: 'delivered' }), applications);

@@ -11,6 +11,7 @@ import LanguageStyleSingleSelect from '../components/LanguageStyleSingleSelect.j
 import { applyRoleResolutionToState, mergeRoleResolution, roleResolutionCriteriaFields } from '../utils/jobCatalogRole.js';
 import { resolveJobRole } from '@evaalo/job-catalog';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
+import { CV_ACCEPT_ATTRIBUTE, CV_MAX_BYTES, cvRejectionMessage, isAcceptedCvFile } from '../utils/cvFileTypes.js';
 import {
     CERTIFICATES_ACCEPT,
     CERTIFICATES_MAX_FILES,
@@ -262,20 +263,18 @@ const LegacyApplicationForm = () => {
         if (!file) return;
 
         if (fileType === 'cv') {
-            // Validate CV file type - PDF only
-            const allowedTypes = ['application/pdf'];
-            if (!allowedTypes.includes(file.type)) {
+            // PDF, Word (DOCX) or text — the same rule as the public form and the
+            // backend (utils/cvFileTypes.js). This check used to accept PDF only
+            // while the hint above it said "PDF, DOCX or TXT" (S45).
+            const refused = !isAcceptedCvFile(file) ? 'type' : file.size > CV_MAX_BYTES ? 'size' : null;
+            if (refused) {
+                // Let the applicant pick the same file again after fixing it.
+                e.target.value = '';
                 setErrors(prev => ({
                     ...prev,
-                    cvFile: fillI18nTemplate(t('formValidation_file'), { field: ft('cv') }),
-                }));
-                return;
-            }
-            // Validate file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                setErrors(prev => ({
-                    ...prev,
-                    cvFile: fillI18nTemplate(t('formValidation_maxFileSize'), { max: '5MB' }),
+                    // Say WHICH types (or the size limit), and that an earlier
+                    // upload is still there — a refused pick does not remove it.
+                    cvFile: cvRejectionMessage(t, { reason: refused, hasPreviousFile: Boolean(cvFile) }),
                 }));
                 return;
             }
@@ -947,6 +946,12 @@ const LegacyApplicationForm = () => {
                                             e.stopPropagation();
                                             setCvFile(null);
                                             setCvPreview(null);
+                                            // A "previous file is still attached" note is no longer true.
+                                            setErrors(prev => {
+                                                const next = { ...prev };
+                                                delete next.cvFile;
+                                                return next;
+                                            });
                                             const cvInput = document.getElementById('cvFile');
                                             if (cvInput) cvInput.value = '';
                                         }}
@@ -981,7 +986,7 @@ const LegacyApplicationForm = () => {
                         <input
                             type="file"
                             id="cvFile"
-                            accept=".pdf,application/pdf"
+                            accept={CV_ACCEPT_ATTRIBUTE}
                             onChange={(e) => handleFileChange(e, 'cv')}
                             style={{ display: 'none' }}
                         />

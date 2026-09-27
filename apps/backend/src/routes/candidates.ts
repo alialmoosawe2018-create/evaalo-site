@@ -38,7 +38,7 @@ import {
 } from '../services/publicCampaignService.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import type { CampaignFormBinding } from '../shared/formTemplates/types.js';
-import { CERTIFICATES_MAX_FILES } from '../shared/formTemplates/types.js';
+import { CERTIFICATES_MAX_FILES, storedCvMimeType } from '../shared/formTemplates/types.js';
 import { sendStatusUpdateToN8N } from '../services/n8nService.js';
 import {
     enqueueStage1EvaluationOutbox,
@@ -680,7 +680,7 @@ router.post('/', requirePermission('candidate.write'), candidateUploadOptional, 
                 filename: f.filename,
                 originalName: f.originalname,
                 path: f.path,
-                mimeType: f.mimetype,
+                mimeType: storedCvMimeType(f.mimetype, f.originalname),
                 size: f.size,
                 uploadedAt: new Date()
             });

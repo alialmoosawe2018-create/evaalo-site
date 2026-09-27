@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { API_BASE_URL } from '../../config/apiBase.js';
 import { fillI18nTemplate } from '../../utils/i18nTemplate.js';
+import { CV_ACCEPT_ATTRIBUTE, cvRejectionMessage } from '../../utils/cvFileTypes.js';
 import PositionSuggestCombobox from '../PositionSuggestCombobox.jsx';
 import JobRoleFields from '../JobRoleFields.jsx';
 import LanguageStyleSingleSelect from '../LanguageStyleSingleSelect.jsx';
@@ -22,6 +23,7 @@ import { resolveFormTranslationKey } from './formFieldI18n.js';
 import { useFormConfig } from './useFormConfig.js';
 import {
     buildInitialFormValues,
+    CV_TYPE_ERROR,
     fieldsForSection,
     validateDynamicField,
     validateDynamicSection,
@@ -78,6 +80,10 @@ function validationMessage(t, field, code) {
     }
     if (code?.includes('invalid format')) {
         return fillI18nTemplate(t('formValidation_invalidFormat'), { field: name });
+    }
+    // Name the types the platform reads — "upload a valid file" never said which.
+    if (code === CV_TYPE_ERROR) {
+        return t('formValidation_cvType');
     }
     if (code?.includes('file')) {
         return fillI18nTemplate(t('formValidation_file'), { field: name });
@@ -394,7 +400,25 @@ export default function DynamicApplicationForm({ pubToken }) {
         if (!file) return;
         const msg = validateDynamicField(field, null, file);
         if (msg) {
-            setErrors((prev) => ({ ...prev, [field.id]: validationMessage(t, field, msg) }));
+            e.target.value = '';
+            // The CV gets the same words as the legacy form: which types (or the
+            // size limit), and that a file picked before is still attached.
+            const cvReason =
+                field.id === 'cv'
+                    ? msg === CV_TYPE_ERROR
+                        ? 'type'
+                        : msg.includes('exceeds maximum file size')
+                          ? 'size'
+                          : null
+                    : null;
+            const text = cvReason
+                ? cvRejectionMessage(t, {
+                      reason: cvReason,
+                      hasPreviousFile: Boolean(filesByFieldId[field.id]),
+                      maxLabel: formatFileSize(field.validation?.maxBytes ?? 0) || '5MB',
+                  })
+                : validationMessage(t, field, msg);
+            setErrors((prev) => ({ ...prev, [field.id]: text }));
             return;
         }
         setFilesByFieldId((prev) => ({ ...prev, [field.id]: file }));
@@ -462,6 +486,12 @@ export default function DynamicApplicationForm({ pubToken }) {
             return next;
         });
         setFilePreviews((prev) => {
+            const next = { ...prev };
+            delete next[fieldId];
+            return next;
+        });
+        // A "previous file is still attached" note is no longer true.
+        setErrors((prev) => {
             const next = { ...prev };
             delete next[fieldId];
             return next;
@@ -662,13 +692,13 @@ export default function DynamicApplicationForm({ pubToken }) {
         }
 
         if (field.type === 'file') {
-            // Every CV type the platform can actually read — must stay in step with
-            // CV_ACCEPTED_MIME_TYPES in apps/backend/src/shared/formTemplates/types.js.
-            // PDF-only used to turn a DOCX CV away at the picker, which is the most
-            // common thing people upload here.
+            // Every CV type the platform can actually read — one rule for both
+            // forms and the backend (utils/cvFileTypes.js). PDF-only used to turn
+            // a DOCX CV away at the picker, which is the most common thing people
+            // upload here.
             const accept =
                 field.id === 'cv'
-                    ? '.pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain'
+                    ? CV_ACCEPT_ATTRIBUTE
                     : 'image/jpeg,image/jpg,image/png,image/gif,image/webp';
             return (
                 <DynamicFormFileUpload

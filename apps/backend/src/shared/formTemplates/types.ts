@@ -199,13 +199,66 @@ export const CERTIFICATES_MAX_FILES = 20;
  * for DOCX, plain read for TXT). Widening this list without teaching the extractor
  * the format means the file uploads and then yields no text.
  *
- * MUST stay in sync with the frontend `accept` for the cv field in
- * apps/frontend/src/components/form/DynamicApplicationForm.jsx.
+ * MUST stay in sync with the frontend rule in apps/frontend/src/utils/cvFileTypes.js,
+ * which BOTH application forms use. `npm run test:cv-file-types` loads that file and
+ * fails if the two disagree on a single case.
  */
-export const CV_ACCEPTED_MIME_TYPES = [
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
-];
+export const CV_FILE_TYPES = [
+    // `mimeKeyword` keeps the long-standing tolerance for vendor aliases such as
+    // application/x-pdf: a type that CONTAINS the keyword is that type.
+    { extension: 'pdf', mimeType: 'application/pdf', mimeKeyword: 'pdf' },
+    {
+        extension: 'docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        mimeKeyword: 'vnd.openxmlformats-officedocument.wordprocessingml.document',
+    },
+    { extension: 'txt', mimeType: 'text/plain', mimeKeyword: 'plain' },
+] as const;
+
+export const CV_ACCEPTED_MIME_TYPES: string[] = CV_FILE_TYPES.map((t) => t.mimeType);
+
+/**
+ * Types that say nothing about the file. Phones and some browsers send a Word CV
+ * as application/octet-stream, and a real PDF can arrive with no type at all —
+ * for these, and only these, the extension decides.
+ */
+const GENERIC_UPLOAD_MIME_TYPES = new Set(['', 'application/octet-stream', 'binary/octet-stream']);
+
+export function cvFileExtension(fileName?: string): string {
+    const name = String(fileName ?? '').trim().toLowerCase();
+    const dot = name.lastIndexOf('.');
+    return dot > 0 && dot < name.length - 1 ? name.slice(dot + 1) : '';
+}
+
+/**
+ * Which CV type an upload is — 'pdf' | 'docx' | 'txt' — or null when the platform
+ * cannot read it. The one rule for every CV upload (S45, 2026-09-27): the legacy
+ * form promised Word and refused it, because each form kept its own list.
+ */
+export function classifyCvUpload(mimeType?: string, fileName?: string): 'pdf' | 'docx' | 'txt' | null {
+    const mime = String(mimeType ?? '').trim().toLowerCase();
+    const ext = cvFileExtension(fileName);
+    const byExtension = CV_FILE_TYPES.find((t) => t.extension === ext)?.extension ?? null;
+    if (GENERIC_UPLOAD_MIME_TYPES.has(mime)) return byExtension;
+    const byType = CV_FILE_TYPES.find((t) => mime === t.mimeType || mime.includes(t.mimeKeyword))?.extension ?? null;
+    // "text/plain" is also what a multipart parser assumes when a part carries no
+    // type at all, so it does not overrule a file that names itself as another CV
+    // format: a cv.pdf or cv.docx labelled text/plain is read as PDF / Word, not as
+    // text (which would hand the evaluator binary noise).
+    if (byType === 'txt' && byExtension && byExtension !== 'txt') return byExtension;
+    return byType;
+}
+
+/**
+ * The type to STORE for an accepted CV: always the canonical one for what it is,
+ * so everything downstream (the extractor, the n8n file part, the recruiter's
+ * download) sees one name per format — not octet-stream, not an alias such as
+ * application/x-pdf that the extractor would not recognise without an extension.
+ * A file that is not an accepted CV is kept exactly as received.
+ */
+export function storedCvMimeType(mimeType?: string, fileName?: string): string {
+    const kind = classifyCvUpload(mimeType, fileName);
+    return CV_FILE_TYPES.find((t) => t.extension === kind)?.mimeType ?? mimeType ?? '';
+}
 
 export const DEFAULT_FORM_TEMPLATE_ID = 'template-remote';

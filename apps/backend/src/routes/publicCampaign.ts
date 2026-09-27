@@ -31,7 +31,7 @@ import { loadCampaignRoles } from '../services/campaignRole.js';
 import { loadCampaignInterviewLanguage } from '../services/interviewLanguage.js';
 import { assertStageOutboundSecurityForTrigger, StageCallbackConfigurationError } from '../services/stageCallbackAuth.js';
 import { extractHoneypotFields, isHoneypotTriggered } from '../constants/n8nStage1.js';
-import { CERTIFICATES_MAX_FILES } from '../shared/formTemplates/index.js';
+import { CERTIFICATES_MAX_FILES, storedCvMimeType } from '../shared/formTemplates/index.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import { findApplicationForCallback } from '../services/candidateApplicationService.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
@@ -291,7 +291,7 @@ router.post(
                         filename: f.filename,
                         originalName: f.originalname,
                         path: f.path,
-                        mimeType: f.mimetype,
+                        mimeType: storedCvMimeType(f.mimetype, f.originalname),
                         size: f.size,
                         uploadedAt: new Date(),
                     },

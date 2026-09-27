@@ -1,10 +1,12 @@
 import type { FormFieldDef, FormTemplateSnapshot } from './types.js';
-import { SUBMIT_META_FIELDS, CV_ACCEPTED_MIME_TYPES } from './types.js';
+import { SUBMIT_META_FIELDS, CV_ACCEPTED_MIME_TYPES, classifyCvUpload } from './types.js';
 import { getAllowedFieldIds } from './snapshot.js';
 
 export interface FileUploadMeta {
     mimeType?: string;
     size?: number;
+    /** The name the applicant's device gave the file — decides the CV type when the MIME says nothing. */
+    name?: string;
 }
 
 export interface SubmissionValidationInput {
@@ -103,24 +105,32 @@ function validateSingleFile(
     }
     const mime = (fileMeta.mimeType || '').toLowerCase();
     /**
-     * The CV field reads the LIVE accepted list, not the one frozen in the
-     * campaign's snapshot.
+     * The CV field is judged by the LIVE rule (classifyCvUpload), not the list
+     * frozen in the campaign's snapshot.
      *
      * A snapshot exists so a submission is judged against the form the candidate
      * was actually shown — which is why it is otherwise honoured to the letter.
      * But every campaign created before the platform could read DOCX carries
-     * `['application/pdf']`, and those are the campaigns real people are applying
-     * to right now: their CV was refused before it was ever read. Since this list
-     * only ever WIDENS what is accepted, applying it cannot turn a submission that
-     * was valid into one that is rejected — the direction immutability protects.
+     * `['application/pdf']`, and those are the campaigns real people apply to:
+     * their CV was refused before it was ever read.
+     *
+     * The rule mostly WIDENS what is accepted (Word/TXT, octet-stream decided by
+     * extension). It narrows in one place, deliberately: a CV with NO type used to
+     * skip the check entirely, whatever it was; now its extension must be a type
+     * the platform reads. Multer always reports a type, so neither route can send
+     * an empty one today — the narrowing only guards direct callers.
      */
-    const allowedSource =
-        field.id === 'cv' ? CV_ACCEPTED_MIME_TYPES : field.validation?.mimeTypes;
-    const allowed = allowedSource?.map((m) => m.toLowerCase()) ?? [];
-    if (allowed.length && mime && !allowed.some((m) => mime.includes(m.replace('application/', '')) || mime === m)) {
-        if (!allowed.includes(mime)) {
-            const ok = allowed.some((m) => mime.includes(m.split('/')[1] || m));
-            if (!ok) return `${field.id} must be one of: ${allowed.join(', ')}`;
+    if (field.id === 'cv') {
+        if (!classifyCvUpload(fileMeta.mimeType, fileMeta.name)) {
+            return `${field.id} must be one of: ${CV_ACCEPTED_MIME_TYPES.join(', ')}`;
+        }
+    } else {
+        const allowed = field.validation?.mimeTypes?.map((m) => m.toLowerCase()) ?? [];
+        if (allowed.length && mime && !allowed.some((m) => mime.includes(m.replace('application/', '')) || mime === m)) {
+            if (!allowed.includes(mime)) {
+                const ok = allowed.some((m) => mime.includes(m.split('/')[1] || m));
+                if (!ok) return `${field.id} must be one of: ${allowed.join(', ')}`;
+            }
         }
     }
     const maxBytes = field.validation?.maxBytes;

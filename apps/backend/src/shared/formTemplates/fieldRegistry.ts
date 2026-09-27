@@ -1,7 +1,11 @@
 import type { FormFieldDef } from './types.js';
 import { CERTIFICATES_MAX_FILES, CV_ACCEPTED_MIME_TYPES } from './types.js';
 
-/** Canonical field definitions for template-remote (matches current Form.jsx). */
+/**
+ * Canonical field definitions for template-remote. The legacy form (Form.jsx)
+ * keeps its own copy of the fields; the CV types, at least, are one shared rule
+ * (classifyCvUpload / apps/frontend/src/utils/cvFileTypes.js) — they had drifted.
+ */
 export const FORM_FIELD_REGISTRY: Record<string, FormFieldDef> = {
     full_name: {
         id: 'full_name',

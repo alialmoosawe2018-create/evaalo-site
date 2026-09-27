@@ -1,4 +1,8 @@
 import { DEFAULT_SALARY_CURRENCY } from '../../utils/applicationFormDefaults.js';
+import { isAcceptedCvFile } from '../../utils/cvFileTypes.js';
+
+/** The CV was a type the platform cannot read — the form names the accepted types for it. */
+export const CV_TYPE_ERROR = 'cv must be a PDF, DOCX or TXT file';
 
 function asTrimmedString(v) {
     if (v === undefined || v === null) return '';
@@ -108,11 +112,18 @@ function validateSingleFile(field, file) {
         if (field.required) return `${field.id} is required`;
         return null;
     }
-    const mime = (file.type || '').toLowerCase();
-    const allowed = field.validation?.mimeTypes?.map((m) => m.toLowerCase()) ?? [];
-    if (allowed.length && mime) {
-        const ok = allowed.some((m) => mime === m || mime.includes(m.split('/')[1] || m));
-        if (!ok) return `${field.id} must be an allowed file type`;
+    if (field.id === 'cv') {
+        // The live rule, like the backend — not the list frozen in the campaign's
+        // snapshot, which is ['application/pdf'] on campaigns created before the
+        // platform read Word. Judges by extension when the type says nothing.
+        if (!isAcceptedCvFile(file)) return CV_TYPE_ERROR;
+    } else {
+        const mime = (file.type || '').toLowerCase();
+        const allowed = field.validation?.mimeTypes?.map((m) => m.toLowerCase()) ?? [];
+        if (allowed.length && mime) {
+            const ok = allowed.some((m) => mime === m || mime.includes(m.split('/')[1] || m));
+            if (!ok) return `${field.id} must be an allowed file type`;
+        }
     }
     const maxBytes = field.validation?.maxBytes;
     if (maxBytes != null && file.size > maxBytes) {

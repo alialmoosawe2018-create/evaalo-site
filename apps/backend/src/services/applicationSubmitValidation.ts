@@ -9,10 +9,13 @@ export { validateApplicationSubmission };
 interface RawUpload {
     mimetype?: string;
     size?: number;
+    originalname?: string;
 }
 
+// The file name travels with the type: when a phone sends a Word CV as
+// application/octet-stream, only the extension says what it is.
 const toMeta = (f?: RawUpload) =>
-    f ? { mimeType: f.mimetype, size: f.size } : undefined;
+    f ? { mimeType: f.mimetype, size: f.size, name: f.originalname } : undefined;
 
 export function buildSubmissionInputFromRequest(
     body: Record<string, unknown>,
