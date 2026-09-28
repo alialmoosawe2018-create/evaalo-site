@@ -89,6 +89,30 @@ published workflow by fingerprint on both nodes and connections. Published with 
 proof. Rollback: re-publish `0a338184` (kept in `archive/`); never unpublish-then-republish, never
 `import:workflow`.
 
+**Head Hunter completion guard published 2026-09-28 09:46Z → version `fea5fa60`** (still 44 nodes; only
+`Prepare Complete Search` changed). exec 2024 posted **seven** completion callbacks for one search and six
+carried wrong data - alternating "No candidates passed the preliminary AI score threshold (25)." and
+`totalSent: 4`, for a search that had delivered 13. Only the backend idempotency guard saved the stored
+result, and only because the correct payload happened to arrive first. Cause: `Stream Batch Done` has TWO
+inbound branches (`Has Match? [b1]` and `Accumulate Candidate [b0]`) so it runs once per branch, which makes
+`Split In Batches` fire *done* repeatedly; each extra firing reaches a finalize node that has already deleted
+`sd.hhCandidates`, so it returns `__completeOnly` with values recomputed from destroyed state. ⚠️ A first
+draft guarded only on `sd.hhCompleted[searchId]` - that is **first-arrival-wins** and was rejected before
+publishing, because it would have moved the race into n8n rather than removing it. The shipped rule uses the
+terminal signal the workflow already computes: `Track Send Progress` emits `__completeSearch` only once
+`prog.sent >= prog.expected`, so if `sd.hhSendProgress[searchId]` shows anything was sent, any
+`__completeOnly` is a repeat and is dropped **before** it can claim the search; if nothing was ever sent
+(empty search, or the all-SERP-pages-failed path) it is allowed through. Order-independence is proven offline
+by `npm run test:headhunter-completion-once` (wrong-payload-first, wrong-only, empty, SERP-failed,
+phase-1-only, cross-searchId) and by three mutations, including one showing the rejected first-wins design
+really does let the wrong payload win. ✅ **Proven in production, exec 2032** (Sales Manager / Baghdad):
+`Prepare Complete Search` still ran 7 times, 6 returned `[]`, `Complete Search` fired **once** with
+`ok:true` and **zero** `idempotencyCollision`, payload `totalSent: 20, targetMet: true`, no error message.
+That run also re-proved the reset fix - phase 1 sent 11, phase 2 added 9. ⚠️ Production delivered the correct
+payload first again, so the live run does not prove order-independence; only the offline test does. The
+fan-out itself is untouched by design. Rollback: re-publish `191c06f9` (kept in `archive/`), which still
+contains the reset fix.
+
 ## `pending/` — proposed changes, NOT live
 
 A change to a live workflow that has been designed and tested but not published.
@@ -101,6 +125,7 @@ live id and webhook path and recreate the decoy hazard described below.
 | `stage1-claim-guard.patch.json` + `stage1-claim-guard.node.js` | **PUBLISHED 2026-09-26 (`fade64a7`) — kept because the test rebuilds the live workflow from the archived base + this patch.** Stage 1 claim guard: a verifiable criterion supported only by an application field or the cover letter scores 0 (`not_assessed`); the job applied for never raises an integrity concern (S24); employer-written custom criteria are audit-only; FAILS CLOSED — unreadable criteria, unparseable evaluator output (S26) or an internal error stop the run with no verdict, and the stop message names the candidate / campaign / application ids for the alert email. ⚠️ The node's own header comment still reads "PROPOSED, NOT LIVE": it is part of the published code, so it changes only with the next publish | `ec1f1214` | `npm run test:stage1-claim-guard` |
 | `stage1-spam-gate.patch.json` | **PUBLISHED 2026-09-26 17:26Z (`90c8211f`) — kept because the test rebuilds the live workflow from the archived fade64a7 + this patch.** Edits only the anti-spam gate `Basic LLM Chain`. Once S0 sends the typed fields, the old gate rejected 3 of 28 real applicants (15/140 replay runs; a gate reject is stored as 0/Reject). The patch gives the job line a neutral label, because on `?pub=` links the applicant picks it. It removes the cover letter from the gate, limits contradictions to the applicant's own fields, and lists what is never spam. Pre-registered replay (v2): 0/140 rejections on the S0 bodies (the old gate, same harness: 18-22/140); 0/40 on held-out honest cases; 0/140 on today's traffic; every one of the 13 non-cover-letter spam cases still caught; and 13 harder probes (Arabic-script spam, fluent bot text, spam in a single field such as location or LinkedIn, planted instructions in skills) all caught 5/5. v1 listed only some fields in the reject rule, and spam placed only in location, company or LinkedIn slipped to 3-4 of 5, so v2 names every field. Pretest on a temporary copy (execution 1985): the patch applied by hash to the server export, and the real runtime rendered the gate prompt byte-identical to the replay harness. Publish with the server-side recipe below; archive `fade64a7` and point the test's base at it in the same commit that refreshes `live/` | `fade64a7` | `npm run test:stage1-spam-gate` |
 | `headhunter-splitinbatches-reset.patch.json` | **PUBLISHED 2026-09-28 08:27Z (`191c06f9`) — kept because `test:headhunter-reset-fix` rebuilds the published workflow from the archived base + this patch.** Sets `options.reset` on the Head Hunter `Split In Batches` node to the expression `={{ $json.batchDone !== true }}` so a phase-2 wave is treated as a new set instead of a continuation of the exhausted phase-1 set. One node, one parameter, no connection change. Uses a `parameterSets` form rather than `parameterEdits`, because find/replace cannot set a key that does not exist yet; `expectBefore: "absent"` makes the test fail loudly if the base ever already has it | `0a338184` | `npm run test:headhunter-reset-fix` |
+| `headhunter-completion-idempotency.patch.json` | **PUBLISHED 2026-09-28 09:46Z (`fea5fa60`) — kept because `test:headhunter-completion-once` rebuilds the published node from the archived base + this patch.** One completion callback per `searchId`, and it must be the correct one. Drops a repeat `__completeOnly` **before** it can claim the search, keyed on whether `sd.hhSendProgress[searchId]` shows anything was sent, so the decision never depends on arrival order. Supersedes a rejected first-wins draft, documented in `_supersedes` | `191c06f9` | `npm run test:headhunter-completion-once` |
 
 ### Re-sending a Stage 1 application the guard stopped
 

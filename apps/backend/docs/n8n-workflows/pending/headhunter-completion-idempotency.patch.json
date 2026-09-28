@@ -1,0 +1,47 @@
+{
+  "_warning": "PUBLISHED 2026-09-28 09:46Z as AI Head hunter version fea5fa60-b471-45e2-96c1-271b57ffa3be. A patch against the ARCHIVED pre-guard version 191c06f9 (archive/headhunter--AI_Head_hunter--191c06f9-before-completion-guard.json), not an importable workflow - never import this file. Kept so `npm run test:headhunter-completion-once` can rebuild the published node from archive + patch.",
+  "_why": "exec 2024 posted SEVEN completion callbacks for one search and six carried wrong data: alternating \"No candidates passed the preliminary AI score threshold (25).\" and totalSent: 4, for a search that had actually delivered 13. Only the backend's idempotency guard saved the stored result, and only because the correct payload happened to arrive first.",
+  "_supersedes": "An earlier draft of this patch guarded ONLY on `sd.hhCompleted[searchId]`, i.e. first-arrival-wins. That was WRONG: it reduced 7 callbacks to 1 without guaranteeing the 1 is correct, so it would have MOVED the ordering risk from the backend into n8n instead of removing it. If a spurious payload arrived first it would have been locked in and the correct one discarded. Rejected before publishing.",
+  "_rootCause": {
+    "1_fanOut": "`Stream Batch Done` has TWO inbound branches - `Has Match? [b1]` (rejected candidates) and `Accumulate Candidate [b0]` (accepted). A node with two inbound branches RUNS ONCE PER BRANCH, so every batch produces two independent batch-end signals. It is also `runOnceForEachItem`, so each run emits one item per candidate (13 for one batch in exec 2024).",
+    "2_repeatedDone": "Those extra arrivals make `Split In Batches` fire its done branch repeatedly - 5 times in exec 2024.",
+    "3_destructiveFinalize": "THE DECISIVE ONE. `Finalize Top N Send` and `Finalize Phase 2 Send` both delete `sd.hhCandidates[searchId]` and overwrite `hhPhase1SentCount` on their FIRST run, then return `__completeOnly: true` when the pool is empty. `Has Final Candidates?` routes `__completeOnly` straight to `Prepare Complete Search`. So each extra done produces a completion computed from state the first run already destroyed - which is why the payloads were WRONG, not merely duplicated."
+  },
+  "_theTerminalSignal": {
+    "insight": "The workflow ALREADY computes a genuine terminal, in `Track Send Progress`: it emits `__completeSearch: true` only once `prog.sent >= prog.expected` for the final phase, and it carries the correct `phase1Count` / `totalSent`. `__completeOnly` is the ambiguous one - it means EITHER a search that truly had nothing to send, OR a repeat finalize run recomputing from destroyed state.",
+    "rule": "Tell them apart with existing state, never with arrival order: if `sd.hhSendProgress[searchId]` shows anything was expected or sent, then an authoritative `__completeSearch` is the real completion and any `__completeOnly` is a repeat, so drop it. If nothing was ever sent (`expected` and `sent` both 0, or no progress record at all) then `__completeOnly` IS the only completion that will ever arrive, so let it through.",
+    "whyOrderIndependent": "A spurious `__completeOnly` is dropped BEFORE it can set `hhCompleted`, so it cannot win a race no matter when it arrives. The `hhCompleted` flag then only ever guards genuine terminals.",
+    "failurePathPreserved": "`All Serp Pages Failed? [b0]` also reaches `Prepare Complete Search` carrying `__completeOnly`, but on that path nothing was ever sent, so `hhSendProgress` is absent and the payload passes through unchanged."
+  },
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "191c06f9-10b2-4df7-b46f-ab70080c932b",
+  "baseNodeCount": 44,
+  "parameterEdits": [
+    {
+      "node": "Prepare Complete Search",
+      "path": "jsCode",
+      "find": "const wh = $('Webhook').first().json.body || {};\nconst searchId = String(wh.searchId || '');\nconst input = $input.first().json || {};\n",
+      "replace": "const wh = $('Webhook').first().json.body || {};\nconst searchId = String(wh.searchId || '');\nconst input = $input.first().json || {};\n\n// One searchId => exactly one completion callback, and it must be the CORRECT one.\n//\n// The done branch of `Split In Batches` fires several times per search (5x in exec 2024)\n// because `Stream Batch Done` has two inbound branches and runs once per branch. Each\n// extra firing reaches a finalize node that has already deleted sd.hhCandidates, so it\n// returns __completeOnly and lands here with values recomputed from destroyed state.\n// exec 2024 posted 7 callbacks, 6 of them wrong (\"No candidates passed...\" and\n// totalSent: 4 for a search that had delivered 13).\n//\n// Do NOT decide this by arrival order - that only moves the race, it does not remove it.\n// `Track Send Progress` already produces the authoritative terminal as __completeSearch,\n// once prog.sent >= prog.expected for the final phase, carrying the right counts.\n// So: if anything was ever sent, __completeSearch is the real completion and any\n// __completeOnly is a repeat -> drop it before it can claim the search.\n// If nothing was ever sent (a genuinely empty search, or the all-SERP-pages-failed\n// path) there will be no __completeSearch, so __completeOnly must be allowed through.\nconst sd = $getWorkflowStaticData('global');\nconst prog = (sd.hhSendProgress && sd.hhSendProgress[searchId]) || null;\nconst anythingSent = Boolean(prog && (Number(prog.expected || 0) > 0 || Number(prog.sent || 0) > 0));\nif (input.__completeOnly && anythingSent) return [];\n\n// Second line: never post twice even for genuine terminals. The backend's own\n// idempotency guard stays in place behind this, it is no longer the only defence.\nif (searchId) {\n  sd.hhCompleted = sd.hhCompleted || {};\n  if (sd.hhCompleted[searchId]) return [];\n  sd.hhCompleted[searchId] = true;\n}\n"
+    }
+  ],
+  "_whyHere": "The guard sits at `Prepare Complete Search` rather than at each source because there are THREE sources - `Has Final Candidates? [b1]`, `Complete Search Now? [b0]` and `All Serp Pages Failed? [b0]`. Guarding the single point where they converge covers all three in one edit.",
+  "_measuredInRepro": {
+    "workflow": "FR2QuK8zKUm7cbwS  (EXPERIMENTAL - completion fan-out repro - DO NOT ACTIVATE)",
+    "note": "Fake data only - no SerpAPI, no EnrichLayer, no credentials, zero cost. Mirrors production: per-item `Stream Batch Done` with TWO inbound branches, destructive non-idempotent finalize nodes, and the `__completeOnly` gate.",
+    "gate_exec_2027": "phase 1+2, no guard -> completionCount = 3 (1x Complete Search Now?, 2x Has Final Candidates? [false]). Same source split as production. BUG REPRODUCED.",
+    "firstWins_exec_2028": "the REJECTED first-wins guard -> completionCount = 1 with correct values, but only because the correct payload arrived first. Kept here as the evidence that count alone is not correctness.",
+    "layer1_rejected_exec_2029": "`Stream Batch Done` switched to runOnceForAllItems (one item per batch) -> completionCount STILL 3, because the node still ran 5x from its two inbound branches. Mode changes the item count (36->3), not the run count. Neither necessary nor sufficient; NOT part of this patch.",
+    "phase1_only_exec_2030_2031": "N2=0 -> 1 completion with and without a guard. The defect requires a second wave.",
+    "earlier_attempts": "execs 2025 and 2026 did NOT reproduce the bug and were discarded as invalid: 2025 let every candidate pass the match gate so phase 1 met the target and phase 2 never ran; 2026 fixed that but still had only ONE inbound branch on `Stream Batch Done`. The reproduce-first gate caught both."
+  },
+  "_scope": "One parameter on one node. No change to `Split In Batches` (the reset fix published as 191c06f9 is untouched), `Stream Batch Done`, either finalize node, any message text, query generation, `matchesPosition`, billing or EnrichLayer.",
+  "_knownLimits": [
+    "This stops wrong and duplicate callbacks. It does NOT stop the extra done firings, and it does NOT stop the finalize nodes recomputing from destroyed state - it prevents those values reaching the backend. Making the finalize nodes idempotent, or storing the final counts once and reading them back, is a larger separate change.",
+    "`sd.hhCompleted` and `sd.hhSendProgress` are process-local workflow static data and are lost on an n8n restart, so a search spanning a restart could complete twice. The backend guard covers that residual case.",
+    "`return []` from a Code v2 node: `Track Send Progress` carries a comment saying n8n rejects empty output. Repro exec 2028 returned [] from a Code v2 node in the same `runOnceForAllItems` mode and the execution succeeded, so that comment appears to apply to `runOnceForEachItem` rather than this mode. Flagged rather than assumed; it is exercised by the repro on every guarded run.",
+    "Not yet observed in a real search. The next 20-tier search that triggers phase 2 is the live proof: expect exactly one `Complete Search` call, ok:true, zero idempotencyCollision, and the correct totalSent."
+  ],
+  "_rollback": "Re-publish version 191c06f9-10b2-4df7-b46f-ab70080c932b (archived here as baseFile). That version still HAS the Split In Batches reset fix, so rolling back this guard does not undo the reset fix. Do NOT unpublish a live workflow hoping to republish it, and do NOT use import:workflow (it deactivates).",
+  "baseFile": "archive/headhunter--AI_Head_hunter--191c06f9-before-completion-guard.json",
+  "publishedVersionId": "fea5fa60-b471-45e2-96c1-271b57ffa3be"
+}

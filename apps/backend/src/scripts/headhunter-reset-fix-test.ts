@@ -51,12 +51,19 @@ function main(): void {
     const patch = JSON.parse(readFileSync(join(WF_DIR, 'pending', 'headhunter-splitinbatches-reset.patch.json'), 'utf8'));
     // Base is the ARCHIVED pre-fix version; live/ now holds the published result.
     const wf: Wf = JSON.parse(readFileSync(join(WF_DIR, patch.baseFile), 'utf8'));
-    const published: Wf = JSON.parse(readFileSync(join(WF_DIR, 'live', 'headhunter--AI_Head_hunter.json'), 'utf8'));
+    // What THIS patch published was 191c06f9. `live/` has since moved on (the completion
+    // guard shipped on top), so the fingerprint is checked against the archived snapshot
+    // of the version this patch actually produced — not against today's live.
+    const published: Wf = JSON.parse(readFileSync(join(WF_DIR, 'archive', 'headhunter--AI_Head_hunter--191c06f9-before-completion-guard.json'), 'utf8'));
+    const liveNow: Wf = JSON.parse(readFileSync(join(WF_DIR, 'live', 'headhunter--AI_Head_hunter.json'), 'utf8'));
 
     console.log('\nBASE');
     check('patch targets the archived pre-fix version', wf.versionId === patch.baseVersionId, `${wf.versionId} vs ${patch.baseVersionId}`);
     check('archived base node count matches the patch', wf.nodes.length === patch.baseNodeCount, `${wf.nodes.length} vs ${patch.baseNodeCount}`);
-    check('live/ holds the published version', published.versionId === patch.publishedVersionId, `${published.versionId} vs ${patch.publishedVersionId}`);
+    check('the version this patch published is archived', published.versionId === patch.publishedVersionId, `${published.versionId} vs ${patch.publishedVersionId}`);
+    check('and the reset fix is STILL live today, on top of later changes',
+        JSON.stringify(liveNow.nodes.find((n) => n.name === 'Split In Batches')?.parameters?.options) === '{"reset":"={{ $json.batchDone !== true }}"}',
+        JSON.stringify(liveNow.nodes.find((n) => n.name === 'Split In Batches')?.parameters?.options));
 
     console.log('\nTARGET NODE');
     const targets = wf.nodes.filter((n) => n.name === patch.parameterSets[0].node);
@@ -111,17 +118,17 @@ function main(): void {
     });
     const rebuilt = fp(wf);
     const live = fp(published);
-    check('node fingerprint matches the published workflow', rebuilt.nodes === live.nodes,
-        rebuilt.nodes === live.nodes ? '' : 'rebuilt from archive+patch differs from live/');
-    check('connection fingerprint matches the published workflow', rebuilt.conns === live.conns);
+    check('node fingerprint matches the version this patch published', rebuilt.nodes === live.nodes,
+        rebuilt.nodes === live.nodes ? '' : 'rebuilt from archive+patch differs from the archived 191c06f9');
+    check('connection fingerprint matches that version', rebuilt.conns === live.conns);
     const pubSib = published.nodes.find((n) => n.name === 'Split In Batches');
-    check('the PUBLISHED node carries the fix',
+    check('that version carries the fix',
         getPath(pubSib?.parameters as Record<string, unknown>, 'options.reset') === '={{ $json.batchDone !== true }}',
         String(getPath(pubSib?.parameters as Record<string, unknown>, 'options.reset')));
 
     console.log('\n' + '='.repeat(92));
     if (failures) { console.log(`FAILED — ${failures} check(s)`); process.exit(1); }
-    console.log('ALL CHECKS PASSED — archive + patch reproduces exactly what is published.');
+    console.log('ALL CHECKS PASSED — archive + patch reproduces 191c06f9, and the fix is still live today.');
     console.log('Runtime behaviour proven against real n8n: repro U34sixGqSibf6xeJ, execs 2018-2023.');
     console.log('PUBLISHED 2026-09-28 as version 191c06f9; rollback = re-publish 0a338184 (kept in archive/).');
 }
