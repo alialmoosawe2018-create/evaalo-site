@@ -1,14 +1,11 @@
 {
-  "_exportedFrom": "n8n live (n8n.evaalo.com)",
-  "_exportedAt": "2026-09-10",
-  "_warning": "BASELINE SNAPSHOT OF THE LIVE WORKFLOW. Do NOT import over production without checking webhook path collisions first.",
   "id": "GlhDGC23n5tT6jVv",
   "name": "AI Head hunter",
   "active": true,
-  "description": "Headhunting: Boolean LinkedIn search via SerpAPI + Enrichlayer, sends candidates to Evaalo internal API.",
-  "versionId": "33cb4b50-8395-4661-8a17-9c71caff0eef",
-  "activeVersionId": "33cb4b50-8395-4661-8a17-9c71caff0eef",
-  "updatedAt": "2026-09-04T08:43:58.771Z",
+  "versionId": "0a338184-9cd5-4915-8687-507a0a8fa742",
+  "activeVersionId": "0a338184-9cd5-4915-8687-507a0a8fa742",
+  "createdAt": "2026-05-08T09:48:20.089Z",
+  "updatedAt": "2026-09-17T09:32:58.000Z",
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
@@ -67,7 +64,8 @@
         -32
       ],
       "id": "66eeb4aa-0d3d-4fe0-9ef6-ff9738a1c368",
-      "name": "Google SerpAPI Search"
+      "name": "Google SerpAPI Search",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -328,7 +326,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const seen = {};\nconst merged = [];\n\nfor (const item of $input.all()) {\n  const results = item.json.organic_results;\n  if (!Array.isArray(results)) continue;\n  for (let i = 0; i < results.length; i++) {\n    const r = results[i];\n    const link = String(r.link || r.url || '').trim();\n    if (!link) continue;\n    const key = link.toLowerCase();\n    if (seen[key]) continue;\n    seen[key] = true;\n    merged.push(r);\n  }\n}\n\nreturn [{ json: { organic_results: merged } }];"
+        "jsCode": "const seen = {};\nconst merged = [];\nlet total = 0;\nlet failed = 0;\n\nfor (const item of $input.all()) {\n  total++;\n  const json = item.json || {};\n  // Count a page as SUCCESSFUL only when it actually looks like a SerpApi answer.\n  // A negative test is not enough, because the two failure shapes differ:\n  //   per-item failure  -> n8n pushes { json: {}, error }        (routing-node.js)\n  //   whole-node failure -> continueRegularOutput re-emits this node's INPUT\n  //                         items, i.e. { q, start, __phase2 } — non-empty json\n  //                         and NO error, which a negative test would score as a\n  //                         successful empty search while the execution goes green.\n  const answered = Boolean(json.search_metadata) || Array.isArray(json.organic_results);\n  if (!answered || item.error) {\n    failed++;\n    continue;\n  }\n  const results = json.organic_results;\n  if (!Array.isArray(results)) continue; // answered, found nothing — not a failure\n  for (let i = 0; i < results.length; i++) {\n    const r = results[i];\n    const link = String(r.link || r.url || '').trim();\n    if (!link) continue;\n    const key = link.toLowerCase();\n    if (seen[key]) continue;\n    seen[key] = true;\n    merged.push(r);\n  }\n}\n\n// Phase 2 re-enters this node (Expand Phase 2 Queries -> Prepare Serp Pages ->\n// Google SerpAPI Search -> here). It is an EXPANSION of a search that may have\n// already sent candidates, so a total failure there must NOT be reported as a\n// failed search — that would overwrite a partial success with an error.\n// Decided exactly the way Prepare Serp Pages decides it, so the two cannot drift.\nconst wh = $('Webhook').first().json.body || {};\nconst searchId = String(wh.searchId || 'default');\nconst sd = $getWorkflowStaticData('global');\nconst isPhase2 = Boolean(sd.hhPhase2 && sd.hhPhase2[searchId]);\n\n// EVERY page of PHASE 1 failed: a SerpApi outage or an exhausted quota, NOT an\n// empty market. Report a failed search through the normal callback so the\n// recruiter sees an error instead of reading \"no candidates found\".\n// Partial failure (some pages fine) deliberately continues with what we have.\nif (!isPhase2 && total > 0 && failed === total) {\n  return [\n    {\n      json: {\n        __completeOnly: true,\n        searchFailed: true,\n        errorMessage:\n          'Search engine unavailable: all ' + total + ' page request(s) to SerpAPI failed.',\n      },\n    },\n  ];\n}\n\n// __completeOnly is set explicitly (never left undefined) so the IF node that\n// follows evaluates it under strict type validation without erroring.\nreturn [{ json: { organic_results: merged, __completeOnly: false } }];"
       },
       "id": "19b6e977-b078-4032-a034-9bd7af64b7a6",
       "name": "Merge Serp Results",
@@ -614,7 +612,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const wh = $('Webhook').first().json.body || {};\r\nconst searchId = String(wh.searchId || '');\r\nconst locationSearch = String(wh.location || '').toLowerCase();\r\nconst sd = $getWorkflowStaticData('global');\r\nconst tier = $('Resolve Search Tier').first().json || {};\r\nconst minTarget = Number(tier.minCount) || 20;\r\nconst stats = (sd.hhStats && sd.hhStats[searchId]) || { enrichOk: 0, enrichErr: 0 };\r\nconst pool = sd.hhCandidates && sd.hhCandidates[searchId] ? [...sd.hhCandidates[searchId]] : [];\r\n\r\nconst isIraqSearch =\r\n  locationSearch.includes('iraq') ||\r\n  locationSearch.includes('baghdad') ||\r\n  locationSearch.includes('عراق') ||\r\n  locationSearch.includes('بغداد');\r\n\r\nconst US_EXCLUDE = [\r\n  'united states', 'u.s.', 'usa', 'america', 'california', 'texas', 'new york', 'florida', 'orange county',\r\n];\r\nconst NON_IRAQ_EXCLUDE = [\r\n  'iran', 'tehran', 'turkey', 'uae', 'dubai', 'saudi', 'jordan', 'kuwait', 'qatar', 'egypt',\r\n];\r\n\r\nfunction norm(s) {\r\n  return String(s || '').toLowerCase();\r\n}\r\n\r\nfunction profileKey(j) {\r\n  const url = String(j.linkedin_url || '').trim().toLowerCase().split('?')[0];\r\n  if (url) return url;\r\n  return `name:${String(j.name || '').trim().toLowerCase()}`;\r\n}\r\n\r\nfunction isBadLocation(j) {\r\n  const loc = norm(j.location);\r\n  if (!loc) return false;\r\n  if (US_EXCLUDE.some((t) => loc.includes(t))) return true;\r\n  if (NON_IRAQ_EXCLUDE.some((t) => loc.includes(t)) && !loc.includes('iraq') && loc !== 'iq') return true;\r\n  return false;\r\n}\r\n\r\nfunction rankScore(j) {\r\n  let score = Number(j.match_score) || 0;\r\n  if (Number(j.location_priority) === 1) score += 8;\r\n  if (locationSearch.includes('baghdad') && norm(j.location).includes('baghdad')) score += 5;\r\n  return score;\r\n}\r\n\r\nfunction buildShortlist(sourcePool) {\r\n  const ranked = sourcePool.map((j) => ({ ...j }));\r\n  ranked.sort((a, b) => rankScore(b) - rankScore(a));\r\n\r\n  let shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 50);\r\n  if (shortlist.length === 0) shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 45);\r\n  if (shortlist.length === 0) shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 40);\r\n  if (shortlist.length === 0) shortlist = ranked;\r\n\r\n  if (isIraqSearch) {\r\n    const cleaned = shortlist.filter((j) => !isBadLocation(j));\r\n    if (cleaned.length > 0) shortlist = cleaned;\r\n  }\r\n\r\n  shortlist.sort((a, b) => rankScore(b) - rankScore(a));\r\n  return shortlist;\r\n}\r\n\r\nconst shortlist = buildShortlist(pool);\r\nconst needsExpansion =\r\n  minTarget >= 40 && shortlist.length < minTarget && !sd.hhExpanded?.[searchId];\r\n\r\nif (needsExpansion) {\r\n  sd.hhExpanded = sd.hhExpanded || {};\r\n  sd.hhExpanded[searchId] = true;\r\n  sd.hhExpansionPending = sd.hhExpansionPending || {};\r\n  sd.hhExpansionPending[searchId] = true;\r\n  sd.hhSeenUrls = sd.hhSeenUrls || {};\r\n  sd.hhSeenUrls[searchId] = shortlist\r\n    .map((j) => String(j.linkedin_url || '').trim().toLowerCase().split('?')[0])\r\n    .filter(Boolean);\r\n  sd.hhSentKeys = sd.hhSentKeys || {};\r\n  sd.hhSentKeys[searchId] = shortlist.map((j) => profileKey(j));\r\n  sd.hhPhase1SentCount = sd.hhPhase1SentCount || {};\r\n  sd.hhPhase1SentCount[searchId] = shortlist.length;\r\n  sd.hhSendProgress = sd.hhSendProgress || {};\r\n  sd.hhSendProgress[searchId] = { expected: shortlist.length, sent: 0, phase: 1 };\r\n} else {\r\n  if (sd.hhCandidates) delete sd.hhCandidates[searchId];\r\n  sd.hhSendProgress = sd.hhSendProgress || {};\r\n  sd.hhSendProgress[searchId] = { expected: shortlist.length, sent: 0, phase: 1 };\r\n}\r\n\r\nif (shortlist.length === 0) {\r\n  let errorMessage = '';\r\n  let searchFailed = false;\r\n\r\n  if (stats.enrichOk === 0 && stats.enrichErr > 0) {\r\n    searchFailed = true;\r\n    errorMessage =\r\n      'Enrichlayer: insufficient credits — all profile enrichments failed. Top up credits at enrichlayer.com and retry.';\r\n  } else if (pool.length === 0) {\r\n    errorMessage = 'No candidates passed the preliminary AI score threshold (25).';\r\n  } else {\r\n    errorMessage = 'No candidates available after final ranking.';\r\n  }\r\n\r\n  return [\r\n    {\r\n      json: {\r\n        searchId,\r\n        searchComplete: true,\r\n        searchFailed,\r\n        errorMessage,\r\n        __completeOnly: true,\r\n      },\r\n    },\r\n  ];\r\n}\r\n\r\nreturn shortlist.map((j) => {\r\n  const { location_priority, __skip, ...rest } = j;\r\n  return {\r\n    json: {\r\n      ...rest,\r\n      __expansionPending: needsExpansion,\r\n    },\r\n  };\r\n});\r\n"
+        "jsCode": "const wh = $('Webhook').first().json.body || {};\r\nconst searchId = String(wh.searchId || '');\r\nconst locationSearch = String(wh.location || '').toLowerCase();\r\nconst sd = $getWorkflowStaticData('global');\r\nconst tier = $('Resolve Search Tier').first().json || {};\r\nconst minTarget = Number(tier.minCount) || 20;\r\nconst stats = (sd.hhStats && sd.hhStats[searchId]) || { enrichOk: 0, enrichErr: 0 };\r\nconst pool = sd.hhCandidates && sd.hhCandidates[searchId] ? [...sd.hhCandidates[searchId]] : [];\r\n\r\nconst isIraqSearch =\r\n  locationSearch.includes('iraq') ||\r\n  locationSearch.includes('baghdad') ||\r\n  locationSearch.includes('عراق') ||\r\n  locationSearch.includes('بغداد');\r\n\r\nconst US_EXCLUDE = [\r\n  'united states', 'u.s.', 'usa', 'america', 'california', 'texas', 'new york', 'florida', 'orange county',\r\n];\r\nconst NON_IRAQ_EXCLUDE = [\r\n  'iran', 'tehran', 'turkey', 'uae', 'dubai', 'saudi', 'jordan', 'kuwait', 'qatar', 'egypt',\r\n];\r\n\r\nfunction norm(s) {\r\n  return String(s || '').toLowerCase();\r\n}\r\n\r\nfunction profileKey(j) {\r\n  const url = String(j.linkedin_url || '').trim().toLowerCase().split('?')[0];\r\n  if (url) return url;\r\n  return `name:${String(j.name || '').trim().toLowerCase()}`;\r\n}\r\n\r\nfunction isBadLocation(j) {\r\n  const loc = norm(j.location);\r\n  if (!loc) return false;\r\n  if (US_EXCLUDE.some((t) => loc.includes(t))) return true;\r\n  if (NON_IRAQ_EXCLUDE.some((t) => loc.includes(t)) && !loc.includes('iraq') && loc !== 'iq') return true;\r\n  return false;\r\n}\r\n\r\nfunction rankScore(j) {\r\n  let score = Number(j.match_score) || 0;\r\n  if (Number(j.location_priority) === 1) score += 8;\r\n  if (locationSearch.includes('baghdad') && norm(j.location).includes('baghdad')) score += 5;\r\n  return score;\r\n}\r\n\r\nfunction buildShortlist(sourcePool) {\r\n  const ranked = sourcePool.map((j) => ({ ...j }));\r\n  ranked.sort((a, b) => rankScore(b) - rankScore(a));\r\n\r\n  let shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 50);\r\n  if (shortlist.length === 0) shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 45);\r\n  if (shortlist.length === 0) shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 40);\r\n  if (shortlist.length === 0) shortlist = ranked;\r\n\r\n  if (isIraqSearch) {\r\n    const cleaned = shortlist.filter((j) => !isBadLocation(j));\r\n    if (cleaned.length > 0) shortlist = cleaned;\r\n  }\r\n\r\n  shortlist.sort((a, b) => rankScore(b) - rankScore(a));\r\n  return shortlist;\r\n}\r\n\r\nconst shortlist = buildShortlist(pool);\r\n// The second wave used to be reserved for the 40-candidate tier, which left the\r\n// COMMON case unserved: a 20-candidate search that came back short simply\r\n// delivered short. Everything downstream already handles a target of 20 --\r\n// Finalize Phase 2 Send reads minCount off the tier, Track Send Progress reads\r\n// minTarget off the progress row. Expansion still runs at most once per search\r\n// (hhExpanded), and phase 2 now sends only the shortfall, so this raises the\r\n// count TO the target and never past it.\r\nconst needsExpansion =\r\n  shortlist.length < minTarget && !sd.hhExpanded?.[searchId];\r\n\r\nif (needsExpansion) {\r\n  sd.hhExpanded = sd.hhExpanded || {};\r\n  sd.hhExpanded[searchId] = true;\r\n  sd.hhExpansionPending = sd.hhExpansionPending || {};\r\n  sd.hhExpansionPending[searchId] = true;\r\n  sd.hhSeenUrls = sd.hhSeenUrls || {};\r\n  sd.hhSeenUrls[searchId] = shortlist\r\n    .map((j) => String(j.linkedin_url || '').trim().toLowerCase().split('?')[0])\r\n    .filter(Boolean);\r\n  sd.hhSentKeys = sd.hhSentKeys || {};\r\n  sd.hhSentKeys[searchId] = shortlist.map((j) => profileKey(j));\r\n  sd.hhPhase1SentCount = sd.hhPhase1SentCount || {};\r\n  sd.hhPhase1SentCount[searchId] = shortlist.length;\r\n  sd.hhSendProgress = sd.hhSendProgress || {};\r\n  sd.hhSendProgress[searchId] = { expected: shortlist.length, sent: 0, phase: 1 };\r\n} else {\r\n  if (sd.hhCandidates) delete sd.hhCandidates[searchId];\r\n  sd.hhSendProgress = sd.hhSendProgress || {};\r\n  sd.hhSendProgress[searchId] = { expected: shortlist.length, sent: 0, phase: 1 };\r\n}\r\n\r\nif (shortlist.length === 0) {\r\n  let errorMessage = '';\r\n  let searchFailed = false;\r\n\r\n  if (stats.enrichOk === 0 && stats.enrichErr > 0) {\r\n    searchFailed = true;\r\n    errorMessage =\r\n      'Enrichlayer: insufficient credits — all profile enrichments failed. Top up credits at enrichlayer.com and retry.';\r\n  } else if (pool.length === 0) {\r\n    errorMessage = 'No candidates passed the preliminary AI score threshold (25).';\r\n  } else {\r\n    errorMessage = 'No candidates available after final ranking.';\r\n  }\r\n\r\n  return [\r\n    {\r\n      json: {\r\n        searchId,\r\n        searchComplete: true,\r\n        searchFailed,\r\n        errorMessage,\r\n        __completeOnly: true,\r\n      },\r\n    },\r\n  ];\r\n}\r\n\r\nreturn shortlist.map((j) => {\r\n  const { location_priority, __skip, ...rest } = j;\r\n  return {\r\n    json: {\r\n      ...rest,\r\n      __expansionPending: needsExpansion,\r\n    },\r\n  };\r\n});\r\n"
       },
       "id": "4854c0fd-5912-4942-a29d-4beed3c7b668",
       "name": "Finalize Top N Send",
@@ -764,7 +762,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const wh = $('Webhook').first().json.body || {};\nconst searchId = String(wh.searchId || '');\nconst t = $('Apply Translation').first().json || {};\nconst position = String(t.position || wh.position || '').trim();\nconst location = String(t.location || wh.location || '').trim();\nconst posLower = position.toLowerCase();\nconst sd = $getWorkflowStaticData('global');\n\nsd.hhPhase2 = sd.hhPhase2 || {};\nsd.hhPhase2[searchId] = { pagesPerQuery: 3, maxEnrich: 40, queryVariants: 3 };\n\nfunction buildLocFilter(loc) {\n  const l = String(loc || '').trim();\n  if (!l) return '(\"Iraq\")';\n  const city = l.split(',')[0].trim();\n  const terms = [];\n  if (city) terms.push('\"' + city + '\"');\n  terms.push('\"Iraq\"');\n  return '(' + terms.join(' OR ') + ')';\n}\nconst iraqLoc = buildLocFilter(location);\n\nconst queries = [];\nfunction add(q) {\n  const s = String(q || '').trim();\n  if (s && queries.indexOf(s) === -1) queries.push(s);\n}\n\nif (position) add(`site:linkedin.com/in/ \"${position}\" AND ${iraqLoc}`);\n\nconst words = position\n  .split(/\\s+/)\n  .map((w) => w.trim())\n  .filter((w) => w.length > 2)\n  .slice(0, 5);\nif (words.length) {\n  add(`site:linkedin.com/in/ (${words.map((w) => `\"${w}\"`).join(' OR ')}) AND ${iraqLoc}`);\n}\n\nif (posLower.includes('support') || posLower.includes('helpdesk') || posLower.includes('it ')) {\n  add(\n    `site:linkedin.com/in/ (\"IT Support\" OR \"Helpdesk\" OR \"Technical Support\" OR \"Desktop Support\") AND ${iraqLoc}`\n  );\n}\n\nif (posLower.includes('engineer')) {\n  add(\n    `site:linkedin.com/in/ (\"Engineer\") (\"${words[0] || position.split(/\\s+/)[0] || 'Engineer'}\") AND ${iraqLoc}`\n  );\n}\n\nconst city = location.split(',')[0].trim();\nif (city && position) {\n  add(`site:linkedin.com/in/ \"${position}\" (\"${city}\" OR \"Iraq\")`);\n}\n\nreturn queries.slice(0, 3).map((q) => ({ json: { q, __phase2: true, searchId } }));"
+        "jsCode": "const wh = $('Webhook').first().json.body || {};\nconst searchId = String(wh.searchId || '');\nconst t = $('Apply Translation').first().json || {};\nconst position = String(t.position || wh.position || '').trim();\nconst location = String(t.location || wh.location || '').trim();\nconst posLower = position.toLowerCase();\nconst sd = $getWorkflowStaticData('global');\n\nsd.hhPhase2 = sd.hhPhase2 || {};\n// Scale the second wave to the tier. A 20-candidate search that fell a few short\n// does not need the 40-tier's nine Google pages and forty PAID enrichments.\n// (queryVariants is carried for readability only -- nothing reads it; the query\n// list below is sliced at three.)\nconst tierMin = Number($('Resolve Search Tier').first().json?.minCount) || 40;\nsd.hhPhase2[searchId] =\n  tierMin >= 40\n    ? { pagesPerQuery: 3, maxEnrich: 40, queryVariants: 3 }\n    : { pagesPerQuery: 2, maxEnrich: 20, queryVariants: 3 };\n\nfunction buildLocFilter(loc) {\n  const l = String(loc || '').trim();\n  if (!l) return '(\"Iraq\")';\n  const city = l.split(',')[0].trim();\n  const terms = [];\n  if (city) terms.push('\"' + city + '\"');\n  terms.push('\"Iraq\"');\n  return '(' + terms.join(' OR ') + ')';\n}\nconst iraqLoc = buildLocFilter(location);\n\nconst queries = [];\nfunction add(q) {\n  const s = String(q || '').trim();\n  if (s && queries.indexOf(s) === -1) queries.push(s);\n}\n\nif (position) add(`site:linkedin.com/in/ \"${position}\" AND ${iraqLoc}`);\n\nconst words = position\n  .split(/\\s+/)\n  .map((w) => w.trim())\n  .filter((w) => w.length > 2)\n  .slice(0, 5);\nif (words.length) {\n  add(`site:linkedin.com/in/ (${words.map((w) => `\"${w}\"`).join(' OR ')}) AND ${iraqLoc}`);\n}\n\nif (posLower.includes('support') || posLower.includes('helpdesk') || posLower.includes('it ')) {\n  add(\n    `site:linkedin.com/in/ (\"IT Support\" OR \"Helpdesk\" OR \"Technical Support\" OR \"Desktop Support\") AND ${iraqLoc}`\n  );\n}\n\nif (posLower.includes('engineer')) {\n  add(\n    `site:linkedin.com/in/ (\"Engineer\") (\"${words[0] || position.split(/\\s+/)[0] || 'Engineer'}\") AND ${iraqLoc}`\n  );\n}\n\nconst city = location.split(',')[0].trim();\nif (city && position) {\n  add(`site:linkedin.com/in/ \"${position}\" (\"${city}\" OR \"Iraq\")`);\n}\n\nreturn queries.slice(0, 3).map((q) => ({ json: { q, __phase2: true, searchId } }));"
       },
       "id": "ffe177b0-07f3-4494-bd7a-6292617afc05",
       "name": "Expand Phase 2 Queries",
@@ -790,7 +788,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const wh = $('Webhook').first().json.body || {};\r\nconst searchId = String(wh.searchId || '');\r\nconst locationSearch = String(wh.location || '').toLowerCase();\r\nconst sd = $getWorkflowStaticData('global');\r\nconst tier = $('Resolve Search Tier').first().json || {};\r\nconst minTarget = Number(tier.minCount) || 40;\r\nconst pool = sd.hhCandidates && sd.hhCandidates[searchId] ? [...sd.hhCandidates[searchId]] : [];\r\nconst sentKeys = new Set((sd.hhSentKeys && sd.hhSentKeys[searchId]) || []);\r\n\r\nconst isIraqSearch =\r\n  locationSearch.includes('iraq') ||\r\n  locationSearch.includes('baghdad') ||\r\n  locationSearch.includes('عراق') ||\r\n  locationSearch.includes('بغداد');\r\n\r\nconst US_EXCLUDE = [\r\n  'united states', 'u.s.', 'usa', 'america', 'california', 'texas', 'new york', 'florida', 'orange county',\r\n];\r\nconst NON_IRAQ_EXCLUDE = [\r\n  'iran', 'tehran', 'turkey', 'uae', 'dubai', 'saudi', 'jordan', 'kuwait', 'qatar', 'egypt',\r\n];\r\n\r\nfunction norm(s) {\r\n  return String(s || '').toLowerCase();\r\n}\r\n\r\nfunction profileKey(j) {\r\n  const url = String(j.linkedin_url || '').trim().toLowerCase().split('?')[0];\r\n  if (url) return url;\r\n  return `name:${String(j.name || '').trim().toLowerCase()}`;\r\n}\r\n\r\nfunction isBadLocation(j) {\r\n  const loc = norm(j.location);\r\n  if (!loc) return false;\r\n  if (US_EXCLUDE.some((t) => loc.includes(t))) return true;\r\n  if (NON_IRAQ_EXCLUDE.some((t) => loc.includes(t)) && !loc.includes('iraq') && loc !== 'iq') return true;\r\n  return false;\r\n}\r\n\r\nfunction rankScore(j) {\r\n  let score = Number(j.match_score) || 0;\r\n  if (Number(j.location_priority) === 1) score += 8;\r\n  if (locationSearch.includes('baghdad') && norm(j.location).includes('baghdad')) score += 5;\r\n  return score;\r\n}\r\n\r\nconst ranked = pool.map((j) => ({ ...j }));\r\nranked.sort((a, b) => rankScore(b) - rankScore(a));\r\n\r\nlet shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 50);\r\nif (shortlist.length === 0) shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 45);\r\nif (shortlist.length === 0) shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 40);\r\nif (shortlist.length === 0) shortlist = ranked;\r\n\r\nif (isIraqSearch) {\r\n  const cleaned = shortlist.filter((j) => !isBadLocation(j));\r\n  if (cleaned.length > 0) shortlist = cleaned;\r\n}\r\n\r\nshortlist.sort((a, b) => rankScore(b) - rankScore(a));\r\nconst toSend = shortlist.filter((j) => !sentKeys.has(profileKey(j)));\r\n\r\nif (sd.hhCandidates) delete sd.hhCandidates[searchId];\r\nif (sd.hhExpansionActive) delete sd.hhExpansionActive[searchId];\r\nif (sd.hhPhase2) delete sd.hhPhase2[searchId];\r\n\r\nconst phase1Count = (sd.hhPhase1SentCount && sd.hhPhase1SentCount[searchId]) || 0;\r\nconst totalAfter = phase1Count + toSend.length;\r\n\r\nsd.hhSendProgress = sd.hhSendProgress || {};\r\nsd.hhSendProgress[searchId] = {\r\n  expected: toSend.length,\r\n  sent: 0,\r\n  phase: 2,\r\n  phase1Count,\r\n  minTarget,\r\n  totalAfter,\r\n};\r\n\r\nif (toSend.length === 0) {\r\n  return [\r\n    {\r\n      json: {\r\n        searchId,\r\n        searchComplete: true,\r\n        __completeOnly: true,\r\n        phase1Count,\r\n        totalSent: phase1Count,\r\n        minTarget,\r\n        targetMet: phase1Count >= minTarget,\r\n        expansionRan: true,\r\n      },\r\n    },\r\n  ];\r\n}\r\n\r\nreturn toSend.map((j) => {\r\n  const { location_priority, __skip, ...rest } = j;\r\n  const key = profileKey(j);\r\n  if (!sd.hhSentKeys) sd.hhSentKeys = {};\r\n  if (!sd.hhSentKeys[searchId]) sd.hhSentKeys[searchId] = [];\r\n  sd.hhSentKeys[searchId].push(key);\r\n  return {\r\n    json: {\r\n      ...rest,\r\n      __finalPhase: true,\r\n      phase1Count,\r\n      minTarget,\r\n    },\r\n  };\r\n});\r\n"
+        "jsCode": "const wh = $('Webhook').first().json.body || {};\r\nconst searchId = String(wh.searchId || '');\r\nconst locationSearch = String(wh.location || '').toLowerCase();\r\nconst sd = $getWorkflowStaticData('global');\r\nconst tier = $('Resolve Search Tier').first().json || {};\r\nconst minTarget = Number(tier.minCount) || 40;\r\nconst pool = sd.hhCandidates && sd.hhCandidates[searchId] ? [...sd.hhCandidates[searchId]] : [];\r\nconst sentKeys = new Set((sd.hhSentKeys && sd.hhSentKeys[searchId]) || []);\r\n\r\nconst isIraqSearch =\r\n  locationSearch.includes('iraq') ||\r\n  locationSearch.includes('baghdad') ||\r\n  locationSearch.includes('عراق') ||\r\n  locationSearch.includes('بغداد');\r\n\r\nconst US_EXCLUDE = [\r\n  'united states', 'u.s.', 'usa', 'america', 'california', 'texas', 'new york', 'florida', 'orange county',\r\n];\r\nconst NON_IRAQ_EXCLUDE = [\r\n  'iran', 'tehran', 'turkey', 'uae', 'dubai', 'saudi', 'jordan', 'kuwait', 'qatar', 'egypt',\r\n];\r\n\r\nfunction norm(s) {\r\n  return String(s || '').toLowerCase();\r\n}\r\n\r\nfunction profileKey(j) {\r\n  const url = String(j.linkedin_url || '').trim().toLowerCase().split('?')[0];\r\n  if (url) return url;\r\n  return `name:${String(j.name || '').trim().toLowerCase()}`;\r\n}\r\n\r\nfunction isBadLocation(j) {\r\n  const loc = norm(j.location);\r\n  if (!loc) return false;\r\n  if (US_EXCLUDE.some((t) => loc.includes(t))) return true;\r\n  if (NON_IRAQ_EXCLUDE.some((t) => loc.includes(t)) && !loc.includes('iraq') && loc !== 'iq') return true;\r\n  return false;\r\n}\r\n\r\nfunction rankScore(j) {\r\n  let score = Number(j.match_score) || 0;\r\n  if (Number(j.location_priority) === 1) score += 8;\r\n  if (locationSearch.includes('baghdad') && norm(j.location).includes('baghdad')) score += 5;\r\n  return score;\r\n}\r\n\r\nconst ranked = pool.map((j) => ({ ...j }));\r\nranked.sort((a, b) => rankScore(b) - rankScore(a));\r\n\r\nlet shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 50);\r\nif (shortlist.length === 0) shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 45);\r\nif (shortlist.length === 0) shortlist = ranked.filter((j) => (Number(j.match_score) || 0) >= 40);\r\nif (shortlist.length === 0) shortlist = ranked;\r\n\r\nif (isIraqSearch) {\r\n  const cleaned = shortlist.filter((j) => !isBadLocation(j));\r\n  if (cleaned.length > 0) shortlist = cleaned;\r\n}\r\n\r\nshortlist.sort((a, b) => rankScore(b) - rankScore(a));\r\n// Only the SHORTFALL. Without this the second wave sends its whole shortlist ON\r\n// TOP of what phase 1 already sent, and the recruiter is billed per candidate for\r\n// people they never asked for: 13 + 20 when they asked for 20.\r\nconst phase1Sent = (sd.hhPhase1SentCount && sd.hhPhase1SentCount[searchId]) || 0;\r\nconst remaining = Math.max(0, minTarget - phase1Sent);\r\nconst toSend = shortlist.filter((j) => !sentKeys.has(profileKey(j))).slice(0, remaining);\r\n\r\nif (sd.hhCandidates) delete sd.hhCandidates[searchId];\r\nif (sd.hhExpansionActive) delete sd.hhExpansionActive[searchId];\r\nif (sd.hhPhase2) delete sd.hhPhase2[searchId];\r\n\r\nconst phase1Count = (sd.hhPhase1SentCount && sd.hhPhase1SentCount[searchId]) || 0;\r\nconst totalAfter = phase1Count + toSend.length;\r\n\r\nsd.hhSendProgress = sd.hhSendProgress || {};\r\nsd.hhSendProgress[searchId] = {\r\n  expected: toSend.length,\r\n  sent: 0,\r\n  phase: 2,\r\n  phase1Count,\r\n  minTarget,\r\n  totalAfter,\r\n};\r\n\r\nif (toSend.length === 0) {\r\n  return [\r\n    {\r\n      json: {\r\n        searchId,\r\n        searchComplete: true,\r\n        __completeOnly: true,\r\n        phase1Count,\r\n        totalSent: phase1Count,\r\n        minTarget,\r\n        targetMet: phase1Count >= minTarget,\r\n        expansionRan: true,\r\n      },\r\n    },\r\n  ];\r\n}\r\n\r\nreturn toSend.map((j) => {\r\n  const { location_priority, __skip, ...rest } = j;\r\n  const key = profileKey(j);\r\n  if (!sd.hhSentKeys) sd.hhSentKeys = {};\r\n  if (!sd.hhSentKeys[searchId]) sd.hhSentKeys[searchId] = [];\r\n  sd.hhSentKeys[searchId].push(key);\r\n  return {\r\n    json: {\r\n      ...rest,\r\n      __finalPhase: true,\r\n      phase1Count,\r\n      minTarget,\r\n    },\r\n  };\r\n});\r\n"
       },
       "id": "59f26b72-4da8-4c75-9487-03f9595f0866",
       "name": "Finalize Phase 2 Send",
@@ -904,6 +902,40 @@
         },
         "options": {}
       }
+    },
+    {
+      "id": "9ce02860-a101-449f-b25f-534643b39639",
+      "name": "All Serp Pages Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        384,
+        112
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "all-serp-pages-failed",
+              "leftValue": "={{ $json.__completeOnly }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
     }
   ],
   "connections": {
@@ -988,17 +1020,6 @@
         [
           {
             "node": "Google SerpAPI Search",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Merge Serp Results": {
-      "main": [
-        [
-          {
-            "node": "Split Out",
             "type": "main",
             "index": 0
           }
@@ -1365,11 +1386,42 @@
           }
         ]
       ]
+    },
+    "Merge Serp Results": {
+      "main": [
+        [
+          {
+            "node": "All Serp Pages Failed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "All Serp Pages Failed?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Complete Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
+  "tags": [],
   "meta": {
     "templateCredsSetupCompleted": true,
     "aiBuilderAssisted": true,
     "builderVariant": "mcp"
-  }
+  },
+  "description": "Headhunting: Boolean LinkedIn search via SerpAPI + Enrichlayer, sends candidates to Evaalo internal API."
 }

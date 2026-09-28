@@ -33,7 +33,7 @@ n8n are referenced by id, never inlined, and the scan came back clean.
 | `compare-stage1--…` | Campaign Compare — Stage 1 (Secure ) | `tk2tAop5…` | 14 | `9391209e` |
 | `compare-stage2--…` | Campaign Compare — Stage 2 (Secure) | `3W02FGgY…` | 14 | `cceec6bc` |
 | `compare-stage3--…` | Campaign Compare — Stage 3 (Secure ) | `amxEfky3…` | 15 | `b1a5a3ea` |
-| `headhunter--AI_Head_hunter` | AI Head hunter | `GlhDGC23…` | 43 | `c92f31a7` |
+| `headhunter--AI_Head_hunter` | AI Head hunter | `GlhDGC23…` | 44 | `c92f31a7` |
 | `cv-comparison--CV_Comparison` | CV Comparison | `hmPyS1Hy…` | 17 | `5a2e23d9` |
 | `log-alerts--Evaalo_Log_Alerts` | Evaalo Log Alerts | `lubD2hXc…` | 2 | `evaalo-log-alerts` |
 | `stage1-failure-alert--Stage_1_Failure_Alert` | Stage 1 Failure Alert — Error Trigger → Gmail to the owner | `kVGT46me…` | 2 | — (error workflow) |
