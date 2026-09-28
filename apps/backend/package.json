@@ -175,7 +175,8 @@
     "test:voice-question-repeat": "tsx src/scripts/voice-question-repeat-test.ts",
     "test:voice-reply-example-phrasing": "tsx src/scripts/voice-reply-example-phrasing-test.ts",
     "test:voice-reply-punctuation": "tsx src/scripts/voice-reply-punctuation-test.ts",
-    "test:free-text-role-floor": "tsx src/scripts/free-text-role-floor-test.ts"
+    "test:free-text-role-floor": "tsx src/scripts/free-text-role-floor-test.ts",
+    "test:headhunter-reset-fix": "tsx src/scripts/headhunter-reset-fix-test.ts"
   },
   "keywords": [
     "career",

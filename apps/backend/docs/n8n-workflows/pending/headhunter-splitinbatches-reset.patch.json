@@ -1,0 +1,35 @@
+{
+  "_warning": "PUBLISHED 2026-09-28 08:27Z as AI Head hunter version 191c06f9-10b2-4df7-b46f-ab70080c932b. A patch against the ARCHIVED pre-fix version 0a338184 (archive/headhunter--AI_Head_hunter--0a338184-before-reset-fix.json), not an importable workflow - never import this file. Kept so `npm run test:headhunter-reset-fix` can rebuild the published workflow from archive + patch and match it by fingerprint.",
+  "_why": "Split In Batches has no `options.reset`, so the phase-2 wave re-entering through `Limit Candidates` is treated as a continuation of the already-exhausted phase-1 set. The whole wave leaves on branch 0 (done) and never reaches `Enrichlayer Profile Fetch`. Measured in production 3 of 3 expansions: waves of 21 / 20 / 45 fresh URLs, 86 candidates found and discarded. A regression from the 2026-09-17 change that enabled phase 2 for the 20-tier, which now pays 6 extra SerpAPI calls and delivers nothing.",
+  "_formatNote": "The existing patches in this directory use `parameterEdits` with find/replace on a string parameter. That cannot express this change: `options.reset` does not exist yet, so there is nothing to find. `parameterSets` sets an absent nested key instead, and carries `expectBefore` so the test fails loudly if the live baseline ever already has the key.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "0a338184-9cd5-4915-8687-507a0a8fa742",
+  "baseNodeCount": 44,
+  "parameterSets": [
+    {
+      "node": "Split In Batches",
+      "path": "options.reset",
+      "expectBefore": "absent",
+      "set": "={{ $json.batchDone !== true }}"
+    }
+  ],
+  "_whyThisExpression": {
+    "loopBack": "Input from `Stream Batch Done`, whose node code returns { batchDone: true, itemIndex, __phase2 }. So the expression is FALSE and the node continues its current set - the loop advances normally.",
+    "newWave": "Input from `Limit Candidates`, which carries SERP result objects with no `batchDone` key. So the expression is TRUE and the node treats the input as a new set - which is exactly what phase 2 needs.",
+    "trapAvoided": "A constant `true` would reset on EVERY call, including every loop-back, so the loop would never advance. The n8n type definition is `reset?: boolean | Expression<boolean>` - 'the node starts again from the beginning of the input items'. 'Just add reset: true' is wrong."
+  },
+  "_provenIn": {
+    "workflow": "U34sixGqSibf6xeJ  (EXPERIMENTAL - SplitInBatches reset repro - DO NOT ACTIVATE)",
+    "note": "Fake data only - no SerpAPI, no EnrichLayer, no credentials, zero cost. Same node type, same version 3, same batchSize 20 (the value `streamBatchSize` resolves to live).",
+    "baseline_exec_2018": "N1=35 N2=20 -> enrichedWave2 = 0. n8n internal contextData showed node:Loop with done:true, noItemsLeft:true and all 20 wave-2 items sitting in `processedItems` - visibly swallowed.",
+    "fixed_exec_2019": "N1=35 N2=20 -> 35 + 20 = 55, iterations 2 and 1, done fired once per wave.",
+    "fixed_exec_2020": "N1=55 N2=40 (tier-40 shape) -> 95, iterations 3 and 2.",
+    "fixed_exec_2021": "N1=20 N2=15 (wave equal to batch, then smaller than batch) -> 35, iterations 1 and 1.",
+    "nonRegression_2022_vs_2023": "Single wave N1=35 N2=0, with and without the fix: enriched 35, iterations 2, doneCount 1, identical doneFirings. Byte-identical."
+  },
+  "_notReproduced": "The separately documented 'Split In Batches fires done twice for one wave' symptom did NOT appear in this repro: a single wave fired done exactly once, both with and without the fix. So that symptom is not caused by the missing reset and must come from elsewhere. Reported, not fixed - the completion/message path stays frozen.",
+  "_scope": "One parameter on one node. No change to Finalize Phase 2 Send, Finalize Top N Send, Has Final Candidates?, any message text, query generation, matchesPosition, Filter LinkedIn URLs, billing or EnrichLayer.",
+  "_rollback": "Re-publish version 0a338184-9cd5-4915-8687-507a0a8fa742 (archived here as baseFile). Do NOT unpublish a live workflow hoping to republish it, and do NOT use import:workflow (it deactivates).",
+  "baseFile": "archive/headhunter--AI_Head_hunter--0a338184-before-reset-fix.json",
+  "publishedVersionId": "191c06f9-10b2-4df7-b46f-ab70080c932b"
+}

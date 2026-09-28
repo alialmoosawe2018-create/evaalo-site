@@ -2,10 +2,10 @@
   "id": "GlhDGC23n5tT6jVv",
   "name": "AI Head hunter",
   "active": true,
-  "versionId": "191c06f9-10b2-4df7-b46f-ab70080c932b",
-  "activeVersionId": "191c06f9-10b2-4df7-b46f-ab70080c932b",
+  "versionId": "0a338184-9cd5-4915-8687-507a0a8fa742",
+  "activeVersionId": "0a338184-9cd5-4915-8687-507a0a8fa742",
   "createdAt": "2026-05-08T09:48:20.089Z",
-  "updatedAt": "2026-09-28T08:27:53.212Z",
+  "updatedAt": "2026-09-17T09:32:58.000Z",
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
@@ -481,9 +481,7 @@
     {
       "parameters": {
         "batchSize": "={{ $('Resolve Search Tier').first().json.streamBatchSize }}",
-        "options": {
-          "reset": "={{ $json.batchDone !== true }}"
-        }
+        "options": {}
       },
       "id": "a2b3c4d5-e6f7-8901-abcd-ef1234567892",
       "name": "Split In Batches",

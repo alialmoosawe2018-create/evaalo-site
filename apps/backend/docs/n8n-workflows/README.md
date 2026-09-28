@@ -68,6 +68,27 @@ down for 28 s during the restart, with no interview and no execution running, an
 workflows re-registered. Rollback: re-import `/root/s1_backup_before_spamgate_20260926.json` (= `fade64a7`)
 on the VPS, publish, restart n8n.
 
+**Head Hunter `Split In Batches` reset fix published 2026-09-28 08:27Z → version `191c06f9`** (still 44
+nodes; only `Split In Batches` changed, and only its `options.reset`). The engine was finding candidates
+and throwing them away: with no `reset`, the phase-2 wave re-entering through `Limit Candidates` was
+treated as a continuation of the exhausted phase-1 set, so the whole wave left on branch 0 (done) and
+never reached `Enrichlayer Profile Fetch` — 86 candidates discarded across 3 of 3 measured expansions,
+a regression from the 2026-09-17 change that enabled phase 2 for the 20-tier. The fix is an
+**expression**, `={{ $json.batchDone !== true }}`: loop-backs arrive from `Stream Batch Done` carrying
+`batchDone: true` so the node continues, while a new wave from `Limit Candidates` has no such key so the
+node treats it as a new set. A constant `true` would reset on every loop-back and the loop would never
+advance. Proven against real n8n in the throwaway repro `U34sixGqSibf6xeJ` (fake data, no SerpAPI, no
+EnrichLayer, no credentials): baseline exec 2018 showed wave 2 enriched 0 with all 20 items visibly
+sitting in the node’s `processedItems`; execs 2019/2020/2021 gave 35+20, 55+40 and 20+15 with correct
+iteration counts; and execs 2022 vs 2023 proved a single-wave search is byte-identical with and without
+the fix. `live/` was rebuilt as the archived `0a338184`
+(`archive/headhunter--AI_Head_hunter--0a338184-before-reset-fix.json`) plus
+`pending/headhunter-splitinbatches-reset.patch.json`, and `npm run test:headhunter-reset-fix` matches the
+published workflow by fingerprint on both nodes and connections. Published with zero running executions.
+⚠️ **Not yet observed in a real search** — the next 20-tier search that triggers phase 2 is the first live
+proof. Rollback: re-publish `0a338184` (kept in `archive/`); never unpublish-then-republish, never
+`import:workflow`.
+
 ## `pending/` — proposed changes, NOT live
 
 A change to a live workflow that has been designed and tested but not published.
@@ -79,6 +100,7 @@ live id and webhook path and recreate the decoy hazard described below.
 |---|---|---|---|
 | `stage1-claim-guard.patch.json` + `stage1-claim-guard.node.js` | **PUBLISHED 2026-09-26 (`fade64a7`) — kept because the test rebuilds the live workflow from the archived base + this patch.** Stage 1 claim guard: a verifiable criterion supported only by an application field or the cover letter scores 0 (`not_assessed`); the job applied for never raises an integrity concern (S24); employer-written custom criteria are audit-only; FAILS CLOSED — unreadable criteria, unparseable evaluator output (S26) or an internal error stop the run with no verdict, and the stop message names the candidate / campaign / application ids for the alert email. ⚠️ The node's own header comment still reads "PROPOSED, NOT LIVE": it is part of the published code, so it changes only with the next publish | `ec1f1214` | `npm run test:stage1-claim-guard` |
 | `stage1-spam-gate.patch.json` | **PUBLISHED 2026-09-26 17:26Z (`90c8211f`) — kept because the test rebuilds the live workflow from the archived fade64a7 + this patch.** Edits only the anti-spam gate `Basic LLM Chain`. Once S0 sends the typed fields, the old gate rejected 3 of 28 real applicants (15/140 replay runs; a gate reject is stored as 0/Reject). The patch gives the job line a neutral label, because on `?pub=` links the applicant picks it. It removes the cover letter from the gate, limits contradictions to the applicant's own fields, and lists what is never spam. Pre-registered replay (v2): 0/140 rejections on the S0 bodies (the old gate, same harness: 18-22/140); 0/40 on held-out honest cases; 0/140 on today's traffic; every one of the 13 non-cover-letter spam cases still caught; and 13 harder probes (Arabic-script spam, fluent bot text, spam in a single field such as location or LinkedIn, planted instructions in skills) all caught 5/5. v1 listed only some fields in the reject rule, and spam placed only in location, company or LinkedIn slipped to 3-4 of 5, so v2 names every field. Pretest on a temporary copy (execution 1985): the patch applied by hash to the server export, and the real runtime rendered the gate prompt byte-identical to the replay harness. Publish with the server-side recipe below; archive `fade64a7` and point the test's base at it in the same commit that refreshes `live/` | `fade64a7` | `npm run test:stage1-spam-gate` |
+| `headhunter-splitinbatches-reset.patch.json` | **PUBLISHED 2026-09-28 08:27Z (`191c06f9`) — kept because `test:headhunter-reset-fix` rebuilds the published workflow from the archived base + this patch.** Sets `options.reset` on the Head Hunter `Split In Batches` node to the expression `={{ $json.batchDone !== true }}` so a phase-2 wave is treated as a new set instead of a continuation of the exhausted phase-1 set. One node, one parameter, no connection change. Uses a `parameterSets` form rather than `parameterEdits`, because find/replace cannot set a key that does not exist yet; `expectBefore: "absent"` makes the test fail loudly if the base ever already has it | `0a338184` | `npm run test:headhunter-reset-fix` |
 
 ### Re-sending a Stage 1 application the guard stopped
 
