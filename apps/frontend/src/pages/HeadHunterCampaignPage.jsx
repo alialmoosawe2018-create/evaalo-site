@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { normalizeHeadHunterPayload } from '../utils/headHunterNormalize.js';
+import { apiClient } from '../services/apiClient';
 import { useHeadHunterPersistence } from '../hooks/useHeadHunterPersistence.js';
 import { useHeadHunterSearchHistory } from '../hooks/useHeadHunterSearchHistory.js';
 import HeadHunterResultsWorkspace from '../components/headhunter/HeadHunterResultsWorkspace.jsx';
@@ -43,15 +44,46 @@ export default function HeadHunterCampaignPage() {
         }
     }, [campaign?.receivedAt, currentLang]);
 
+    /**
+     * The cached copy is whatever the tab last managed to save, and that is exactly
+     * what went wrong: a search closed before its expansion wave landed was cached
+     * short — 11 of 20 candidates on a real search, all 20 of them already paid for.
+     * Since 2026-09-28 the server keeps every candidate, so ask it.
+     *
+     * It only ever ADDS. The server copy replaces the cached one when it holds more
+     * candidates and never when it holds fewer, so a stale or empty server answer
+     * cannot take results off a page that is already showing them.
+     */
+    const searchId = campaign?.searchId || (campaign ? null : id);
+    const [serverPayload, setServerPayload] = useState(null);
+    useEffect(() => {
+        if (!searchId) return undefined;
+        let alive = true;
+        apiClient
+            .get(`/api/head-hunter/last-result?searchId=${encodeURIComponent(searchId)}`, { quiet: true })
+            .then((res) => {
+                if (!alive || !res?.payload) return;
+                const fromServer = normalizeHeadHunterPayload(res.payload).candidates.length;
+                const cached = normalizeHeadHunterPayload(campaign?.payload ?? null).candidates.length;
+                if (fromServer > cached) setServerPayload(res.payload);
+            })
+            .catch(() => undefined);
+        return () => {
+            alive = false;
+        };
+    }, [searchId, campaign?.payload]);
+
+    const effectivePayload = serverPayload ?? campaign?.payload ?? null;
+
     const n8nInbound = useMemo(
         () => ({
             loading: false,
             error: '',
-            hasData: Boolean(campaign?.payload),
+            hasData: Boolean(effectivePayload),
             receivedAt: campaign?.receivedAt ?? null,
-            payload: campaign?.payload ?? null,
+            payload: effectivePayload,
         }),
-        [campaign?.payload, campaign?.receivedAt],
+        [effectivePayload, campaign?.receivedAt],
     );
 
     const searchContext = useMemo(
@@ -72,8 +104,10 @@ export default function HeadHunterCampaignPage() {
     );
 
     const nCandidates = useMemo(
-        () => (campaign?.payload ? normalizeHeadHunterPayload(campaign.payload).candidates.length : 0),
-        [campaign?.payload],
+        // Counts the payload actually on screen, so the badge can never disagree
+        // with the list below it.
+        () => (effectivePayload ? normalizeHeadHunterPayload(effectivePayload).candidates.length : 0),
+        [effectivePayload],
     );
 
     useEffect(() => {

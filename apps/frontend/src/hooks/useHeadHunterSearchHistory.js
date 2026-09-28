@@ -189,7 +189,9 @@ export function upsertHeadHunterCampaignBySearchId(entry) {
 export function getHeadHunterCampaignById(id) {
     if (!id) return null;
     const list = readHeadHunterCampaignHistory();
-    return list.find((r) => r.id === id) ?? null;
+    // Match the searchId too: a row the SERVER recovered for a search this browser
+    // never synced is identified by its searchId, so that is what the link carries.
+    return list.find((r) => r.id === id) ?? list.find((r) => r.searchId === id) ?? null;
 }
 
 /** @param {string} id @returns {boolean} */
@@ -247,13 +249,25 @@ export async function syncHeadHunterHistoryWithServer() {
     }
 
     const serverIds = new Set(serverRows.map((r) => r.id));
+    /**
+     * Also match on searchId, not id alone.
+     *
+     * Since 2026-09-28 the server stores candidates itself and can return a row for
+     * a search this browser never synced, under an id it minted. That row and the
+     * cache's row describe the SAME search under DIFFERENT ids, so matching by id
+     * alone would show the recruiter two entries for one search — typically a
+     * complete one and the short one the tab managed to save before closing. The
+     * searchId is the real identity; the row id is per-writer.
+     */
+    const serverSearchIds = new Set(serverRows.map((r) => r.searchId).filter(Boolean));
+    const alreadyOnServer = (r) => serverIds.has(r.id) || (r.searchId && serverSearchIds.has(r.searchId));
 
     // The cache under THIS identity is what the page shows; every other suffix in
     // this browser is swept too, because a search written under a stale or
     // 'anonymous' key is invisible yet recoverable. Deduplicated by row id.
     const byId = new Map();
     for (const r of [...readHeadHunterCampaignHistory(), ...readStrandedHistories()]) {
-        if (!serverIds.has(r.id) && !byId.has(r.id)) byId.set(r.id, r);
+        if (!alreadyOnServer(r) && !byId.has(r.id)) byId.set(r.id, r);
     }
     const localOnly = [...byId.values()];
 
@@ -273,7 +287,10 @@ export async function syncHeadHunterHistoryWithServer() {
     // Only rows the CURRENT identity already had are kept alongside the server's;
     // a swept row from another account is not shown until the server accepts it.
     const acceptedIds = new Set(serverRows.map((r) => r.id));
-    const ownCacheOnly = readHeadHunterCampaignHistory().filter((r) => !acceptedIds.has(r.id));
+    const acceptedSearchIds = new Set(serverRows.map((r) => r.searchId).filter(Boolean));
+    const ownCacheOnly = readHeadHunterCampaignHistory().filter(
+        (r) => !acceptedIds.has(r.id) && !(r.searchId && acceptedSearchIds.has(r.searchId))
+    );
     const merged = [...serverRows, ...ownCacheOnly].sort((a, b) =>
         String(b.receivedAt || '').localeCompare(String(a.receivedAt || ''))
     );
