@@ -23,20 +23,23 @@ export const OPTIONAL_FILTER_FIELDS = [
         placeholderKey: 'newCampaign_jc_industryType_ph',
     },
     {
-        key: 'company',
-        labelKey: 'newCampaign_jc_company_label',
-        placeholderKey: 'newCampaign_jc_company_ph',
-    },
-    {
         key: 'gender',
         labelKey: 'newCampaign_jc_gender_label',
         placeholderKey: 'newCampaign_jc_gender_ph',
     },
 ];
 
-/** AI CV Comparison — languages, skills, certifications only */
+/**
+ * AI CV Comparison — languages, skills, certifications, industry type.
+ *
+ * Only `gender` is excluded now. The `company` filter was removed from the Head
+ * Hunter form on 2026-09-28, so it is gone from this derived list too and no
+ * longer needs excluding. The backend's `OPTIONAL_CRITERION_LABELS` deliberately
+ * keeps its `company` entry: searches already saved with one must still render
+ * their label, and an unlisted key is ignored rather than rejected.
+ */
 export const CV_COMPARISON_OPTIONAL_FILTER_FIELDS = OPTIONAL_FILTER_FIELDS.filter(
-    ({ key }) => key !== 'company' && key !== 'gender'
+    ({ key }) => key !== 'gender'
 );
 
 export function createInitialOptionalFilters(fields = OPTIONAL_FILTER_FIELDS) {

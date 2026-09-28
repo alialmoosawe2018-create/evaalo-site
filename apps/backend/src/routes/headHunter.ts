@@ -804,7 +804,7 @@ export async function postHeadHunterN8nInbound(req: Request, res: Response): Pro
  *     requiredLanguages?: string,
  *     requiredSkills?: string,
  *     certifications?: string,
- *     company?: string,
+ *     industryType?: string,
  *     gender?: string,
  *     optionsPhrases?: { en: string; ar: string }[], optionsSummaryEn?: string, optionsSummaryAr?: string,
  *     source: "ai-head-hunter", submittedAt: ISO8601 }
@@ -903,7 +903,11 @@ const OPTIONAL_CRITERION_LABELS: Record<string, { en: string; ar: string }> = {
     requiredLanguages: { en: 'Required languages', ar: 'اللغات المطلوبة' },
     requiredSkills: { en: 'Required skills', ar: 'المهارات المطلوبة' },
     certifications: { en: 'Certifications', ar: 'الشهادات' },
-    company: { en: 'Company', ar: 'الشركة' },
+    // `company` was removed on 2026-09-28 with the filter itself. This map is
+    // private to Head Hunter — AI CV Comparison has its own in
+    // `utils/optionalSearchCriteria.ts` and still accepts it. Dropping the key
+    // means the route silently ignores a `company` value rather than rejecting
+    // it, so a browser holding a cached bundle degrades quietly.
     gender: { en: 'Gender', ar: 'الجنس' },
     industryType: { en: 'Industry type', ar: 'نوع القطاع' },
 };
