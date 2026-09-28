@@ -177,7 +177,10 @@
     "test:voice-reply-punctuation": "tsx src/scripts/voice-reply-punctuation-test.ts",
     "test:free-text-role-floor": "tsx src/scripts/free-text-role-floor-test.ts",
     "test:headhunter-reset-fix": "tsx src/scripts/headhunter-reset-fix-test.ts",
-    "test:headhunter-completion-once": "tsx src/scripts/headhunter-completion-once-test.ts"
+    "test:headhunter-completion-once": "tsx src/scripts/headhunter-completion-once-test.ts",
+    "test:import-extensions": "tsx src/scripts/import-extensions-test.ts",
+    "test:headhunter-candidate-durability": "tsx src/scripts/headhunter-candidate-durability-test.ts",
+    "hh:billed-vs-kept": "tsx src/scripts/headhunter-billed-vs-kept.ts"
   },
   "keywords": [
     "career",

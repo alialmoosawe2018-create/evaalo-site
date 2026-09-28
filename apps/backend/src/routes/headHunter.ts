@@ -10,6 +10,7 @@ import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
 import { orgScopedQuery } from '../middleware/orgScope.js';
 import { campaignRoleFromCampaign } from '../services/campaignRole.js';
 import HeadHunterSearchHistory from '../models/HeadHunterSearchHistory.js';
+import HeadHunterCandidate from '../models/HeadHunterCandidate.js';
 import AuditLog from '../models/AuditLog.js';
 import { checkCredits, consumeCredits } from '../services/billingRuntimeService.js';
 import { emitDomainEventBestEffort } from '../services/domainEventService.js';
@@ -46,6 +47,12 @@ import {
 } from '../services/headHunterPhotoMirror.js';
 import { getObjectBuffer } from '../services/r2Service.js';
 import { buildHeadHunterCompetencyModel } from '../services/headHunterCompetencyModel.js';
+import {
+    deleteHeadHunterCandidates,
+    persistHeadHunterCandidates,
+    readHeadHunterCandidates,
+    countHeadHunterCandidates,
+} from '../services/headHunterCandidateStore.js';
 
 const router = Router();
 
@@ -411,15 +418,81 @@ function runSerializedInbound<T>(searchId: string, task: () => Promise<T>): Prom
     const next = prev.then(task, task);
     inboundChains.set(
         searchId,
-        next.finally(() => {
-            if (inboundChains.get(searchId) === next) inboundChains.delete(searchId);
-        })
+        // The caller handles `next`'s rejection; this derived promise is stored, not
+        // awaited, so without the catch a failed inbound merge ALSO surfaces as an
+        // `unhandledRejection` and gets logged a second time as a site error. Latent
+        // until 2026-09-28, when the durable candidate write gave this chain its
+        // first genuinely throwing step.
+        next
+            .finally(() => {
+                if (inboundChains.get(searchId) === next) inboundChains.delete(searchId);
+            })
+            .catch(() => undefined)
     );
     return next;
 }
 
+/**
+ * TEST SEAM — seeds the in-memory search record so the n8n inbound webhook can be
+ * driven offline, the way `historyImportAllowed` is exported so its rule can be
+ * proven without booting Express.
+ *
+ * The inbound handler refuses any searchId it has not seen (`404 Unknown searchId`),
+ * which is correct in production and makes the handler untestable without either a
+ * live n8n round trip or this. It is refused outright in production and is not
+ * reachable over HTTP from anywhere.
+ */
+export function __seedHeadHunterRecordForTest(record: {
+    searchId: string;
+    organizationId: string;
+    userId: string;
+    callbackToken: string;
+}): void {
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('__seedHeadHunterRecordForTest is not available in production');
+    }
+    headHunterResultsById.set(record.searchId, {
+        searchId: record.searchId,
+        status: 'submitted',
+        organizationId: record.organizationId,
+        userId: record.userId,
+        submittedAt: new Date().toISOString(),
+        callbackToken: record.callbackToken,
+    });
+}
+
+/** TEST SEAM — drops a seeded record, so a test can prove the durable read path. */
+export function __forgetHeadHunterRecordForTest(searchId: string): void {
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('__forgetHeadHunterRecordForTest is not available in production');
+    }
+    headHunterResultsById.delete(searchId);
+}
+
 function headHunterRecordHasData(record: HeadHunterSearchRecord): boolean {
     return extractCandidateRows(record.payload).length > 0;
+}
+
+/**
+ * The two identities of one sourced candidate, derived in ONE place.
+ *
+ * `billingKey` is what `credit_ledger.idempotencyKey` holds; `candidateKey` is the
+ * raw dedupe key the durable row is keyed on. They are returned together because
+ * the invariant "every billed candidate has a persisted row" is only meaningful if
+ * billing and persistence agree, byte for byte, on what one candidate is. Do not
+ * re-derive either of them anywhere else.
+ *
+ * Note `safeKey` is LOSSY on purpose — it is kept exactly as billing has always
+ * built it (non-alphanumerics to `_`, truncated at 120) so that no existing ledger
+ * key changes meaning and nothing re-bills.
+ */
+export function candidateIdentity(
+    searchId: string,
+    row: Record<string, unknown>
+): { candidateKey: string; safeKey: string; billingKey: string } {
+    const candidateKey = profileDedupeKey(row);
+    const safeKey = candidateKey.replace(/[^a-zA-Z0-9_|:-]/g, '_').slice(0, 120);
+    return { candidateKey, safeKey, billingKey: `hh-search:${searchId}:${safeKey}` };
 }
 
 /** Debit 6 credits per newly arrived candidate (idempotent per searchId + profile key). */
@@ -439,12 +512,12 @@ async function billNewHeadHunterCandidates(
         const key = profileDedupeKey(row);
         if (prevKeys.has(key)) continue;
 
-        const safeKey = key.replace(/[^a-zA-Z0-9_|:-]/g, '_').slice(0, 120);
+        const { billingKey, safeKey } = candidateIdentity(searchId, row);
         const result = await consumeCredits({
             organizationId,
             usageType: 'SEARCH_CANDIDATE',
             units: 1,
-            idempotencyKey: `hh-search:${searchId}:${safeKey}`,
+            idempotencyKey: billingKey,
             source: 'headhunter',
             sourceId: searchId,
             metadata: { searchId, candidateKey: safeKey },
@@ -489,6 +562,58 @@ async function applyHeadHunterInboundMerge(
     let status: HeadHunterSearchStatus = existing.status === 'failed' ? 'failed' : 'submitted';
     if (failed) status = 'failed';
     else if (complete) status = 'completed';
+
+    /**
+     * 🔴 The durable write, and it is deliberately BEFORE the in-memory `.set` below.
+     *
+     * Until 2026-09-28 the candidate set reached the database only when the page
+     * polled and then PUT it back itself, so closing the tab before the expansion
+     * wave landed threw away candidates the organization had already been charged
+     * for — measured at 9 lost of 13 and 9 lost of 20 on two real searches.
+     *
+     * WHY "BEFORE THE `.set`" AND NOT MERELY "BEFORE BILLING". Billing runs outside
+     * `runSerializedInbound` and computes its delta against a `prevPayload` snapshot
+     * taken before the chain ran, so under two concurrent POSTs request B can bill a
+     * candidate that request A introduced. If this write sat after the `.set`, a
+     * failed A would still have published its candidate into the Map, B's merge
+     * would inherit it, and B would bill it — billed and not stored. Writing first
+     * means a failure leaves the Map untouched, so an unstored candidate is invisible
+     * to every later request. Do not move this below the `.set`.
+     *
+     * It THROWS on failure, so the handler 500s and n8n re-delivers. Be precise about
+     * what that buys: `Send Candidate to Evaalo` has `maxTries: 2` with no configured
+     * backoff, so it is ONE extra attempt about a second later — enough for a blip,
+     * not for an outage. Past that the candidate is dropped, and dropped-unbilled is
+     * the outcome we chose over billed-and-lost.
+     *
+     * ONLY THE KEYS THIS REQUEST CARRIED are written. `mergeHeadHunterInbound` folds
+     * incoming rows into the accumulated set and touches nothing else, so a row can
+     * only differ from its stored copy — including arriving enriched under the same
+     * key — if the incoming body mentioned it. Every other key in `merged` reached the
+     * Map through a `.set` that already required its own successful write. So this is
+     * one upsert per delivered candidate, and a stale row can never block a new one.
+     *
+     * A pure-completion callback carries no candidates at all, which makes this a
+     * no-op rather than a failure that could strand the search at `submitted`.
+     */
+    const incomingKeys = new Set(
+        extractCandidateRows(payload).map((row) => candidateIdentity(searchId, row).candidateKey)
+    );
+    const rowsToPersist = extractCandidateRows(merged)
+        .map((row, index) => {
+            const { candidateKey, billingKey } = candidateIdentity(searchId, row);
+            return { candidateKey, billingKey, sequence: index, profile: row };
+        })
+        .filter((row) => incomingKeys.has(row.candidateKey));
+    if (rowsToPersist.length > 0) {
+        await persistHeadHunterCandidates({
+            organizationId: existing.organizationId,
+            searchId,
+            receivedAt,
+            createdByClerkUserId: existing.userId,
+            rows: rowsToPersist,
+        });
+    }
 
     headHunterResultsById.set(searchId, {
         ...existing,
@@ -851,18 +976,45 @@ router.get(
     '/last-result',
     conditionalRequireAuth(),
     requirePermission('headhunter.search'),
-    (req: Request, res: Response) => {
+    async (req: Request, res: Response) => {
         const searchId = typeof req.query.searchId === 'string' ? req.query.searchId.trim() : '';
         if (!searchId) {
             return res.status(400).json({ ok: false, message: 'searchId query parameter is required' });
         }
 
         const record = headHunterResultsById.get(searchId);
-        if (!record) {
-            return res.status(404).json({ ok: false, message: 'Search not found' });
-        }
-        if (!authorizeHeadHunterRecord(req, record)) {
-            return res.status(403).json({ ok: false, message: 'Forbidden' });
+        if (!record || !authorizeHeadHunterRecord(req, record)) {
+            /**
+             * The in-memory record is gone (restart, 24 h TTL, or 200-record
+             * eviction) or belongs to a colleague. Before 2026-09-28 that was a
+             * dead end and the paid-for candidates were simply unreachable; they
+             * are now durable, so serve them.
+             *
+             * Scope here is the ORGANIZATION, not the user, matching
+             * `head_hunter_search_history` — which already exposes the same
+             * candidates org-wide — so this widens no access.
+             *
+             * `status: 'completed'` states only that the search is not streaming
+             * here any more, which is what the client needs in order to stop
+             * polling. `source` is on the response so this is never mistaken for
+             * a live n8n completion.
+             */
+            const durable = await readHeadHunterCandidates(getOrgId(req), searchId);
+            if (!durable.length) {
+                if (record) return res.status(403).json({ ok: false, message: 'Forbidden' });
+                return res.status(404).json({ ok: false, message: 'Search not found' });
+            }
+            return res.json({
+                ok: true,
+                searchId,
+                status: 'completed',
+                hasData: true,
+                candidateCount: durable.length,
+                receivedAt: null,
+                payload: { candidates: durable },
+                errorMessage: null,
+                source: 'durable',
+            });
         }
 
         const hasData = headHunterRecordHasData(record);
@@ -876,6 +1028,7 @@ router.get(
             receivedAt: record.receivedAt ?? null,
             payload: hasData ? record.payload : null,
             errorMessage: record.errorMessage ?? null,
+            source: 'memory',
         });
     }
 );
@@ -1826,11 +1979,91 @@ async function pruneHistory(orgId: string): Promise<void> {
             .select('_id')
             .lean();
         if (stale.length) {
+            // Deliberately does NOT touch `head_hunter_candidates`. Trimming the list
+            // to 50 is a display decision; the candidate rows are the record of a
+            // billed artefact and are bounded by their own TTL instead. Deleting them
+            // here would recreate the loss this whole change exists to stop.
             await HeadHunterSearchHistory.deleteMany({ _id: { $in: stale.map((r) => r._id) } });
         }
     } catch (err) {
         console.warn('[head-hunter] history prune failed:', err instanceof Error ? err.message : err);
     }
+}
+
+/**
+ * Searches this organization has PAID candidates for but no history row.
+ *
+ * This is the browser-closed case, and it is the whole point of the durable
+ * candidate store: the history row is written by the page (`PUT /history`), so a
+ * tab closed before the first sync leaves a search that cost real credits with no
+ * row at all — not a short row, no row. Those searches are reconstructed here.
+ *
+ * Criteria come from `AuditLog`, which `/search` writes itself and the browser
+ * cannot forge; `/history/import` already trusts the same source for exactly this
+ * reason. No new field on the in-memory record, and it survives a restart.
+ *
+ * It must not resurrect searches whose row `pruneHistory` deliberately removed.
+ * Prune keeps the newest MAX_HISTORY_PER_ORG rows, so anything it dropped is older
+ * than every row we just listed — hence the `newerThan` floor.
+ */
+async function synthesizeMissingHistoryRows(
+    orgId: string,
+    listedSearchIds: Set<string>,
+    newerThan: Date | null
+): Promise<Record<string, unknown>[]> {
+    const groups = await HeadHunterCandidate.aggregate<{ _id: string; n: number; firstAt: Date }>([
+        { $match: { organizationId: orgId } },
+        { $group: { _id: '$searchId', n: { $sum: 1 }, firstAt: { $min: '$receivedAt' } } },
+    ]);
+    const missing = groups.filter(
+        (g) =>
+            g._id &&
+            !listedSearchIds.has(g._id) &&
+            (!newerThan || (g.firstAt && g.firstAt.getTime() >= newerThan.getTime()))
+    );
+    if (!missing.length) return [];
+
+    const audits = await AuditLog.find({
+        organizationId: orgId,
+        action: 'headhunter.search',
+        'metadata.searchId': { $in: missing.map((m) => m._id) },
+    })
+        .select('metadata')
+        .lean();
+    const criteria = new Map<string, Record<string, unknown>>();
+    for (const a of audits) {
+        const meta = (a as { metadata?: Record<string, unknown> }).metadata ?? {};
+        const sid = typeof meta.searchId === 'string' ? meta.searchId : '';
+        if (sid && !criteria.has(sid)) criteria.set(sid, meta);
+    }
+
+    const out: Record<string, unknown>[] = [];
+    for (const g of missing) {
+        const meta = criteria.get(g._id);
+        // No audit entry means nothing can attribute the search to this org's own
+        // criteria. The candidates stay stored and reconcilable; they are just not
+        // invented into a list row.
+        if (!meta) continue;
+        const candidates = await readHeadHunterCandidates(orgId, g._id);
+        if (!candidates.length) continue;
+        out.push({
+            // The searchId doubles as the row id: there is no client-minted entryId
+            // for a row the client never created, and it keeps the id stable if the
+            // page later starts syncing the same search.
+            id: g._id,
+            searchId: g._id,
+            position: typeof meta.position === 'string' ? meta.position : '',
+            location: typeof meta.location === 'string' ? meta.location : '',
+            receivedAt: g.firstAt ? g.firstAt.toISOString() : '',
+            payload: { candidates },
+            candidateCount: candidates.length,
+            ...(meta.yearsOfExperience ? { yearsExperience: meta.yearsOfExperience } : {}),
+            ...(meta.ageRange ? { ageRange: meta.ageRange } : {}),
+            ...(meta.minCandidateCount ? { minCandidateCount: meta.minCandidateCount } : {}),
+            recoveredFromDurableStore: true,
+        });
+    }
+    return out;
 }
 
 /** GET /api/head-hunter/history — this organization's searches, newest first. */
@@ -1850,7 +2083,47 @@ router.get(
                 .sort({ receivedAt: -1 })
                 .limit(limit)
                 .lean();
-            return res.json({ ok: true, history: rows.map(toHistoryRecord) });
+            const history = rows.map(toHistoryRecord);
+
+            /**
+             * The row's `payload` is whatever the BROWSER last managed to PUT, and a
+             * tab closed before the expansion wave landed leaves it short — measured
+             * at 11 of 20 and 4 of 13 on two real searches. The durable candidate
+             * rows are written by the server on arrival, so they are the authority:
+             * where they hold more, the short payload is replaced.
+             *
+             * Counting first keeps the common case to one aggregate; profiles are
+             * fetched only for rows that are actually short.
+             */
+            const searchIds = history
+                .map((h) => (typeof h.searchId === 'string' ? h.searchId : ''))
+                .filter(Boolean);
+            const durableCounts = await countHeadHunterCandidates(orgId, searchIds);
+            for (const entry of history) {
+                const sid = typeof entry.searchId === 'string' ? entry.searchId : '';
+                if (!sid) continue;
+                const durableCount = durableCounts.get(sid) ?? 0;
+                entry.candidateCount = durableCount;
+                if (durableCount > extractCandidateRows(entry.payload).length) {
+                    entry.payload = { candidates: await readHeadHunterCandidates(orgId, sid) };
+                    entry.repairedFromDurableStore = true;
+                }
+            }
+
+            const oldestListed = history.length
+                ? new Date(String(history[history.length - 1].receivedAt))
+                : null;
+            const recovered = await synthesizeMissingHistoryRows(
+                orgId,
+                new Set(searchIds),
+                history.length >= limit && oldestListed && !Number.isNaN(oldestListed.getTime())
+                    ? oldestListed
+                    : null
+            );
+            const merged = [...history, ...recovered]
+                .sort((a, b) => String(b.receivedAt ?? '').localeCompare(String(a.receivedAt ?? '')))
+                .slice(0, limit);
+            return res.json({ ok: true, history: merged });
         } catch (err) {
             console.error('[head-hunter] history list error');
             return res.status(500).json({ ok: false, error: 'Internal server error' });
@@ -2006,10 +2279,21 @@ router.delete(
             const orgId = getOrgId(req);
             const entryId = str(req.params.entryId, 100);
             if (!entryId) return res.status(400).json({ ok: false, error: 'invalid_id' });
+            // Read the searchId first: once the row is gone there is nothing left to
+            // tie the candidate rows to, and leaving them behind would both waste
+            // storage and keep serving them from /last-result after a deliberate
+            // delete.
+            const doomed = await HeadHunterSearchHistory.findOne({ organizationId: orgId, entryId })
+                .select('searchId')
+                .lean();
             const r = await HeadHunterSearchHistory.deleteOne({
                 organizationId: orgId,
                 entryId,
             });
+            const doomedSearchId = (doomed as { searchId?: string } | null)?.searchId;
+            if (r.deletedCount > 0 && doomedSearchId) {
+                await deleteHeadHunterCandidates(orgId, [doomedSearchId]);
+            }
             return res.json({ ok: true, removed: r.deletedCount > 0 });
         } catch (err) {
             console.error('[head-hunter] history delete error');
