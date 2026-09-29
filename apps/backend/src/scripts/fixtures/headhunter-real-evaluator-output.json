@@ -1,0 +1,1962 @@
+{
+ "2035": {
+  "meta": {
+   "position": "HR Business Partner",
+   "location": "Baghdad, Iraq",
+   "years": "3-5",
+   "delivered": 3
+  },
+  "candidates": [
+   {
+    "id": "2035-00",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 48,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     },
+     {
+      "label": "Required Languages",
+      "kind": "neutral"
+     },
+     {
+      "label": "Required Skills",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-01",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 55,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "positive"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-02",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "positive"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-03",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "neutral"
+     },
+     {
+      "label": "Required Languages",
+      "kind": "neutral"
+     },
+     {
+      "label": "Required Skills",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender and Age",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "positive"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "positive"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-04",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 42,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "positive"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "positive"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "positive"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "positive"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-05",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "positive"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "positive"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "positive"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "positive"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "positive"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "positive"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "positive"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "positive"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-06",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 33,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     },
+     {
+      "label": "Required Languages",
+      "kind": "neutral"
+     },
+     {
+      "label": "Required Skills",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-07",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 34,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-08",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 33,
+    "insights": [
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     },
+     {
+      "label": "Required Skills",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Required Languages",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "neutral",
+      "kind": "neutral"
+     },
+     {
+      "label": "neutral",
+      "kind": "neutral"
+     },
+     {
+      "label": "neutral",
+      "kind": "neutral"
+     },
+     {
+      "label": "neutral",
+      "kind": "neutral"
+     },
+     {
+      "label": "neutral",
+      "kind": "neutral"
+     },
+     {
+      "label": "neutral",
+      "kind": "neutral"
+     },
+     {
+      "label": "neutral",
+      "kind": "neutral"
+     },
+     {
+      "label": "neutral",
+      "kind": "neutral"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2035-09",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "positive"
+     },
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     },
+     {
+      "label": "RequiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "RequiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-10",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 38,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "positive"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "positive"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "warning"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "warning"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "warning"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "warning"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "warning"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-11",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 30,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "positive"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-12",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "positive"
+     },
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     },
+     {
+      "label": "RequiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "RequiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     },
+     {
+      "label": "Location (final cap)",
+      "kind": "positive"
+     }
+    ]
+   },
+   {
+    "id": "2035-13",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "positive"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2035-14",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 61,
+    "insights": [
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Position",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     },
+     {
+      "label": "Languages",
+      "kind": "neutral"
+     },
+     {
+      "label": "Skills",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-15",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 54,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     },
+     {
+      "label": "Required Languages",
+      "kind": "neutral"
+     },
+     {
+      "label": "Required Skills",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "positive"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "positive"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "positive"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "positive"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-16",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 83,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "positive"
+     },
+     {
+      "label": "location",
+      "kind": "positive"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "positive"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "positive"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "positive"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "positive"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "positive"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "positive"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "positive"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-17",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     },
+     {
+      "label": "RequiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "RequiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "neutral"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "positive"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2035-18",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     },
+     {
+      "label": "RequiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "RequiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "Certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "Company",
+      "kind": "neutral"
+     },
+     {
+      "label": "Gender",
+      "kind": "neutral"
+     },
+     {
+      "label": "Stakeholder management with business leaders",
+      "kind": "positive"
+     },
+     {
+      "label": "Employee relations case management",
+      "kind": "neutral"
+     },
+     {
+      "label": "Recruitment coordination and pipeline management",
+      "kind": "positive"
+     },
+     {
+      "label": "Performance management and calibration support",
+      "kind": "neutral"
+     },
+     {
+      "label": "HR data analysis and KPI reporting",
+      "kind": "neutral"
+     },
+     {
+      "label": "Policy application and local labor law compliance",
+      "kind": "neutral"
+     },
+     {
+      "label": "Process improvement and execution ownership",
+      "kind": "neutral"
+     },
+     {
+      "label": "Compensation and benefits advisory support",
+      "kind": "neutral"
+     }
+    ]
+   }
+  ]
+ },
+ "2036": {
+  "meta": {
+   "position": "HR Assistant",
+   "location": "Baghdad, Iraq",
+   "years": "0-1",
+   "delivered": 2
+  },
+  "candidates": [
+   {
+    "id": "2036-00",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-01",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-02",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     },
+     {
+      "label": "Position",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2036-03",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-04",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 53,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     }
+    ]
+   },
+   {
+    "id": "2036-05",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "positive"
+     },
+     {
+      "label": "location",
+      "kind": "positive"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-06",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     },
+     {
+      "label": "Position",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2036-07",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Position",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     }
+    ]
+   },
+   {
+    "id": "2036-08",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 65,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "positive"
+     },
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-09",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 60,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     },
+     {
+      "label": "requiredLanguages",
+      "kind": "neutral"
+     },
+     {
+      "label": "requiredSkills",
+      "kind": "neutral"
+     },
+     {
+      "label": "certifications",
+      "kind": "neutral"
+     },
+     {
+      "label": "company",
+      "kind": "neutral"
+     },
+     {
+      "label": "gender",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2036-10",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "positive"
+     },
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-11",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     },
+     {
+      "label": "position",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2036-12",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 45,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     }
+    ]
+   },
+   {
+    "id": "2036-13",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2036-14",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 26,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-15",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Location",
+      "kind": "warning"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     },
+     {
+      "label": "Position",
+      "kind": "positive"
+     }
+    ]
+   },
+   {
+    "id": "2036-16",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "warning"
+     },
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-17",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "positive"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-18",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-19",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     },
+     {
+      "label": "Position",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2036-20",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-21",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     },
+     {
+      "label": "position",
+      "kind": "neutral"
+     }
+    ]
+   },
+   {
+    "id": "2036-22",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "positive"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-23",
+    "inIraq": true,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "positive"
+     },
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Location",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-24",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "Position",
+      "kind": "positive"
+     },
+     {
+      "label": "Location",
+      "kind": "positive"
+     },
+     {
+      "label": "Years of experience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-25",
+    "inIraq": true,
+    "inBaghdad": true,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "positive"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     }
+    ]
+   },
+   {
+    "id": "2036-26",
+    "inIraq": false,
+    "inBaghdad": false,
+    "llmScore": 35,
+    "insights": [
+     {
+      "label": "position",
+      "kind": "warning"
+     },
+     {
+      "label": "location",
+      "kind": "warning"
+     },
+     {
+      "label": "yearsOfExperience",
+      "kind": "warning"
+     }
+    ]
+   }
+  ]
+ }
+}

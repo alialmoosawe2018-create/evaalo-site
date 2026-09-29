@@ -106,9 +106,15 @@ function main(): void {
     const byName = (n: string) => liveNow.nodes.find((x: { name: string }) => x.name === n);
 
     console.log('\nPUBLISHED STATE');
-    check('live/ holds the version this patch published',
-        liveNow.versionId === patchMeta.publishedVersionId, `${liveNow.versionId} vs ${patchMeta.publishedVersionId}`);
-    check('archive + patch reproduces the published node byte for byte',
+    // Assert CONTENT, not a version id: a version-id check broke on the very next,
+    // unrelated publish. The archived snapshot pins what this patch produced; live/
+    // is only asked whether the fix is still there.
+    const publishedSnap = JSON.parse(readFileSync(join(WF_DIR, 'archive', 'headhunter--AI_Head_hunter--d9583254-before-criteria-scoring.json'), 'utf8'));
+    check('the version this patch published is archived',
+        publishedSnap.versionId === patchMeta.publishedVersionId, `${publishedSnap.versionId} vs ${patchMeta.publishedVersionId}`);
+    check('that archived version carries this fix byte for byte',
+        String(publishedSnap.nodes.find((x: { name: string }) => x.name === 'Map Candidate Fields').parameters.jsCode) === after);
+    check('and the fix is STILL live today, byte for byte',
         String(byName('Map Candidate Fields').parameters.jsCode) === after);
     check('the reset fix is still live on top of this change',
         JSON.stringify(byName('Split In Batches').parameters.options) === '{"reset":"={{ $json.batchDone !== true }}"}');

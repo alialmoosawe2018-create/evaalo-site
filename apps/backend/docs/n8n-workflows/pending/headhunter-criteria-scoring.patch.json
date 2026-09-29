@@ -1,0 +1,31 @@
+{
+  "_warning": "PUBLISHED 2026-09-30 as version 458db74f-7f73-4c4a-9d08-c3385ead348e (previous active d9583254-f6b4-4280-a61d-3acc29401322). Kept in pending/ as the record, per the repo convention. Not an importable workflow - never import it. Rebuild with: archive/headhunter--AI_Head_hunter--d9583254-before-criteria-scoring.json + this patch. Verified by `npm run test:headhunter-criteria-scoring`.",
+  "_scope": "ONE node. The evaluator PROMPT is deliberately untouched, so the model keeps judging exactly as it does today and only the arithmetic moves. No query change, no phase-2 change, no threshold change, no loop/completion/billing change.",
+  "_theDefect": {
+    "symptom": "the owner asks for 20 candidates and receives 2 or 3",
+    "measuredIn": "exec 2036 (HR Assistant, Baghdad, 2026-09-29): 27 candidates scored, 14 of them actually in Iraq, and 10 of those 14 scored EXACTLY 35 — five physically in Baghdad. The search delivered 2.",
+    "proofItIsArithmeticAndNotJudgement": "Four of those candidates carry `position: positive` AND `location: positive` in their own insights. The prompt's rubric is Position 35% + Location 30% + Years 15% + other 20%, so positive on the two heaviest criteria is >= 65 before anything else. A score of 35 cannot be produced by that rubric.",
+    "whyThirtyFive": "35 is the ONLY number in the prompt — the location cap, written for candidates outside Iraq/the Middle East. The model anchored on it. Two insights say so verbatim: 'the system caps score at 35 for Baghdad, Iraq location' and 'Erbil (Northern Iraq), not Baghdad'.",
+    "whatIsNotWrong": "The per-criterion judgements. 46 real candidates were reviewed and each carries specific, distinct reasoning — this is not a blind fallback value. Only the number fails to follow the rubric."
+  },
+  "_whyNoCapInTheNewCode": "The location cap is not reimplemented. `Map Candidate Fields` now decides residence from the candidate's current country and drops the rest via `__skip` before scoring (shipped 2026-09-29 as d9583254), so for an Iraq search every candidate that reaches this node is already in Iraq. Re-adding a cap here would re-create the bug in code instead of in the prompt.",
+  "_precedent": "Exactly the fix applied to the Stage 1 screener: the LLM emits per-criterion status, a Code node computes the number from the weights. See the Stage 1 memory entry.",
+  "_expectedEffect": "MORE candidates delivered, with no extra SerpAPI or EnrichLayer spend, because the same pool is scored correctly. The test replays all 46 real candidates from execs 2035 and 2036 and prints the before/after delivery count.",
+  "_openQuestionForTheOwner": "A candidate in Iraq but NOT in the searched city (e.g. an HR Assistant in Erbil for a Baghdad search) now scores on merit instead of being capped — a location `warning` costs the full 30% rather than flooring the score at 35. If Baghdad-only is wanted, that is a location-filter decision upstream, not a scoring one.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "d9583254-f6b4-4280-a61d-3acc29401322",
+  "baseNodeCount": 44,
+  "parameterEdits": [
+    {
+      "node": "Apply AI Analysis",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-criteria-scoring.node.js",
+      "expectBeforeContains": "let match_score = 50;",
+      "expectAfterContains": "const CRITERION_WEIGHTS = { position: 35, location: 30, years: 15, other: 20 };"
+    }
+  ],
+  "baseFile": "archive/headhunter--AI_Head_hunter--d9583254-before-criteria-scoring.json",
+  "publishedVersionId": "458db74f-7f73-4c4a-9d08-c3385ead348e",
+  "_publishNotes": "Pre-publish: zero running executions, no live interview, base node still carried the bare-50 default, draft BYTE-MATCHED the tested node file (sha256 c88ec315, 6324 chars, LF on both sides so no line-ending choice was needed), exactly ONE node changed, connections identical. Post-publish verified on the ACTIVE payload: versionId == activeVersionId, active, triggerCount 1, node byte-identical, prompt (AI Analyze Candidate) byte-identical to before as instructed, and the reset fix, completion guard and location fix all still live. Rollback = re-publish d9583254-f6b4-4280-a61d-3acc29401322 from archive/ - it still carries the reset fix, completion guard AND location fix.",
+  "_ownerPolicyConfirmed": "2026-09-30: Baghdad is NOT a hard filter. Outside Iraq -> removed by the location filter; inside Iraq but outside the searched city -> stays, loses the 30% location share; in the searched city -> full location points."
+}

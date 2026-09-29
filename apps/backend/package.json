@@ -181,7 +181,8 @@
     "test:import-extensions": "tsx src/scripts/import-extensions-test.ts",
     "test:headhunter-candidate-durability": "tsx src/scripts/headhunter-candidate-durability-test.ts",
     "hh:billed-vs-kept": "tsx src/scripts/headhunter-billed-vs-kept.ts",
-    "test:headhunter-location-filter": "tsx src/scripts/headhunter-location-filter-test.ts"
+    "test:headhunter-location-filter": "tsx src/scripts/headhunter-location-filter-test.ts",
+    "test:headhunter-criteria-scoring": "tsx src/scripts/headhunter-criteria-scoring-test.ts"
   },
   "keywords": [
     "career",
