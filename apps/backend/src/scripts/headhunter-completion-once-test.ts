@@ -33,8 +33,11 @@ function patchedCode(): string {
     // Base is the ARCHIVED pre-guard version; live/ now holds the published result.
     const wf = JSON.parse(readFileSync(join(WF_DIR, patch.baseFile), 'utf8'));
     if (wf.versionId !== patch.baseVersionId) throw new Error(`base mismatch: ${wf.versionId} vs ${patch.baseVersionId}`);
-    const published = JSON.parse(readFileSync(join(WF_DIR, 'live', 'headhunter--AI_Head_hunter.json'), 'utf8'));
-    if (published.versionId !== patch.publishedVersionId) throw new Error(`live/ is not the published version: ${published.versionId}`);
+    // What THIS patch published was fea5fa60; live/ has since moved on (the location fix
+    // shipped on top), so it is checked against the archived snapshot of the version this
+    // patch actually produced.
+    const published = JSON.parse(readFileSync(join(WF_DIR, 'archive', 'headhunter--AI_Head_hunter--fea5fa60-before-location-fix.json'), 'utf8'));
+    if (published.versionId !== patch.publishedVersionId) throw new Error(`archived snapshot is not the published version: ${published.versionId}`);
     const edit = patch.parameterEdits[0];
     const node = wf.nodes.find((n: { name: string }) => n.name === edit.node);
     if (!node) throw new Error(`node ${edit.node} not found`);
@@ -166,10 +169,14 @@ function main(): void {
 
     console.log('\nPUBLISHED-STATE FINGERPRINT');
     {
-        const pub = JSON.parse(readFileSync(join(WF_DIR, 'live', 'headhunter--AI_Head_hunter.json'), 'utf8'));
+        const pub = JSON.parse(readFileSync(join(WF_DIR, 'archive', 'headhunter--AI_Head_hunter--fea5fa60-before-location-fix.json'), 'utf8'));
+        const liveNow = JSON.parse(readFileSync(join(WF_DIR, 'live', 'headhunter--AI_Head_hunter.json'), 'utf8'));
         const byName = (n: string) => pub.nodes.find((x: { name: string }) => x.name === n);
-        check('archive + patch reproduces the PUBLISHED node byte for byte',
+        const liveByName = (n: string) => liveNow.nodes.find((x: { name: string }) => x.name === n);
+        check('archive + patch reproduces the node this patch PUBLISHED, byte for byte',
             String(byName('Prepare Complete Search').parameters.jsCode) === code);
+        check('and the guard is STILL live today, on top of later changes',
+            String(liveByName('Prepare Complete Search').parameters.jsCode).includes('sd.hhCompleted'));
         check('the published reset fix is still intact',
             JSON.stringify(byName('Split In Batches').parameters.options) === '{"reset":"={{ $json.batchDone !== true }}"}');
         check('Stream Batch Done mode untouched — layer 1 stays rejected',

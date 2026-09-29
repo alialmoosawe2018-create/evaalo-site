@@ -1,0 +1,49 @@
+{
+  "_warning": "PUBLISHED 2026-09-29 as version d9583254-f6b4-4280-a61d-3acc29401322 (previous active fea5fa60-b471-45e2-96c1-271b57ffa3be). Kept here as the record of the change, per the repo convention that a published patch stays in pending/ marked PUBLISHED. Not an importable workflow — never import it. Rebuild with: archive/headhunter--AI_Head_hunter--fea5fa60-before-location-fix.json + this patch. Verified by `npm run test:headhunter-location-filter`.",
+  "_scope": "ONE node, ONE function: `matchesLocation` inside `Map Candidate Fields`. No change to any score or threshold, no change to query generation, no change to phase 2, no change to the loop, the completion guard or billing.",
+  "_theDefect": {
+    "reportedAs": "a Baghdad search delivered candidates located in Egypt and Switzerland",
+    "measuredIn": "exec 2035 (HR Business Partner, 2026-09-29): of the 4 candidates scoring >= 50, the delivered three were located `IQ`, `Cairo, EG` and `CH`.",
+    "rootCause": "`matchesLocation` decides residence from `allProfileLocationText()` — a blob that concatenates city, state, country, headline, occupation, summary AND every past experience's location, title, company and description. `hasIraqTerm(blob)` therefore returns true for anyone who has EVER mentioned Iraq anywhere in their profile, so a Cairo-based candidate with one past Iraqi job passes the location test. `currentLocationText()` already exists and is already computed, but is used only in a soft-pass branch — never as the deciding signal.",
+    "secondRootCause": "City names are treated as proof of country. Production returned `\"Erbil, SY\"` — an Iraqi city with a SYRIAN country code — and `IRAQ_TERMS` contains `erbil`, so it was accepted as Iraqi. Any allowlist built from city names repeats this bug; the ISO country code has to win."
+  },
+  "_whyNotTheDownstreamCopies": "`isBadLocation` is copy-pasted into `Sort By Match Score`, `Finalize Top N Send` and `Finalize Phase 2 Send` with a SHORTER exclude list than this node's (theirs omits cairo, istanbul, riyadh, amman, beirut, bahrain, oman, pakistan, india, bangladesh). They are a cruder second pass over the already-mapped `location` string. Once `matchesLocation` drops a non-Iraqi profile via `__skip`, those copies never see it, so they are left untouched here — fixing them is cosmetic and would widen the blast radius for no measured gain. Recorded so the duplication is not forgotten.",
+  "_measuredGroundTruth": {
+    "source": "all 47 rows of head_hunter_candidates in production, 2026-09-29",
+    "note": "every single one carries a trailing ISO-3166 alpha-2 country code, and none has an empty location — so a country-code rule is decisive in practice, not theoretical",
+    "iraq": {
+      "Baghdad Governorate, IQ": 17,
+      "IQ": 12,
+      "Baghdad, Baghdad Governorate, IQ": 7,
+      "Erbil, IQ": 3,
+      "Al-Najaf, IQ": 1,
+      "Basra Governorate, IQ": 1
+    },
+    "notIraq": {
+      "Damascus Governorate, SY": 1,
+      "AE": 1,
+      "Salmiya, KW": 1,
+      "Erbil, SY": 1,
+      "Cairo, EG": 1,
+      "CH": 1
+    }
+  },
+  "_expectedEffect": "FEWER candidates, deliberately. Replayed against the two real searches: exec 2036 is UNCHANGED (2 delivered — all its >=50 candidates are genuinely in Iraq), exec 2035 goes 3 -> 1 because Cairo and Switzerland are correctly removed. This fix improves precision and does NOT raise the count; raising the count is the separate query-design work.",
+  "_openDecisionForTheOwner": "`Finalize Top N Send` and `Finalize Phase 2 Send` wrap their location clean in `if (cleaned.length > 0) shortlist = cleaned;` — so when a filter would empty the shortlist it is SKIPPED and the foreign candidates are delivered anyway. This patch does not touch that. Because this patch drops non-Iraqi profiles much earlier (at `__skip`), the pool reaching that fallback is already clean, so the fallback becomes unreachable for location reasons. Stated explicitly so nobody later reads the fallback as still protecting anything.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "fea5fa60-b471-45e2-96c1-271b57ffa3be",
+  "baseNodeCount": 44,
+  "_lineEndings": "The live jsCode arrived with CRLF. It is PUBLISHED WITH LF, deliberately: the value has to be transmitted as a JSON string and hand-escaping 315 CRLF pairs is a real transcription risk, while the line ending has no effect on the JavaScript. In the repo the whole jsCode is one JSON string on one line, so the diff is a single line either way. The applier therefore normalises to LF and the byte-match check is made against that LF form.",
+  "parameterEdits": [
+    {
+      "node": "Map Candidate Fields",
+      "path": "parameters.jsCode",
+      "expectFindCount": 1,
+      "find": "  if (isIraqSearch()) {\n    if (hasForeignLocationEvidence(blob, raw)) return false;\n    if (hasIraqTerm(blob) || isIraqCountryCode(raw)) return true;\n\n    // Soft pass: Serp/enrich pipeline already targets Iraq; keep profiles with no foreign signal.\n    if (!currentLoc && !hasForeignLocationEvidence(blob, raw)) return true;\n\n    const narrow = joinLoc([\n      raw.city,\n      raw.state,\n      raw.country,\n      raw.country_full_name,\n      raw.headline,\n      raw.occupation,\n    ]);\n    if (hasIraqTerm(narrow) || isIraqCountryCode(raw)) return true;\n    if (!narrow.trim()) return true;\n    return false;\n  }",
+      "replace": "  if (isIraqSearch()) {\n    /**\n     * Residence is decided by the profile's CURRENT COUNTRY, never by the whole\n     * profile text.\n     *\n     * The old rule asked `hasIraqTerm(blob)`, and `blob` concatenates the summary\n     * and every past job's location, title, company and description — so one past\n     * Iraqi role made a candidate \"in Iraq\" forever. On 2026-09-29 that delivered\n     * a Cairo-based and a Switzerland-based candidate for a Baghdad search.\n     *\n     * The country CODE wins over any city name, because production returned\n     * \"Erbil, SY\": an Iraqi city with a Syrian country code, which `IRAQ_TERMS`\n     * accepted as Iraqi. City names cannot prove a country.\n     */\n    const code = norm(raw.country || '');\n    const full = norm(raw.country_full_name || '');\n    if (code) return code === 'iq';\n    if (full) return full.includes('iraq');\n\n    // No country field at all. Fall back to the CURRENT location only — never the\n    // blob — and keep a profile that carries no location signal whatsoever, since\n    // the SERP query itself already targeted Iraq.\n    if (hasIraqTerm(currentLoc)) return true;\n    if (hasForeignLocationEvidence(currentLoc, raw)) return false;\n    return !currentLoc.trim();\n  }"
+    }
+  ],
+  "baseFile": "archive/headhunter--AI_Head_hunter--fea5fa60-before-location-fix.json",
+  "publishedVersionId": "d9583254-f6b4-4280-a61d-3acc29401322",
+  "_publishNotes": "Pre-publish: zero running executions, no live interview, live/ byte-identical to the real n8n node, draft byte-matched the locally patched code (sha256 0222f44c…), exactly ONE node changed and connections identical. Post-publish verified on the ACTIVE payload: versionId == activeVersionId, active true, triggerCount 1, and the reset fix and completion guard both still intact. Rollback = re-publish fea5fa60-b471-45e2-96c1-271b57ffa3be from archive/ (⚠️ that snapshot still carries the reset fix and the completion guard, so rolling back the location fix does not undo those)."
+}
