@@ -1,0 +1,28 @@
+{
+  "_warning": "PUBLISHED 2026-09-30 as version a4366408-c3ab-4867-afed-9caff7cf2017 (previous active 458db74f-7f73-4c4a-9d08-c3385ead348e). Kept in pending/ as the record, per the repo convention. Not an importable workflow - never import it. Rebuild with: archive/headhunter--AI_Head_hunter--458db74f-before-enrich-dedupe.json + this patch. Verified by `npm run test:headhunter-enrich-dedupe`.",
+  "_scope": "ONE node, the last one before profiles are paid for. No change to the search queries, the location/position gates, the scoring, the threshold, the completion path or billing.",
+  "_theDefects": {
+    "paidTwice": "Filter New URLs skipped only URLs in sd.hhSeenUrls[searchId], which Finalize Top N Send fills from the SHORTLIST. Every profile enriched in phase 1 but rejected or not shortlisted was re-enriched in phase 2. exec 2039: 46 paid calls for 37 distinct people = 9 repeats.",
+    "paidForForeigners": "For an Iraq search, a two-letter country subdomain (ae, qa, ch, eg, in, jo, uz, sa, …) was foreign in 11 of 11 profiles in exec 2039 and 22 of 22 in execs 2035/2036. They were paid for, then removed by the location filter."
+  },
+  "_keyedOnTheRequestedSlug": "The dedupe key is the slug of the URL we requested, not EnrichLayer's public_identifier: in 3 of 118 measured profiles the two differ (LinkedIn renamed the profile, e.g. a requested vanity slug came back as a different id), and one of those was a paid repeat in exec 2039.",
+  "_whyTheCapMovesHere": "The built-in Limit Candidates node runs after this one and keeps the first maxEnrich items. A profile this node remembered but the limit cut would later be skipped without ever being evaluated. So in phase 1 this node applies the same cap (the limit's expression resolves to Resolve Search Tier.maxEnrich in phase 1), and the limit never cuts. In phase 2 this node does not cap, leaving today's behaviour untouched.",
+  "_sideFindingNotChanged": "Expand Phase 2 Queries sets sd.hhPhase2[searchId].maxEnrich = 20 for tier 20, but phase 2 enriched 24 (exec 2036) and 26 (exec 2039): the Limit node's expression does not see that value. Recorded, deliberately not changed here.",
+  "_expectedEffect": "Replayed on the real link lists of execs 2035, 2036 and 2039: paid EnrichLayer calls 118 -> the test prints the exact figure, with every Iraqi profile the live system enriched still enriched.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "458db74f-7f73-4c4a-9d08-c3385ead348e",
+  "baseNodeCount": 44,
+  "parameterEdits": [
+    {
+      "node": "Filter New URLs",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-enrich-dedupe.node.js",
+      "expectBeforeContains": "const seen = new Set((sd.hhSeenUrls && sd.hhSeenUrls[searchId]) || []);",
+      "expectAfterContains": "sd.hhFetched[searchId] = { at: now, slugs: [...fetched, ...taken] };"
+    }
+  ],
+  "baseFile": "archive/headhunter--AI_Head_hunter--458db74f-before-enrich-dedupe.json",
+  "publishedVersionId": "a4366408-c3ab-4867-afed-9caff7cf2017",
+  "_lineEndings": "The live node arrived with CRLF and is PUBLISHED WITH LF: the whole value is replaced, and a line ending cannot change what the JavaScript does. Same documented choice as the location fix.",
+  "_publishNotes": "Pre-publish: zero running executions, no live interview, the base node still carried the shortlist-only record, draft BYTE-MATCHED the tested node file (sha256 e49e9fb4, 5083 chars), exactly ONE node changed (which also proves the rest of the real workflow matched the repo baseline), connections identical. Post-publish verified on the ACTIVE payload: in sync, active, triggerCount 1, node byte-identical, Limit Candidates still directly after it, and the reset fix, completion guard, location fix and criteria scoring all still live. Rollback = re-publish 458db74f-7f73-4c4a-9d08-c3385ead348e from archive/ - it still carries all four of those fixes."
+}

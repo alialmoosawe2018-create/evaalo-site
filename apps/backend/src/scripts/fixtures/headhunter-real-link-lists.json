@@ -1,0 +1,636 @@
+{
+ "2035": {
+  "location": "Baghdad, Iraq",
+  "tierMaxEnrich": 35,
+  "phase2Caps": [],
+  "livePassed": [
+   10,
+   19
+  ],
+  "enriched": 29,
+  "runs": [
+   [
+    {
+     "h": "1c7bc189e9c9",
+     "sub": "ae"
+    },
+    {
+     "h": "eb27981b2016",
+     "sub": "www"
+    },
+    {
+     "h": "b69258c85b88",
+     "sub": "www"
+    },
+    {
+     "h": "68d0b449efef",
+     "sub": "eg"
+    },
+    {
+     "h": "aeeda0830880",
+     "sub": "www"
+    },
+    {
+     "h": "1918e6c067ee",
+     "sub": "tr"
+    },
+    {
+     "h": "463167aaa10a",
+     "sub": "www"
+    },
+    {
+     "h": "4527effc4b3d",
+     "sub": "www"
+    },
+    {
+     "h": "731be940ec5f",
+     "sub": "za"
+    },
+    {
+     "h": "23e7aa03ebbe",
+     "sub": "www"
+    }
+   ],
+   [
+    {
+     "h": "52f7d25fb6e9",
+     "sub": "www"
+    },
+    {
+     "h": "bd8ce225f047",
+     "sub": "www"
+    },
+    {
+     "h": "9958237ace71",
+     "sub": "www"
+    },
+    {
+     "h": "69f9ff4150cd",
+     "sub": "iq"
+    },
+    {
+     "h": "a97cc30a3d12",
+     "sub": "iq"
+    },
+    {
+     "h": "ef08e03fd41e",
+     "sub": "iq"
+    },
+    {
+     "h": "20488fa8c9dd",
+     "sub": "iq"
+    },
+    {
+     "h": "b0c330581052",
+     "sub": "iq"
+    },
+    {
+     "h": "facafa287212",
+     "sub": "iq"
+    },
+    {
+     "h": "869605f21e1c",
+     "sub": "ae"
+    },
+    {
+     "h": "72af1f8fd244",
+     "sub": "qa"
+    },
+    {
+     "h": "346d084029da",
+     "sub": "ch"
+    },
+    {
+     "h": "efa558fc98f0",
+     "sub": "www"
+    },
+    {
+     "h": "d252ccd6b6e9",
+     "sub": "iq"
+    },
+    {
+     "h": "0ae4fbb6689d",
+     "sub": "www"
+    },
+    {
+     "h": "783ad1c4b746",
+     "sub": "eg"
+    },
+    {
+     "h": "83aa1eea4185",
+     "sub": "eg"
+    },
+    {
+     "h": "4527effc4b3d",
+     "sub": "www"
+    },
+    {
+     "h": "6e907f9a03f8",
+     "sub": "www"
+    }
+   ]
+  ],
+  "country": {
+   "1c7bc189e9c9": "AE",
+   "eb27981b2016": "SY",
+   "b69258c85b88": "US",
+   "68d0b449efef": "EG",
+   "aeeda0830880": "AE",
+   "1918e6c067ee": "TR",
+   "463167aaa10a": "US",
+   "4527effc4b3d": "US",
+   "731be940ec5f": "ZA",
+   "23e7aa03ebbe": "US",
+   "52f7d25fb6e9": "US",
+   "bd8ce225f047": "US",
+   "9958237ace71": "IQ",
+   "69f9ff4150cd": "IQ",
+   "a97cc30a3d12": "IQ",
+   "ef08e03fd41e": "IQ",
+   "20488fa8c9dd": "IQ",
+   "b0c330581052": "IQ",
+   "facafa287212": "IQ",
+   "869605f21e1c": "AE",
+   "72af1f8fd244": "QA",
+   "346d084029da": "CH",
+   "efa558fc98f0": "US",
+   "d252ccd6b6e9": "IQ",
+   "0ae4fbb6689d": "US",
+   "783ad1c4b746": "EG",
+   "83aa1eea4185": "EG",
+   "6e907f9a03f8": "QA"
+  }
+ },
+ "2036": {
+  "location": "Baghdad, Iraq",
+  "tierMaxEnrich": 35,
+  "phase2Caps": [],
+  "livePassed": [
+   19,
+   24
+  ],
+  "enriched": 43,
+  "runs": [
+   [
+    {
+     "h": "c430425bcc09",
+     "sub": "www"
+    },
+    {
+     "h": "fa9a9c3aa27e",
+     "sub": "www"
+    },
+    {
+     "h": "0ee9a2c1bd92",
+     "sub": "www"
+    },
+    {
+     "h": "73d0d1d31ce1",
+     "sub": "www"
+    },
+    {
+     "h": "a1b8369b2d3c",
+     "sub": "au"
+    },
+    {
+     "h": "a90fb3670e03",
+     "sub": "pk"
+    },
+    {
+     "h": "9210d67b521c",
+     "sub": "uk"
+    },
+    {
+     "h": "2309dc09c437",
+     "sub": "www"
+    },
+    {
+     "h": "32cb2451b959",
+     "sub": "jo"
+    },
+    {
+     "h": "377cf2b4eb10",
+     "sub": "fr"
+    },
+    {
+     "h": "9fe1b5c35c2d",
+     "sub": "sy"
+    },
+    {
+     "h": "7d81ed5d9793",
+     "sub": "eg"
+    },
+    {
+     "h": "df5977dbf08f",
+     "sub": "iq"
+    },
+    {
+     "h": "0f1415337013",
+     "sub": "in"
+    },
+    {
+     "h": "e45ab8064d4b",
+     "sub": "lb"
+    },
+    {
+     "h": "a961f9a8c054",
+     "sub": "pk"
+    },
+    {
+     "h": "e51b775bb06a",
+     "sub": "www"
+    },
+    {
+     "h": "81c184155e87",
+     "sub": "ae"
+    },
+    {
+     "h": "9f314d03cd91",
+     "sub": "www"
+    }
+   ],
+   [
+    {
+     "h": "9fe1b5c35c2d",
+     "sub": "sy"
+    },
+    {
+     "h": "7d81ed5d9793",
+     "sub": "eg"
+    },
+    {
+     "h": "df5977dbf08f",
+     "sub": "iq"
+    },
+    {
+     "h": "0f1415337013",
+     "sub": "in"
+    },
+    {
+     "h": "e45ab8064d4b",
+     "sub": "lb"
+    },
+    {
+     "h": "a961f9a8c054",
+     "sub": "pk"
+    },
+    {
+     "h": "e51b775bb06a",
+     "sub": "www"
+    },
+    {
+     "h": "81c184155e87",
+     "sub": "ae"
+    },
+    {
+     "h": "9f314d03cd91",
+     "sub": "www"
+    },
+    {
+     "h": "fd559296db47",
+     "sub": "www"
+    },
+    {
+     "h": "fc0ef36d6418",
+     "sub": "www"
+    },
+    {
+     "h": "7ece647548c8",
+     "sub": "iq"
+    },
+    {
+     "h": "0e610b38dfcc",
+     "sub": "iq"
+    },
+    {
+     "h": "eca90ecc1f76",
+     "sub": "www"
+    },
+    {
+     "h": "e7d07298bfde",
+     "sub": "www"
+    },
+    {
+     "h": "9bd80cef647d",
+     "sub": "www"
+    },
+    {
+     "h": "85544a10ae5c",
+     "sub": "au"
+    },
+    {
+     "h": "fcdea0cf9a0b",
+     "sub": "www"
+    },
+    {
+     "h": "c4584ee39554",
+     "sub": "eg"
+    },
+    {
+     "h": "bf1fe6ac639d",
+     "sub": "iq"
+    },
+    {
+     "h": "89f174231b62",
+     "sub": "iq"
+    },
+    {
+     "h": "7052b6d34809",
+     "sub": "iq"
+    },
+    {
+     "h": "73e7afc39d20",
+     "sub": "iq"
+    },
+    {
+     "h": "62afce241ed6",
+     "sub": "in"
+    },
+    {
+     "h": "4fc0e20c6737",
+     "sub": "jo"
+    }
+   ]
+  ],
+  "country": {
+   "c430425bcc09": "US",
+   "fa9a9c3aa27e": "US",
+   "0ee9a2c1bd92": "US",
+   "73d0d1d31ce1": "US",
+   "a1b8369b2d3c": "AU",
+   "a90fb3670e03": "PK",
+   "9210d67b521c": "GB",
+   "2309dc09c437": "US",
+   "32cb2451b959": "JO",
+   "377cf2b4eb10": "FR",
+   "9fe1b5c35c2d": "IQ",
+   "7d81ed5d9793": "EG",
+   "df5977dbf08f": "IQ",
+   "0f1415337013": "AE",
+   "e45ab8064d4b": "LB",
+   "a961f9a8c054": "PK",
+   "e51b775bb06a": "US",
+   "81c184155e87": "AE",
+   "9f314d03cd91": "IQ",
+   "fd559296db47": "US",
+   "fc0ef36d6418": "IQ",
+   "7ece647548c8": "IQ",
+   "0e610b38dfcc": "IQ",
+   "eca90ecc1f76": "IQ",
+   "e7d07298bfde": null,
+   "9bd80cef647d": "IQ",
+   "85544a10ae5c": "AU",
+   "fcdea0cf9a0b": "US",
+   "c4584ee39554": "EG",
+   "bf1fe6ac639d": "IQ",
+   "89f174231b62": "IQ",
+   "7052b6d34809": "IQ",
+   "73e7afc39d20": "IQ",
+   "62afce241ed6": "IN",
+   "4fc0e20c6737": "JO"
+  }
+ },
+ "2039": {
+  "location": "Baghdad, Iraq",
+  "tierMaxEnrich": 35,
+  "phase2Caps": [],
+  "livePassed": [
+   20,
+   26
+  ],
+  "enriched": 46,
+  "runs": [
+   [
+    {
+     "h": "7052b6d34809",
+     "sub": "iq"
+    },
+    {
+     "h": "bec598303dda",
+     "sub": "www"
+    },
+    {
+     "h": "9e8b46a436e9",
+     "sub": "www"
+    },
+    {
+     "h": "5179a3dd65ed",
+     "sub": "www"
+    },
+    {
+     "h": "bc0f1a532cc5",
+     "sub": "iq"
+    },
+    {
+     "h": "ef798039d22b",
+     "sub": "in"
+    },
+    {
+     "h": "d237df9f3550",
+     "sub": "eg"
+    },
+    {
+     "h": "527ae25f2dbd",
+     "sub": "www"
+    },
+    {
+     "h": "a05a5dfc4914",
+     "sub": "iq"
+    },
+    {
+     "h": "8cad364d8062",
+     "sub": "iq"
+    },
+    {
+     "h": "cc085c059442",
+     "sub": "iq"
+    },
+    {
+     "h": "869605f21e1c",
+     "sub": "ae"
+    },
+    {
+     "h": "6089b07822c6",
+     "sub": "iq"
+    },
+    {
+     "h": "7ddc65ce1955",
+     "sub": "iq"
+    },
+    {
+     "h": "04f57bcc848d",
+     "sub": "iq"
+    },
+    {
+     "h": "72af1f8fd244",
+     "sub": "qa"
+    },
+    {
+     "h": "605d4afdaad7",
+     "sub": "www"
+    },
+    {
+     "h": "819316bdc065",
+     "sub": "www"
+    },
+    {
+     "h": "346d084029da",
+     "sub": "ch"
+    },
+    {
+     "h": "a1d65a0f4c35",
+     "sub": "iq"
+    }
+   ],
+   [
+    {
+     "h": "cc085c059442",
+     "sub": "iq"
+    },
+    {
+     "h": "869605f21e1c",
+     "sub": "ae"
+    },
+    {
+     "h": "6089b07822c6",
+     "sub": "iq"
+    },
+    {
+     "h": "7ddc65ce1955",
+     "sub": "iq"
+    },
+    {
+     "h": "04f57bcc848d",
+     "sub": "iq"
+    },
+    {
+     "h": "72af1f8fd244",
+     "sub": "qa"
+    },
+    {
+     "h": "605d4afdaad7",
+     "sub": "www"
+    },
+    {
+     "h": "819316bdc065",
+     "sub": "www"
+    },
+    {
+     "h": "346d084029da",
+     "sub": "ch"
+    },
+    {
+     "h": "a1d65a0f4c35",
+     "sub": "iq"
+    },
+    {
+     "h": "b0c330581052",
+     "sub": "iq"
+    },
+    {
+     "h": "bd8ce225f047",
+     "sub": "www"
+    },
+    {
+     "h": "52f7d25fb6e9",
+     "sub": "www"
+    },
+    {
+     "h": "a97cc30a3d12",
+     "sub": "iq"
+    },
+    {
+     "h": "e0b3e627cada",
+     "sub": "www"
+    },
+    {
+     "h": "20488fa8c9dd",
+     "sub": "iq"
+    },
+    {
+     "h": "69f9ff4150cd",
+     "sub": "iq"
+    },
+    {
+     "h": "9958237ace71",
+     "sub": "www"
+    },
+    {
+     "h": "facafa287212",
+     "sub": "iq"
+    },
+    {
+     "h": "8ca8e019a726",
+     "sub": "jo"
+    },
+    {
+     "h": "2db846690ca2",
+     "sub": "uz"
+    },
+    {
+     "h": "d252ccd6b6e9",
+     "sub": "iq"
+    },
+    {
+     "h": "0ae4fbb6689d",
+     "sub": "www"
+    },
+    {
+     "h": "6e907f9a03f8",
+     "sub": "www"
+    },
+    {
+     "h": "efa558fc98f0",
+     "sub": "www"
+    },
+    {
+     "h": "7dde05e294b8",
+     "sub": "www"
+    },
+    {
+     "h": "ced101fc3e44",
+     "sub": "sa"
+    }
+   ]
+  ],
+  "country": {
+   "7052b6d34809": "IQ",
+   "bec598303dda": "US",
+   "9e8b46a436e9": "US",
+   "5179a3dd65ed": "US",
+   "bc0f1a532cc5": "IQ",
+   "ef798039d22b": "IN",
+   "d237df9f3550": "EG",
+   "527ae25f2dbd": "US",
+   "a05a5dfc4914": "IQ",
+   "8cad364d8062": "IQ",
+   "cc085c059442": "IQ",
+   "869605f21e1c": "AE",
+   "6089b07822c6": "IQ",
+   "7ddc65ce1955": "IQ",
+   "04f57bcc848d": "IQ",
+   "72af1f8fd244": "QA",
+   "605d4afdaad7": "US",
+   "819316bdc065": "IQ",
+   "346d084029da": "CH",
+   "a1d65a0f4c35": "IQ",
+   "b0c330581052": "IQ",
+   "bd8ce225f047": "US",
+   "52f7d25fb6e9": "US",
+   "a97cc30a3d12": "IQ",
+   "e0b3e627cada": "US",
+   "20488fa8c9dd": "IQ",
+   "69f9ff4150cd": "IQ",
+   "9958237ace71": "IQ",
+   "facafa287212": "IQ",
+   "8ca8e019a726": "GB",
+   "2db846690ca2": "UZ",
+   "d252ccd6b6e9": "IQ",
+   "0ae4fbb6689d": "US",
+   "6e907f9a03f8": "QA",
+   "efa558fc98f0": "US",
+   "7dde05e294b8": "US",
+   "ced101fc3e44": "SA"
+  }
+ }
+}
