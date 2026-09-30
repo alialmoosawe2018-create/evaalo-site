@@ -1,0 +1,381 @@
+{
+ "_about": "Anonymised real evaluator output from two Head Hunter runs (exec 2039, started 2026-09-29 22:04 UTC: HR Business Partner, years AND age set; exec 2032, 2026-09-28 10:07 UTC: Sales Manager, neither set). This repository is public, so it carries ONLY: the criterion/competency label the model wrote before the colon (competency titles come from Evaalo's own role model), the kind (p=positive, w=warning, n=neutral), the model's own score (llm), the score production stored (stored), and a per-run sequential person number (p) so a person evaluated twice can be recognised. No names, URLs, slugs, locations or insight text. `i` is a space-separated list of <index into labels><kind>. '(no colon)' marks an insight written without a label - all 39 such insights in the retained runs were competency judgements. Exec 2039 ran the computed scorer (458db74f, published 21:36 UTC the same day), so the published node must reproduce `stored` for it exactly; exec 2032 predates it, so its `stored` is the model's own number.",
+ "labels": [
+  "Position",
+  "Location",
+  "Years of experience",
+  "Age",
+  "Languages",
+  "Stakeholder management with business leaders",
+  "Employee relations case management",
+  "Recruitment coordination and pipeline management",
+  "Performance management and calibration support",
+  "HR data analysis and KPI reporting",
+  "Policy application and local labor law compliance",
+  "Process improvement and execution ownership",
+  "Compensation and benefits advisory support",
+  "position",
+  "location",
+  "yearsOfExperience",
+  "ageRange",
+  "requiredLanguages",
+  "requiredSkills",
+  "certifications",
+  "company",
+  "gender",
+  "RequiredLanguages",
+  "RequiredSkills",
+  "Certifications",
+  "Company",
+  "Gender",
+  "Required languages",
+  "Required skills",
+  "Required Languages",
+  "Required Skills",
+  "age",
+  "Required skills, certifications, company, gender",
+  "Skills",
+  "Location rule",
+  "RequiredLanguages, Skills, Certifications, Company, Gender",
+  "Years of Experience",
+  "(no colon)",
+  "Discovery & Needs",
+  "Pipeline Management",
+  "Objection Handling",
+  "Closing & Follow-up",
+  "Account Growth",
+  "CRM Discipline"
+ ],
+ "execs": {
+  "2032": {
+   "meta": {
+    "position": "Sales Manager",
+    "location": "Baghdad, Iraq",
+    "yearsOfExperience": null,
+    "ageRange": null,
+    "otherSet": [],
+    "competencyModel": true
+   },
+   "candidates": [
+    {
+     "p": 1,
+     "llm": 65,
+     "stored": 65,
+     "i": "0p 1p 36n 29n 30n 24n 25n 26n 37p 37p 37n 37p 37n 37n"
+    },
+    {
+     "p": 2,
+     "llm": 89,
+     "stored": 89,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39p 40n 41n 42p 43n"
+    },
+    {
+     "p": 3,
+     "llm": 72,
+     "stored": 72,
+     "i": "0p 1p 36n 29n 30n 24n 25n 26n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 4,
+     "llm": 35,
+     "stored": 35,
+     "i": "14w 13n 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 5,
+     "llm": 84,
+     "stored": 84,
+     "i": "0p 1p 36n 29n 30n 24n 25n 26n 38p 39n 40n 41n 42p 43n"
+    },
+    {
+     "p": 6,
+     "llm": 65,
+     "stored": 65,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 7,
+     "llm": 79,
+     "stored": 79,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 8,
+     "llm": 69,
+     "stored": 69,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 9,
+     "llm": 82,
+     "stored": 82,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39p 40n 41n 42n 43n"
+    },
+    {
+     "p": 10,
+     "llm": 85,
+     "stored": 85,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39p 40n 41p 42p 43n"
+    },
+    {
+     "p": 11,
+     "llm": 85,
+     "stored": 85,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 12,
+     "llm": 50,
+     "stored": 50,
+     "i": "13w 14w 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 13,
+     "llm": 35,
+     "stored": 35,
+     "i": "14w 13p 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 14,
+     "llm": 81,
+     "stored": 81,
+     "i": "0p 1p 2n 29n 30n 24n 25n 26n 37p 37n 37n 37n 37p 37n"
+    },
+    {
+     "p": 15,
+     "llm": 68,
+     "stored": 68,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 16,
+     "llm": 87,
+     "stored": 87,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 17,
+     "llm": 45,
+     "stored": 45,
+     "i": "0w 1w 2n 29n 30n 24n 25n 26n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 18,
+     "llm": 89,
+     "stored": 89,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39p 40n 41n 42p 43n"
+    },
+    {
+     "p": 19,
+     "llm": 89,
+     "stored": 89,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39p 40p 41p 42p 43p"
+    },
+    {
+     "p": 20,
+     "llm": 85,
+     "stored": 85,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39p 40n 41n 42n 43n"
+    },
+    {
+     "p": 2,
+     "llm": 76,
+     "stored": 76,
+     "i": "0p 1p 2n 29n 30n 24n 25n 26n 38p 39n 40n 41n 42p 43n"
+    },
+    {
+     "p": 21,
+     "llm": 62,
+     "stored": 62,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 22,
+     "llm": 78,
+     "stored": 78,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39p 40n 41p 42p 43n"
+    },
+    {
+     "p": 23,
+     "llm": 35,
+     "stored": 35,
+     "i": "13w 14w 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 24,
+     "llm": 81,
+     "stored": 81,
+     "i": "14w 13p 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 25,
+     "llm": 61,
+     "stored": 61,
+     "i": "1w 0p 2n 29n 30n 24n 25n 26n 38p 39p 40n 41n 42n 43n"
+    },
+    {
+     "p": 26,
+     "llm": 69,
+     "stored": 69,
+     "i": "13w 14w 15n 17n 18n 19n 20n 21n 38p 39p 40n 41n 42p 43n"
+    },
+    {
+     "p": 27,
+     "llm": 44,
+     "stored": 44,
+     "i": "14w 13p 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 9,
+     "llm": 77,
+     "stored": 77,
+     "i": "13p 14p 15n 17n 18n 19n 20n 21n 38p 39n 40n 41n 42p 43n"
+    },
+    {
+     "p": 28,
+     "llm": 56,
+     "stored": 56,
+     "i": "0p 1p 36n 29n 30n 24n 25n 26n 38n 39n 40n 41n 42n 43n"
+    },
+    {
+     "p": 29,
+     "llm": 60,
+     "stored": 60,
+     "i": "13p 14w 15n 17n 18n 19n 20n 21n 38n 39n 40n 41n 42n 43n"
+    }
+   ]
+  },
+  "2039": {
+   "meta": {
+    "position": "HR Business Partner",
+    "location": "Baghdad, Iraq",
+    "yearsOfExperience": "5-10",
+    "ageRange": "35-44",
+    "otherSet": [],
+    "competencyModel": true
+   },
+   "candidates": [
+    {
+     "p": 1,
+     "llm": 82,
+     "stored": 100,
+     "i": "0p 1p 2p 3p 4p 5p 6p 7p 8p 9p 10p 11n 12n"
+    },
+    {
+     "p": 2,
+     "llm": 52,
+     "stored": 38,
+     "i": "13w 14p 15w 16n 17n 18n 19n 20n 21n 5n 6n 7n 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 3,
+     "llm": 62,
+     "stored": 100,
+     "i": "13p 14p 15n 16n 17n 18n 19n 20n 21n 5n 6n 7n 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 4,
+     "llm": 82,
+     "stored": 100,
+     "i": "0p 1p 2p 3n 22n 23n 24n 25n 26n 5p 6p 7p 8p 9p 10p 11p 12n"
+    },
+    {
+     "p": 5,
+     "llm": 75,
+     "stored": 100,
+     "i": "0p 1p 2p 3n 27n 28n 24n 25n 26n 5p 6n 7n 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 6,
+     "llm": 78,
+     "stored": 100,
+     "i": "0p 1p 2p 3n 29n 30n 24n 25n 26n 5p 6p 7n 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 7,
+     "llm": 35,
+     "stored": 100,
+     "i": "0p 1n 2n 3n 29n 30n 24n 25n 26n 5n 6n 7n 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 8,
+     "llm": 57,
+     "stored": 43,
+     "i": "0w 1w 2p 3n 5p 6n 7p 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 3,
+     "llm": 55,
+     "stored": 54,
+     "i": "0p 1w 2n 3n 29n 30n 24n 25n 26n 5n 6n 7n 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 4,
+     "llm": 92,
+     "stored": 100,
+     "i": "13p 14p 15p 16n 17n 18n 19n 20n 21n 5p 6p 7p 8p 9p 10n 11n 12n"
+    },
+    {
+     "p": 5,
+     "llm": 75,
+     "stored": 100,
+     "i": "13p 14p 15p 16n 17n 18n 19n 20n 21n 5p 6p 7n 8n 9n"
+    },
+    {
+     "p": 6,
+     "llm": 70,
+     "stored": 100,
+     "i": "0p 1p 2p 3n 27n 28n 24n 25n 26n 5p 6p 7n 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 8,
+     "llm": 62,
+     "stored": 43,
+     "i": "0w 1w 2p 3n 22n 23n 24n 25n 26n 5p 6n 7p 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 9,
+     "llm": 38,
+     "stored": 81,
+     "i": "13p 14p 15w 31n 17n 18n 19n 20n 21n 5n 6n 7n 8n 9n 10n 11n 12n"
+    },
+    {
+     "p": 10,
+     "llm": 35,
+     "stored": 26,
+     "i": "0w 1p 2p 3n 22n 23n 24n 25n 26n 5w 6w 7w 8w 9w 10w 11n 12n 1w"
+    },
+    {
+     "p": 11,
+     "llm": 35,
+     "stored": 44,
+     "i": "0p 1p 2w 3n 29n 30n 24n 25n 26n 5w 6w 7w 8w 9w 10w 11n 12n 1w"
+    },
+    {
+     "p": 12,
+     "llm": 37,
+     "stored": 26,
+     "i": "1p 0w 2w 3n 27n 32n 5n 6w 7w 8w 9w 10w 11n 12n"
+    },
+    {
+     "p": 13,
+     "llm": 35,
+     "stored": 19,
+     "i": "1p 0w 2w 3n 4n 33n 24n 25n 26n 5n 6n 7n 8n 9n 10n 11n 12n 34w"
+    },
+    {
+     "p": 14,
+     "llm": 28,
+     "stored": 57,
+     "i": "13p 14p 15w 16n 17n 18n 19n 20n 21n 5w 6w 7w 8w 9w 10w 11n 12n"
+    },
+    {
+     "p": 15,
+     "llm": 79,
+     "stored": 100,
+     "i": "0p 1n 2p 3n 35n 5p 6p 7p 8p 9p 10p 11n 12p"
+    }
+   ]
+  }
+ }
+}

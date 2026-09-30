@@ -183,7 +183,8 @@
     "hh:billed-vs-kept": "tsx src/scripts/headhunter-billed-vs-kept.ts",
     "test:headhunter-location-filter": "tsx src/scripts/headhunter-location-filter-test.ts",
     "test:headhunter-criteria-scoring": "tsx src/scripts/headhunter-criteria-scoring-test.ts",
-    "test:headhunter-enrich-dedupe": "tsx src/scripts/headhunter-enrich-dedupe-test.ts"
+    "test:headhunter-enrich-dedupe": "tsx src/scripts/headhunter-enrich-dedupe-test.ts",
+    "test:headhunter-neutral-half-credit": "tsx src/scripts/headhunter-neutral-half-credit-test.ts"
   },
   "keywords": [
     "career",

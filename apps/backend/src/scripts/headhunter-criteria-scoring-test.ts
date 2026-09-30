@@ -84,8 +84,17 @@ function main(): void {
     check('the node it replaces exists in that base', Boolean(baseNode));
     check('the base node had the defect this replaces', String(baseNode.parameters.jsCode).includes(edit.expectBeforeContains));
     // CONTENT, not a version id - a version-id check breaks on every later, unrelated publish.
-    check('the published node is STILL live, byte for byte', String(liveNode?.parameters.jsCode) === code);
-    check('and the bare-50 default is gone from live', !String(liveNode?.parameters.jsCode).includes(edit.expectBeforeContains));
+    // Superseded 2026-09-30 by headhunter-neutral-half-credit (silent = half, not full), which
+    // replaced this exact node: live/ must carry EITHER this code or that recorded successor.
+    const successor = JSON.parse(readFileSync(join(WF_DIR, 'pending', 'headhunter-neutral-half-credit.patch.json'), 'utf8'));
+    const successorCode = readFileSync(join(WF_DIR, 'pending', successor.parameterEdits[0].replaceWholeValueFromFile), 'utf8');
+    const liveCode = String(liveNode?.parameters.jsCode);
+    const successorBase = JSON.parse(readFileSync(join(WF_DIR, successor.baseFile), 'utf8'));
+    check('the successor replaced exactly this node, from exactly this code',
+        successor.parameterEdits[0].node === edit.node
+        && String(successorBase.nodes.find((n: { name: string }) => n.name === edit.node)?.parameters.jsCode) === code);
+    check('live carries this node or its recorded successor, byte for byte', liveCode === code || liveCode === successorCode);
+    check('and the bare-50 default is gone from live', !liveCode.includes(edit.expectBeforeContains));
     check('the replacement carries the rubric', code.includes(edit.expectAfterContains));
     // Strip comments first: the file's own header QUOTES the prompt's cap rule,
     // which made this check fail on its own documentation.
