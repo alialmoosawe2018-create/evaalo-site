@@ -1,0 +1,51 @@
+{
+  "_warning": "PUBLISHED 2026-09-30 as version df1b0a66-230a-45e0-8391-42c31b5b8e79 (previous active 434432ae-7f77-45de-9b58-27d80561578f). Kept in pending/ as the record, per the repo convention. Not an importable workflow - never import it. Rebuild with: archive/headhunter--AI_Head_hunter--434432ae-before-page2-off.json + this patch. Verified by `npm run test:headhunter-page2-off`.",
+  "_scope": "Stage 1 of the Page-2 decision, TIER 20 ONLY (minCandidateCount < 40). Three nodes: Resolve Search Tier (page 1 only), Expand Phase 2 Queries (page 1 only; do not re-send a query phase 1 got an answer for; re-send once a query that got no answer), Merge Serp Results (Tier 20: records phase-1 answered/failed queries in static data, and closes a phase 1 that found no LinkedIn profile at all with an explicit completion; all tiers: a per-call serpStats line on its output). Tier 40 behaves exactly as today - same queries, pages, phase-2 settings, static data and completions; its only difference is the inert serpStats field on Merge's output (Split Out keeps only organic_results; Prepare Complete Search builds its body field by field), kept deliberately so Tier 40's pages 2-5 are monitored. No change to Prepare Serp Pages, the SerpAPI node, the query texts, bag-of-words, enrichment, scoring, the threshold or billing.",
+  "_why": "Read-only report 2026-09-30 (independently re-derived 8/8), extended with execs 2040/2041. Tier-20 page 2 (start=10), by distinct SerpAPI response: 13/13 carried a LinkedIn profile up to exec 1884 (2026-09-17 09:52 UTC); 13/25 from exec 1885 to 2032 (2026-09-28 10:07); 0/16 in execs 2033-2039; 1/4 in exec 2041 (8 profiles: 6 on foreign country subdomains, dropped by Filter New URLs; 2 enriched and then dropped; 0 delivered). Google either answers 'no results' or ignores site:linkedin.com/in/. The workflow and the SerpAPI request were identical before and after (node-for-node, exec 2032 vs 2033). SerpAPI bills an empty result as a search (pricing page): in execs 2033-2039, 16 of 32 billed calls were page-2 calls with 0 profiles. Phase 2 re-sent phase-1 query 2 verbatim in every run: 19 of the 20 repeats were SerpAPI cache hits (same search id) with no new profile; the 20th (exec 2024) re-answered a call that had failed to connect and brought 9 profiles. Tier 40 has one retained run (exec 2040): pages 2-5 gave 24 new profiles, 0 evaluated.",
+  "_retryNotRetryOnFail": "n8n's retryOnFail is deliberately NOT enabled on the SerpAPI node. Read from n8n-core on the server (workflow-execute.js): the retry check is isErrorValue(data.data[0][0].json.error) on the node's raw output - the FIRST item only. The routing node stores a per-call connection error as {json: {}, error} at that point (routing-node.js), and n8n rewrites it to {json: {error: message}, error} only afterwards, before child nodes run. So a connection error is retried only by accident - when item 0 happens to be a Google 'no results' answer, which then re-runs the whole node against SerpAPI's cache (exec 2024's phase 1 had exactly that shape). The retry therefore lives in phase 2: a phase-1 query that got no answer is sent once more (SerpAPI does not bill a failed call). It fires only when phase 2 starts, i.e. phase 1 delivered at least one candidate.",
+  "_expectedEffect": "A full Tier-20 search goes from 10 SerpAPI calls (8 billed + 2 cache hits) to 4 billed calls: phase 1 two queries x page 1; phase 2 the planned queries that phase 1 did not answer (for most titles bag-of-words + the no-AND title query; titles containing 'support', 'helpdesk', 'engineer' or the letters 'it ' get the pre-existing IT-Support/Engineer query instead - e.g. 'Audit Manager', a separate stage-2 fix). A search that stops after phase 1 goes from 4 calls to 2. Plus one retry per phase-1 query that failed to connect. Delivered candidates lost in the retained runs since the regime change: 0 (execs 2033-2041, Tier 20). Replaying the patched phase-2 query set on the 11 retained Tier-20 runs that had a phase 2 (recorded page-1 answers, today's Filter New URLs rules): no run falls to 0 new profiles; the minimum is 4 (exec 1916); new non-foreign phase-2 profiles fall in 5 of the 11 (1913 19->6, 1917 11->5, 2024 9->5, 2032 18->14, 2041 7->5) - all of them from page 2 or the repeat, i.e. from the pre-regime-change runs or non-delivered.",
+  "_notDone": "Page 2 cannot be monitored once it is not requested: serpStats records page-1 health (and Tier 40's pages 2-5), not a page-2 comeback - a sparse page-2 probe is a separate owner decision. Replacing the freed calls with new, measured page-1 queries is stage 2, as is the 'it ' substring in the IT-Support rule. Pre-existing and unchanged: a PHASE 2 that finds no new LinkedIn profile, or a phase whose profiles are all dropped by Filter New URLs, still ends without a completion; this patch never hands phase 2 an empty query list (it falls back to today's first query), which keeps parity but does not close that path. Workflow static data is ~255 KB, mostly lingering hhCandidates - its own ticket.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "434432ae-7f77-45de-9b58-27d80561578f",
+  "baseNodeCount": 44,
+  "parameterEdits": [
+    {
+      "node": "Resolve Search Tier",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-page2-off.resolve-search-tier.node.js",
+      "expectBeforeContains": "pagesPerQuery: isFull ? 5 : 2,",
+      "expectAfterContains": "pagesPerQuery: isFull ? 5 : 1,",
+      "removedLines": [
+        "      pagesPerQuery: isFull ? 5 : 2,"
+      ]
+    },
+    {
+      "node": "Expand Phase 2 Queries",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-page2-off.expand-phase2.node.js",
+      "expectBeforeContains": "return queries.slice(0, 3).map((q) => ({ json: { q, __phase2: true, searchId } }));",
+      "expectAfterContains": "return toSend.map((q) => ({ json: { q, __phase2: true, searchId } }));",
+      "removedLines": [
+        "    : { pagesPerQuery: 2, maxEnrich: 20, queryVariants: 3 };",
+        "return queries.slice(0, 3).map((q) => ({ json: { q, __phase2: true, searchId } }));"
+      ]
+    },
+    {
+      "node": "Merge Serp Results",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-page2-off.merge-serp.node.js",
+      "expectBeforeContains": "return [{ json: { organic_results: merged, __completeOnly: false } }];",
+      "expectAfterContains": "sd.hhPhase1Serp[searchId] = {",
+      "removedLines": [
+        "for (const item of $input.all()) {",
+        "return [{ json: { organic_results: merged, __completeOnly: false } }];"
+      ]
+    }
+  ],
+  "baseFile": "archive/headhunter--AI_Head_hunter--434432ae-before-page2-off.json",
+  "_zeroProfilePhase1": "Without page 2 a Tier-20 phase 1 can end with no LinkedIn profile at all: 1 of 21 retained runs (exec 2024: page 1 = one 'no results' + one connection error; all 19 profiles came from page 2). Nothing downstream runs on an empty list (n8n schedules children only for non-empty output; no node on the path has alwaysOutputData), so the search would end without a completion and the recruiter would see a spinner until the page gives up after 10 minutes. Merge Serp Results now closes such a Tier-20 search through the existing __completeOnly path (the one 'every page failed' already uses): searchFailed true with the count of failed requests when any call failed, otherwise 'No LinkedIn profiles found for this search.' Nothing is billed: no candidate was sent.",
+  "_review": "Independent read-only review (n8n runtime semantics read from the server's n8n source, edge cases with a harness over 4,500 Tier-40 combinations, claims audit), every medium+ finding sent to a skeptic. Confirmed correct: $('Prepare Serp Pages').all() returns the current phase's run in both phases (proved through n8n's real WorkflowDataProxy on execs 2024/2039/2040/2041); index alignment (175/175 stored calls); static data is one object within an execution; item.error survives into the Code node; serpStats does not reach candidates. Acted on: the zero-profile phase-1 dead end (now closed explicitly), the real per-call error shape, stale windows ('last 4 searches', '0/16'), Tier 40 'never measured', the retryOnFail wording, strict Tier-40 parity of static data.",
+  "publishedVersionId": "df1b0a66-230a-45e0-8391-42c31b5b8e79",
+  "_publishNotes": "Owner decision 2026-09-30: option A - publish as is; the exec-2024 shape (phase 1 = 0 profiles + a connection error) closes with an explicit \"try again\" failure because phase 2 is unreachable without a delivered candidate. Pre-publish: zero running executions (checked twice, the second immediately before publishing), 0 live interviews (/api/health/ready activeInterviews 0), production identical to the repo baseline (434432ae in sync, 44 nodes, same connections). Draft df1b0a66 BYTE-MATCHED the three tested files (sha256 ec4802f3 / 2221ed88 / 1c2fbbbc, including the literal \\x00 and \\x7f bytes of the unchanged needsTranslation regex), exactly those three nodes differed, only in parameters.jsCode, connections identical. Post-publish verified on the ACTIVE payload: in sync, active, triggerCount 1; only the three nodes differ from the archived 434432ae; each byte-identical to its file; Prepare Serp Pages and the SerpAPI node unchanged (no retryOnFail); the reset fix, completion guard (+ hhCompleted), location fix, the neutral-half-credit scorer and enrich-dedupe all still live. Rollback = re-publish 434432ae-7f77-45de-9b58-27d80561578f from archive/ - it still carries all of those.",
+  "_followUp": "Option B, logged by the owner and deliberately NOT built: Phase-1 connection-error recovery - when a Tier-20 phase 1 has 0 LinkedIn profiles and a call failed with \"Service unavailable\", retry that call inside phase 1 before declaring the search failed (a structural change). Watch serpStats / the completion message for how often it happens first (1 of 21 retained runs so far: exec 2024)."
+}
