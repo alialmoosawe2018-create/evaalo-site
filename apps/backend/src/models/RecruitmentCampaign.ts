@@ -90,6 +90,8 @@ export interface IRecruitmentCampaign extends Document {
         [key: string]: any; // position, location, job, company, age, gender, educationLevel, etc.
     };
     jobAdvertisement?: string; // إعلان الوظيفة المُولَّد تلقائياً
+    /** «Job description & requirements» as the recruiter wrote it (≤ 5000). Context, never a criterion. */
+    jobDescription?: string;
     interviewType?: string; // process, video, audio
     /**
      * لغة المقابلة (الصوت والفيديو) — تُحدَّد عند إنشاء الوظيفة، ومرجعٌ وحيد.
@@ -232,6 +234,12 @@ const RecruitmentCampaignSchema = new Schema<IRecruitmentCampaign>({
     jobAdvertisement: {
         type: String,
         required: false
+    },
+    jobDescription: {
+        type: String,
+        required: false,
+        trim: true,
+        maxlength: 5000,
     },
     interviewType: {
         type: String,

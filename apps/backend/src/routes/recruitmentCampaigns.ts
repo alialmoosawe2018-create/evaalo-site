@@ -1,7 +1,13 @@
 import express, { Request, Response } from 'express';
 import crypto from 'crypto';
 import RecruitmentCampaign from '../models/RecruitmentCampaign.js';
-import { generateJobAdvertisement, translateJobAdvertisement, suggestJobCriteria } from '../services/llmService.js';
+import {
+    generateJobAdvertisement,
+    translateJobAdvertisement,
+    suggestJobCriteria,
+    rewriteJobDescriptionText,
+} from '../services/llmService.js';
+import { compareNumbers, JOB_DESCRIPTION_MAX_CHARS, readJobDescription } from '../services/jobDescription.js';
 import { getProfileForClerkUser } from '../services/userProfileService.js';
 import { orgScopedQuery, orgScopedDefaults } from '../middleware/orgScope.js';
 import { requirePermission } from '../middleware/rbac.js';
@@ -82,7 +88,7 @@ router.post('/generate-ad', async (req: Request, res: Response) => {
     let organizationId = '';
     let jobAdCharged = false;
     try {
-        const { language, ...criteria } = req.body || {};
+        const { language, jobDescription, ...criteria } = req.body || {};
         organizationId = getOrgId(req);
 
         // معلومات الشركة من بروفايل المستخدم (best-effort — الإعلان يتولد حتى بدونها)
@@ -124,7 +130,12 @@ router.post('/generate-ad', async (req: Request, res: Response) => {
             jobAdCharged = !billing.duplicate;
         }
 
-        const ad = await generateJobAdvertisement(criteria, language, company);
+        const ad = await generateJobAdvertisement(
+            criteria,
+            language,
+            company,
+            typeof jobDescription === 'string' ? jobDescription : undefined
+        );
         if (!ad) {
             if (jobAdCharged) await refundJobAd(organizationId, genId, 'empty_generation');
             return res.status(400).json({
@@ -201,6 +212,7 @@ router.post('/suggest-criteria', async (req: Request, res: Response) => {
             careerLevel: typeof body.careerLevel === 'string' ? body.careerLevel : undefined,
             jobAdvertisement:
                 typeof body.jobAdvertisement === 'string' ? body.jobAdvertisement : undefined,
+            jobDescription: typeof body.jobDescription === 'string' ? body.jobDescription : undefined,
             language: typeof body.language === 'string' ? body.language : undefined,
         });
 
@@ -230,6 +242,117 @@ router.post('/suggest-criteria', async (req: Request, res: Response) => {
         });
     }
 });
+
+// ── «Job description & requirements»: the free AI rewrite ───────────────────────
+// Free, so it is signed-in only and capped per organization (in-memory, best-effort —
+// one process). A request makes at most REWRITE_ATTEMPTS model calls.
+const REWRITE_WINDOW_MS = 60 * 60 * 1000;
+const REWRITE_MAX_PER_WINDOW = 20;
+const REWRITE_ATTEMPTS = 2;
+const rewriteHits = new Map<string, number[]>();
+
+function rewriteRateLimited(organizationId: string): boolean {
+    const now = Date.now();
+    const hits = (rewriteHits.get(organizationId) || []).filter((t) => now - t < REWRITE_WINDOW_MS);
+    if (hits.length >= REWRITE_MAX_PER_WINDOW) {
+        rewriteHits.set(organizationId, hits);
+        return true;
+    }
+    hits.push(now);
+    rewriteHits.set(organizationId, hits);
+    return false;
+}
+
+// POST /api/recruitment-campaigns/rewrite-description — rewords the recruiter's job
+// description. The answer is a proposal the recruiter accepts or discards, and it is
+// offered only if it kept every number of the original and added none (a changed
+// number is a changed requirement); otherwise the model gets one more try.
+router.post(
+    '/rewrite-description',
+    conditionalRequireAuth(),
+    requirePermission('campaign.write'),
+    async (req: Request, res: Response) => {
+        try {
+            const organizationId = getOrgId(req);
+            if (isMissingProductionOrg(organizationId)) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'ORG_REQUIRED',
+                    message: 'You must create or select an organization first.',
+                });
+            }
+            const read = readJobDescription(req.body?.text);
+            if (!read.ok) {
+                return res.status(400).json({ success: false, error: read.code, message: read.message });
+            }
+            if (!read.value) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'JOB_DESCRIPTION_EMPTY',
+                    message: 'Write or paste the job description first.',
+                });
+            }
+            if (rewriteRateLimited(organizationId)) {
+                return res.status(429).json({
+                    success: false,
+                    error: 'RATE_LIMITED',
+                    message: 'Too many rewrites in the last hour. Please try again later.',
+                });
+            }
+
+            const original = read.value;
+            let rejected: 'numbers' | 'too_long' | null = null;
+            for (let attempt = 1; attempt <= REWRITE_ATTEMPTS; attempt += 1) {
+                const raw = await rewriteJobDescriptionText(original);
+                if (!raw) {
+                    return res.status(503).json({
+                        success: false,
+                        error: 'REWRITE_UNAVAILABLE',
+                        message: 'The rewrite is unavailable right now. Your text is unchanged.',
+                    });
+                }
+                const text = raw.replace(/\r\n?/g, '\n').trim();
+                if (text.length > JOB_DESCRIPTION_MAX_CHARS) {
+                    rejected = 'too_long';
+                    continue;
+                }
+                const { invented, dropped } = compareNumbers(original, text);
+                if (invented.length || dropped.length) {
+                    rejected = 'numbers';
+                    console.warn(
+                        `[rewrite-description] attempt ${attempt} changed numbers (added ${invented.length}, dropped ${dropped.length}) — not offered`
+                    );
+                    continue;
+                }
+                logAudit(req, {
+                    action: 'recruitmentCampaign.rewriteDescription',
+                    targetType: 'recruitmentCampaign',
+                    metadata: { chars: original.length, attempts: attempt, accepted: true },
+                });
+                return res.json({ success: true, text, attempts: attempt });
+            }
+
+            logAudit(req, {
+                action: 'recruitmentCampaign.rewriteDescription',
+                targetType: 'recruitmentCampaign',
+                metadata: { chars: original.length, attempts: REWRITE_ATTEMPTS, accepted: false, reason: rejected },
+            });
+            return res.status(422).json({
+                success: false,
+                error: 'REWRITE_REJECTED',
+                reason: rejected,
+                message: "The rewrite changed the job's requirements, so it was not used. Your text is unchanged.",
+            });
+        } catch (error: any) {
+            console.error('❌ Error rewriting job description:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to rewrite job description',
+                message: error.message,
+            });
+        }
+    }
+);
 
 // POST /api/recruitment-campaigns/translate-ad - ترجمة إعلان الوظيفة إلى لغة أخرى
 router.post('/translate-ad', async (req: Request, res: Response) => {
@@ -317,6 +440,16 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
             typeof body.jobAdvertisement === 'string' && body.jobAdvertisement.trim()
                 ? body.jobAdvertisement.trim()
                 : undefined;
+        /* «Job description & requirements» — read from the body like the ad, and kept out of
+           `criteria` by the strip: it is context, never a scored criterion. */
+        const jobDescriptionRead = readJobDescription(body.jobDescription);
+        if (!jobDescriptionRead.ok) {
+            return res.status(400).json({
+                success: false,
+                error: jobDescriptionRead.code,
+                message: jobDescriptionRead.message,
+            });
+        }
         const criteria = stripRubricAndTemplateKeysFromCriteria({ ...body });
 
         const shareLangRaw = String(body.language || '').toLowerCase();
@@ -449,6 +582,7 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
             campaignId,
             criteria,
             jobAdvertisement: jobAdvertisement || undefined,
+            jobDescription: jobDescriptionRead.value,
             interviewType: body.interviewType || undefined,
             interviewLanguage: interviewLanguage ?? undefined,
             templateType: body.templateType || undefined,
@@ -539,12 +673,13 @@ router.get('/', async (req: Request, res: Response) => {
             const campaigns = await RecruitmentCampaign.find(
                 orgScopedQuery(req, { campaignId: { $in: ids } })
             )
-                .select('campaignId criteria jobAdvertisement interviewType templateType templateName status closedAt createdAt updatedAt')
+                .select('campaignId criteria jobAdvertisement jobDescription interviewType templateType templateName status closedAt createdAt updatedAt')
                 .lean();
             return campaigns.map((c) => ({
                 campaignId: c.campaignId,
                 criteria: c.criteria,
                 jobAdvertisement: c.jobAdvertisement,
+                jobDescription: c.jobDescription,
                 interviewType: c.interviewType,
                 templateType: c.templateType,
                 templateName: c.templateName,
@@ -691,6 +826,7 @@ router.get('/:campaignId', async (req: Request, res: Response) => {
                 campaignId: campaign.campaignId,
                 criteria: campaign.criteria, // جميع المعايير الديناميكية
                 jobAdvertisement: campaign.jobAdvertisement,
+                jobDescription: campaign.jobDescription,
                 interviewType: campaign.interviewType,
                 templateType: campaign.templateType,
                 templateName: campaign.templateName,

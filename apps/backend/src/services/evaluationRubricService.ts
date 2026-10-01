@@ -127,6 +127,8 @@ export function stripRubricAndTemplateKeysFromCriteria(body: Record<string, unkn
         'essentialCriteria',
         'formTemplateId',
         'jobAdvertisement',
+        // The recruiter's free-text description: context, never a scored criterion.
+        'jobDescription',
         'interviewType',
         // لغة المقابلة حقلٌ علوي في الحملة. لو بقيت هنا لصارت بنداً مُقيَّماً
         // («interviewLanguage: ar») في المرحلة الأولى، ولغيّرت بصمة المعايير.

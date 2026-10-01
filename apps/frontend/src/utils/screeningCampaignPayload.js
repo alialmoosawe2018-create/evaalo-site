@@ -65,6 +65,7 @@ export function buildScreeningCampaignCreateBody({
     essentialCriteria,
     formTemplateId,
     jobAdvertisement,
+    jobDescription,
     language,
     interviewLanguage,
 }) {
@@ -95,6 +96,10 @@ export function buildScreeningCampaignCreateBody({
     }
     if (jobAdvertisement?.trim()) {
         payload.jobAdvertisement = jobAdvertisement.trim();
+    }
+    // «Job description & requirements» — a top-level campaign field; the server keeps it out of the criteria.
+    if (typeof jobDescription === 'string' && jobDescription.trim()) {
+        payload.jobDescription = jobDescription.trim();
     }
     if (language) {
         payload.language = language;
