@@ -2,7 +2,7 @@
  * Blueprint versioning smoke test (no DB).
  * Usage: npx tsx src/scripts/blueprint-version-smoke-test.ts
  */
-import { WAVE_1A_PACK_VERSION } from '../services/expertise/domainPacks.js';
+import { WAVE_3_ENRICHED_VERSION } from '../services/expertise/domainPacks.js';
 import { generateExpertiseAndBlueprint } from '../services/expertise/blueprintGenerator.js';
 
 function assert(cond: boolean, msg: string): void {
@@ -14,11 +14,15 @@ async function main(): Promise<void> {
         criteria: { position: 'Recruiter' },
     });
     assert(recruiter.knowledgeDepth === 'deep_pack', 'Recruiter deep_pack');
+    // hr_recruiter was a Wave 1A pilot (1.1.0); Wave 3 promoted it to L3 Enriched (1.4.0).
     assert(
-        recruiter.blueprintContentVersion.startsWith('pack-hr_recruiter-'),
+        recruiter.packVersion === WAVE_3_ENRICHED_VERSION,
+        `packVersion ${WAVE_3_ENRICHED_VERSION} (got ${recruiter.packVersion})`
+    );
+    assert(
+        recruiter.blueprintContentVersion === `pack-hr_recruiter-${WAVE_3_ENRICHED_VERSION}`,
         `content version (got ${recruiter.blueprintContentVersion})`
     );
-    assert(recruiter.packVersion === WAVE_1A_PACK_VERSION, `packVersion ${WAVE_1A_PACK_VERSION}`);
     assert(!!recruiter.generatedAt, 'generatedAt set');
     assert(recruiter.packMatchConfidence === 'high', 'pack match high');
 

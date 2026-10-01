@@ -66,10 +66,12 @@ const EXCLUDED = {
      * Root cause for the pack ones: WAVE_1A_PACK_VERSION is pinned at '1.1.0'
      * while 38 of the 39 packs now carry '1.4.0' (one is still '1.0.0'). The
      * constant has no production reader — only these tests — so it drifted
-     * unnoticed. Deciding whether the constant or the packs are wrong is a
-     * head-hunter-pack call, not a CI call.
+     * unnoticed. The packs are right: Wave 3 promoted the Wave 1A pilots
+     * (hr_recruiter, petroleum_engineer, survey_engineer) to L3 Enriched '1.4.0'
+     * on purpose, and wave-1a-pack-smoke-test already expects that. The tests
+     * still comparing against WAVE_1A_PACK_VERSION are stale — fix the test,
+     * not the pack (test:blueprint-version was fixed that way).
      */
-    'test:blueprint-version': 'PRE-EXISTING FAILURE: packVersion != WAVE_1A_PACK_VERSION',
     'test:taxonomy-l1-coverage': 'PRE-EXISTING FAILURE: manual sample missing roleKey pharmacist',
     'test:phase-b-metadata': 'PRE-EXISTING FAILURE: Recruiter pack_version mismatch',
     'test:bank-alignment-wave2': 'PRE-EXISTING FAILURE: looks up "frontend-developer", pack key is "frontend_developer"',
