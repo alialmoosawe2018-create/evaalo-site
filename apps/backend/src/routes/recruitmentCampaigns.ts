@@ -309,12 +309,15 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
             typeof body.formTemplateId === 'string' ? body.formTemplateId.trim() : '';
         const isScreeningForm = interviewType === 'form' || Boolean(formTemplateId);
 
-        const criteria = stripRubricAndTemplateKeysFromCriteria({ ...body });
+        /* The ad is read from the request body itself. It used to be read from
+           `criteria` AFTER stripRubricAndTemplateKeysFromCriteria — which removes it
+           (so it never becomes a scored criterion) — so it was always undefined and
+           no campaign ever stored its ad: 0 of 68 in production on 2026-10-01. */
         const jobAdvertisement =
-            typeof criteria.jobAdvertisement === 'string'
-                ? criteria.jobAdvertisement
+            typeof body.jobAdvertisement === 'string' && body.jobAdvertisement.trim()
+                ? body.jobAdvertisement.trim()
                 : undefined;
-        delete criteria.jobAdvertisement;
+        const criteria = stripRubricAndTemplateKeysFromCriteria({ ...body });
 
         const shareLangRaw = String(body.language || '').toLowerCase();
         const evaluationLanguage =
