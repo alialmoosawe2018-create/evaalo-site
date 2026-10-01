@@ -199,7 +199,15 @@ function main(): void {
         const before = baseNode(edit.node);
         const after = readFileSync(join(WF_DIR, 'pending', edit.replaceWholeValueFromFile), 'utf8');
         // CONTENT, not a version id - a version-id check breaks on every later, unrelated publish.
-        check(`${edit.node}: the published code is STILL live, byte for byte`, liveNode(edit.node) === after);
+        // Superseded 2026-10-01 by headhunter-page2-off-tier40 (the same rules for Tier 40), which replaced
+        // exactly these three nodes: live/ must carry EITHER this code or that recorded successor.
+        const successor = JSON.parse(readFileSync(join(WF_DIR, 'pending', 'headhunter-page2-off-tier40.patch.json'), 'utf8'));
+        const sEdit = successor.parameterEdits.find((x: { node: string }) => x.node === edit.node);
+        const sCode = sEdit ? readFileSync(join(WF_DIR, 'pending', sEdit.replaceWholeValueFromFile), 'utf8') : '';
+        const sBase = JSON.parse(readFileSync(join(WF_DIR, successor.baseFile), 'utf8'));
+        check(`${edit.node}: the successor replaced exactly this code`,
+            Boolean(sEdit) && String(sBase.nodes.find((n: { name: string }) => n.name === edit.node)?.parameters?.jsCode) === after);
+        check(`${edit.node}: live carries this code or its recorded successor, byte for byte`, liveNode(edit.node) === after || liveNode(edit.node) === sCode);
         oldCode[edit.node] = before;
         newCode[edit.node] = after;
         check(`${edit.node}: the archived base had what this replaces`, before.includes(edit.expectBeforeContains));

@@ -1,0 +1,81 @@
+{
+  "_warning": "PUBLISHED 2026-10-01 as version ae589a3d-b22d-4bbc-8a5a-55dba1f5634c (previous active df1b0a66-230a-45e0-8391-42c31b5b8e79). Kept in pending/ as the record, per the repo convention. Not an importable workflow - never import it. Rebuild with: archive/headhunter--AI_Head_hunter--df1b0a66-before-page2-off-tier40.json + this patch. Verified by `npm run test:headhunter-page2-off-tier40`.",
+  "_scope": "Track 1 of the 2026-10-01 plan: Stage 1 (published for Tier 20 as df1b0a66) extended to TIER 40. Same three nodes, same rules: page 1 only in both phases; phase 2 does not re-send a query phase 1 got an answer for and re-sends once a query that got no answer (a SerpAPI 503); a phase 1 with no LinkedIn profile at all closes the search explicitly; the phase-1 record is kept for every tier. Tier 20 behaves exactly as df1b0a66 (asserted case by case in the test). No change to the query texts, the number of phase-1 query variants (Tier 40 keeps 4), Prepare Serp Pages, the SerpAPI node, enrichment, scoring, the threshold or billing.",
+  "_why": "Two retained Tier-40 runs, both on 2026-09-30/10-01: exec 2040 (HR Business Partner) and exec 2044 (Sales Manager, another organization). Pages 2-5: 22 calls each, 44 in total, 0 delivered candidates (2044 delivered all 13 of its candidates from four page-1 calls). Phase 1 fires 20 calls at once; 7 (2040) and 9 (2044) of them came back as 'Service unavailable' - an HTTP 503 that SerpAPI itself returns when it gives up after ~90 s ('We couldn't get valid results for this search'), not a connection failure and not an n8n timeout; SerpAPI does not bill it. Whether the 20-call burst causes it is unproven (bursts of 2-9 calls lost about 3 of 126 calls; exec 2024's 4-call phase 1 also had one). In 2040 SerpAPI gave up on two page-1 queries ('Partner', 'Human Resources') and neither was ever sent again; in 2044 the bag-of-words page 1 failed and was recovered only because phase 2 happened to repeat it (3 delivered). Tier 20's version of this change was proven live in exec 2048 (2026-10-01 14:28 UTC): 4 SerpAPI calls, all page 1, no repeat, 14 delivered, billed = stored = 14. Pages 2-5 also caused 8 paid EnrichLayer enrichments of profiles found only there (7 in 2040, 1 in 2044), none delivered.",
+  "_expectedEffect": "Exec 2044 replayed: 29 SerpAPI calls (about 16 billed) -> 4 in phase 1 + 2 in phase 2 (the failed bag-of-words page 1 retried, and the no-AND title query that delivered 7) = 6, with the same four page-1 calls that delivered all 13. Exec 2040 replayed: 29 -> 4 + 4 (two retried page-1 queries, bag-of-words, no-AND title). Delivered candidates lost in the two retained Tier-40 runs: 0 (pages 2-5 delivered none). Tier 40 still cannot reach 40 with ~5-6 distinct queries: raising the count is Stage 2, not this change. A Tier-40 run where SerpAPI answers every phase-1 call: 4 + 1 = 5 calls - for titles whose bag-of-words query equals phase-1 query 4 (e.g. 'Sales Manager'), phase 2 is the no-AND title query alone, so whether phase 2 finds anything rests on that one call.",
+  "_notDone": "Same limits as Stage 1: page 2-5 health is no longer observed (a sparse probe would be a separate decision); a phase 2 that finds no new profile still ends without a completion (pre-existing); the 'it ' substring in the IT-Support query rule; Stage 2 query measurement. Newly reachable for Tier 40 (already listed for Tier 20): a page-1-only phase 1 whose LinkedIn profiles are ALL on foreign country subdomains passes Merge's zero-profile check, then Filter New URLs empties it and the search ends without a completion (none of the 14 retained runs came close: whenever phase 1 had profiles, at least 6 were kept). Part of the separate empty-chain task. Not yet exercised live on any tier: the phase-2 re-send of a 503'd query and the explicit zero-profile close - watch the first run that has a 503.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "df1b0a66-230a-45e0-8391-42c31b5b8e79",
+  "baseNodeCount": 44,
+  "parameterEdits": [
+    {
+      "node": "Resolve Search Tier",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-page2-off-tier40.resolve-search-tier.node.js",
+      "expectBeforeContains": "pagesPerQuery: isFull ? 5 : 1,",
+      "expectAfterContains": "      pagesPerQuery: 1,",
+      "removedLines": [
+        "      // Tier 40 (pages 2-5) has one retained run and is left as it is.",
+        "      pagesPerQuery: isFull ? 5 : 1,"
+      ]
+    },
+    {
+      "node": "Expand Phase 2 Queries",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-page2-off-tier40.expand-phase2.node.js",
+      "expectBeforeContains": "if (tierMin < 40) {",
+      "expectAfterContains": "    ? { pagesPerQuery: 1, maxEnrich: 40, queryVariants: 3 }",
+      "removedLines": [
+        "// Scale the second wave to the tier. A 20-candidate search that fell a few short",
+        "// does not need the 40-tier's nine Google pages and forty PAID enrichments.",
+        "// (queryVariants is carried for readability only -- nothing reads it; the query",
+        "// list below is sliced at three.)",
+        "    ? { pagesPerQuery: 3, maxEnrich: 40, queryVariants: 3 }",
+        "// Tier 20 only - Tier 40 is left exactly as it was until it has been measured.",
+        "// SerpAPI's one-hour cache returns the identical cached copy: 19 of the 20 exact",
+        "// repeats in the retained runs carried the same search id and added no profile.",
+        "// got NO answer - a connection error such as \"Service unavailable\"; a Google \"no",
+        "// results\" IS an answer - is sent once more here: in exec 2024 that retry",
+        "// recovered 9 profiles, and SerpAPI does not bill a failed call. n8n's own",
+        "// retryOnFail is no substitute: with continueRegularOutput it only inspects the",
+        "// FIRST item's json.error, so a per-call connection error is retried only by",
+        "let toSend = planned;",
+        "if (tierMin < 40) {",
+        "  const phase1 = (sd.hhPhase1Serp && sd.hhPhase1Serp[searchId]) || {};",
+        "  const answered = new Set(Array.isArray(phase1.answered) ? phase1.answered : []);",
+        "  const failed = Array.isArray(phase1.failed) ? phase1.failed : [];",
+        "  toSend = [];",
+        "  for (const q of [...failed, ...planned]) {",
+        "    if (!answered.has(q) && toSend.indexOf(q) === -1) toSend.push(q);",
+        "  }",
+        "  // Never hand phase 2 an empty list: no node downstream would run at all. If",
+        "  // every planned query was already answered, keep exactly today's behaviour -",
+        "  // the first planned query, a free cache hit. (Parity only: a phase 2 that finds",
+        "  // no new profile still ends without a completion, as it does today.)",
+        "  if (!toSend.length && planned.length) toSend = [planned[0]];"
+      ]
+    },
+    {
+      "node": "Merge Serp Results",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-page2-off-tier40.merge-serp.node.js",
+      "expectBeforeContains": "let isTier20 = false;",
+      "expectAfterContains": "// neither tier asks for it any more, so close the search explicitly instead.",
+      "removedLines": [
+        "// Tier 20 only (Tier 40 keeps today's behaviour until it has been measured). A",
+        "// missing tier reads as \"not Tier 20\", i.e. today's behaviour.",
+        "let isTier20 = false;",
+        "try { isTier20 = Number($('Resolve Search Tier').first().json.minCount) < 40; } catch (e) {}",
+        "",
+        "// Tier 20 no longer asks for it, so close the search explicitly instead.",
+        "if (!isPhase2 && isTier20) {",
+        "// pay for the same question again and retries only a call that never answered",
+        "if (!isPhase2 && isTier20) {"
+      ]
+    }
+  ],
+  "baseFile": "archive/headhunter--AI_Head_hunter--df1b0a66-before-page2-off-tier40.json",
+  "_maxEnrichIsNotEnforced": "PRE-EXISTING, found by the review: the Limit Candidates maxItems expression calls $getWorkflowStaticData, which exists only inside Code nodes, not in n8n expressions; the TypeError is swallowed, the expression resolves to undefined and the limit keeps every item (Limit output = input in all 28 retained Limit runs, up to 36 in phase 2). So no maxEnrich value is enforced by that node: phase 1 is capped only by Filter New URLs (a Code node) at the tier's maxEnrich, which 4 page-1 calls (at most 40 results) can no longer reach; phase-2 paid enrichment is bounded only by the number of phase-2 calls (now fewer). The Filter New URLs header comment saying the limit resolves to the tier's maxEnrich in phase 1 is wrong. Must be fixed BEFORE Stage 2 adds queries: move the phase-2 cap into Filter New URLs or rewrite the expression.",
+  "publishedVersionId": "ae589a3d-b22d-4bbc-8a5a-55dba1f5634c",
+  "_publishNotes": "Owner decision 2026-10-01 (\"نعم انشر ثم اكمل\"). Pre-publish: zero running executions (checked twice, the second immediately before publishing), 0 live interviews (/api/health/ready activeInterviews 0), production identical to the repo baseline (df1b0a66 in sync, 44 nodes, same connections). Draft ae589a3d BYTE-MATCHED the three tested files (sha256 775a50a5 / 7ecef3f0 / aacb3ce1, the Resolve regex bytes \\x00/\\x7f included), exactly those three nodes differed, only in parameters.jsCode, connections identical. Post-publish verified on the ACTIVE payload: in sync, active, triggerCount 1; only the three nodes differ from the archived df1b0a66, each byte-identical to its file; Prepare Serp Pages and the SerpAPI node unchanged; reset fix, completion guard + hhCompleted, location fix, neutral-half-credit scorer and enrich-dedupe all still live. Rollback = re-publish df1b0a66-230a-45e0-8391-42c31b5b8e79 (the Tier-20-only version) from archive/."
+}
