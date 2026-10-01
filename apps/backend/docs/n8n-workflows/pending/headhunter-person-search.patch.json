@@ -1,0 +1,282 @@
+{
+  "_warning": "PUBLISHED DARK 2026-10-01 as version a2b5cbec-2f25-4346-8d9d-4c33002cc4f5 (previous active 6e0938bf-2ac4-46ef-8fc8-b81adeedee4c); Person Search Plan ships CONFIG.enabled false, so behaviour equals 6e0938bf-2ac4-46ef-8fc8-b81adeedee4c until a separate, owner-approved enable. Kept in pending/ as the record. Not an importable workflow - never import it. Rebuild with: archive/headhunter--AI_Head_hunter--6e0938bf-before-person-search.json + this patch. Verified by `npm run test:headhunter-person-search`.",
+  "_scope": "Person Search first, Google as backup (owner-approved design 2026-10-01, plan ~/.claude/plans/flickering-crunching-orbit.md). SIX new nodes in front of the existing path (Person Search Plan, Try Person Search?, Person Search, Person Search Links, Skip Google? run in phase 1 only; Add Person Search Links also passes phase-2 items through untouched); TWO existing nodes edited: Filter New URLs (shared EnrichLayer ceiling only) and Enrichlayer Profile Fetch (use_cache=if-present for Person Search links only; Google links send exactly what they send today). The loop, Map/AI/Apply, Finalize, sending, completion and billing are untouched.",
+  "_decisions": "Owner, 2026-10-01: English titles only (Arabic later, separately); Person Search asks for the search target (20 / 40 links); Google phase 1 is skipped only when Person Search fills the target by itself (minPool = target), otherwise both run with the Person Search links first; ONE EnrichLayer ceiling for the whole search: 120 (Tier 20) / 240 (Tier 40); dark launch, then an allowlist for the owner's organisation, then everyone.",
+  "_measured": "2026-10-01 measurement (113 credits, executions 2052/2054/2055): 11 single-result link-only calls cost 33 credits (3 per result returned, 0 for none); two enriched samples of 10 (titles EN OR AR, enrich_profiles=enrich) cost 40 each, were 10/10 in Iraq, and 9/10 and 8/10 passed our evaluation (Google path 13/30 and 14/24), with 0/20 overlap with what Google found. The shipped query (English only, links only, page_size 20/40) was not itself run; the balance endpoint is free.",
+  "_knownLimits": "Route ps skips Google phase 1: the LLM query (second-best measured, 1.75 qualified per call) never runs on that route; phase 2 sends the three planned queries incl. the best one (\"Title\" AND <loc>), page 1, cap 20/40. | Route ps with a phase 1 that delivers NO candidate ends the search without asking Google (Track Send Progress starts phase 2 only after a send) - the same behaviour class as a Google phase 1 today; unlikely with 20/40 exact-title links. | Route google: Merge Serp Results still closes the search when Google phase 1 has no LinkedIn profile at all or every SerpAPI page failed; the Person Search links already paid for (up to 57 / 117 credits) are then unused. | The spend record counts one request per profile: n8n whole-node retry of Enrichlayer Profile Fetch (retryOnFail, maxTries 3) can bill a batch again unseen (pre-existing; the loop is out of scope). A Person Search request that never answered books the worst case (3 x links asked for). | Prices assumed: 3 per Person Search result returned (measured), 1 for Person Profile with use_cache=if-present and 2 with if-recent (EnrichLayer docs; if-present not yet measured) - confirm with the balance before/after the first live search. | Person Search result order is undocumented; page_size 20/40 in links-only mode not yet measured (only 1 and enriched 10). | CONFIG.orgAllowlist empty means every organisation: switch enabled on together with an allowlist.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "6e0938bf-2ac4-46ef-8fc8-b81adeedee4c",
+  "baseNodeCount": 44,
+  "baseFile": "archive/headhunter--AI_Head_hunter--6e0938bf-before-person-search.json",
+  "addNodes": [
+    {
+      "name": "Person Search Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -560
+      ],
+      "parameters": {
+        "jsCodeFile": "headhunter-person-search.plan.node.js"
+      },
+      "publishedSha256": "f9a289e58fde01f55082e3d3db3528c11e6b544d286b566bab9dc79a37e49929"
+    },
+    {
+      "name": "Try Person Search?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        -560
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ps-try",
+              "leftValue": "={{ $json.usePs }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Person Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        960,
+        -640
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "QjNDjTve6w2mI1WZ",
+          "name": "Header Auth account"
+        }
+      },
+      "parameters": {
+        "method": "GET",
+        "url": "https://enrichlayer.com/api/v2/search/person",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={{ JSON.stringify($json.query) }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Person Search Links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -640
+      ],
+      "parameters": {
+        "jsCodeFile": "headhunter-person-search.links.node.js"
+      },
+      "publishedSha256": "ea027f55cf88001c65d84ad13398784e5c6e26a8627ba95aafbcc8cd30437652"
+    },
+    {
+      "name": "Skip Google?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        -640
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "ps-skip-google",
+              "leftValue": "={{ $json.__psRoute }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "rightValue": "ps"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Add Person Search Links",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        616,
+        -160
+      ],
+      "parameters": {
+        "jsCodeFile": "headhunter-person-search.add-links.node.js"
+      },
+      "publishedSha256": "bd5924d53e8273955e7859fc53b0764b7151df7bc378e5f8f927802908c544a4"
+    }
+  ],
+  "connections": {
+    "remove": [
+      [
+        "Apply Translation",
+        0,
+        "Build Search Query",
+        0
+      ],
+      [
+        "Filter LinkedIn URLs",
+        0,
+        "Filter New URLs",
+        0
+      ]
+    ],
+    "add": [
+      [
+        "Apply Translation",
+        0,
+        "Person Search Plan",
+        0
+      ],
+      [
+        "Person Search Plan",
+        0,
+        "Try Person Search?",
+        0
+      ],
+      [
+        "Try Person Search?",
+        0,
+        "Person Search",
+        0
+      ],
+      [
+        "Try Person Search?",
+        1,
+        "Build Search Query",
+        0
+      ],
+      [
+        "Person Search",
+        0,
+        "Person Search Links",
+        0
+      ],
+      [
+        "Person Search Links",
+        0,
+        "Skip Google?",
+        0
+      ],
+      [
+        "Skip Google?",
+        0,
+        "Add Person Search Links",
+        0
+      ],
+      [
+        "Skip Google?",
+        1,
+        "Build Search Query",
+        0
+      ],
+      [
+        "Filter LinkedIn URLs",
+        0,
+        "Add Person Search Links",
+        0
+      ],
+      [
+        "Add Person Search Links",
+        0,
+        "Filter New URLs",
+        0
+      ]
+    ]
+  },
+  "parameterEdits": [
+    {
+      "node": "Filter New URLs",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-person-search.filter-new-urls.node.js",
+      "expectBeforeContains": "  if (out.length >= cap) break;",
+      "expectAfterContains": "const budgetCap = spend && inPhase2",
+      "removedLines": [
+        "  if (out.length >= cap) break;"
+      ],
+      "publishedSha256": "7cb8a1e644bb9855f2d3bbe31b9c527a236244ea6692569c3ea8333a6b3fb139"
+    }
+  ],
+  "parameterReplace": [
+    {
+      "node": "Enrichlayer Profile Fetch",
+      "path": "parameters",
+      "before": {
+        "url": "https://enrichlayer.com/api/v2/profile",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "profile_url",
+              "value": "={{ $json.link }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "options": {}
+      },
+      "after": {
+        "url": "https://enrichlayer.com/api/v2/profile",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={{ JSON.stringify($json.__ps === true ? { profile_url: $json.link, use_cache: 'if-present' } : { profile_url: $json.link }) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": []
+        },
+        "options": {}
+      }
+    }
+  ],
+  "publishedVersionId": "a2b5cbec-2f25-4346-8d9d-4c33002cc4f5",
+  "_publishNotes": "Owner decision 2026-10-01 (\"نعم انشر\"), coordinated with the Stage 1 session (its backend deploy/push went separately). Pre-publish: 0 live interviews, 0 running executions (checked twice), production == live/ (6e0938bf draft = active). Applied server-side with ONE atomic update_workflow (6 addNode, 1 setNodeSettings, 2 removeConnection, 10 addConnection, setNodeParameter Filter New URLs, updateNodeParameters Enrichlayer Profile Fetch) - never a rebuilt JSON, so the credentials of OpenAI Chat Model, Google SerpAPI Search and Enrichlayer Profile Fetch stayed bound (checked in the database). Two tool facts found on the way: (1) the MCP refuses an httpHeaderAuth credential on an httpRequest node (addNode and setNodeCredential alike), so the NEW Person Search node has NO credential: it must be picked in the n8n UI (\"Header Auth account\") before enabling - until then a run would fail as a whole and Person Search Links would fall back to Google; (2) the MCP decodes \\u escapes inside JSON parameters, so the Plan node stores the real characters (the two Arabic Iraq words and the curly quotes); the repo file was rewritten to match. Draft a2b5cbec then matched the tested rebuild of archive/headhunter--AI_Head_hunter--6e0938bf-before-person-search.json + this patch on every node and connection (four code nodes byte-identical). Free smoke test on the draft: test_workflow with pinned Webhook/LLM/SerpAPI/EnrichLayer/callbacks (exec 2057, success): Plan ran (disabled), Try Person Search? false -> Build Search Query, Person Search / Links / Skip Google? did not run, Add Person Search Links passed Google's links through unchanged in both phases. Post-publish verified on the ACTIVE payload: identical to the tested rebuild, triggerCount 1. Rollback = re-publish 6e0938bf-2ac4-46ef-8fc8-b81adeedee4c from archive/."
+}

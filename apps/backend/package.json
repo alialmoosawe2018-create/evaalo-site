@@ -192,7 +192,8 @@
     "test:headhunter-page2-off": "tsx src/scripts/headhunter-page2-off-test.ts",
     "test:headhunter-page2-off-tier40": "tsx src/scripts/headhunter-page2-off-tier40-test.ts",
     "test:headhunter-enrich-cap-phase2": "tsx src/scripts/headhunter-enrich-cap-phase2-test.ts",
-    "test:headhunter-recorded-successors": "tsx src/scripts/headhunter-recorded-successors-test.ts"
+    "test:headhunter-recorded-successors": "tsx src/scripts/headhunter-recorded-successors-test.ts",
+    "test:headhunter-person-search": "tsx src/scripts/headhunter-person-search-test.ts"
   },
   "keywords": [
     "career",
