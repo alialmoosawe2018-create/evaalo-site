@@ -175,6 +175,9 @@ function CriterionMenuIcon({ id }) {
 }
 
 /** اللغات المدعومة لتوليد/ترجمة الإعلان */
+/** Same limit as the server (apps/backend/src/services/jobDescription.ts). */
+const JOB_DESCRIPTION_MAX_CHARS = 5000;
+
 const AD_LANGUAGES = [
     { id: 'English', label: 'English', dir: 'ltr', flag: 'EN', dataLang: 'en' },
     { id: 'Arabic', label: 'العربية', dir: 'rtl', flag: 'AR', dataLang: 'ar' },
@@ -650,6 +653,15 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     const [cvFilledCount, setCvFilledCount] = useState(0);
     const [cvDetectedPosition, setCvDetectedPosition] = useState('');
     const [jobAdvertisement, setJobAdvertisement] = useState('');
+    /** «Job description & requirements» — the recruiter's own text (≤ 5000). Saved with the job and
+     *  sent to criteria suggestion and ad generation as context; never scored as a criterion. */
+    const [jobDescription, setJobDescription] = useState('');
+    const [rewritingDescription, setRewritingDescription] = useState(false);
+    /** The AI's suggested wording, waiting for «Use this» / «Keep my text». */
+    const [descriptionProposal, setDescriptionProposal] = useState(null);
+    /** The text before an accepted rewrite — «Undo» puts it back. */
+    const [descriptionUndo, setDescriptionUndo] = useState(null);
+    const [descriptionRewriteError, setDescriptionRewriteError] = useState('');
     /** لغة المقابلة — إلزامية بلا افتراض (قرار المالك ٢٠٢٦-٠٩-٢٣): تُحدَّد هنا عند
      *  إنشاء الوظيفة وحدها، ولا يقرّرها بعدها رابطٌ ولا متصفّح. '' = لم يُختر بعد. */
     const [interviewLanguage, setInterviewLanguage] = useState('');
@@ -1161,6 +1173,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         setCvFilledCount(0);
         setCvDetectedPosition('');
         setJobAdvertisement('');
+        setJobDescription('');
+        setDescriptionProposal(null);
+        setDescriptionUndo(null);
+        setDescriptionRewriteError('');
         setAdLanguage('English');
         setAdCurrentLanguage('English');
         setShowAdLangMenu(false);
@@ -1704,6 +1720,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                 roleKey: jobDetails.roleKey || undefined,
                 careerLevel: jobDetails.careerLevel || undefined,
                 jobAdvertisement: jobAdvertisement?.trim() || undefined,
+                jobDescription: jobDescription.trim() || undefined,
                 language: currentLang,
             });
             if (result?.success && Array.isArray(result.criteria) && result.criteria.length) {
@@ -1719,6 +1736,39 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             setSuggestError(msg);
         } finally {
             setSuggestingCriteria(false);
+        }
+    };
+
+    /**
+     * Free AI rewrite of the description. The server offers a rewrite only if it kept
+     * every number of the text and added none; the recruiter then uses it or keeps theirs.
+     */
+    const handleImproveDescription = async () => {
+        const text = jobDescription.trim();
+        if (!text || rewritingDescription) return;
+        setRewritingDescription(true);
+        setDescriptionRewriteError('');
+        setDescriptionProposal(null);
+        try {
+            const result = await apiClient.post('/api/recruitment-campaigns/rewrite-description', { text });
+            if (result?.success && typeof result.text === 'string' && result.text.trim()) {
+                setDescriptionProposal(result.text);
+            } else {
+                setDescriptionRewriteError(t('newCampaign_jd_errFailed'));
+            }
+        } catch (err) {
+            const code = err?.data?.error;
+            setDescriptionRewriteError(
+                code === 'REWRITE_REJECTED'
+                    ? t('newCampaign_jd_errRejected')
+                    : err?.status === 429
+                      ? t('newCampaign_jd_errRateLimited')
+                      : code === 'JOB_DESCRIPTION_TOO_LONG'
+                        ? t('newCampaign_jd_errTooLong')
+                        : t('newCampaign_jd_errFailed')
+            );
+        } finally {
+            setRewritingDescription(false);
         }
     };
 
@@ -1868,7 +1918,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     const handleGenerateAdvertisement = async () => {
         const filledCriteria = Object.keys(selectedCriteria).filter(k => selectedCriteria[k]).length;
         const filledCustom = isScreeningFlow ? countFilledCustomRubricItems(customCriteria) : 0;
-        if (filledCriteria === 0 && filledCustom === 0) {
+        if (filledCriteria === 0 && filledCustom === 0 && !jobDescription.trim()) {
             setErrors(prev => ({ ...prev, general: 'Please select and fill at least one criterion before generating' }));
             return;
         }
@@ -1878,6 +1928,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             const result = await apiClient.post('/api/recruitment-campaigns/generate-ad', {
                 ...buildCriteriaPayload(),
                 language: adLanguage,
+                jobDescription: jobDescription.trim() || undefined,
             });
                   if (result.success && result.jobAdvertisement) {
                 setJobAdvertisement(sanitizeJobAdvertisementFences(result.jobAdvertisement || ''));
@@ -1980,6 +2031,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         setCustomCriteria([]);
         setEssentialCriteria({});
         setJobAdvertisement('');
+        setJobDescription('');
+        setDescriptionProposal(null);
+        setDescriptionUndo(null);
+        setDescriptionRewriteError('');
         setErrors({});
         setGeneralPosition('');
         setPublicScreeningLink(null);
@@ -2053,6 +2108,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         setCustomCriteria([]);
         setEssentialCriteria({});
         setJobAdvertisement('');
+        setJobDescription('');
+        setDescriptionProposal(null);
+        setDescriptionUndo(null);
+        setDescriptionRewriteError('');
         setErrors({});
         setGeneralPosition('');
         setPublicScreeningLink(null);
@@ -2111,6 +2170,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                           essentialCriteria,
                           formTemplateId: selectedTemplate?.id || DEFAULT_SCREENING_FORM_TEMPLATE_ID,
                           jobAdvertisement,
+                          jobDescription,
                           language: currentLang,
                           interviewLanguage,
                       })
@@ -2119,6 +2179,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                           // لغة المقابلة حقلٌ علوي في الحملة — الخادم ينزعها من المعايير فلا تُقيَّم.
                           body.interviewLanguage = interviewLanguage;
                           if (jobAdvertisement.trim()) body.jobAdvertisement = jobAdvertisement.trim();
+                          if (jobDescription.trim()) body.jobDescription = jobDescription.trim();
                           return body;
                       })();
                 const result = await apiClient.post('/api/recruitment-campaigns', payload);
@@ -2334,6 +2395,182 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         onClose();
     };
 
+    /** «Job description & requirements»: the recruiter's own text, with a free AI rewrite to use, keep or undo. */
+    const renderJobDescriptionBox = () => (
+        <div className="ni-job-ad-section ni-job-description-section">
+            <div className="ni-job-ad-block">
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        flexWrap: 'wrap',
+                        marginBottom: '12px',
+                    }}
+                >
+                    <h4
+                        className="ni-job-ad-heading"
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            fontWeight: 700,
+                            color: NT.title,
+                            margin: 0,
+                            textTransform: currentLang === 'en' ? 'uppercase' : 'none',
+                            letterSpacing: currentLang === 'en' ? '0.5px' : '0',
+                        }}
+                    >
+                        <HeroJobAdFormIcon size={22} />
+                        {t('newCampaign_jd_title')}
+                    </h4>
+                    <button
+                        type="button"
+                        onClick={handleImproveDescription}
+                        disabled={!jobDescription.trim() || rewritingDescription || descriptionProposal !== null}
+                        className="ni-suggest-criteria-btn ni-jd-improve-btn"
+                        title={t('newCampaign_jd_improveHint')}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '8px 14px',
+                            borderRadius: '10px',
+                            border: '1px solid rgba(99, 102, 241, 0.35)',
+                            background: 'linear-gradient(135deg, rgba(99,102,241,0.10), rgba(139,92,246,0.10))',
+                            color: '#6366f1',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: !jobDescription.trim() || rewritingDescription ? 'default' : 'pointer',
+                            opacity: !jobDescription.trim() || rewritingDescription ? 0.6 : 1,
+                            transition: 'opacity 0.15s ease',
+                        }}
+                    >
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                            <path
+                                fill="currentColor"
+                                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
+                            />
+                        </svg>
+                        <span>{rewritingDescription ? t('newCampaign_jd_improving') : t('newCampaign_jd_improve')}</span>
+                        <span
+                            style={{
+                                fontSize: '10.5px',
+                                fontWeight: 700,
+                                padding: '2px 7px',
+                                borderRadius: '999px',
+                                background: 'rgba(16, 185, 129, 0.14)',
+                                color: '#10B981',
+                            }}
+                        >
+                            {t('newCampaign_jd_free')}
+                        </span>
+                    </button>
+                </div>
+                <p className="ni-job-ad-desc" style={{ fontSize: '13px', margin: 0 }}>
+                    {t('newCampaign_jd_hint')}
+                </p>
+            </div>
+            <div className="ni-job-ad-preview ni-job-description-box">
+                <div className="ni-job-ad-preview__body ni-job-ad-preview__body--edit">
+                    <textarea
+                        className="ni-job-ad-preview__textarea"
+                        value={jobDescription}
+                        onChange={(e) => {
+                            setJobDescription(e.target.value.slice(0, JOB_DESCRIPTION_MAX_CHARS));
+                            // Edited by hand: the old text is no longer one step back.
+                            setDescriptionUndo(null);
+                            setDescriptionRewriteError('');
+                        }}
+                        readOnly={rewritingDescription}
+                        maxLength={JOB_DESCRIPTION_MAX_CHARS}
+                        placeholder={t('newCampaign_jd_placeholder')}
+                        rows={12}
+                        dir="auto"
+                        aria-label={t('newCampaign_jd_title')}
+                        // The criteria step's textarea rule (.ni-job-details-shell) hides overflow — a pasted
+                        // description longer than the box must still scroll.
+                        style={{ overflowY: 'auto', minHeight: '260px' }}
+                    />
+                </div>
+            </div>
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginTop: '6px',
+                    fontSize: '12px',
+                    color: NT.meta,
+                }}
+            >
+                <span>
+                    {descriptionUndo !== null && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setJobDescription(descriptionUndo);
+                                setDescriptionUndo(null);
+                            }}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                color: '#6366f1',
+                                fontWeight: 600,
+                                fontSize: '12.5px',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            ↶ {t('newCampaign_jd_undo')}
+                        </button>
+                    )}
+                </span>
+                <span dir="ltr" style={{ color: jobDescription.length >= JOB_DESCRIPTION_MAX_CHARS ? '#EF4444' : undefined }}>
+                    {jobDescription.length} / {JOB_DESCRIPTION_MAX_CHARS}
+                </span>
+            </div>
+            {descriptionRewriteError && (
+                <div role="alert" style={{ marginTop: '8px', fontSize: '12.5px', color: '#EF4444' }}>
+                    {descriptionRewriteError}
+                </div>
+            )}
+            {descriptionProposal !== null && (
+                <div className="ni-job-ad-preview ni-job-description-proposal" style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: NT.title, padding: '10px 14px 0' }}>
+                        {t('newCampaign_jd_proposalTitle')}
+                    </div>
+                    <div
+                        className="ni-job-ad-preview__content"
+                        dir="auto"
+                        style={{ whiteSpace: 'pre-wrap', maxHeight: '260px', overflowY: 'auto' }}
+                    >
+                        {descriptionProposal}
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap', padding: '0 14px 12px' }}>
+                        <button type="button" className="btn btn-secondary" onClick={() => setDescriptionProposal(null)}>
+                            {t('newCampaign_jd_keepMine')}
+                        </button>
+                        <button
+                            type="button"
+                            className="workflow-btn-primary"
+                            onClick={() => {
+                                setDescriptionUndo(jobDescription);
+                                setJobDescription(descriptionProposal);
+                                setDescriptionProposal(null);
+                            }}
+                        >
+                            {t('newCampaign_jd_useThis')}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
     /** Job-ad generator: heading + language picker + Generate + preview/edit. */
     const renderJobAdGenerator = () => (
                         <div className="ni-job-ad-section">
@@ -2412,7 +2649,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                             <button
                                 type="button"
                                 onClick={handleGenerateAdvertisement}
-                                disabled={generatingAd || (Object.keys(selectedCriteria).filter(k => selectedCriteria[k]).length === 0 && (!isScreeningFlow || countFilledCustomRubricItems(customCriteria) === 0))}
+                                disabled={generatingAd || (Object.keys(selectedCriteria).filter(k => selectedCriteria[k]).length === 0 && (!isScreeningFlow || countFilledCustomRubricItems(customCriteria) === 0) && !jobDescription.trim())}
                                 className="workflow-btn-primary ni-generate-ad-btn"
                                 style={{ marginBottom: jobAdvertisement ? '12px' : 0 }}
                             >
@@ -4015,8 +4252,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                             </div>
                         )}
 
-                        {/* Job Advertisement — in the job form flows it lives in the review step (after Continue,
-                            before «Create Job») so the ad is created with the job; here only for General voice/video links. */}
+                        {/* Job form flows: «Job description & requirements» takes the old place of the ad generator,
+                            which moved to the review step (after Continue, before «Create Job») so the ad is created
+                            with the job. General voice/video links keep the ad generator here. */}
+                        {usesCreateJobStep && renderJobDescriptionBox()}
                         {isGeneralPublic && renderJobAdGenerator()}
 
                         </div>
