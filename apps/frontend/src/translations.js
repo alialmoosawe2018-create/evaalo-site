@@ -1423,8 +1423,8 @@ export const translations = {
         freePlan_banner_cta: "View plans",
         freePlan_banner_dismiss: "Dismiss",
         deferredScreening_banner_text:
-            "{count} application(s) are saved and waiting to be screened — AI screening resumes as soon as you top up your credits.",
-        deferredScreening_banner_cta: "Top up credits",
+            "{count} application(s) are saved and waiting to be screened — AI screening resumes automatically as soon as your account has credits again.",
+        deferredScreening_banner_cta: "Upgrade plan",
         deferredScreening_banner_dismiss: "Dismiss",
         account_settingsEmail: "Email",
         account_settingsSave: "Save",
@@ -3147,8 +3147,8 @@ export const translations = {
         freePlan_banner_cta: "عرض الباقات",
         freePlan_banner_dismiss: "إغلاق",
         deferredScreening_banner_text:
-            "{count} طلب محفوظ بانتظار الفرز — يستأنف التحليل بالذكاء الاصطناعي فور شحن رصيدك.",
-        deferredScreening_banner_cta: "شحن الرصيد",
+            "{count} طلب محفوظ بانتظار الفرز — يستأنف التحليل بالذكاء الاصطناعي تلقائياً فور توفّر رصيد في حسابك.",
+        deferredScreening_banner_cta: "ترقية الباقة",
         deferredScreening_banner_dismiss: "إغلاق",
         account_settingsEmail: "البريد الإلكتروني",
         account_settingsSave: "حفظ",
@@ -4880,7 +4880,8 @@ export const translations = {
         freePlan_banner_dismiss: "داخستن",
         deferredScreening_banner_text:
             "{count} داواکاری پاشەکەوتکراون و چاوەڕوانی پاڵاوتنن — هەڵسەنگاندنی AI دەستپێدەکاتەوە کاتێک کرێدیت زیاد دەکەیت.",
-        deferredScreening_banner_cta: "زیادکردنی کرێدیت",
+        // Draft (2026-10-01): built from existing Kurdish words (بەرزکردنەوە / پلان); not yet reviewed by a Kurdish reader.
+        deferredScreening_banner_cta: "بەرزکردنەوەی پلان",
         deferredScreening_banner_dismiss: "داخستن",
         account_settingsEmail: "ئیمەیڵ",
         account_settingsSave: "پاشەکەوتکردن",

@@ -5,6 +5,9 @@
 // saved — nothing is lost — so the wording reassures rather than alarms.
 // Count comes from GET /api/billing/status via BillingContext, so the banner
 // clears itself on the next poll once the queue drains after a top-up.
+// The button never promises a credit top-up: credits come only with a plan
+// (/checkout sells subscriptions; the one pack is video minutes). Free plan
+// → "View plans"; a paid plan → "Upgrade plan". Both go to /pricing.
 // ============================================
 
 import React, { useState } from 'react';
@@ -15,7 +18,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 const DISMISS_KEY = 'evaalo:deferredScreeningBannerDismissed';
 
 const DeferredScreeningBanner = () => {
-    const { deferredScreeningCount, isLoaded } = useBilling();
+    const { deferredScreeningCount, isLoaded, currentPlanId } = useBilling();
     const { t } = useLanguage();
     const [dismissed, setDismissed] = useState(() => {
         try {
@@ -65,7 +68,7 @@ const DeferredScreeningBanner = () => {
                 className="workflow-btn-primary account-btn-compact"
                 style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}
             >
-                {t('deferredScreening_banner_cta')}
+                {currentPlanId === 'free' ? t('freePlan_banner_cta') : t('deferredScreening_banner_cta')}
             </Link>
             <button
                 type="button"

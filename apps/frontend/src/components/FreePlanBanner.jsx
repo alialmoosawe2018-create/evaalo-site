@@ -2,7 +2,9 @@
 // File: components/FreePlanBanner.jsx
 // Purpose: Dashboard banner for accounts on the auto-granted free plan
 // (150 one-time credits). Shows the remaining balance with an upgrade CTA.
-// Dismissible per session; hides itself on paid plans.
+// Dismissible per session; hides itself on paid plans, and while applications
+// wait for screening: DeferredScreeningBanner then says the same thing with the
+// same "View plans" link, and two banners to one page is noise.
 // ============================================
 
 import React, { useState } from 'react';
@@ -13,7 +15,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 const DISMISS_KEY = 'evaalo:freePlanBannerDismissed';
 
 const FreePlanBanner = () => {
-    const { currentPlanId, creditsRemaining, loading } = useBilling();
+    const { currentPlanId, creditsRemaining, loading, deferredScreeningCount } = useBilling();
     const { t } = useLanguage();
     const [dismissed, setDismissed] = useState(() => {
         try {
@@ -24,6 +26,7 @@ const FreePlanBanner = () => {
     });
 
     if (loading || dismissed || currentPlanId !== 'free') return null;
+    if (Number.isFinite(deferredScreeningCount) && deferredScreeningCount > 0) return null;
 
     const remaining = Number.isFinite(creditsRemaining) ? Math.max(0, Math.floor(creditsRemaining)) : 0;
     const exhausted = remaining <= 0;

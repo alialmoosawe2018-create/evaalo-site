@@ -603,6 +603,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     const [sendingToN8N, setSendingToN8N] = useState(false);
     const [sendSuccess, setSendSuccess] = useState(false);
     const [campaignId, setCampaignId] = useState(null);
+    /** Job form flows: criteria validated, review step open, campaign NOT created yet (see handleContinue). */
+    const [awaitingCreate, setAwaitingCreate] = useState(false);
     const [formLinkWithCampaign, setFormLinkWithCampaign] = useState(null);
     /** مسار الصوت: رابط `/interview?candidateId=` بعد إنشاء المرشح */
     const [voiceInterviewLinkWithCandidate, setVoiceInterviewLinkWithCandidate] = useState(null);
@@ -1141,6 +1143,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     useEffect(() => {
         setShowJobDetailsForm(false);
         setShowFormLink(false);
+        setAwaitingCreate(false);
         setShowLinkModal(false);
         setSendSuccess(false);
         setSendingToN8N(false);
@@ -2068,7 +2071,31 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         }
     };
 
+    /**
+     * Job form flows (Start Process / application form): Continue only checks the
+     * criteria and opens a review step — nothing is created yet. There the recruiter
+     * can generate the job ad, and «Create Job» creates the campaign WITH that ad
+     * (the backend has no route to add an ad to an existing campaign). Voice / video
+     * candidate links still create on Continue, as before.
+     */
+    const usesCreateJobStep = selectedInterviewType !== 'audio' && selectedInterviewType !== 'video';
     const handleContinue = async () => {
+        if (!usesCreateJobStep) return createCampaign();
+        if (!validateForm()) return;
+        setErrors((prev) => ({ ...prev, general: null }));
+        setAwaitingCreate(true);
+        setShowJobDetailsForm(false);
+        setShowFormLink(true);
+    };
+
+    const createCampaign = async () => {
+        if (awaitingCreate && !validateForm()) {
+            // The criteria are no longer valid: back to the form, where the errors show.
+            setAwaitingCreate(false);
+            setShowFormLink(false);
+            setShowJobDetailsForm(true);
+            return;
+        }
         if (validateForm()) {
             setSendingToN8N(true);
             try {
@@ -2185,6 +2212,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                         }
                     }
 
+                    setAwaitingCreate(false);
                     setShowJobDetailsForm(false);
                     setShowFormLink(true);
                     setSendSuccess(true);
@@ -2306,6 +2334,189 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         onClose();
     };
 
+    /** Job-ad generator: heading + language picker + Generate + preview/edit. */
+    const renderJobAdGenerator = () => (
+                        <div className="ni-job-ad-section">
+                            <div className="ni-job-ad-block">
+                            <h4 className="ni-job-ad-heading" style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                fontSize: '14px',
+                                fontWeight: 700,
+                                    color: NT.title,
+                                marginBottom: '12px',
+                                textTransform: currentLang === 'en' ? 'uppercase' : 'none',
+                                letterSpacing: currentLang === 'en' ? '0.5px' : '0',
+                                flexWrap: 'wrap'
+                            }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                        <HeroJobAdFormIcon size={22} />
+                                        {t('newCampaign_jobAdHeading')}
+                                    </span>
+                                    <div
+                                        ref={adLangPickerRef}
+                                        className={`ni-ad-lang-picker-wrap${showAdLangMenu ? ' ni-ad-lang-picker-wrap--open' : ''}`}
+                                        style={{ textTransform: 'none', letterSpacing: 0 }}
+                                    >
+                                        <button
+                                            type="button"
+                                            className={`ni-job-ad-toolbar-btn ni-ad-lang-picker__btn${showAdLangMenu ? ' ni-ad-lang-picker__btn--open' : ''}`}
+                                            onClick={() => {
+                                                setShowAdLangMenu(!showAdLangMenu);
+                                            }}
+                                            disabled={generatingAd}
+                                            title={`Language: ${AD_LANGUAGES.find((l) => l.id === adLanguage)?.label || adLanguage}`}
+                                            aria-label="Choose advertisement language"
+                                            aria-haspopup="listbox"
+                                            aria-controls={showAdLangMenu ? 'ni-ad-lang-listbox' : undefined}
+                                            aria-expanded={showAdLangMenu}
+                                        >
+                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6"/>
+                                                <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                                            </svg>
+                                        </button>
+                                        {showAdLangMenu && !generatingAd && (
+                                            <div
+                                                id="ni-ad-lang-listbox"
+                                                role="listbox"
+                                                aria-label="Advertisement language"
+                                                className="language-dropdown-menu position-suggest-dropdown ni-ad-lang-dropdown active"
+                                            >
+                                                {AD_LANGUAGES.map((l) => (
+                                                    <button
+                                                        key={l.id}
+                                                        type="button"
+                                                        role="option"
+                                                        data-lang={l.dataLang}
+                                                        aria-selected={l.id === adLanguage}
+                                                        className={`language-option${l.id === adLanguage ? ' active' : ''}`}
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => {
+                                                            setAdLanguage(l.id);
+                                                            setShowAdLangMenu(false);
+                                                        }}
+                                                    >
+                                                        <span className="language-name">{l.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                            </h4>
+                                <p className="ni-job-ad-desc" style={{ fontSize: '13px', margin: 0 }}>
+                                {t('newCampaign_generateAdDesc')}
+                            </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleGenerateAdvertisement}
+                                disabled={generatingAd || (Object.keys(selectedCriteria).filter(k => selectedCriteria[k]).length === 0 && (!isScreeningFlow || countFilledCustomRubricItems(customCriteria) === 0))}
+                                className="workflow-btn-primary ni-generate-ad-btn"
+                                style={{ marginBottom: jobAdvertisement ? '12px' : 0 }}
+                            >
+                                {generatingAd ? (
+                                    <span className="ni-generate-ad-btn__content ni-generate-ad-btn__content--loading">
+                                        <svg
+                                            className="ni-generate-ad-btn__spark"
+                                            width="22"
+                                            height="22"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            aria-hidden
+                                        >
+                                            <path
+                                                fill="currentColor"
+                                                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                                            />
+                                        </svg>
+                                    <span className="ni-generate-ad-loading" aria-live="polite">
+                                            <span className="ni-generate-ad-loading__text">{t('newCampaign_generatingAd')}</span>
+                                        <span className="ni-generate-ad-loading__dots" aria-hidden="true">
+                                            <span className="ni-generate-ad-loading__dot" />
+                                            <span className="ni-generate-ad-loading__dot" />
+                                            <span className="ni-generate-ad-loading__dot" />
+                                            </span>
+                                        </span>
+                                    </span>
+                                ) : (
+                                    <span className="ni-generate-ad-btn__content">
+                                        <svg
+                                            className="ni-generate-ad-btn__spark"
+                                            width="22"
+                                            height="22"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        aria-hidden
+                                                    >
+                                                        <path
+                                                fill="currentColor"
+                                                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                                                        />
+                                                    </svg>
+                                        <span className="btn-text">{t('newCampaign_generateAd')}</span>
+                                                                </span>
+                                                            )}
+                                                        </button>
+                            {jobAdvertisement && (
+                                <div className="ni-job-ad-preview" ref={jobAdPreviewRef}>
+                                    <div className="ni-job-ad-preview__toolbar">
+                                        <button
+                                            type="button"
+                                            className="ni-job-ad-toolbar-btn"
+                                            onClick={() => setIsEditingJobAd(!isEditingJobAd)}
+                                            title={isEditingJobAd ? 'Preview' : 'Edit'}
+                                            aria-label={isEditingJobAd ? 'Preview' : 'Edit'}
+                                        >
+                                            {isEditingJobAd ? (
+                                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                                    <path d="M16.6667 5L7.5 14.1667L3.33333 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                </svg>
+                                            ) : (
+                                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                                    <path d="M14.1667 2.5C14.6083 2.05833 15.2917 2.05833 15.7333 2.5L17.5 4.26667C17.9417 4.70833 17.9417 5.39167 17.5 5.83333L9.16667 14.1667H6.66667V11.6667L14.1667 4.16667V2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                                    <path d="M15.8333 3.33333L16.6667 4.16667" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                    <div className={`ni-job-ad-preview__body${isEditingJobAd ? ' ni-job-ad-preview__body--edit' : ''}`}>
+                                    {isEditingJobAd ? (
+                                <textarea
+                                    ref={jobAdTextareaRef}
+                                    className="ni-job-ad-preview__textarea"
+                                    value={jobAdvertisement ?? ''}
+                                    onChange={(e) => setJobAdvertisement(e.target.value)}
+                                    placeholder="Job advertisement will appear here..."
+                                    rows={10}
+                                            autoFocus
+                                            dir={isRtlLanguage(adCurrentLanguage) ? 'rtl' : 'ltr'}
+                                    style={{
+                                                ...getJobAdTypography(adCurrentLanguage),
+                                                textAlign: isRtlLanguage(adCurrentLanguage) ? 'right' : 'left'
+                                            }}
+                                        />
+                                    ) : (
+                                        <div
+                                            className="ni-job-ad-preview__content"
+                                            dir={isRtlLanguage(adCurrentLanguage) ? 'rtl' : 'ltr'}
+                                            style={{
+                                                ...getJobAdTypography(adCurrentLanguage),
+                                                textAlign: isRtlLanguage(adCurrentLanguage) ? 'right' : 'left'
+                                            }}
+                                        >
+                                            {renderJobAdvertisementPreview(jobAdvertisement)}
+                                        </div>
+                                    )}
+                                    </div>
+                                </div>
+                            )}
+                            </div>
+    );
+
     return (
         <>
             {/* Overlay */}
@@ -2406,7 +2617,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                     : selectedInterviewType === 'audio' || selectedInterviewType === 'video'
                                         ? t('newCampaign_titleCandidateInfo')
                                         : t('newCampaign_titleJobCriteria')
-                                : t('newCampaign_titleReady')}
+                                : awaitingCreate
+                                    ? t('dashboardSvc_newCampaign')
+                                    : t('newCampaign_titleReady')}
                         </h2>
                         <div
                             style={{
@@ -3802,191 +4015,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                             </div>
                         )}
 
-                        {/* Job Advertisement — مخفى في «محدد» (صوت/فيديو)؛ يبقى في General (صوت/فيديو) وStart Process */}
-                        {!(
-                            (selectedInterviewType === 'audio' && audioFlowTab === 'specific') ||
-                            (selectedInterviewType === 'video' && videoFlowTab === 'specific')
-                        ) && (
-                        <div className="ni-job-ad-section">
-                            <div className="ni-job-ad-block">
-                            <h4 className="ni-job-ad-heading" style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                fontSize: '14px',
-                                fontWeight: 700,
-                                    color: NT.title,
-                                marginBottom: '12px',
-                                textTransform: currentLang === 'en' ? 'uppercase' : 'none',
-                                letterSpacing: currentLang === 'en' ? '0.5px' : '0',
-                                flexWrap: 'wrap'
-                            }}>
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                                        <HeroJobAdFormIcon size={22} />
-                                        {t('newCampaign_jobAdHeading')}
-                                    </span>
-                                    <div
-                                        ref={adLangPickerRef}
-                                        className={`ni-ad-lang-picker-wrap${showAdLangMenu ? ' ni-ad-lang-picker-wrap--open' : ''}`}
-                                        style={{ textTransform: 'none', letterSpacing: 0 }}
-                                    >
-                                        <button
-                                            type="button"
-                                            className={`ni-job-ad-toolbar-btn ni-ad-lang-picker__btn${showAdLangMenu ? ' ni-ad-lang-picker__btn--open' : ''}`}
-                                            onClick={() => {
-                                                setShowAdLangMenu(!showAdLangMenu);
-                                            }}
-                                            disabled={generatingAd}
-                                            title={`Language: ${AD_LANGUAGES.find((l) => l.id === adLanguage)?.label || adLanguage}`}
-                                            aria-label="Choose advertisement language"
-                                            aria-haspopup="listbox"
-                                            aria-controls={showAdLangMenu ? 'ni-ad-lang-listbox' : undefined}
-                                            aria-expanded={showAdLangMenu}
-                                        >
-                                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                                                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6"/>
-                                                <path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-                                            </svg>
-                                        </button>
-                                        {showAdLangMenu && !generatingAd && (
-                                            <div
-                                                id="ni-ad-lang-listbox"
-                                                role="listbox"
-                                                aria-label="Advertisement language"
-                                                className="language-dropdown-menu position-suggest-dropdown ni-ad-lang-dropdown active"
-                                            >
-                                                {AD_LANGUAGES.map((l) => (
-                                                    <button
-                                                        key={l.id}
-                                                        type="button"
-                                                        role="option"
-                                                        data-lang={l.dataLang}
-                                                        aria-selected={l.id === adLanguage}
-                                                        className={`language-option${l.id === adLanguage ? ' active' : ''}`}
-                                                        onMouseDown={(e) => e.preventDefault()}
-                                                        onClick={() => {
-                                                            setAdLanguage(l.id);
-                                                            setShowAdLangMenu(false);
-                                                        }}
-                                                    >
-                                                        <span className="language-name">{l.label}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                            </h4>
-                                <p className="ni-job-ad-desc" style={{ fontSize: '13px', margin: 0 }}>
-                                {t('newCampaign_generateAdDesc')}
-                            </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={handleGenerateAdvertisement}
-                                disabled={generatingAd || (Object.keys(selectedCriteria).filter(k => selectedCriteria[k]).length === 0 && (!isScreeningFlow || countFilledCustomRubricItems(customCriteria) === 0))}
-                                className="workflow-btn-primary ni-generate-ad-btn"
-                                style={{ marginBottom: jobAdvertisement ? '12px' : 0 }}
-                            >
-                                {generatingAd ? (
-                                    <span className="ni-generate-ad-btn__content ni-generate-ad-btn__content--loading">
-                                        <svg
-                                            className="ni-generate-ad-btn__spark"
-                                            width="22"
-                                            height="22"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            aria-hidden
-                                        >
-                                            <path
-                                                fill="currentColor"
-                                                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
-                                            />
-                                        </svg>
-                                    <span className="ni-generate-ad-loading" aria-live="polite">
-                                            <span className="ni-generate-ad-loading__text">{t('newCampaign_generatingAd')}</span>
-                                        <span className="ni-generate-ad-loading__dots" aria-hidden="true">
-                                            <span className="ni-generate-ad-loading__dot" />
-                                            <span className="ni-generate-ad-loading__dot" />
-                                            <span className="ni-generate-ad-loading__dot" />
-                                            </span>
-                                        </span>
-                                    </span>
-                                ) : (
-                                    <span className="ni-generate-ad-btn__content">
-                                        <svg
-                                            className="ni-generate-ad-btn__spark"
-                                            width="22"
-                                            height="22"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        aria-hidden
-                                                    >
-                                                        <path
-                                                fill="currentColor"
-                                                d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
-                                                        />
-                                                    </svg>
-                                        <span className="btn-text">{t('newCampaign_generateAd')}</span>
-                                                                </span>
-                                                            )}
-                                                        </button>
-                            {jobAdvertisement && (
-                                <div className="ni-job-ad-preview" ref={jobAdPreviewRef}>
-                                    <div className="ni-job-ad-preview__toolbar">
-                                        <button
-                                            type="button"
-                                            className="ni-job-ad-toolbar-btn"
-                                            onClick={() => setIsEditingJobAd(!isEditingJobAd)}
-                                            title={isEditingJobAd ? 'Preview' : 'Edit'}
-                                            aria-label={isEditingJobAd ? 'Preview' : 'Edit'}
-                                        >
-                                            {isEditingJobAd ? (
-                                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                                                    <path d="M16.6667 5L7.5 14.1667L3.33333 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                </svg>
-                                            ) : (
-                                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                                                    <path d="M14.1667 2.5C14.6083 2.05833 15.2917 2.05833 15.7333 2.5L17.5 4.26667C17.9417 4.70833 17.9417 5.39167 17.5 5.83333L9.16667 14.1667H6.66667V11.6667L14.1667 4.16667V2.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                                    <path d="M15.8333 3.33333L16.6667 4.16667" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                                </svg>
-                                            )}
-                                        </button>
-                                    </div>
-                                    <div className={`ni-job-ad-preview__body${isEditingJobAd ? ' ni-job-ad-preview__body--edit' : ''}`}>
-                                    {isEditingJobAd ? (
-                                <textarea
-                                    ref={jobAdTextareaRef}
-                                    className="ni-job-ad-preview__textarea"
-                                    value={jobAdvertisement ?? ''}
-                                    onChange={(e) => setJobAdvertisement(e.target.value)}
-                                    placeholder="Job advertisement will appear here..."
-                                    rows={10}
-                                            autoFocus
-                                            dir={isRtlLanguage(adCurrentLanguage) ? 'rtl' : 'ltr'}
-                                    style={{
-                                                ...getJobAdTypography(adCurrentLanguage),
-                                                textAlign: isRtlLanguage(adCurrentLanguage) ? 'right' : 'left'
-                                            }}
-                                        />
-                                    ) : (
-                                        <div
-                                            className="ni-job-ad-preview__content"
-                                            dir={isRtlLanguage(adCurrentLanguage) ? 'rtl' : 'ltr'}
-                                            style={{
-                                                ...getJobAdTypography(adCurrentLanguage),
-                                                textAlign: isRtlLanguage(adCurrentLanguage) ? 'right' : 'left'
-                                            }}
-                                        >
-                                            {renderJobAdvertisementPreview(jobAdvertisement)}
-                                        </div>
-                                    )}
-                                    </div>
-                                </div>
-                            )}
-                            </div>
-                        )}
+                        {/* Job Advertisement — in the job form flows it lives in the review step (after Continue,
+                            before «Create Job») so the ad is created with the job; here only for General voice/video links. */}
+                        {isGeneralPublic && renderJobAdGenerator()}
 
                         </div>
 
@@ -4017,6 +4048,73 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                         : t('newCampaign_continue')}
                                 </span>
                             </button>
+                        </div>
+                    </div>
+                ) : showFormLink && awaitingCreate ? (
+                    <div
+                        className="ni-campaign-ready-view ni-create-job-review"
+                        style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+                    >
+                        <div className="ni-modal-scroll ni-campaign-ready-scroll">
+                            {errors.general && (
+                                <div
+                                    className="ni-feedback-banner ni-feedback-banner--error"
+                                    style={{
+                                        padding: '14px 18px',
+                                        background: NT.itemBg,
+                                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                                        borderRadius: NT.radius,
+                                        marginBottom: '18px',
+                                        boxShadow: '0 2px 8px rgba(239, 68, 68, 0.15)',
+                                    }}
+                                >
+                                    <span style={{ color: '#EF4444', fontSize: '13px', fontWeight: 600 }}>{errors.general}</span>
+                                </div>
+                            )}
+                            {renderJobAdGenerator()}
+                        </div>
+                        <div className="ni-continue-footer ni-campaign-ready-footer">
+                            <div
+                                className="campaign-action-buttons"
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', width: '100%' }}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setAwaitingCreate(false);
+                                        setShowFormLink(false);
+                                        setShowJobDetailsForm(true);
+                                    }}
+                                    disabled={sendingToN8N}
+                                    className="btn btn-secondary ni-campaign-ready-icon-btn"
+                                    title={t('newCampaign_titleJobCriteria')}
+                                    aria-label={t('newCampaign_titleJobCriteria')}
+                                >
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={createCampaign}
+                                    disabled={sendingToN8N || generatingAd}
+                                    className="workflow-btn-primary ni-continue-btn ni-create-job-btn"
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '10px',
+                                        padding: '14px 28px',
+                                        fontSize: '1.05rem',
+                                        fontWeight: '600',
+                                        marginInlineStart: 'auto',
+                                        cursor: sendingToN8N || generatingAd ? 'not-allowed' : 'pointer',
+                                        opacity: sendingToN8N || generatingAd ? 0.6 : 1,
+                                    }}
+                                >
+                                    <span>{sendingToN8N ? t('newCampaign_loadingCampaign') : t('dashboardSvc_newCampaign')}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 ) : showFormLink ? (
