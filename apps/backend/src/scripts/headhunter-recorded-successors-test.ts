@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { liveCarriesOrRecordedSuccessor, recordedSuccessors } from './headhunter-recorded-successors';
+import { liveCarriesOrRecordedSuccessor, recordedSuccessors } from './headhunter-recorded-successors.js';
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = ''): void {
