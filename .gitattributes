@@ -6,6 +6,16 @@
 *.sh text eol=lf
 *.cjs text eol=lf
 
+# n8n Code-node sources are compared byte for byte with the jsCode of the
+# workflow JSON (and sha256-pinned) by the Head Hunter patch tests. The blobs
+# are LF, so a CRLF checkout (core.autocrlf=true on Windows) fails those tests.
+# The explicit `text` also covers the two resolve-search-tier files, which hold
+# a raw NUL in a regex and would otherwise be auto-detected as binary.
+apps/backend/docs/n8n-workflows/**/*.node.js text eol=lf
+# The workflow JSON is read through JSON.parse, so its line endings do not
+# change any test today; pinned anyway so the exports stay as n8n writes them.
+apps/backend/docs/n8n-workflows/**/*.json text eol=lf
+
 # Treat known binaries as binary (never normalized).
 *.png binary
 *.jpg binary
