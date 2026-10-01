@@ -1,0 +1,52 @@
+{
+  "_warning": "PUBLISHED 2026-10-01 as version 6e0938bf-2ac4-46ef-8fc8-b81adeedee4c (previous active ae589a3d-b22d-4bbc-8a5a-55dba1f5634c). Kept in pending/ as the record, per the repo convention. Not an importable workflow - never import it. Rebuild with: archive/headhunter--AI_Head_hunter--ae589a3d-before-enrich-cap-phase2.json + this patch. Verified by `npm run test:headhunter-enrich-cap-phase2`.",
+  "_scope": "TWO nodes. Filter New URLs: phase 2 gets a real cap on paid EnrichLayer profiles - the maxEnrich that Expand Phase 2 Queries already records in hhPhase2 (20 for Tier 20, 40 for Tier 40). Phase 1 is unchanged (the tier's maxEnrich, 35 / 55). Expand Phase 2 Queries: COMMENT ONLY - its note that maxEnrich \"enforces nothing\" becomes false with this change; not one executable line differs (checked by the test). No change to Limit Candidates (left as it is: it cuts nothing either way), the queries, the location/foreign-subdomain rules, the per-search dedupe, scoring or billing.",
+  "_why": "Found by the independent review of the Tier-40 change and re-verified on production data: the Limit Candidates maxItems expression calls $getWorkflowStaticData, which exists only inside Code nodes, so it resolves to undefined and the limit keeps every item. 27 of 27 retained Limit runs (14 executions, 1913-2048, re-counted 2026-10-01) passed their input through unchanged; phase-2 inputs reached 45 (exec 1913), 36 (2032), 26 (2024, 2039) and 24 (2036) while the recorded phase-2 cap was 20 or 40. (1913 predates the Split-In-Batches reset fix, so its phase 2 was never sent to EnrichLayer; the largest phase 2 actually enriched and paid for is 36, exec 2032 - corrected 2026-10-01 by the post-publish review.) Phase-2 paid enrichment was therefore bounded only by how many profiles phase 2's queries returned - and Stage 2 is about to add queries. The owner ordered this cap before any new query (2026-10-01).",
+  "_expectedEffect": "The cap does not bind on any retained run: phase 2 sent 9 profiles to EnrichLayer in exec 2048 (Tier 20, cap 20 - the one run under the current page-1-only rules) and 15 in exec 2044 (Tier 40, cap 40, under the PREVIOUS Tier-40 rules with pages 2-5), so no candidate of a recent search would have been cut. It bounds what phase 2 can spend once Stage 2 adds queries: at most 20 profiles (~40 credits) for Tier 20 and 40 (~80 credits) for Tier 40 per search, on top of phase 1's 35 / 55. TRADE-OFF when it does bind: phase 2 enriches at most 20 / 40 profiles, and not every enriched profile qualifies, so a phase 2 that today would enrich more than the cap can deliver fewer candidates than it would uncapped. Evidence that it does not bind today is thin: one run in the current regime (2048) plus the replayed link lists of 2035/2036/2039 (13/12/14 of 20); 2044 predates the Tier-40 change.",
+  "_order": "When the cap binds, profiles are taken in the order the phase-2 queries were sent: the re-sent queries SerpAPI gave up on first, then the planned queries (bag-of-words, then the no-AND title query, for most titles). If Stage 2 adds queries, their order decides who is enriched first.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "ae589a3d-b22d-4bbc-8a5a-55dba1f5634c",
+  "baseNodeCount": 44,
+  "parameterEdits": [
+    {
+      "node": "Filter New URLs",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-enrich-cap-phase2.node.js",
+      "expectBeforeContains": "const cap = !inPhase2 && tierCap > 0 ? tierCap : Infinity;",
+      "expectAfterContains": "const phase2Cap = inPhase2 ? Number(sd.hhPhase2[searchId].maxEnrich) : NaN;",
+      "removedLines": [
+        " * WHY THE CAP IS APPLIED HERE. The built-in `Limit Candidates` node runs after",
+        " * this one and keeps the first `maxEnrich` items. If this node remembered a",
+        " * profile the limit then cut, that person would be skipped later without ever",
+        " * having been evaluated. So in phase 1 this node applies the same cap itself —",
+        " * the limit's expression resolves to `Resolve Search Tier.maxEnrich` in phase 1,",
+        " * because nothing has set `hhPhase2` yet — and `Limit Candidates` never has",
+        " * anything left to cut. In phase 2 this node does not cap at all and leaves the",
+        " * limit exactly as it behaves today. (Observed: phase 2 sets a cap of 20 but has",
+        " * enriched 24 and 26 — that cap does not take effect. Left alone on purpose; it",
+        " * is a separate decision.)",
+        "const cap = !inPhase2 && tierCap > 0 ? tierCap : Infinity;"
+      ],
+      "publishedSha256": "ebb38173be9632166a185a2f06cc75b7425d5b8ca5ef6100d8a9c181b4e430a5"
+    },
+    {
+      "node": "Expand Phase 2 Queries",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-enrich-cap-phase2.expand-phase2.node.js",
+      "commentOnly": true,
+      "expectBeforeContains": "maxEnrich is recorded here but enforces",
+      "expectAfterContains": "Filter New URLs enforces it since 2026-10-01",
+      "removedLines": [
+        "// Scale the second wave to the tier. (maxEnrich is recorded here but enforces",
+        "// nothing: the Limit Candidates expression that should read it calls",
+        "// $getWorkflowStaticData, which does not exist in n8n expressions, so it",
+        "// resolves to undefined and the limit keeps every item. queryVariants is",
+        "// carried for readability only. The planned list below is sliced at three;"
+      ],
+      "publishedSha256": "246bff1262a6bdf709cd72c17383cee5d5300e0b5994839cd042b497e2325c4f"
+    }
+  ],
+  "baseFile": "archive/headhunter--AI_Head_hunter--ae589a3d-before-enrich-cap-phase2.json",
+  "publishedVersionId": "6e0938bf-2ac4-46ef-8fc8-b81adeedee4c",
+  "_publishNotes": "Owner decision 2026-10-01 (\"نعم انشر\"). Pre-publish: 0 live interviews (/api/health/ready activeInterviews 0), zero running executions (checked on the n8n database, and again through the API immediately before publishing), production identical to the repo baseline (ae589a3d draft = active, 44 nodes, every node and the connections equal to live/). Draft 6e0938bf BYTE-MATCHED both tested files (sha256 ebb38173... Filter New URLs, 246bff12... Expand Phase 2 Queries); exactly those two nodes differed, only in parameters.jsCode; connections identical. Post-publish verified on the ACTIVE payload: versionId = activeVersionId = 6e0938bf, active, triggerCount 1; only the two nodes differ from the archived ae589a3d, each byte-identical to its file; Limit Candidates unchanged; connections unchanged. Rollback = re-publish ae589a3d-b22d-4bbc-8a5a-55dba1f5634c from archive/."
+}

@@ -21,6 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { liveCarriesOrRecordedSuccessor } from './headhunter-recorded-successors';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WF_DIR = join(HERE, '..', '..', 'docs', 'n8n-workflows');
@@ -150,7 +151,10 @@ function main(): void {
         const before = baseNode(edit.node);
         const after = readFileSync(join(WF_DIR, 'pending', edit.replaceWholeValueFromFile), 'utf8');
         // CONTENT, not a version id - a version-id check breaks on every later, unrelated publish.
-        check(`${edit.node}: the published code is STILL live, byte for byte`, liveNode(edit.node) === after);
+        // Expand Phase 2 Queries was superseded 2026-10-01 by enrich-cap-phase2 (comment only): live/ must
+        // carry this code or a RECORDED successor (a published patch whose archived base held exactly this code).
+        const carried = liveCarriesOrRecordedSuccessor(WF_DIR, edit.node, after, liveNode(edit.node));
+        check(`${edit.node}: the published code or a recorded successor is STILL live, byte for byte (${carried.via})`, carried.ok);
         oldCode[edit.node] = before;
         newCode[edit.node] = after;
         check(`${edit.node}: the archived base had what this replaces`, before.includes(edit.expectBeforeContains));

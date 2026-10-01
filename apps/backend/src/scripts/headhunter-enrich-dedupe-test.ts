@@ -22,6 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { liveCarriesOrRecordedSuccessor } from './headhunter-recorded-successors';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WF_DIR = join(HERE, '..', '..', 'docs', 'n8n-workflows');
@@ -83,10 +84,15 @@ function main(): void {
     check('the base node had the shortlist-only record this replaces',
         String(baseNode?.parameters?.jsCode).includes(edit.expectBeforeContains));
     // CONTENT, not a version id - a version-id check breaks on every later, unrelated publish.
-    check('the published node is STILL live, byte for byte', String(byName(edit.node)?.parameters?.jsCode) === code);
+    // Superseded 2026-10-01 by enrich-cap-phase2 (the same node, plus a phase-2 cap): live/ must carry this
+    // code or a RECORDED successor (a published patch whose archived base held exactly this code).
+    const carried = liveCarriesOrRecordedSuccessor(WF_DIR, edit.node, code, String(byName(edit.node)?.parameters?.jsCode));
+    check(`the published node or a recorded successor is STILL live, byte for byte (${carried.via})`, carried.ok);
     check('the replacement records every fetched profile', code.includes(edit.expectAfterContains));
     const limitExpr = String(byName('Limit Candidates')?.parameters?.maxItems ?? '');
-    check("Limit Candidates still falls back to Resolve Search Tier's maxEnrich (the phase-1 cap mirrored here)",
+    // Its expression never worked ($getWorkflowStaticData does not exist in n8n expressions), so it caps
+    // nothing; the caps live in Filter New URLs (both phases since enrich-cap-phase2, 2026-10-01).
+    check('Limit Candidates expression unchanged (it caps nothing; the caps are in Filter New URLs)',
         limitExpr.includes("$('Resolve Search Tier').first().json.maxEnrich"), limitExpr);
     check('Limit Candidates still comes right after this node',
         live.connections['Filter New URLs']?.main?.[0]?.[0]?.node === 'Limit Candidates');
@@ -159,7 +165,8 @@ function main(): void {
         one(Array.from({ length: 50 }, (_, i) => `https://iq.linkedin.com/in/p${i}`), IRAQ, {}, 35).length === 35);
     {
         const sd: Record<string, unknown> = { hhPhase2: { s1: { maxEnrich: 20 } } };
-        check('phase 2 is NOT capped here (Limit Candidates keeps today’s behaviour)',
+        // This file's own rule. Superseded 2026-10-01: the live successor (enrich-cap-phase2) caps phase 2.
+        check('this file’s code does not cap phase 2 (the cap shipped separately as enrich-cap-phase2)',
             one(Array.from({ length: 30 }, (_, i) => `https://iq.linkedin.com/in/q${i}`), IRAQ, sd, 35).length === 30);
     }
     {
@@ -185,7 +192,7 @@ function main(): void {
     console.log('  M2  key on the full URL instead of the slug                     -> "two subdomains is paid once"');
     console.log('  M3  drop sy from the kept subdomains                            -> "www, iq and sy are kept"');
     console.log('  M4  record before the cap instead of after it                   -> "a cut profile is never marked"');
-    console.log('  M5  cap phase 2 as well                                         -> "phase 2 is NOT capped here"');
+    console.log('  M5  cap phase 2 as well                                         -> "this file’s code does not cap phase 2"');
 }
 
 main();
