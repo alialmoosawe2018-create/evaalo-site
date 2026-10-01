@@ -65,6 +65,7 @@ import { loadCampaignRoles } from '../services/campaignRole.js';
 import { findApplicationForCallback } from '../services/candidateApplicationService.js';
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { recordMetricAsync } from '../services/siteMetricService.js';
+import { campaignAdForInterviewContext } from '../services/campaignAdContext.js';
 
 const router = express.Router();
 
@@ -985,7 +986,7 @@ router.post('/prepare', async (req, res) => {
                 if (camp) {
                     prepareRoleContext = buildCompactRoleContext(
                         (camp.criteria && typeof camp.criteria === 'object') ? camp.criteria as Record<string, any> : undefined,
-                        camp.jobAdvertisement
+                        campaignAdForInterviewContext(camp.jobAdvertisement)
                     );
                     prepareCriteriaLanguage = (camp.criteria as Record<string, any> | undefined)?.evaluationLanguage;
                 }
@@ -1549,7 +1550,7 @@ router.post('/start', async (req, res) => {
                     jobCriteriaSnapshot = (camp.criteria && typeof camp.criteria === 'object')
                         ? camp.criteria as Record<string, any>
                         : undefined;
-                    roleContextSnapshot = buildCompactRoleContext(jobCriteriaSnapshot, camp.jobAdvertisement);
+                    roleContextSnapshot = buildCompactRoleContext(jobCriteriaSnapshot, campaignAdForInterviewContext(camp.jobAdvertisement));
                 }
             } catch (campErr: any) {
                 console.warn(`⚠️ /start: failed to load campaign criteria for ${normalizedCampaignId}: ${campErr?.message || campErr}`);

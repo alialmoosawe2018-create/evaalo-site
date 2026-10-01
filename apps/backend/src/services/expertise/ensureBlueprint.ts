@@ -10,6 +10,7 @@ import JobExpertiseProfile, { type IJobExpertiseProfile } from '../../models/Job
 import InterviewBlueprint, { type IInterviewBlueprint } from '../../models/InterviewBlueprint.js';
 import { generateExpertiseAndBlueprint, BLUEPRINT_STYLE_VERSION } from './blueprintGenerator.js';
 import { resolveCampaignInterviewLanguage } from '../interviewLanguage.js';
+import { campaignAdForInterviewContext } from '../campaignAdContext.js';
 
 /** هل ميزة الـBlueprint مفعّلة؟ (افتراضياً مفعّلة ما لم تُضبط على false صراحةً). */
 export function isBlueprintFeatureEnabled(): boolean {
@@ -276,7 +277,7 @@ async function ensureBlueprintForCampaignUncached(
             criteria: (campaign.criteria && typeof campaign.criteria === 'object')
                 ? (campaign.criteria as Record<string, any>)
                 : {},
-            jobAdvertisement: campaign.jobAdvertisement,
+            jobAdvertisement: campaignAdForInterviewContext(campaign.jobAdvertisement),
         },
         { language: interviewLanguage, ...(fastModel ? { model: fastModel } : {}) }
     );

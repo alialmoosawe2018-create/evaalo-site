@@ -8,6 +8,7 @@ import { getControllerOutput } from "./interviewController.js";
 import { selectNextQuestion, detectIntent, getAvailableTopicsForPhase1, inferTopicFromQuestion, validateLLMQuestion, extractTopicsFromAnswer, getFallbackForTopic, getFollowUpPromptPair, isWantsArabicSwitch, isEvasiveNonAnswer, isEndInterviewRequest, buildRequestedClosing, turnDefersBookings } from "./questionEngine.js";
 import { isVoiceTopicMemoryEnabled, parseLinkLanguage } from "./interviewConfig.js";
 import { resolveCampaignInterviewLanguage } from "../services/interviewLanguage.js";
+import { campaignAdForInterviewContext } from "../services/campaignAdContext.js";
 import { stripEmojisAndSymbols, isNoiseTranscript, dedupeRepeats, normalizeForMerge, endsWithSemanticEnd } from "./transcriptCleaner.js";
 import { getVoiceResponseTiming, getVoiceVadSettings, resolveTurnSilenceMs, shouldGraceBeforeSend, shouldHoldForLiveSpeech, LIVE_SPEECH_POLL_MS } from "./voiceTimingEnv.js";
 import type { ClientMessage, ServerMessage } from "./protocol.js";
@@ -266,7 +267,7 @@ export function handleVoiceWsConnection(ws: WebSocket, req: IncomingMessage) {
           : undefined;
       return {
         jobCriteria: criteriaObj,
-        jobAdvertisement: (camp as any).jobAdvertisement || undefined,
+        jobAdvertisement: campaignAdForInterviewContext((camp as any).jobAdvertisement),
         resolvedCampaignId: campId,
         interviewLanguage: (camp as any).interviewLanguage,
       };
