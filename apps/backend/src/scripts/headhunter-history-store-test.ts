@@ -6,8 +6,9 @@
  * site data, switching device, or signing in with a second account erased it.
  * Three of the owner's searches vanished that way on 2026-09-16.
  *
- * This drives the storage contract the new collection has to keep, on the real
- * database, with the real model and its real indexes — not a mock:
+ * This drives the storage contract the new collection has to keep, on a real
+ * mongod started for this run only (mongodb-memory-server), with the real model
+ * and its real indexes — not a mock:
  *
  *   1. two organizations may hold the SAME entry id (ids come from browsers)
  *   2. one organization may NOT hold it twice (a retry updates, never duplicates)
@@ -20,10 +21,15 @@
  *
  * Every row it writes is prefixed and deleted again, whether it passes or fails.
  *
+ * It needs no MONGODB_URI and never touches a shared cluster, so it runs in the
+ * offline suite on every push. Until 2026-10-02 it connected to MONGODB_URI and
+ * could only ever fail there with "MONGODB_URI is required".
+ *
  * Run: npm run test:headhunter-history
  */
 import 'dotenv/config';
 import mongoose from 'mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 import HeadHunterSearchHistory from '../models/HeadHunterSearchHistory.js';
 import { historyImportAllowed } from '../routes/headHunter.js';
 
@@ -59,11 +65,12 @@ async function cleanup(): Promise<void> {
     await HeadHunterSearchHistory.deleteMany({ organizationId: { $in: [ORG_A, ORG_B] } });
 }
 
+let mongo: MongoMemoryServer | null = null;
+
 async function main(): Promise<void> {
-    const uri = process.env.MONGODB_URI;
-    if (!uri) throw new Error('MONGODB_URI is required');
-    await mongoose.connect(uri);
-    console.log(`\nconnected to ${mongoose.connection.db?.databaseName}`);
+    mongo = await MongoMemoryServer.create();
+    await mongoose.connect(mongo.getUri());
+    console.log('\nin-memory mongo up — running tests');
     // The unique index is the thing under test in (2); on a fresh collection it
     // may not exist yet, and a missing index would make that assertion pass for
     // the wrong reason.
@@ -158,6 +165,7 @@ async function main(): Promise<void> {
     console.log(`\n${failures.length === 0 ? 'PASS' : 'FAIL'} — ${passed} assertions passed`);
     if (failures.length > 0) for (const f of failures) console.log(`  - ${f}`);
     await mongoose.disconnect();
+    await mongo?.stop();
     if (failures.length > 0) process.exit(1);
 }
 
@@ -166,6 +174,7 @@ main().catch(async (err) => {
     try {
         await cleanup();
         await mongoose.disconnect();
+        await mongo?.stop();
     } catch {
         /* already down */
     }

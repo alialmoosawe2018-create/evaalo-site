@@ -17,10 +17,16 @@
  * `buildHeadHunterCompetencyModel` to still answer with it. No LLM call is made
  * anywhere in this file — every path is a cache hit or a deliberate miss.
  *
- * Run: npm run test:headhunter-persistence   (needs MONGODB_URI, e.g. -r dotenv/config)
+ * The store is a real mongod started for this run only (mongodb-memory-server)
+ * behind the real model, so it needs no MONGODB_URI and runs in the offline
+ * suite on every push. Until 2026-10-02 it connected to MONGODB_URI
+ * and could only ever fail there with "MONGODB_URI is required".
+ *
+ * Run: npm run test:headhunter-persistence
  */
 import 'dotenv/config';
 import mongoose from 'mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 import HeadHunterCompetencyCache from '../models/HeadHunterCompetencyCache.js';
 import {
     buildHeadHunterCompetencyModel,
@@ -81,11 +87,12 @@ function isSentinel(m: HeadHunterCompetencyModel | null): boolean {
     return !!m && m.competencies.some((c) => c.title === SENTINEL);
 }
 
+let mongo: MongoMemoryServer | null = null;
+
 async function main(): Promise<void> {
-    const uri = process.env.MONGODB_URI;
-    if (!uri) throw new Error('MONGODB_URI is required for this test');
-    await mongoose.connect(uri);
-    console.log(`\nconnected to ${mongoose.connection.db?.databaseName}`);
+    mongo = await MongoMemoryServer.create();
+    await mongoose.connect(mongo.getUri());
+    console.log('\nin-memory mongo up — running tests');
 
     await __clearPersistedCompetencyModelForTests(INPUT);
     clearHeadHunterCompetencyCache();
@@ -159,6 +166,7 @@ async function main(): Promise<void> {
         `and fails fast instead of buffering ~10s (${offlineMs}ms < 500)`,
         offlineMs < 500
     );
+    await mongo.stop();
 
     console.log(`\n${failures.length === 0 ? 'PASS' : 'FAIL'} — ${passed} assertions passed`);
     if (failures.length > 0) {
@@ -171,6 +179,7 @@ main().catch(async (err) => {
     console.error('\nFAIL —', err instanceof Error ? err.message : err);
     try {
         await mongoose.disconnect();
+        await mongo?.stop();
     } catch {
         /* already down */
     }

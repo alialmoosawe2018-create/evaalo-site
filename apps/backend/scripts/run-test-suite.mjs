@@ -56,6 +56,10 @@ const EXCLUDED = {
     'test:returning-applicant': 'writes to a real database — covered by the database-verify job',
     'test:m2m-smoke': 'writes to a real database — covered by the database-verify job',
     'test:site-metric': 'needs a real database connection',
+    'test:application-org-invariant':
+        'read-only auditor of PRODUCTION rows, run by hand after an intake change — on an empty test database it would pass without checking anything (the 2026-09-16 leak path, an organizationId handed to orgScopedQuery, is now also a compile error that type-check enforces)',
+    'test:stage1-env-smoke':
+        "checks this machine's .env stage-callback secrets — this job has no secrets by design; the logic itself is covered by test:stage-callback-auth",
 
     /**
      * ⚠️ QUARANTINE — these fail today, and they failed before any of this was
