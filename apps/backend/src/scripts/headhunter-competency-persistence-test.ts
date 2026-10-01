@@ -90,6 +90,28 @@ function isSentinel(m: HeadHunterCompetencyModel | null): boolean {
 let mongo: MongoMemoryServer | null = null;
 
 async function main(): Promise<void> {
+    // Runs FIRST, before anything has connected: a client that has never reached
+    // Mongo (Mongo down at boot) buffers a query for ~10s, which the mongoReady()
+    // guard exists to prevent. Section 6 cannot show it — after disconnect()
+    // Mongoose fails at once ("Client must be connected"), so with the guard
+    // deleted section 6 still passed. Measured 2026-10-02 on this exact read:
+    // 0-1ms with the guard, 10,019-10,028ms without it. (A connection lost at
+    // runtime waits ~30s on server selection without the guard; not covered here.)
+    console.log('\n=== 0. Mongo down at boot must cost nothing ===');
+    const booting = mongoose
+        .connect('mongodb://127.0.0.1:9/hh-persistence-unreachable', {
+            serverSelectionTimeoutMS: 3000,
+            connectTimeoutMS: 3000,
+        })
+        .catch(() => undefined);
+    check('the client has never connected', mongoose.connection.readyState === 2);
+    const t0boot = Date.now();
+    const atBoot = await __readPersistedCompetencyModelForTests(INPUT);
+    const bootMs = Date.now() - t0boot;
+    check('a cache that has never reached Mongo answers null', atBoot === null);
+    check(`and does not buffer the read (${bootMs}ms < 500)`, bootMs < 500);
+    await booting;
+
     mongo = await MongoMemoryServer.create();
     await mongoose.connect(mongo.getUri());
     console.log('\nin-memory mongo up — running tests');
