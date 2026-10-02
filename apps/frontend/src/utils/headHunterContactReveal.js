@@ -44,13 +44,11 @@ export function availableRevealFieldsForCandidate(candidate) {
     const fields = [];
     if (normalizeRevealKeyPart(candidate?.phone)) fields.push('phone');
     if (normalizeRevealKeyPart(candidate?.email)) fields.push('email');
+    if (normalizeRevealKeyPart(candidate?.linkedin_url ?? candidate?.linkedin)) fields.push('linkedin');
     return fields;
 }
 
 /**
- * الحقول المدفوعة: الهاتف والبريد فقط. رابط LinkedIn مجاني ومفتوح دائماً، فلا يظهر
- * القفل إلا إذا وُجد هاتف أو بريد (مطابق لـ parseAvailableContactFields في الخادم).
- *
  * @param {import('./headHunterContactChannels.js').HeadHunterContactChannels} contact
  * @returns {number}
  */
@@ -59,6 +57,7 @@ export function countRevealPieces(contact) {
     let n = 0;
     if (contact.telHref) n += 1;
     if (contact.mailtoHref) n += 1;
+    if (contact.linkedinHref) n += 1;
     return n;
 }
 
