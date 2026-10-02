@@ -24,6 +24,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { liveCarriesOrRecordedSuccessor } from './headhunter-recorded-successors.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WF_DIR = join(HERE, '..', '..', 'docs', 'n8n-workflows');
@@ -144,9 +145,21 @@ function main(): void {
         const newNames = new Set(patch.addNodes.map((a: any) => a.name));
         const strip = (n: any) => { const c = JSON.parse(JSON.stringify(n)); delete c.credentials; if (newNames.has(c.name)) delete c.id; return c; };
         const P = new Map(pub.nodes.map((n) => [n.name, n]));
-        const same = wf.nodes.every((n) => P.has(n.name) && canon(strip(n)) === canon(strip(P.get(n.name))));
         // Content, not a version id: a later publish that replaces one of these nodes must go through its own record.
-        check('every node of live/ equals the tested rebuild (new-node ids and credentials aside)', pub.nodes.length === wf.nodes.length && same);
+        // A node whose ONLY difference is its jsCode passes when live/'s code is a recorded successor of the
+        // rebuild's (e.g. the position gate that replaced Map Candidate Fields on 2026-10-02).
+        const sameNode = (n: any): boolean => {
+            const p = P.get(n.name);
+            if (!p) return false;
+            if (canon(strip(n)) === canon(strip(p))) return true;
+            const a = strip(n), b = strip(p);
+            const codeA = a.parameters?.jsCode, codeB = b.parameters?.jsCode;
+            if (typeof codeA !== 'string' || typeof codeB !== 'string') return false;
+            delete a.parameters.jsCode; delete b.parameters.jsCode;
+            return canon(a) === canon(b) && liveCarriesOrRecordedSuccessor(WF_DIR, n.name, codeA, codeB).ok;
+        };
+        const same = wf.nodes.every(sameNode);
+        check('every node of live/ equals the tested rebuild, or carries a recorded successor of its code (new-node ids and credentials aside)', pub.nodes.length === wf.nodes.length && same);
         const cs = (w: Wf) => Object.entries(w.connections).flatMap(([f, v]: [string, any]) => (v.main || []).flatMap((arr: any[], o: number) => (arr || []).map((x) => `${f}[${o}]->${x.node}[${x.index}]`))).sort();
         check('every connection of live/ equals the tested rebuild', eq(cs(pub), cs(wf)));
         const sha = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');

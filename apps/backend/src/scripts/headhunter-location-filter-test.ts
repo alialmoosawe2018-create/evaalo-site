@@ -27,6 +27,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { liveCarriesOrRecordedSuccessor } from './headhunter-recorded-successors.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WF_DIR = join(HERE, '..', '..', 'docs', 'n8n-workflows');
@@ -114,8 +115,14 @@ function main(): void {
         publishedSnap.versionId === patchMeta.publishedVersionId, `${publishedSnap.versionId} vs ${patchMeta.publishedVersionId}`);
     check('that archived version carries this fix byte for byte',
         String(publishedSnap.nodes.find((x: { name: string }) => x.name === 'Map Candidate Fields').parameters.jsCode) === after);
-    check('and the fix is STILL live today, byte for byte',
-        String(byName('Map Candidate Fields').parameters.jsCode) === after);
+    // Map Candidate Fields was replaced again by a later recorded patch (the position
+    // gate, 2026-10-02), so "still live" means: live/ is this code or a recorded
+    // successor of it - and the country-code rule itself is still in it.
+    const liveMap = String(byName('Map Candidate Fields').parameters.jsCode);
+    check('and the fix is STILL live today (byte for byte, or through a recorded successor)',
+        liveCarriesOrRecordedSuccessor(WF_DIR, 'Map Candidate Fields', after, liveMap).ok);
+    check('   ...and the live node still decides residence by the country code',
+        liveMap.includes("if (code) return code === 'iq';") && !liveMap.includes('if (hasIraqTerm(blob) || isIraqCountryCode(raw)) return true;'));
     check('the reset fix is still live on top of this change',
         JSON.stringify(byName('Split In Batches').parameters.options) === '{"reset":"={{ $json.batchDone !== true }}"}');
     check('the completion guard is still live on top of this change',
