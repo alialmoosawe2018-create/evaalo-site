@@ -65,6 +65,15 @@ jobs:
       - name: Install
         run: npm ci
 
+      # test:qa-scorecard-wave1a runs a Python scorecard in apps/avatar-evaalov2
+      # through `uv run pytest`. Without uv on the runner it died with
+      # "uv: not found" (exit 127) from f015b99 on — a red suite that said
+      # nothing about the code. `uv run` builds the venv from uv.lock itself.
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: apps/avatar-evaalov2/uv.lock
+
       # Printed before the run so a reviewer can see what was skipped without
       # digging through the log of a job that passed.
       - name: Which suites run, and what is excluded
