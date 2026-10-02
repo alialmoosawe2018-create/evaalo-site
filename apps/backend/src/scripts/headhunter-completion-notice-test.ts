@@ -33,8 +33,10 @@ function check(label: string, ok: boolean, detail = ''): void {
 
 const FRONTEND = new URL('../../../frontend/src/', import.meta.url);
 const HELPER_TEST = fileURLToPath(new URL('utils/headHunterCompletionNotice.test.mjs', FRONTEND));
-const PAGE = readFileSync(new URL('pages/AIHeadHunter.jsx', FRONTEND), 'utf8');
-const WORKSPACE = readFileSync(new URL('components/headhunter/HeadHunterResultsWorkspace.jsx', FRONTEND), 'utf8');
+// LF whatever the checkout: a Windows clone with core.autocrlf writes these files with CRLF.
+const readLf = (path: string) => readFileSync(new URL(path, FRONTEND), 'utf8').replace(/\r\n/g, '\n');
+const PAGE = readLf('pages/AIHeadHunter.jsx');
+const WORKSPACE = readLf('components/headhunter/HeadHunterResultsWorkspace.jsx');
 
 /** The source between `start` and the next `end` after it ('' when start is missing). */
 function section(src: string, start: string, end: string): string {
