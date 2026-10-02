@@ -37,6 +37,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { liveCarriesOrRecordedSuccessor } from './headhunter-recorded-successors.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WF_DIR = join(HERE, '..', '..', 'docs', 'n8n-workflows');
@@ -124,7 +125,10 @@ function main(): void {
     check('the base node IS the previous fix, byte for byte (so the replay compares against what production ran)',
         baseCode === previous);
     // CONTENT, not a version id - a version-id check breaks on every later, unrelated publish.
-    check('the published node is STILL live, byte for byte', liveCode === code);
+    // Superseded 2026-10-02 by completion-hardening (the same node, paired with Has Match?'s output):
+    // live/ must carry this code or a RECORDED successor (a published patch whose archived base held it).
+    const carried = liveCarriesOrRecordedSuccessor(WF_DIR, edit.node, code, liveCode);
+    check(`the published node or a recorded successor is STILL live, byte for byte (${carried.via})`, carried.ok);
     check('and the neutral-drop is gone from live', !liveCode.includes(edit.expectBeforeContains));
     check('the replacement carries the silent-half credit', code.includes(edit.expectAfterContains));
     check('the replacement no longer drops neutral criteria', !code.includes(edit.expectBeforeContains));

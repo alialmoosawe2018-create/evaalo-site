@@ -165,7 +165,13 @@ function main(): void {
         const same = carried.wf.nodes.every(sameNode);
         check('every node of live/ equals the tested rebuild carried through the recorded publishes (new-node ids and credentials aside)', pub.nodes.length === carried.wf.nodes.length && same);
         const cs = (w: Wf) => Object.entries(w.connections).flatMap(([f, v]: [string, any]) => (v.main || []).flatMap((arr: any[], o: number) => (arr || []).map((x) => `${f}[${o}]->${x.node}[${x.index}]`))).sort();
-        check('every connection of live/ equals the tested rebuild carried through the recorded publishes', eq(cs(pub), cs(carried.wf)));
+        // Every connection type (ai_languageModel too, not only main), each output's targets as a set; trailing empty outputs ignored.
+        const allConns = (w: Wf) => canon(Object.fromEntries(Object.entries(w.connections).map(([f, v]: [string, any]) => [f, Object.fromEntries(Object.entries(v || {}).map(([t, o]: [string, any]) => {
+            const outs = (o || []).map((arr: any[]) => (arr || []).map((x: unknown) => canon(x)).sort());
+            while (outs.length && !outs[outs.length - 1].length) outs.pop();
+            return [t, outs];
+        }).filter(([, outs]) => (outs as unknown[]).length))]).filter(([, v]) => Object.keys(v as object).length)));
+        check('every connection of live/ (every type) equals the tested rebuild carried through the recorded publishes', eq(cs(pub), cs(carried.wf)) && allConns(pub) === allConns(carried.wf));
         const sha = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
         check('each published file still hashes to its recorded publishedSha256',
             patch.parameterEdits.every((e: any) => e.publishedSha256 === sha(read(e.replaceWholeValueFromFile)))

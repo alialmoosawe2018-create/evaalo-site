@@ -1,0 +1,74 @@
+{
+  "_warning": "PUBLISHED 2026-10-02 19:09 UTC as n8n version 72f27440 (rollback: publish 3164bf87, the empty-chain close). A patch record, not an importable workflow - never import this file. Verified by `npm run test:headhunter-completion-hardening`.",
+  "_publishNotes": "Owner decision 2026-10-02 (\"إذا كان سليمًا، انشر السجل 2 بشكل مستقل بنفس بوابات الأمان\"), published alone after R1 (3164bf87) was verified: draft and active byte-identical to its tested rebuild, pinned smoke tests 2058/2059, an independent three-lens read-only verification (production vs repo incl. the n8n DB history, 40 live/ mutations against the test updates, the smoke traces vs the offline model) with no blocker, and the full suite 148/149 (only the parked serp-classifier red). Pre-publish, checked twice (the second immediately before publishing): 0 live interviews, 0 running/waiting executions, production draft and active = live/ 3164bf87; base archived byte for byte. One atomic update_workflow batch (setNodeParameter /jsCode x3, /conditions/conditions on Is Phase 2?) gave draft 72f27440, which matched the tested rebuild on all 51 nodes and every connection, with the three jsCode sha256 = the replacement files. Free pinned smoke tests on the draft: exec 2060 (a nameless row second in the batch: Has Match? passed A/B/C, Apply AI Analysis put 91/82/73 on A/B/C - the old pairing would have put 91 on the nameless row and lost A; one completion \"sent 3 ... target was 20\"; the held-back rejected run then re-entered Finalize Top N Send, which returned [] with nothing downstream) and exec 2061 (empty pool: one completion \"No candidates found: none of the profiles reviewed qualified for this search.\", the repeat returned [], nothing sent). Published with explicit versionId; ACTIVE version re-read and matched the tested rebuild byte for byte. No real search had run on 3164bf87 before this publish, so the first real search runs both records. After publishing, one more free pinned smoke test on the published content (exec 2062, Filter New URLs pinned so phase 2 enriches too): Is Phase 2? sent the phase-2 items to its true branch, Finalize Phase 2 Send posted the ONE completion from the main path, and the two held-back runs re-entered both finalize nodes twice - all four repeats returned [] with nothing after them; Apply AI Analysis paired phase 2 with Has Match?'s latest run.",
+  "_scope": "Finalize Top N Send and Finalize Phase 2 Send (once-per-phase marker; Top N's empty-pool wording), Apply AI Analysis (pairing source), Is Phase 2? (condition without the dead static-data half). No node added or removed, no connection or position changed.",
+  "_why": "1) Split In Batches fires its done branch again for every Stream Batch Done run n8n holds back (the rejected-candidate branch of Has Match? sits lower on the canvas, so n8n v1 runs it last). Each repeat reran the finalize nodes on a pool already handed on: in the 9 saved runs since the guard (2032-2048) Top N produced \"No candidates passed the preliminary AI score threshold (25).\" 21 times and Phase 2 produced 21 repeat completions, 18 with a lower total. By the code (n8n does not expose static data) both also overwrote hhSendProgress, which blinds the guard in Prepare Complete Search (line 24); none was posted only because the canvas order puts the real completion first and its hhCompleted check (line 30) then drops the repeats. Offline, with the real code, one extra held-back run between Finalize Phase 2 Send and its send posts the false \"(25)\" completion and drops the real one. 2) Apply AI Analysis paired answers with Map Candidate Fields' last N non-skip rows, but Has Match? also drops a row with a title and no name: every answer before such a row landed on the wrong person (0 of 260 recorded evaluations had such a row). 3) Is Phase 2?'s second clause calls $getWorkflowStaticData, which does not exist in n8n expressions: for every item without __phase2 === true it threw and rendered as false; it never contributed (same routing on 54 recorded runs, 1043 items), and under the opt-in vm expression engine it would fail the node.",
+  "_expectedEffect": "In n8n v1's order the first finalize run of each phase is unchanged and every repeat returns [] before touching anything else, so the completion, the sends and the paid calls are those of the base graph (600 generated searches) and the false completion cannot be posted however late the held-back runs arrive (1055 forced orders). A genuinely empty phase-1 pool now says \"No candidates found: none of the profiles reviewed qualified for this search.\" Pairing is unchanged whenever no nameless row occurs (every recorded run). Is Phase 2? routes exactly as before.",
+  "_knownLimits": "The marker trusts the first done firing of a phase to hold the whole pool. That holds while AI Analyze Candidate sits above Stream Batch Done on the canvas and executionOrder is v1 - the test pins both. If the order ever broke, the patched graph finalizes the partial pool once and reports exactly what it sent, where the base re-sends and posts a wrong total: measured offline, with the two nodes swapped on the canvas, exec 2048 delivers 0 (base: 14 with a false \"(25)\" completion); with an extra held-back run before a phase's last batch, 12 instead of 14 (base: 14 sent, posts 12) and 16 instead of 24 (base: 24 sent, posts 16). n8n v1 never produces those orders and the empty-chain close removes the stall that could. The empty-pool wording also covers a pool emptied by failed model calls (score 0), as the old text did. hhFinalized is one more per-search static-data key that is never pruned (about 60 bytes per search), like hhCompleted. An empty phase-1 pool still ends the search without trying phase 2 (unchanged). Prepare Complete Search's comments are not updated.",
+  "_lineEndings": "Both finalize nodes were stored with CRLF in the base (archive 3164bf87); the replacements, and so live since 72f27440, are LF. JavaScript reads both the same (no template literal or string spans a line break); the test compares them line by line after normalising.",
+  "_publishRecipe": "After the empty-chain close is published and verified: n8n MCP update_workflow, one atomic batch: setNodeParameter path \"/jsCode\" (NOT \"/parameters/jsCode\") on Finalize Top N Send, Finalize Phase 2 Send and Apply AI Analysis with the replacement files byte for byte; setNodeParameter path \"/conditions/conditions\" on Is Phase 2? with the whole `set` array (never \"/conditions\", which would drop options/combinator). Then byte-verify the draft, run the free pinned smoke test, publish with an explicit versionId and verify the ACTIVE version. Never import:workflow.",
+  "_rollback": "publish_workflow versionId 3164bf87-673f-4b71-8f22-9c54053697e4 (the empty-chain close, this record's base).",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "3164bf87-673f-4b71-8f22-9c54053697e4",
+  "baseFile": "archive/headhunter--AI_Head_hunter--3164bf87-before-completion-hardening.json",
+  "basePatch": "headhunter-empty-chain-close.patch.json",
+  "baseNodeCount": 51,
+  "parameterEdits": [
+    {
+      "node": "Finalize Top N Send",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-completion-hardening.finalize-top-n.node.js",
+      "expectBeforeContains": "errorMessage = 'No candidates passed the preliminary AI score threshold (25).';",
+      "expectAfterContains": "if (hhFin.p1) return [];\nhhFin.p1 = true;\nconst tier = $('Resolve Search Tier').first().json || {};",
+      "publishedSha256": "5f975d13bd64cdaa484f561b881ac5ad9e537bb28eb01bccbc052a8ac7f90f4e"
+    },
+    {
+      "node": "Finalize Phase 2 Send",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-completion-hardening.finalize-phase2.node.js",
+      "expectBeforeContains": "const sd = $getWorkflowStaticData('global');",
+      "expectAfterContains": "if (hhFin.p2) return [];\nhhFin.p2 = true;\nconst tier = $('Resolve Search Tier').first().json || {};",
+      "publishedSha256": "d0a3406a920e1dde6c01f19faf982364b9738ca8289a1fb082c3fa1fe14eebd0"
+    },
+    {
+      "node": "Apply AI Analysis",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-completion-hardening.apply-ai.node.js",
+      "expectBeforeContains": "const candidates = mapValid.slice(-inputs.length);",
+      "expectAfterContains": "const inputs = $input.all();\nconst candidates = $('Has Match?').all(0);\nconst wh = $('Webhook').first().json.body || {};",
+      "publishedSha256": "ae06ae0696fef42243c4d3aec28fbbfacde1c481004cc29e8a53859c47fc4b9e"
+    }
+  ],
+  "parameterSets": [
+    {
+      "node": "Is Phase 2?",
+      "path": "conditions.conditions",
+      "expectBefore": [
+        {
+          "id": "phase2-active",
+          "leftValue": "={{ $json.__phase2 === true || Boolean($getWorkflowStaticData('global').hhExpansionActive && $getWorkflowStaticData('global').hhExpansionActive[$('Webhook').first().json.body.searchId]) }}",
+          "rightValue": "",
+          "operator": {
+            "type": "boolean",
+            "operation": "true",
+            "singleValue": true
+          }
+        }
+      ],
+      "set": [
+        {
+          "id": "phase2-active",
+          "leftValue": "={{ $json.__phase2 === true }}",
+          "rightValue": "",
+          "operator": {
+            "type": "boolean",
+            "operation": "true",
+            "singleValue": true
+          }
+        }
+      ]
+    }
+  ],
+  "publishedVersionId": "72f27440-b4bd-458f-9090-5a2f411f198f",
+  "publishedStructureSha256": "8849ba83db715417ab63f05689a46caf2e826b689a4c501a72879013fbee11c3"
+}

@@ -2,7 +2,8 @@
  * headhunter-empty-chain-close-test
  *
  * An empty candidate chain must still close the search: exactly one completion, the
- * correct one, and nothing more paid for (NOT published).
+ * correct one, and nothing more paid for (published 2026-10-02 as n8n version 3164bf87;
+ * rollback b0a763c1).
  *
  * The defect (n8n 2.25.6, workflow-execute.js: a child is scheduled only when its
  * parent's output is non-empty). Between Merge Serp Results and Split In Batches any
@@ -172,7 +173,13 @@ function main(): void {
         const ids = patch.publishedNodeIds || {};
         check('the two new nodes carry the ids n8n gave them at publish (recorded in publishedNodeIds)', [...NEW_NODES].every((n) => Boolean(ids[n]) && P.get(n)?.id === ids[n]));
         const cs = (w: Wf) => Object.entries(w.connections).flatMap(([f, v]: [string, any]) => (v.main || []).flatMap((arr: any[], o: number) => (arr || []).map((x) => `${f}[${o}]->${x.node}[${x.index}]`))).sort();
-        check('every connection of live/ equals the tested rebuild carried through the recorded publishes', eq(cs(pub), cs(carried.wf)));
+        // Every connection type (ai_languageModel too, not only main), each output's targets as a set; trailing empty outputs ignored.
+        const allConns = (w: Wf) => canon(Object.fromEntries(Object.entries(w.connections).map(([f, v]: [string, any]) => [f, Object.fromEntries(Object.entries(v || {}).map(([t, o]: [string, any]) => {
+            const outs = (o || []).map((arr: any[]) => (arr || []).map((x: unknown) => canon(x)).sort());
+            while (outs.length && !outs[outs.length - 1].length) outs.pop();
+            return [t, outs];
+        }).filter(([, outs]) => (outs as unknown[]).length))]).filter(([, v]) => Object.keys(v as object).length)));
+        check('every connection of live/ (every type) equals the tested rebuild carried through the recorded publishes', eq(cs(pub), cs(carried.wf)) && allConns(pub) === allConns(carried.wf));
         const sha = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
         check('each replacement file still hashes to its recorded publishedSha256', patch.parameterEdits.every((e: any) => e.publishedSha256 === sha(read(e.replaceWholeValueFromFile))));
         check('the graph section (nodes added/removed, connections) still hashes to its recorded publishedStructureSha256',

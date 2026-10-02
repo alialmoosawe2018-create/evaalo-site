@@ -27,6 +27,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { liveCarriesOrRecordedSuccessor } from './headhunter-recorded-successors.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WF_DIR = join(HERE, '..', '..', 'docs', 'n8n-workflows');
@@ -87,13 +88,17 @@ function main(): void {
     // Superseded 2026-09-30 by headhunter-neutral-half-credit (silent = half, not full), which
     // replaced this exact node: live/ must carry EITHER this code or that recorded successor.
     const successor = JSON.parse(readFileSync(join(WF_DIR, 'pending', 'headhunter-neutral-half-credit.patch.json'), 'utf8'));
-    const successorCode = readFileSync(join(WF_DIR, 'pending', successor.parameterEdits[0].replaceWholeValueFromFile), 'utf8');
     const liveCode = String(liveNode?.parameters.jsCode);
     const successorBase = JSON.parse(readFileSync(join(WF_DIR, successor.baseFile), 'utf8'));
     check('the successor replaced exactly this node, from exactly this code',
         successor.parameterEdits[0].node === edit.node
         && String(successorBase.nodes.find((n: { name: string }) => n.name === edit.node)?.parameters.jsCode) === code);
-    check('live carries this node or its recorded successor, byte for byte', liveCode === code || liveCode === successorCode);
+    // Followed through every RECORDED successor since (neutral-half-credit, then completion-hardening's
+    // pairing fix on 2026-10-02), not only the first one.
+    const carried = liveCarriesOrRecordedSuccessor(WF_DIR, edit.node, code, liveCode);
+    // (Each hop's archived base must hold the previous hop's code, so reaching completion-hardening means
+    // passing through the successor checked above.)
+    check(`live carries this node or a recorded successor, byte for byte (${carried.via})`, carried.ok);
     check('and the bare-50 default is gone from live', !liveCode.includes(edit.expectBeforeContains));
     check('the replacement carries the rubric', code.includes(edit.expectAfterContains));
     // Strip comments first: the file's own header QUOTES the prompt's cap rule,
