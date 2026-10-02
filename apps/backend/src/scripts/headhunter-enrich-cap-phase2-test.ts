@@ -26,7 +26,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { liveCarriesOrRecordedSuccessor } from './headhunter-recorded-successors.js';
+import { liveCarriesOrRecordedSuccessor, removedByRecordedPublish } from './headhunter-recorded-successors.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WF_DIR = join(HERE, '..', '..', 'docs', 'n8n-workflows');
@@ -106,9 +106,20 @@ function main(): void {
     check('the replacement reads the phase-2 cap', code.includes(edit.expectAfterContains));
     const lost = onlyTheseLinesRemoved(oldCode, code, edit.removedLines);
     check('every other line of the base code is kept, in order', lost.length === 0, lost.slice(0, 3).join(' | '));
-    const limitExpr = String(node('Limit Candidates')?.parameters?.maxItems ?? '');
-    check('Limit Candidates still calls $getWorkflowStaticData in an expression, i.e. still caps nothing (this node stays the only cap)',
-        limitExpr.includes('$getWorkflowStaticData'), limitExpr.slice(0, 80));
+    // This node stays the only cap: Limit Candidates either still calls $getWorkflowStaticData in an
+    // expression (so it caps nothing), or a recorded publish removed it (the empty-chain close, 2026-10-02).
+    const limitNode = node('Limit Candidates');
+    const limitExpr = String(limitNode?.parameters?.maxItems ?? '');
+    const limitRemovedBy = limitNode ? null : removedByRecordedPublish(WF_DIR, 'Limit Candidates', String(patch.publishedVersionId));
+    check(`Limit Candidates ${limitNode ? 'still calls $getWorkflowStaticData in an expression, i.e. caps nothing' : `was removed by a recorded publish after this one (${limitRemovedBy})`}`,
+        limitNode ? limitExpr.includes('$getWorkflowStaticData') : Boolean(limitRemovedBy), limitExpr.slice(0, 80));
+    if (!limitNode) {
+        // Without it, nothing may sit between this node and the paid loop: only Nothing To Enrich?, whose false
+        // branch feeds Split In Batches. (A cap anywhere else in the graph is caught by test:headhunter-person-search.)
+        const nextOf = (n: string, o = 0) => (live.connections[n]?.main?.[o] ?? []).map((c: { node: string }) => c.node);
+        check('this node feeds only Nothing To Enrich?, whose false branch feeds only Split In Batches',
+            JSON.stringify(nextOf('Filter New URLs')) === JSON.stringify(['Nothing To Enrich?']) && JSON.stringify(nextOf('Nothing To Enrich?', 1)) === JSON.stringify(['Split In Batches']));
+    }
 
     // Expand Phase 2 Queries: its comment said maxEnrich "enforces nothing" - false once this ships. COMMENT ONLY.
     const isComment = (l: string) => l.trim().startsWith('//');

@@ -24,7 +24,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { liveCarriesOrRecordedSuccessor } from './headhunter-recorded-successors.js';
+import { liveCarriesOrRecordedSuccessor, withRecordedPublishesAfter } from './headhunter-recorded-successors.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WF_DIR = join(HERE, '..', '..', 'docs', 'n8n-workflows');
@@ -140,9 +140,13 @@ function main(): void {
 
     // ---------------------------------------------------------------- published = tested
     if (patch.publishedVersionId) {
-        console.log('\nPUBLISHED (' + String(patch.publishedVersionId).slice(0, 8) + ') — live/ must be exactly the tested rebuild');
+        console.log('\nPUBLISHED (' + String(patch.publishedVersionId).slice(0, 8) + ') — live/ must be exactly the tested rebuild, carried through the recorded publishes since');
         const pub: Wf = JSON.parse(readFileSync(join(WF_DIR, 'live', 'headhunter--AI_Head_hunter.json'), 'utf8'));
-        const newNames = new Set(patch.addNodes.map((a: any) => a.name));
+        // Later publishes (the position gate, the empty-chain close ...) change the graph through their own
+        // records: apply exactly those, so anything else that changed live/ still fails here.
+        const carried = withRecordedPublishesAfter(WF_DIR, String(patch.publishedVersionId), wf);
+        console.log(`        later recorded publishes: ${carried.via.join(', ') || 'none'}`);
+        const newNames = new Set<string>([...patch.addNodes.map((a: any) => a.name), ...carried.added]);
         const strip = (n: any) => { const c = JSON.parse(JSON.stringify(n)); delete c.credentials; if (newNames.has(c.name)) delete c.id; return c; };
         const P = new Map(pub.nodes.map((n) => [n.name, n]));
         // Content, not a version id: a later publish that replaces one of these nodes must go through its own record.
@@ -158,10 +162,10 @@ function main(): void {
             delete a.parameters.jsCode; delete b.parameters.jsCode;
             return canon(a) === canon(b) && liveCarriesOrRecordedSuccessor(WF_DIR, n.name, codeA, codeB).ok;
         };
-        const same = wf.nodes.every(sameNode);
-        check('every node of live/ equals the tested rebuild, or carries a recorded successor of its code (new-node ids and credentials aside)', pub.nodes.length === wf.nodes.length && same);
+        const same = carried.wf.nodes.every(sameNode);
+        check('every node of live/ equals the tested rebuild carried through the recorded publishes (new-node ids and credentials aside)', pub.nodes.length === carried.wf.nodes.length && same);
         const cs = (w: Wf) => Object.entries(w.connections).flatMap(([f, v]: [string, any]) => (v.main || []).flatMap((arr: any[], o: number) => (arr || []).map((x) => `${f}[${o}]->${x.node}[${x.index}]`))).sort();
-        check('every connection of live/ equals the tested rebuild', eq(cs(pub), cs(wf)));
+        check('every connection of live/ equals the tested rebuild carried through the recorded publishes', eq(cs(pub), cs(carried.wf)));
         const sha = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
         check('each published file still hashes to its recorded publishedSha256',
             patch.parameterEdits.every((e: any) => e.publishedSha256 === sha(read(e.replaceWholeValueFromFile)))

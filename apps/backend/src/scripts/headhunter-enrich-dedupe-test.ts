@@ -22,7 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { liveCarriesOrRecordedSuccessor } from './headhunter-recorded-successors.js';
+import { liveCarriesOrRecordedSuccessor, removedByRecordedPublish } from './headhunter-recorded-successors.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WF_DIR = join(HERE, '..', '..', 'docs', 'n8n-workflows');
@@ -89,13 +89,24 @@ function main(): void {
     const carried = liveCarriesOrRecordedSuccessor(WF_DIR, edit.node, code, String(byName(edit.node)?.parameters?.jsCode));
     check(`the published node or a recorded successor is STILL live, byte for byte (${carried.via})`, carried.ok);
     check('the replacement records every fetched profile', code.includes(edit.expectAfterContains));
-    const limitExpr = String(byName('Limit Candidates')?.parameters?.maxItems ?? '');
-    // Its expression never worked ($getWorkflowStaticData does not exist in n8n expressions), so it caps
-    // nothing; the caps live in Filter New URLs (both phases since enrich-cap-phase2, 2026-10-01).
-    check('Limit Candidates expression unchanged (it caps nothing; the caps are in Filter New URLs)',
-        limitExpr.includes("$('Resolve Search Tier').first().json.maxEnrich"), limitExpr);
-    check('Limit Candidates still comes right after this node',
-        live.connections['Filter New URLs']?.main?.[0]?.[0]?.node === 'Limit Candidates');
+    // What this node passes on must reach the paid loop unchanged. Until 2026-10-02 the next node was
+    // Limit Candidates, whose expression never worked ($getWorkflowStaticData does not exist in n8n
+    // expressions), so it capped nothing; the empty-chain close (a recorded publish) removed it and put
+    // Nothing To Enrich? there, whose false branch hands the profiles straight to Split In Batches.
+    const limitNode = byName('Limit Candidates');
+    const next = live.connections['Filter New URLs']?.main?.[0]?.map((c: { node: string }) => c.node) ?? [];
+    if (limitNode) {
+        const limitExpr = String(limitNode.parameters?.maxItems ?? '');
+        check('Limit Candidates expression unchanged (it caps nothing; the caps are in Filter New URLs)',
+            limitExpr.includes("$('Resolve Search Tier').first().json.maxEnrich"), limitExpr);
+        check('Limit Candidates still comes right after this node', next.length === 1 && next[0] === 'Limit Candidates');
+    } else {
+        const removedBy = removedByRecordedPublish(WF_DIR, 'Limit Candidates', String(patch.publishedVersionId));
+        check(`Limit Candidates was removed by a recorded publish after this one (${removedBy})`, Boolean(removedBy));
+        const nte = live.connections['Nothing To Enrich?']?.main ?? [];
+        check('this node feeds only Nothing To Enrich?, whose false branch feeds only Split In Batches (nothing caps in between)',
+            next.length === 1 && next[0] === 'Nothing To Enrich?' && (nte[1] ?? []).length === 1 && nte[1][0].node === 'Split In Batches');
+    }
 
     // ---- replay the three real searches ------------------------------------
     console.log('\nREPLAY — real link lists, both waves, static data carried between them');

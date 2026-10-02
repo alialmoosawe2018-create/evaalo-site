@@ -9,10 +9,13 @@
  * Run: npm run test:headhunter-recorded-successors
  */
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { liveCarriesOrRecordedSuccessor, recordedSuccessors } from './headhunter-recorded-successors.js';
+import {
+    liveCarriesOrRecordedSuccessor, recordedPublishesAfter, recordedSuccessors, removedByRecordedPublish, structureSha256, withRecordedPublishesAfter,
+} from './headhunter-recorded-successors.js';
+import { applyPatch, type Wf } from './lib/headhunterWorkflowEngine.js';
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = ''): void {
@@ -92,9 +95,78 @@ function main(): void {
     } finally {
         rmSync(dir, { recursive: true, force: true });
     }
+    publishChain();
     console.log('\n' + '='.repeat(80));
     if (failures) { console.log(`FAILED — ${failures} check(s)`); process.exit(1); }
     console.log('ALL CHECKS PASSED.');
+}
+
+/**
+ * The whole-graph chain (withRecordedPublishesAfter / removedByRecordedPublish): a test that published version
+ * vN accepts live/ only as its own rebuild carried through the RECORDED publishes after vN, in order.
+ */
+function publishChain(): void {
+    console.log('\nPUBLISH CHAIN — the whole graph carried through the recorded publishes');
+    const dir = mkdtempSync(join(tmpdir(), 'hh-chain-'));
+    try {
+        mkdirSync(join(dir, 'pending'));
+        mkdirSync(join(dir, 'archive'));
+        const sha = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
+        const rec = (name: string, body: Record<string, unknown>, files: Record<string, string> = {}, archived = true) => {
+            for (const [f, c] of Object.entries(files)) writeFileSync(join(dir, 'pending', f), c);
+            if (archived) writeFileSync(join(dir, 'archive', `${name}-base.json`), '{}');
+            const record: Record<string, unknown> = { workflowId: WF_ID, baseFile: `archive/${name}-base.json`, ...body };
+            if (record.pinStructure) { delete record.pinStructure; record.publishedStructureSha256 = structureSha256(record); }
+            writeFileSync(join(dir, 'pending', `${name}.patch.json`), JSON.stringify(record));
+        };
+        // v0 -> v1: replace A's code.  v1 -> v2: add N (between A and B), remove R (and its connections).
+        rec('c1', { baseVersionId: 'v0', publishedVersionId: 'v1', parameterEdits: [{ node: 'A', path: 'parameters.jsCode', replaceWholeValueFromFile: 'c1.js', publishedSha256: sha('a1') }] }, { 'c1.js': 'a1' });
+        rec('c2', {
+            baseVersionId: 'v1', publishedVersionId: 'v2', pinStructure: true,
+            addNodes: [{ name: 'N', type: 'n8n-nodes-base.if', typeVersion: 2.2, position: [10, 0], parameters: {} }],
+            removeNodes: ['R'],
+            connections: { remove: [['A', 0, 'R', 0]], add: [['A', 0, 'N', 0], ['N', 1, 'B', 0]] },
+        });
+        rec('unpub', { baseVersionId: 'v2', removeNodes: ['B'] });                                        // never published
+        rec('elsewhere', { workflowId: 'another', baseVersionId: 'v2', publishedVersionId: 'v3x', removeNodes: ['B'] });
+        rec('edited', { baseVersionId: 'v2', publishedVersionId: 'v3', parameterEdits: [{ node: 'A', path: 'parameters.jsCode', replaceWholeValueFromFile: 'edited.js', publishedSha256: sha('a3') }] }, { 'edited.js': 'a3-changed-after-publish' });
+        const base: Wf = {
+            versionId: 'v0',
+            nodes: [{ name: 'A', parameters: { jsCode: 'a0' } }, { name: 'R', parameters: {} }, { name: 'B', parameters: {} }],
+            connections: { A: { main: [[{ node: 'R', type: 'main', index: 0 }]] }, R: { main: [[{ node: 'B', type: 'main', index: 0 }]] } },
+        };
+        const chain = recordedPublishesAfter(dir, 'v0').map((c) => c.file);
+        check('the chain follows base -> published in order, skipping unpublished records and other workflows', JSON.stringify(chain) === JSON.stringify(['c1.patch.json', 'c2.patch.json']), chain.join(','));
+        check('🔴 it stops at a record whose file no longer hashes to what was published', !chain.includes('edited.patch.json'));
+        const carried = withRecordedPublishesAfter(dir, 'v0', base);
+        const names = carried.wf.nodes.map((n) => n.name).sort().join(',');
+        check('the carried graph: A has the published code, N added, R removed', names === 'A,B,N' && carried.wf.nodes.find((n) => n.name === 'A')?.parameters.jsCode === 'a1', names);
+        const edges = Object.entries(carried.wf.connections).flatMap(([f, v]: [string, any]) => (v.main || []).flatMap((arr: any[], o: number) => (arr || []).map((x) => `${f}[${o}]->${x.node}`))).sort().join(' ');
+        check("the removed node's connections go with it; the record's connections are added", edges === 'A[0]->N N[1]->B', edges);
+        check('it names the nodes later records added (their ids are n8n\'s)', [...carried.added].join() === 'N');
+        check('from a version nothing followed, the chain is empty and the graph unchanged', recordedPublishesAfter(dir, 'v9').length === 0 && withRecordedPublishesAfter(dir, 'v9', base).wf === base);
+        check('removedByRecordedPublish names the record after the given version that removed a node', removedByRecordedPublish(dir, 'R', 'v0') === 'c2.patch.json');
+        check('…not one from before that version', removedByRecordedPublish(dir, 'R', 'v2') === null);
+        check('…and does not count an unpublished or another workflow\'s removal', removedByRecordedPublish(dir, 'B', 'v0') === null);
+        // c2's graph section was pinned at publish: editing it afterwards (here, a moved node) breaks the chain there.
+        const c2 = JSON.parse(readFileSync(join(dir, 'pending', 'c2.patch.json'), 'utf8'));
+        writeFileSync(join(dir, 'pending', 'c2.patch.json'), JSON.stringify({ ...c2, addNodes: [{ ...c2.addNodes[0], position: [10, -400] }] }));
+        check('🔴 a record whose graph section was edited after publishing ends the chain (publishedStructureSha256)', JSON.stringify(recordedPublishesAfter(dir, 'v0').map((c) => c.file)) === JSON.stringify(['c1.patch.json']));
+        check('…and its removal no longer counts', removedByRecordedPublish(dir, 'R', 'v0') === null);
+        writeFileSync(join(dir, 'pending', 'c2.patch.json'), JSON.stringify(c2));
+        rmSync(join(dir, 'archive', 'c1-base.json'));
+        check('🔴 a record whose archived base is missing ends the chain', recordedPublishesAfter(dir, 'v0').length === 0);
+        writeFileSync(join(dir, 'archive', 'c1-base.json'), '{}');
+        let unmodelled = '';
+        try { applyPatch(base, { parameterReplace: [] }, join(dir, 'pending')); } catch (e) { unmodelled = (e as Error).message; }
+        check('a record shape applyPatch does not model fails loudly instead of being skipped', unmodelled.includes('parameterReplace'), unmodelled);
+        rec('fork', { baseVersionId: 'v1', publishedVersionId: 'v2b' });
+        let named = '';
+        try { recordedPublishesAfter(dir, 'v0'); } catch (e) { named = (e as Error).message; }
+        check('two records published from the same version fail loudly and name both', named.includes('c2.patch.json') && named.includes('fork.patch.json'), named.slice(0, 120));
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
 }
 
 main();

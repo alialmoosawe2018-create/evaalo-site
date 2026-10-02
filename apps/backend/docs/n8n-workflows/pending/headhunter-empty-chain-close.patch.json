@@ -1,0 +1,213 @@
+{
+  "_warning": "PUBLISHED 2026-10-02 18:32 UTC as n8n version 3164bf87 (rollback: publish b0a763c1). A patch record, not an importable workflow - never import this file. Verified by `npm run test:headhunter-empty-chain-close`.",
+  "_publishNotes": "Owner decision 2026-10-02 (\"انشر السجل 1 أولًا وتحقق منه بالكامل\"), published alone (no other patch in the batch). Pre-publish, checked twice (the second immediately before publishing): 0 live interviews (scripts/check-live-interviews.mjs), 0 running/waiting executions of the workflow, production draft AND active = live/ b0a763c1 on every node, connection and setting. Base archived byte for byte. One atomic update_workflow batch (14 operations, in _publishRecipe order) gave draft 3164bf87, which matched the tested rebuild on all 51 nodes (new-node ids aside), connections byte-identical, Merge Serp Results / Filter New URLs jsCode sha256 = the replacement files. Free pinned smoke tests on the draft: exec 2058 (2057 shape: phase 1: 4 profiles through Nothing To Enrich?[1] -> Split In Batches, 3 enriched (the pin held 3), 3 sent; phase 2 got only fetched/foreign profiles -> Filter New URLs control item -> Nothing To Enrich? -> Phase 2 Found Nothing? -> Finalize Phase 2 Send -> ONE completion \"Expanded search completed: sent 3 qualified candidate(s); target was 20.\") and exec 2059 (phase 1 only foreign subdomains -> Phase 2 Found Nothing?[1] -> ONE completion \"No candidates found in Iraq: all 2 ...\", Enrichlayer never ran). Published with explicit versionId; ACTIVE version re-read and matched the tested rebuild byte for byte.",
+  "_scope": "Merge Serp Results and Filter New URLs (whole-code replacements, every other line kept), two new IF nodes, Nothing To Enrich? and Phase 2 Found Nothing?, and the removal of Limit Candidates, which never capped anything (its maxItems expression resolves to undefined); Nothing To Enrich?[1] feeds Split In Batches directly. No other node changes. Filter New URLs also carries header-comment corrections (removedLines) so its figures match the retained executions.",
+  "_why": "n8n runs nothing after an empty list. When every profile of a phase is dropped before enrichment (all already fetched, all on a foreign LinkedIn subdomain, no /in/ link, or a phase 2 with no organic result) the execution ends \"success\" with no completion: the search record stays `submitted` and the page spins until its 10-minute timeout. Exec 2057 (pinned smoke test) shows the stall on the live engine. In the 14 retained real runs (1913-2048) it happened 0 times; the frequency figures from the generated searches in the test are synthetic, not a production rate.",
+  "_expectedEffect": "A run whose candidate list is non-empty is unchanged: the same sends, SerpAPI and EnrichLayer calls and static data, and the same node runs except that Nothing To Enrich? runs where the pass-through Limit Candidates ran, and Phase 2 Found Nothing? runs on the existing Merge Serp Results / All Serp Pages Failed? close paths (proven on the 2048 replay and on generated searches). An empty phase 2 closes once through Finalize Phase 2 Send with the phase-1 totals; an empty phase 1 closes once with a \"No candidates found\" completion. Nothing more is paid for. Removing Limit Candidates changes nothing: in production 27 of 27 saved Limit runs (1913-2048) and exec 2057 passed every item on (its maxItems expression renders undefined), and even if expressions could read static data, Filter New URLs already caps at the same values (the tier maxEnrich in phase 1, hhPhase2 maxEnrich in phase 2).",
+  "_measured": "Engine fidelity: the test engine reproduces exec 2048 (78 node runs) on df1b0a66 and exec 2057 (44 node runs) on a2b5cbec, run for run, before anything is concluded from it. Which version ran 2048 comes from the records, not from n8n (execution data carries no version id): the page2-off-tier40 record says Tier 20 was proven live in 2048 before ae589a3d was published, and df1b0a66 and ae589a3d differ only on Tier-40 paths (2048 is Tier 20). 2057 read Add Person Search Links, a node that first exists in a2b5cbec; the person-search record says that smoke test ran on the draft published as a2b5cbec. Production occurrence of the empty chain: 0 of the 14 saved runs (1913-2048); 2057 is a pinned smoke test, not a real search.",
+  "_knownLimits": "Proven offline on synthetic data through a model of the n8n v1 engine, not on n8n itself; the free pinned smoke test on the draft before publishing is the live check. A phase-1 close says only \"No candidates found\" (with a separate wording when every profile was on a foreign LinkedIn subdomain); a more detailed completion note is a later item. Expand Phase 2 Queries keeps a comment that mentions Limit Candidates (not touched here). The completion hardening, the Apply AI pairing fix and the Is Phase 2? cleanup are a separate record (headhunter-completion-hardening) built on top of this one.",
+  "_publishRecipe": "n8n MCP update_workflow, one atomic batch, in this order: removeConnection Filter New URLs[0] -> Limit Candidates, All Serp Pages Failed?[0] -> Prepare Complete Search, Limit Candidates[0] -> Split In Batches; removeNode Limit Candidates; addNode Nothing To Enrich?, Phase 2 Found Nothing? (exact parameters/positions above); addConnection x6 as listed; setNodeParameter path \"/jsCode\" (NOT \"/parameters/jsCode\", which would create parameters.parameters.jsCode) on Merge Serp Results and Filter New URLs with the replacement files byte for byte. Then byte-verify the draft, run the free pinned smoke test, publish with an explicit versionId and verify the ACTIVE version. Never import:workflow. Rollback: publish b0a763c1.",
+  "_rollback": "publish_workflow versionId b0a763c1-3364-47ad-9724-1a22531a1c36 (the base).",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "b0a763c1-3364-47ad-9724-1a22531a1c36",
+  "baseNodeCount": 50,
+  "baseFile": "archive/headhunter--AI_Head_hunter--b0a763c1-before-empty-chain-close.json",
+  "addNodes": [
+    {
+      "name": "Nothing To Enrich?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        704,
+        128
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "nothing-to-enrich",
+              "leftValue": "={{ $json.__nothingToEnrich === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Phase 2 Found Nothing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2336,
+        240
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "phase2-found-nothing",
+              "leftValue": "={{ $json.__nothingToEnrich === true && $json.__phase2 === true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "removeNodes": [
+    "Limit Candidates"
+  ],
+  "removeNodesExpect": [
+    {
+      "parameters": {
+        "maxItems": "={{ ($getWorkflowStaticData('global').hhPhase2 && $getWorkflowStaticData('global').hhPhase2[$('Webhook').first().json.body.searchId] && $getWorkflowStaticData('global').hhPhase2[$('Webhook').first().json.body.searchId].maxEnrich) || $('Resolve Search Tier').first().json.maxEnrich }}"
+      },
+      "id": "9baa427c-406b-4247-9522-219671770508",
+      "name": "Limit Candidates",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        752,
+        -32
+      ]
+    }
+  ],
+  "connections": {
+    "remove": [
+      [
+        "Filter New URLs",
+        0,
+        "Limit Candidates",
+        0
+      ],
+      [
+        "All Serp Pages Failed?",
+        0,
+        "Prepare Complete Search",
+        0
+      ],
+      [
+        "Limit Candidates",
+        0,
+        "Split In Batches",
+        0
+      ]
+    ],
+    "add": [
+      [
+        "Filter New URLs",
+        0,
+        "Nothing To Enrich?",
+        0
+      ],
+      [
+        "Nothing To Enrich?",
+        0,
+        "Phase 2 Found Nothing?",
+        0
+      ],
+      [
+        "Nothing To Enrich?",
+        1,
+        "Split In Batches",
+        0
+      ],
+      [
+        "All Serp Pages Failed?",
+        0,
+        "Phase 2 Found Nothing?",
+        0
+      ],
+      [
+        "Phase 2 Found Nothing?",
+        0,
+        "Finalize Phase 2 Send",
+        0
+      ],
+      [
+        "Phase 2 Found Nothing?",
+        1,
+        "Prepare Complete Search",
+        0
+      ]
+    ]
+  },
+  "parameterEdits": [
+    {
+      "node": "Merge Serp Results",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-empty-chain-close.merge-serp.node.js",
+      "expectBeforeContains": "if (!isPhase2) {\n  const profiles = merged.filter(",
+      "expectAfterContains": "return [{ json: { __completeOnly: true, __nothingToEnrich: true, __phase2: true, serpStats } }];",
+      "removedLines": [],
+      "publishedSha256": "ef3ae3b8f83a8fdf2d87f8b0956982a56add7910a8e96815d4ef9de18eb3741f"
+    },
+    {
+      "node": "Filter New URLs",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-empty-chain-close.filter-new-urls.node.js",
+      "expectBeforeContains": "if (spend) spend.spent = Number(spend.spent || 0) + out.reduce((n, i) => n + costOf(i), 0);\nreturn out;",
+      "expectAfterContains": "const close = { __completeOnly: true, __nothingToEnrich: true, __phase2: inPhase2, received };",
+      "removedLines": [
+        " * credits per successful profile (1 base + 1 for the default `use_cache=if-recent`).",
+        " * Measured on exec 2039 (HR Business Partner, Baghdad, 2026-09-29): 46 paid",
+        " * profiles for 37 distinct people, and 24 of the 46 were people living outside",
+        " * Iraq who the location filter then threw away. Two defects, both fixed here:",
+        " *    measured profiles LinkedIn had renamed the profile, so the returned id no",
+        " *    longer matches what Google hands us next time — one of those was a paid",
+        " *    repeat in exec 2039. Duplicates inside one batch are dropped too.",
+        " *    measured foreign every time: 11 of 11 in exec 2039 and 22 of 22 across execs",
+        " *    2035/2036, with no Iraqi among them. Those are now dropped before enrichment.",
+        " *    Kept: `www.` (carries no country signal — 12 Americans came that way, a query",
+        " *    problem, not a URL one), `iq.`, and `sy.` — twice a `sy.` profile turned out",
+        " *    to be living in Erbil, Iraq, so Syria's code is not trusted as proof.",
+        " * The built-in `Limit Candidates` node that follows has never cut anything: its",
+        " * maxItems expression calls $getWorkflowStaticData, which exists only inside",
+        " * Code nodes, not in n8n expressions, so it resolves to undefined and the limit",
+        " * keeps every item - 27 of 27 retained Limit runs passed their input through",
+        " * unchanged, up to 45 profiles in a phase 2 whose recorded cap was 20 or 40.",
+        " * So the caps live here, where static data can be read:",
+        " *     (20 for Tier 20, 40 for Tier 40) - set since 2026-09-17, applied only now.",
+        " * a Person Search link (use_cache=if-present, per EnrichLayer's docs), 2 for any other",
+        " * (if-recent). Phase 1 stops taking a profile that would leave less than 2 credits, so",
+        " * phase 2 can always send at least one: an empty list here would end the search with no",
+        " * completion. Phase 2 takes what the rest pays for. The record counts one request per",
+        " * profile; n8n's whole-node retry of Enrichlayer Profile Fetch (retryOnFail) can bill a",
+        " * batch again and is not seen here. Without a spend record nothing changes."
+      ],
+      "publishedSha256": "668f269dea0f71186ab27debf8424bb50ed836cb08b363e0180d804fc71f6728"
+    }
+  ],
+  "publishedVersionId": "3164bf87-673f-4b71-8f22-9c54053697e4",
+  "publishedNodeIds": {
+    "Nothing To Enrich?": "e43a01e5-19ac-443d-9266-05dd30ddc78c",
+    "Phase 2 Found Nothing?": "443dceb2-6788-41f9-a92e-ea94dba4dfdc"
+  },
+  "publishedStructureSha256": "b9e98fb710f966598e6b9c0da4d6aaac837851dd7a692a07f95a6653c20ceddd"
+}

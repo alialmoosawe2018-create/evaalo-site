@@ -195,6 +195,7 @@
     "test:headhunter-recorded-successors": "tsx src/scripts/headhunter-recorded-successors-test.ts",
     "test:headhunter-person-search": "tsx src/scripts/headhunter-person-search-test.ts",
     "test:headhunter-position-titles": "tsx src/scripts/headhunter-position-titles-test.ts",
+    "test:headhunter-empty-chain-close": "tsx src/scripts/headhunter-empty-chain-close-test.ts",
     "test:headhunter-contact-reveal": "tsx src/scripts/headhunter-contact-reveal-test.ts"
   },
   "keywords": [
