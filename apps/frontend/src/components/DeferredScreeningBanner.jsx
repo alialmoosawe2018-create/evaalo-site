@@ -65,8 +65,7 @@ const DeferredScreeningBanner = () => {
             </span>
             <Link
                 to="/pricing"
-                className="workflow-btn-primary account-btn-compact"
-                style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}
+                className="deferred-banner__cta workflow-btn-primary"
             >
                 {currentPlanId === 'free' ? t('freePlan_banner_cta') : t('deferredScreening_banner_cta')}
             </Link>

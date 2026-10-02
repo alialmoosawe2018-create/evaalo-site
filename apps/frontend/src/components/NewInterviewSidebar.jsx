@@ -2491,12 +2491,16 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                             {descriptionProposal}
                         </div>
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap', padding: '0 14px 12px' }}>
-                            <button type="button" className="btn btn-secondary" onClick={() => setDescriptionProposal(null)}>
+                            <button
+                                type="button"
+                                className="ni-proposal-btn ni-proposal-btn--ghost"
+                                onClick={() => setDescriptionProposal(null)}
+                            >
                                 {t('newCampaign_jd_keepMine')}
                             </button>
                             <button
                                 type="button"
-                                className="workflow-btn-primary"
+                                className="ni-proposal-btn ni-proposal-btn--primary workflow-btn-primary"
                                 onClick={() => {
                                     setDescriptionUndo(jobDescription);
                                     setJobDescription(descriptionProposal);
