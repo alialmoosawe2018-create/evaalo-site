@@ -5465,32 +5465,33 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     overflow-y: auto;
 }
 
+/* «Label: value» سطر نصّ، لا بطاقة.
+   المحلّل يحوّل كل سطر فيه نقطتان إلى __field، وإعلان الوظيفة مليء بها
+   (Job Title: / Company/About: / Key Responsibilities: …) — فكانت المعاينة
+   رصّة بطاقات ملوّنة بينما النص الأصلي فقرات عادية. الآن يتدفّق السطر طبيعياً
+   كما يظهر في وضع التحرير: العنوان عريض يليه قيمته على السطر نفسه. */
 .new-interview-modal .ni-job-ad-preview__field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-    background: rgba(15, 23, 42, 0.42);
-    border: 1px solid rgba(56, 189, 248, 0.1);
-}
-
-.new-interview-modal .ni-job-ad-preview__field:last-child {
-    margin-bottom: 0;
+    display: block;
+    margin: 0.45em 0;
+    padding: 0;
+    border: none;
+    background: none;
+    border-radius: 0;
+    color: #cbd5e1;
+    line-height: 1.75;
 }
 
 .new-interview-modal .ni-job-ad-preview__label {
-    font-size: 11px;
+    font-size: inherit;
     font-weight: 700;
-    letter-spacing: 0.04em;
-    color: rgba(103, 232, 249, 0.95);
+    letter-spacing: normal;
+    color: inherit;
 }
 
 .new-interview-modal .ni-job-ad-preview__value {
-    color: #f1f5f9;
-    font-size: 14px;
-    line-height: 1.68;
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
     font-weight: 400;
 }
 
@@ -23398,7 +23399,7 @@ html[data-app-theme='light'] .new-interview-modal .ni-job-ad-preview__bullet {
 }
 
 html[data-app-theme='light'] .new-interview-modal .ni-job-ad-preview__label {
-    color: #6366f1 !important;
+    color: var(--app-text) !important;
 }
 
 html[data-app-theme='light'] .new-interview-modal .ni-job-ad-preview__value,
@@ -23410,8 +23411,9 @@ html[data-app-theme='light'] .new-interview-modal .ni-job-ad-preview__em {
 }
 
 html[data-app-theme='light'] .new-interview-modal .ni-job-ad-preview__field {
-    background: rgba(99, 102, 241, 0.04) !important;
-    border-color: var(--app-container-border) !important;
+    background: none !important;
+    border-color: transparent !important;
+    color: var(--app-text) !important;
 }
 
 html[data-app-theme='light'] .new-interview-modal .ni-job-ad-preview__textarea {
