@@ -85,11 +85,14 @@ X-Idempotency-Key: {{ $execution.id }}-{{ linkedin_url or name per candidate }}
 ```json
 {
   "searchId": "headhunter_…",
-  "searchComplete": true
+  "searchComplete": true,
+  "serpHealth": { "calls": 4, "failed": 1, "ignoredFilter": 2 }
 }
 ```
 
 يقبل أيضاً `completed: true` أو `done: true` بدلاً من `searchComplete`.
+
+`serpHealth` (اختياري): أعداد فقط، بلا نص الاستعلام. `calls` = طلبات SerpAPI المميزة (استعلام وصفحة) في البحث كله، كلٌّ بحالته النهائية. `failed` = بلا إجابة (503). `ignoredFilter` = أجاب Google بنتائج ليس فيها أي ملف LinkedIn. يُتحقَّق منه في الـ backend (أعداد صحيحة ≥ 0، و`calls` ≤ 1000، و`failed + ignoredFilter` ≤ `calls`)، وأي شكل آخر يُتجاهل. لا يغيّر الحالة ولا يُفوتَر، ويُحفظ في الذاكرة فقط.
 
 - مرشح مفرد: يُدمَج مع النتائج السابقة **لنفس searchId**
 - دفعة `{ "candidates": [ … ] }`: تستبدل/تجمّع حسب منطق الدمج الحالي
@@ -112,9 +115,13 @@ Authorization: Bearer …
   "hasData": true,
   "receivedAt": "…",
   "payload": { "candidates": [] },
-  "errorMessage": null
+  "errorMessage": null,
+  "serpHealth": null,
+  "source": "memory|durable"
 }
 ```
+
+`serpHealth` = ما جاء في callback الاكتمال، أو `null`. يعود `null` دائماً حين يكون `source` = `durable` (أي أن السجل الحي في الذاكرة انتهى). تعرض الواجهة منه ملاحظة فقط حين يكون البحث أقل من العدد المطلوب، ولا تقترح إعادة البحث.
 
 ## n8n — عقد HTTP Request
 

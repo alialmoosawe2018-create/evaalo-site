@@ -53,6 +53,7 @@ import {
     readHeadHunterCandidates,
     countHeadHunterCandidates,
 } from '../services/headHunterCandidateStore.js';
+import { parseHeadHunterSerpHealth, type HeadHunterSerpHealth } from '../services/headHunterSerpHealth.js';
 
 const router = Router();
 
@@ -70,6 +71,8 @@ type HeadHunterSearchRecord = {
     receivedAt?: string;
     payload?: unknown;
     errorMessage?: string;
+    /** SerpAPI counts from the completion callback (display only — never status, durable storage or billing). */
+    serpHealth?: HeadHunterSerpHealth;
 };
 
 /** نتائج Head Hunter لكل بحث — معزولة بـ searchId + userId + organizationId (مثل CV Comparison). */
@@ -619,6 +622,9 @@ async function applyHeadHunterInboundMerge(
         ...existing,
         status,
         errorMessage: inboundError || (failed ? existing.errorMessage : undefined),
+        // Only the completion carries it; a candidate POST arriving later must not
+        // erase it, so an absent or invalid value keeps the stored one.
+        serpHealth: parseHeadHunterSerpHealth(payload) ?? existing.serpHealth,
         receivedAt,
         payload: merged,
     });
@@ -1017,6 +1023,8 @@ router.get(
                 receivedAt: null,
                 payload: { candidates: durable },
                 errorMessage: null,
+                // Lived only on the in-memory record, which is gone.
+                serpHealth: null,
                 source: 'durable',
             });
         }
@@ -1032,6 +1040,7 @@ router.get(
             receivedAt: record.receivedAt ?? null,
             payload: hasData ? record.payload : null,
             errorMessage: record.errorMessage ?? null,
+            serpHealth: record.serpHealth ?? null,
             source: 'memory',
         });
     }
