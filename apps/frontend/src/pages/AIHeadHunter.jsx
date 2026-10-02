@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import apiClient from '../services/apiClient';
 import { onEvent, startEventsSocket } from '../services/eventsSocket';
 import { headHunterApiErrorMessage } from '../utils/headHunterApiError.js';
+import { headHunterCompletionNotice } from '../utils/headHunterCompletionNotice.js';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useOrganization } from '../contexts/OrganizationContext';
 import { PERMISSIONS } from '../contexts/rbacRoles';
@@ -101,6 +102,8 @@ export default function AIHeadHunter() {
     const { upsertBySearchId: upsertCampaignBySearchId } = useHeadHunterSearchHistory();
     const pollTimerRef = useRef(null);
     const activeSearchIdRef = useRef(null);
+    /** The running search's criteria: the socket handler needs its requested count. */
+    const activeCriteriaRef = useRef(null);
     const resultsCardRef = useRef(null);
     /** يبقي زر البحث بحالة التحميل/المؤثرات حتى ينتهي استطلاع النتيجة وليس فقط حتى انتهاء طلب الويب هوك */
     const [awaitingPollResult, setAwaitingPollResult] = useState(false);
@@ -303,6 +306,8 @@ export default function AIHeadHunter() {
                 return {
                     success: true,
                     ...next,
+                    serpHealth: data?.serpHealth ?? null,
+                    source: data?.source ?? null,
                 };
             } catch (err) {
                 const msg = headHunterApiErrorMessage(err, t, { fallbackKey: 'aiHeadHunterErrLoadN8n' });
@@ -335,10 +340,37 @@ export default function AIHeadHunter() {
         [upsertCampaignBySearchId]
     );
 
+    /* The short-result note, from whichever path sees the search end first: the
+       poll's last check or the HeadHunterSearchCompleted socket event. Only the
+       poll used to set it, and the socket can win that race. With 0 candidates
+       there is no result list to sit above, so the note takes the results card's
+       error line, and the workspace then drops its generic "no candidate profiles"
+       line. */
+    const showCompletionNotice = useCallback(
+        (res, wanted) => {
+            const candidateCount = normalizeHeadHunterPayload(res?.payload).candidates.length;
+            const notice = headHunterCompletionNotice(
+                {
+                    status: res?.status,
+                    candidateCount,
+                    wanted,
+                    serpHealth: res?.serpHealth,
+                    source: res?.source,
+                },
+                t
+            );
+            if (!notice) return;
+            if (candidateCount === 0) setN8nInbound((prev) => ({ ...prev, error: notice.text }));
+            else setFeedback(notice);
+        },
+        [t]
+    );
+
     const startPollForNewResult = useCallback(
         (id, criteria) => {
             clearPollTimerOnly();
             activeSearchIdRef.current = id;
+            activeCriteriaRef.current = criteria;
             let attempts = 0;
             let lastSyncedCount = 0;
 
@@ -359,6 +391,7 @@ export default function AIHeadHunter() {
                         ...prev,
                         error: res.errorMessage || t('aiHeadHunterResultsEmpty'),
                     }));
+                    showCompletionNotice(res, criteria?.minCandidateCount);
                     stopPollForNewResult();
                     return;
                 }
@@ -373,22 +406,11 @@ export default function AIHeadHunter() {
                     }
                     if (res.status === 'completed' || attempts >= POLL_MAX_ATTEMPTS) {
                         clearPollTimerOnly();
-                        /* A short search now widens itself automatically and can STILL
-                           come back under target — the workflow says exactly that, but
-                           its sentence was read only when ZERO candidates arrived. A
-                           partial result therefore reached the recruiter as a bare
-                           number with no reason for it. Say it from the two figures we
-                           already hold, in their own language, rather than forwarding
-                           the workflow's English line. */
-                        const wanted = Number(criteria?.minCandidateCount) || 0;
-                        if (res.status === 'completed' && wanted > 0 && nCandidates < wanted) {
-                            setFeedback({
-                                type: 'warn',
-                                text: t('aiHeadHunterShortResult')
-                                    .replace('{count}', String(nCandidates))
-                                    .replace('{target}', String(wanted)),
-                            });
-                        }
+                        /* A short search widens itself automatically and can STILL come
+                           back under target. Say so from the figures we hold, in the
+                           recruiter's language, rather than forwarding the workflow's
+                           English line (headHunterCompletionNotice). */
+                        showCompletionNotice(res, criteria?.minCandidateCount);
                     }
                     return;
                 }
@@ -398,6 +420,7 @@ export default function AIHeadHunter() {
                         ...prev,
                         error: res.errorMessage || t('aiHeadHunterResultsEmpty'),
                     }));
+                    showCompletionNotice(res, criteria?.minCandidateCount);
                     stopPollForNewResult();
                     return;
                 }
@@ -417,7 +440,7 @@ export default function AIHeadHunter() {
             }, POLL_INTERVAL_MS);
             setAwaitingPollResult(true);
         },
-        [clearPollTimerOnly, fetchLastN8nResult, syncCampaignHistory, stopPollForNewResult, t]
+        [clearPollTimerOnly, fetchLastN8nResult, syncCampaignHistory, stopPollForNewResult, showCompletionNotice, t]
     );
 
     // Live: finish instantly + stop the tail poll when the search reaches a terminal
@@ -427,11 +450,14 @@ export default function AIHeadHunter() {
         return onEvent('HeadHunterSearchCompleted', (evt) => {
             const id = activeSearchIdRef.current;
             if (id && evt?.payload?.searchId === id) {
-                void fetchLastN8nResult(id);
+                const wanted = activeCriteriaRef.current?.minCandidateCount;
+                void fetchLastN8nResult(id).then((res) => {
+                    if (res?.success && activeSearchIdRef.current === id) showCompletionNotice(res, wanted);
+                });
                 stopPollForNewResult();
             }
         });
-    }, [fetchLastN8nResult, stopPollForNewResult]);
+    }, [fetchLastN8nResult, stopPollForNewResult, showCompletionNotice]);
 
     /** بطاقة النتائج: لا تُعرض إلا بعد بدء بحث لهذا المستخدم */
     const showHeadHunterResultsCard =
@@ -500,6 +526,10 @@ export default function AIHeadHunter() {
         setSubmittedArabicInputs([]);
         setLoading(true);
         stopPollForNewResult();
+        // Let go of the previous search too: its completion event must not show
+        // its note while this one is being submitted.
+        activeSearchIdRef.current = null;
+        activeCriteriaRef.current = null;
         setSearchId(null);
         setN8nInbound({
             loading: false,

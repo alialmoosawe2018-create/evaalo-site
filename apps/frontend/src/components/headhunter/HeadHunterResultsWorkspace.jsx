@@ -243,7 +243,9 @@ export default function HeadHunterResultsWorkspace({ hh, n8nInbound, t, searchCo
                     <HeadHunterResultsSkeleton count={8} />
                 </>
             ) : visibleList.length === 0 ? (
-                n8nInbound.receivedAt && !n8nInbound.loading ? (
+                /* The error line above already explains an empty result (the short-
+                   result note among others); the generic line under it would contradict it. */
+                n8nInbound.receivedAt && !n8nInbound.loading && !n8nInbound.error ? (
                     <p className="head-hunter-feedback head-hunter-feedback--warn" role="status">
                         {t('aiHeadHunterResultsEmpty')}
                     </p>
