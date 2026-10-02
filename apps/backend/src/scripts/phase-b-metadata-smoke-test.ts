@@ -2,7 +2,7 @@
  * Phase B metadata smoke test — glossary + tracks + versions in LiveKit metadata.
  * Usage: npx tsx src/scripts/phase-b-metadata-smoke-test.ts
  */
-import { WAVE_1A_PACK_VERSION } from '../services/expertise/domainPacks.js';
+import { WAVE_3_ENRICHED_VERSION } from '../services/expertise/domainPacks.js';
 import { generateExpertiseAndBlueprint } from '../services/expertise/blueprintGenerator.js';
 import { buildBlueprintMetadata } from '../services/expertise/blueprintMetadata.js';
 import type { LockedBlueprintBundle } from '../services/expertise/ensureBlueprint.js';
@@ -70,7 +70,11 @@ async function testWave1APhaseB(roleTitle: string, packKey: string): Promise<voi
     assert(Array.isArray(compact.interviewPaths) && compact.interviewPaths.length >= 1, `${roleTitle} compact paths`);
     assert(Array.isArray(compact.terminology) && compact.terminology.length >= 8, `${roleTitle} compact terminology`);
 
-    assert(meta!.pack_version === WAVE_1A_PACK_VERSION, `${roleTitle} pack_version`);
+    // The three Wave 1A pilots (1.1.0) were promoted to L3 Enriched (1.4.0) by Wave 3.
+    assert(
+        meta!.pack_version === WAVE_3_ENRICHED_VERSION,
+        `${roleTitle} pack_version ${WAVE_3_ENRICHED_VERSION} (got ${meta!.pack_version})`
+    );
     assert(!!meta!.blueprint_content_version, `${roleTitle} content version`);
     assert(!!meta!.blueprint_generated_at, `${roleTitle} generated_at`);
     assert(!!meta!.role_key, `${roleTitle} role_key`);

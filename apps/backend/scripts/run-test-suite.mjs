@@ -74,13 +74,12 @@ const EXCLUDED = {
      * (hr_recruiter, petroleum_engineer, survey_engineer) to L3 Enriched '1.4.0'
      * on purpose, and wave-1a-pack-smoke-test already expects that. The tests
      * still comparing against WAVE_1A_PACK_VERSION are stale — fix the test,
-     * not the pack (test:blueprint-version was fixed that way).
+     * not the pack (test:blueprint-version, test:phase-b-metadata and
+     * test:qa-scorecard-wave1a were fixed that way).
      */
     'test:taxonomy-l1-coverage': 'PRE-EXISTING FAILURE: manual sample missing roleKey pharmacist',
-    'test:phase-b-metadata': 'PRE-EXISTING FAILURE: Recruiter pack_version mismatch',
     'test:bank-alignment-wave2': 'PRE-EXISTING FAILURE: looks up "frontend-developer", pack key is "frontend_developer"',
     'test:qa-scorecard-l3': 'PRE-EXISTING FAILURE: child scorecard step exits 1',
-    'test:qa-scorecard-wave1a': 'PRE-EXISTING FAILURE: hr_recruiter version mismatch',
 };
 
 const pkg = JSON.parse(readFileSync(join(BACKEND, 'package.json'), 'utf8'));

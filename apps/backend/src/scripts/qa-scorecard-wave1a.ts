@@ -8,7 +8,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import {
     DOMAIN_PACKS,
-    WAVE_1A_PACK_VERSION,
+    WAVE_3_ENRICHED_VERSION,
 } from '../services/expertise/domainPacks.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -26,7 +26,11 @@ function testPackStructure(): void {
     for (const key of ['hr_recruiter', 'petroleum_engineer', 'survey_engineer'] as const) {
         const pack = DOMAIN_PACKS.find((p) => p.packKey === key);
         assert(!!pack, `pack ${key}`);
-        assert(pack!.packVersion === WAVE_1A_PACK_VERSION, `${key} version`);
+        // The three Wave 1A pilots (1.1.0) were promoted to L3 Enriched (1.4.0) by Wave 3.
+        assert(
+            pack!.packVersion === WAVE_3_ENRICHED_VERSION,
+            `${key} version ${WAVE_3_ENRICHED_VERSION} (got ${pack!.packVersion})`
+        );
         assert((pack!.supportedExperienceTracks?.length ?? 0) >= 4, `${key} tracks`);
         assert((pack!.interviewPaths?.length ?? 0) >= 1, `${key} paths`);
         assert(pack!.competencies.length >= 4, `${key} competencies`);
@@ -41,14 +45,19 @@ function testPackStructure(): void {
 function testFixturesFresh(): void {
     assert(existsSync(FIXTURES), `fixtures missing — run npm run export:wave1a-qa-fixtures`);
     const raw = JSON.parse(readFileSync(FIXTURES, 'utf8')) as {
-        wave1aPackVersion: string;
         packs: Record<string, { packVersion: string; competencyCount: number }>;
     };
-    assert(raw.wave1aPackVersion === WAVE_1A_PACK_VERSION, 'fixture version drift');
+    // Compare each fixture pack with the pack it was exported from, not with a
+    // wave constant: the header field wave1aPackVersion echoes a constant the
+    // exporter writes, so it matched while the fixture sat on 1.1.0 content.
     for (const key of ['hr_recruiter', 'petroleum_engineer', 'survey_engineer']) {
         const p = raw.packs[key];
+        const pack = DOMAIN_PACKS.find((x) => x.packKey === key);
         assert(!!p, `fixture pack ${key}`);
-        assert(p.packVersion === WAVE_1A_PACK_VERSION, `fixture ${key} version`);
+        assert(
+            p.packVersion === pack!.packVersion,
+            `fixture ${key} version ${p.packVersion}, pack is ${pack!.packVersion} — run npm run export:wave1a-qa-fixtures`
+        );
     }
 }
 
