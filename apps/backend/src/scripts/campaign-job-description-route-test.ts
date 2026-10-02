@@ -216,8 +216,16 @@ async function main(): Promise<void> {
             assert.equal(r.calls.length, 1);
             const msg = userMessage(r.calls[0]);
             assert.ok(msg.includes(`<<<\n${DESCRIPTION_STORED}\n>>>`), 'the text is not sent between the data markers');
-            assert.ok(msg.includes('Do not add anything it does not contain'), 'the no-additions rule is missing');
+            assert.ok(msg.includes('Do not add anything the original does not say'), 'the no-additions rule is missing');
             assert.ok(msg.includes('Keep every number exactly as written'), 'the numbers rule is missing');
+            assert.ok(msg.includes('Keep EVERY line of the original'), 'the keep-every-line rule is missing');
+            assert.ok(msg.includes('Do not explain or expand an item'), 'the same-level-of-detail rule is missing');
+            // Literal example CONTENT in the rules leaked into unrelated jobs when measured
+            // (2026-10-02: "please ignore the salary" appeared in an HSE job). Keep it out.
+            for (const leaked of ['please ignore the salary', 'field visits', 'internal role', 'Duties:, Requirements:']) {
+                assert.equal(msg.includes(leaked), false, `the prompt carries literal example content: "${leaked}"`);
+            }
+            assert.equal(r.calls[0].temperature, 0.2, 'the measured temperature is 0.2');
         });
 
         await test('Arabic: the same numbers in Arabic-Indic digits are accepted', async () => {

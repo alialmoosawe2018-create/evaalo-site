@@ -662,6 +662,13 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     /** The text before an accepted rewrite — «Undo» puts it back. */
     const [descriptionUndo, setDescriptionUndo] = useState(null);
     const [descriptionRewriteError, setDescriptionRewriteError] = useState('');
+    /** The suggestion / error area of the description box — scrolled into view when it fills, since
+     *  the box sits at the bottom of the criteria step and anything below it is out of sight. */
+    const descriptionFeedbackRef = useRef(null);
+    useEffect(() => {
+        if (descriptionProposal === null && !descriptionRewriteError) return;
+        descriptionFeedbackRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }, [descriptionProposal, descriptionRewriteError]);
     /** لغة المقابلة — إلزامية بلا افتراض (قرار المالك ٢٠٢٦-٠٩-٢٣): تُحدَّد هنا عند
      *  إنشاء الوظيفة وحدها، ولا يقرّرها بعدها رابطٌ ولا متصفّح. '' = لم يُختر بعد. */
     const [interviewLanguage, setInterviewLanguage] = useState('');
@@ -1745,7 +1752,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
      */
     const handleImproveDescription = async () => {
         const text = jobDescription.trim();
-        if (!text || rewritingDescription) return;
+        if (!text || rewritingDescription || descriptionProposal !== null) return;
         setRewritingDescription(true);
         setDescriptionRewriteError('');
         setDescriptionProposal(null);
@@ -2429,49 +2436,78 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                     <button
                         type="button"
                         onClick={handleImproveDescription}
-                        disabled={!jobDescription.trim() || rewritingDescription || descriptionProposal !== null}
-                        className="ni-suggest-criteria-btn ni-jd-improve-btn"
-                        title={t('newCampaign_jd_improveHint')}
+                        aria-disabled={!jobDescription.trim() || rewritingDescription || descriptionProposal !== null}
+                        aria-busy={rewritingDescription}
+                        aria-label={`${t('newCampaign_jd_improve')} (${t('newCampaign_jd_free')})`}
+                        title={`${t('newCampaign_jd_improve')} (${t('newCampaign_jd_free')}) — ${t('newCampaign_jd_improveHint')}`}
+                        className={`ni-suggest-criteria-btn ni-jd-improve-btn${rewritingDescription ? ' ni-jd-improve-btn--busy' : ''}`}
                         style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '8px',
-                            padding: '8px 14px',
+                            justifyContent: 'center',
+                            width: '36px',
+                            height: '36px',
+                            padding: 0,
                             borderRadius: '10px',
                             border: '1px solid rgba(99, 102, 241, 0.35)',
                             background: 'linear-gradient(135deg, rgba(99,102,241,0.10), rgba(139,92,246,0.10))',
                             color: '#6366f1',
-                            fontSize: '13px',
-                            fontWeight: 600,
-                            cursor: !jobDescription.trim() || rewritingDescription ? 'default' : 'pointer',
-                            opacity: !jobDescription.trim() || rewritingDescription ? 0.6 : 1,
+                            cursor: !jobDescription.trim() || rewritingDescription || descriptionProposal !== null ? 'default' : 'pointer',
+                            opacity: !jobDescription.trim() || descriptionProposal !== null ? 0.5 : 1,
                             transition: 'opacity 0.15s ease',
                         }}
                     >
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
                             <path
                                 fill="currentColor"
                                 d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"
                             />
                         </svg>
-                        <span>{rewritingDescription ? t('newCampaign_jd_improving') : t('newCampaign_jd_improve')}</span>
-                        <span
-                            style={{
-                                fontSize: '10.5px',
-                                fontWeight: 700,
-                                padding: '2px 7px',
-                                borderRadius: '999px',
-                                background: 'rgba(16, 185, 129, 0.14)',
-                                color: '#10B981',
-                            }}
-                        >
-                            {t('newCampaign_jd_free')}
-                        </span>
                     </button>
                 </div>
                 <p className="ni-job-ad-desc" style={{ fontSize: '13px', margin: 0 }}>
                     {t('newCampaign_jd_hint')}
                 </p>
+            </div>
+            <div ref={descriptionFeedbackRef} aria-live="polite">
+                {rewritingDescription && (
+                    <div style={{ marginBottom: '10px', fontSize: '12.5px', color: NT.meta }}>{t('newCampaign_jd_improving')}</div>
+                )}
+                {descriptionRewriteError && (
+                    <div role="alert" style={{ marginBottom: '10px', fontSize: '12.5px', color: '#EF4444' }}>
+                        {descriptionRewriteError}
+                    </div>
+                )}
+                {descriptionProposal !== null && (
+                    <div className="ni-job-ad-preview ni-job-description-proposal" style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: NT.title, padding: '10px 14px 0' }}>
+                            {t('newCampaign_jd_proposalTitle')}
+                        </div>
+                        <div
+                            className="ni-job-ad-preview__content"
+                            dir="auto"
+                            style={{ whiteSpace: 'pre-wrap', maxHeight: '260px', overflowY: 'auto' }}
+                        >
+                            {descriptionProposal}
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap', padding: '0 14px 12px' }}>
+                            <button type="button" className="btn btn-secondary" onClick={() => setDescriptionProposal(null)}>
+                                {t('newCampaign_jd_keepMine')}
+                            </button>
+                            <button
+                                type="button"
+                                className="workflow-btn-primary"
+                                onClick={() => {
+                                    setDescriptionUndo(jobDescription);
+                                    setJobDescription(descriptionProposal);
+                                    setDescriptionProposal(null);
+                                }}
+                            >
+                                {t('newCampaign_jd_useThis')}
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
             <div className="ni-job-ad-preview ni-job-description-box">
                 <div className="ni-job-ad-preview__body ni-job-ad-preview__body--edit">
@@ -2533,41 +2569,6 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                     {jobDescription.length} / {JOB_DESCRIPTION_MAX_CHARS}
                 </span>
             </div>
-            {descriptionRewriteError && (
-                <div role="alert" style={{ marginTop: '8px', fontSize: '12.5px', color: '#EF4444' }}>
-                    {descriptionRewriteError}
-                </div>
-            )}
-            {descriptionProposal !== null && (
-                <div className="ni-job-ad-preview ni-job-description-proposal" style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '12.5px', fontWeight: 700, color: NT.title, padding: '10px 14px 0' }}>
-                        {t('newCampaign_jd_proposalTitle')}
-                    </div>
-                    <div
-                        className="ni-job-ad-preview__content"
-                        dir="auto"
-                        style={{ whiteSpace: 'pre-wrap', maxHeight: '260px', overflowY: 'auto' }}
-                    >
-                        {descriptionProposal}
-                    </div>
-                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap', padding: '0 14px 12px' }}>
-                        <button type="button" className="btn btn-secondary" onClick={() => setDescriptionProposal(null)}>
-                            {t('newCampaign_jd_keepMine')}
-                        </button>
-                        <button
-                            type="button"
-                            className="workflow-btn-primary"
-                            onClick={() => {
-                                setDescriptionUndo(jobDescription);
-                                setJobDescription(descriptionProposal);
-                                setDescriptionProposal(null);
-                            }}
-                        >
-                            {t('newCampaign_jd_useThis')}
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 
@@ -5101,6 +5102,12 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                 @keyframes ni-generate-shine {
                     0% { background-position: 200% 0; }
                     100% { background-position: -200% 0; }
+                }
+                @keyframes ni-jd-spin {
+                    to { transform: rotate(360deg); }
+                }
+                .ni-jd-improve-btn--busy svg {
+                    animation: ni-jd-spin 0.9s linear infinite;
                 }
                 .ni-generate-ad-btn:disabled {
                     cursor: progress !important;
