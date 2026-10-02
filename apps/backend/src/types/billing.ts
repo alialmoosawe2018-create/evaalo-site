@@ -130,7 +130,7 @@ export const CREDIT_COST_MICRO: Record<UsageType, number> = {
     CV_ANALYSIS: 2 * MICRO_PER_CREDIT,
     // JOB_AD يُحصَّل في routes/recruitmentCampaigns.ts /generate-ad (1/توليد).
     JOB_AD: 1 * MICRO_PER_CREDIT,
-    // Per available contact piece (phone/email/linkedin) revealed.
+    // Per available contact piece (phone/email) revealed; the LinkedIn link is free.
     CONTACT_REVEAL: 1 * MICRO_PER_CREDIT,
     // Per recipient email of an AI compare report.
     COMPARE_EMAIL: 1 * MICRO_PER_CREDIT,

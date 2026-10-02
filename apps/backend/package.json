@@ -194,7 +194,8 @@
     "test:headhunter-enrich-cap-phase2": "tsx src/scripts/headhunter-enrich-cap-phase2-test.ts",
     "test:headhunter-recorded-successors": "tsx src/scripts/headhunter-recorded-successors-test.ts",
     "test:headhunter-person-search": "tsx src/scripts/headhunter-person-search-test.ts",
-    "test:headhunter-position-titles": "tsx src/scripts/headhunter-position-titles-test.ts"
+    "test:headhunter-position-titles": "tsx src/scripts/headhunter-position-titles-test.ts",
+    "test:headhunter-contact-reveal": "tsx src/scripts/headhunter-contact-reveal-test.ts"
   },
   "keywords": [
     "career",

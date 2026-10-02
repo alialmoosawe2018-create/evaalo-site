@@ -1430,7 +1430,8 @@ router.post(
 /**
  * POST /api/head-hunter/reveal-contact
  * body: { candidateKey?|candidateId?, phone?, email?, linkedin?|linkedin_url? }
- * 1 credit per contact field (phone/email/linkedin), field-level idempotent.
+ * 1 credit per contact field (phone/email), field-level idempotent. The LinkedIn
+ * link only identifies the candidate: it is free and never charged.
  */
 router.post(
     '/reveal-contact',

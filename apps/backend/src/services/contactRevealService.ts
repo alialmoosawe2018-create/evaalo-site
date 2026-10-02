@@ -102,11 +102,19 @@ export function resolveCandidateKey(body: Record<string, unknown>): string {
     return explicit ? `id:${explicit.slice(0, 160)}` : '';
 }
 
+/**
+ * The fields a reveal charges for: phone and email only. The LinkedIn link is free
+ * and always visible - it is where the candidate was found, not contact data - so
+ * a body with nothing but a LinkedIn link is NO_CONTACT_PIECES and costs nothing.
+ * Until 2026-10-02 the link counted as a paid piece, and since no search ever
+ * returns a phone or an email, every card was locked behind a 1-credit charge that
+ * unlocked only the link. 'linkedin' stays in CONTACT_REVEAL_FIELDS so rows revealed
+ * (and paid) before that still read back.
+ */
 export function parseAvailableContactFields(body: Record<string, unknown>): ContactRevealField[] {
     const fields: ContactRevealField[] = [];
     if (normalizeRevealKeyPart(body.phone)) fields.push('phone');
     if (normalizeRevealKeyPart(body.email)) fields.push('email');
-    if (normalizeRevealKeyPart(body.linkedin ?? body.linkedin_url)) fields.push('linkedin');
     return fields;
 }
 
@@ -427,9 +435,32 @@ export async function executeContactReveal(input: {
     }
 
     const availableFields = parseAvailableContactFields(body);
+    const hasLinkedIn = Boolean(normalizeRevealKeyPart(body.linkedin ?? body.linkedin_url));
     if (availableFields.length === 0) {
+        // A LinkedIn link alone is free: answer as already revealed, write nothing,
+        // charge nothing. Current clients never ask (they draw no lock for it); an
+        // older open tab still does, and this unlocks it instead of failing on retry.
+        if (hasLinkedIn) {
+            const balanceMicro = await readBalanceMicro(organizationId);
+            return {
+                ok: true,
+                candidateKey,
+                alreadyRevealed: true,
+                creditsCharged: 0,
+                newlyRevealedFields: [],
+                revealedFields: ['linkedin'],
+                balanceAfterMicro: balanceMicro,
+                creditsRemaining: microToWholeCredits(balanceMicro),
+            };
+        }
         return { ok: false, code: 'NO_CONTACT_PIECES', message: 'no_contact_pieces' };
     }
+    // The link is always visible, so it is part of what the caller may show - an
+    // older tab waits for 'linkedin' in this list before it unlocks the card.
+    const withFreeLinkedIn = (fields: ContactRevealField[]): ContactRevealField[] =>
+        hasLinkedIn && !fields.includes('linkedin') ? [...fields, 'linkedin'] : fields;
+    const shown = (r: ContactRevealResult): ContactRevealResult =>
+        r.ok ? { ...r, revealedFields: withFreeLinkedIn(r.revealedFields) } : r;
 
     const orgState = await OrgPlanState.findOne({ organizationId }).exec();
     if (!orgState) {
@@ -462,7 +493,7 @@ export async function executeContactReveal(input: {
 
     if (fieldsToCharge.length === 0) {
         const balanceMicro = await readBalanceMicro(organizationId);
-        return alreadyRevealedResult(candidateKey, preRead, availableFields, balanceMicro);
+        return shown(alreadyRevealedResult(candidateKey, preRead, availableFields, balanceMicro));
     }
 
     const run = async (session?: ClientSession): Promise<SettleResult> => {
@@ -499,7 +530,7 @@ export async function executeContactReveal(input: {
         if (isDuplicateKeyError(err)) {
             const reread = await HeadHunterContactReveal.findOne({ organizationId, candidateKey }).exec();
             const balanceMicro = await readBalanceMicro(organizationId);
-            return alreadyRevealedResult(candidateKey, reread, availableFields, balanceMicro);
+            return shown(alreadyRevealedResult(candidateKey, reread, availableFields, balanceMicro));
         }
         if (isTransactionUnsupported(err)) {
             try {
@@ -508,7 +539,7 @@ export async function executeContactReveal(input: {
                 if (isDuplicateKeyError(err2)) {
                     const reread = await HeadHunterContactReveal.findOne({ organizationId, candidateKey }).exec();
                     const balanceMicro = await readBalanceMicro(organizationId);
-                    return alreadyRevealedResult(candidateKey, reread, availableFields, balanceMicro);
+                    return shown(alreadyRevealedResult(candidateKey, reread, availableFields, balanceMicro));
                 }
                 throw err2;
             }
@@ -544,7 +575,7 @@ export async function executeContactReveal(input: {
         alreadyRevealed: settled.creditsCharged === 0,
         creditsCharged: settled.creditsCharged,
         newlyRevealedFields: settled.newlyRevealedFields,
-        revealedFields: settled.revealedFields,
+        revealedFields: withFreeLinkedIn(settled.revealedFields),
         balanceAfterMicro: settled.balanceAfterMicro,
         creditsRemaining: microToWholeCredits(settled.balanceAfterMicro),
         auditOutboxId: settled.auditOutboxId || undefined,

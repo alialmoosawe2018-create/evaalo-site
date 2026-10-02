@@ -1,9 +1,11 @@
 /**
  * Persistent record of Head Hunter candidate contact reveals (field-level).
  *
- * Each contact field (phone / email / linkedin) is charged once per
- * (organizationId, candidateKey). Field-level idempotency keys live on ledger rows;
- * this document is the durable reveal state surfaced to the UI.
+ * Each contact field (phone / email) is charged once per (organizationId,
+ * candidateKey). Field-level idempotency keys live on ledger rows; this document is
+ * the durable reveal state surfaced to the UI. 'linkedin' is no longer charged
+ * (2026-10-02, the link is free) but stays a valid field so rows revealed before
+ * that still read back.
  */
 
 import mongoose, { Schema, Document } from 'mongoose';
