@@ -5425,15 +5425,20 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     scrollbar-color: rgba(56, 189, 248, 0.35) rgba(15, 23, 42, 0.5);
 }
 
-/* Job criteria modal — one scroll layer: preview grows inside ni-modal-scroll */
-.new-interview-modal .ni-job-details-shell .ni-job-ad-preview__body {
+/* Job criteria modal — one scroll layer: preview grows inside ni-modal-scroll.
+   خطوة مراجعة «Create Job» (ni-create-job-review) تعرض الإعلان المولَّد في نفس
+   البطاقة لكنها تعيش تحت ni-campaign-ready-view لا تحت ni-job-details-shell،
+   فكان هذا الإصلاح لا يراها: شريط للإعلان (max-height 52vh) وآخر للصفحة، ومع
+   overscroll-behavior:none على شريط المودال لا يتسلسل التمرير بينهما. */
+.new-interview-modal .ni-job-details-shell .ni-job-ad-preview__body,
+.new-interview-modal .ni-create-job-review .ni-job-ad-preview__body {
     max-height: none;
     overflow: visible;
 }
 
 .new-interview-modal .ni-job-details-shell .ni-job-ad-preview__textarea {
-    resize: vertical;
-    min-height: 220px;
+    resize: none;
+    min-height: 260px;
     max-height: none;
     overflow: hidden;
 }
@@ -5565,9 +5570,18 @@ body.rtl-text .new-interview-modal .ni-campaign-option-row:focus-visible .ni-cam
     background: rgba(15, 23, 42, 0.38);
     border: none;
     color: #e2e8f0;
-    resize: vertical;
+    /* الارتفاع يُدار من useAutoGrowTextarea: يتبع النص فيبقى شريط تمرير واحد هو
+       شريط المودال. لذلك لا overflow: auto هنا (يعيد الشريط الداخلي) ولا
+       resize: vertical (أي سحب يدوي يُلغى عند أول حرف يُكتب بعده). */
+    resize: none;
+    overflow-y: hidden;
     outline: none;
     box-sizing: border-box;
+    /* بلا هذين السطرين يفرض المتصفّح افتراضه على <textarea>: monospace/13.33px —
+       نصّ أصغر من المعاينة، والعربية تسقط على وجه احتياطي لأن monospace بلا وجه
+       عربي. 14px يطابق .ni-job-ad-preview__content الذي يعرض النص نفسه. */
+    font-family: inherit;
+    font-size: 14px;
     line-height: 1.75;
 }
 
@@ -25406,4 +25420,29 @@ html[data-app-theme='light'] .new-interview-modal .ni-proposal-btn--ghost:hover 
 /* الهالة الخارجية ::after تتسرّب فوق نصّ الشريط الضيّق */
 .deferred-banner__cta.workflow-btn-primary::after {
     display: none !important;
+}
+
+/* ============================================================
+   «Job criteria» — سطح واحد بدل ثلاثة
+   كانت الخطوة تُظهر ثلاثة أسطح متداخلة لكلٍّ إطاره وخلفيته وظلّه:
+   ni-job-ad-section ثم ni-job-ad-preview ثم الـ textarea — «مربع داخل
+   مربع»، ويزداد وضوحاً في اللايت مود لأنها ثلاث درجات بيضاء مختلفة.
+   نُسقِط سطح الطبقة الخارجية هنا فقط فيبقى صندوق الكتابة هو البطاقة
+   الوحيدة. مقيَّدة بـ .ni-job-description-section حتى لا يتغيّر مولّد
+   إعلان الوظيفة الذي يتقاسم .ni-job-ad-section.
+   الحشو الأفقي 10px يُبقي هالة hover في .ni-job-ad-block (ذات الهامش
+   السالب -10px) ممتدّة، ويُحاذي نصّ العنوان مع حافة بطاقة الكتابة.
+   ============================================================ */
+
+.new-interview-modal .ni-job-ad-section.ni-job-description-section {
+    padding: 0 10px;
+    background: none;
+    border: none;
+    box-shadow: none;
+}
+
+html[data-app-theme='light'] .new-interview-modal .ni-job-ad-section.ni-job-description-section {
+    background: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }

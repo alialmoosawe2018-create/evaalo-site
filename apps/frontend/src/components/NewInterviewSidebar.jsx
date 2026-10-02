@@ -46,6 +46,7 @@ import { absoluteAppUrl } from '../config/apiBase.js';
 import { buildCandidateInterviewQuery } from '../utils/interviewShareLink.js';
 import apiClient, { ApiError } from '../services/apiClient';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
+import { useAutoGrowTextarea } from '../hooks/useAutoGrowTextarea.js';
 import '../design-styles.css';
 
 /**
@@ -681,10 +682,19 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     const [adCurrentLanguage, setAdCurrentLanguage] = useState('English');
     const [showAdLangMenu, setShowAdLangMenu] = useState(false);
     const jobAdTextareaRef = useRef(null);
+    // Auto-grown boxes get their own refs: jobAdTextareaRef is also on the
+    // campaign-ready editor, which keeps its fixed height and manual resize.
+    const jobDescriptionRef = useRef(null);
+    const jobAdEditorRef = useRef(null);
     const adLangPickerRef = useRef(null);
     const modalScrollRef = useRef(null);
     const jobAdPreviewRef = useRef(null);
     const jobAdHadContentRef = useRef(false);
+
+    // The modal scrolls as one layer; these two boxes follow their text so they
+    // never open a second scrollbar inside it.
+    useAutoGrowTextarea(jobDescriptionRef, jobDescription);
+    useAutoGrowTextarea(jobAdEditorRef, jobAdvertisement, isEditingJobAd);
     /** What to include when sharing or copying (at least one must stay on when both exist). */
     const [includeAdWhenSharing, setIncludeAdWhenSharing] = useState(true);
     const [includeLinkWhenSharing, setIncludeLinkWhenSharing] = useState(true);
@@ -2516,6 +2526,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             <div className="ni-job-ad-preview ni-job-description-box">
                 <div className="ni-job-ad-preview__body ni-job-ad-preview__body--edit">
                     <textarea
+                        ref={jobDescriptionRef}
                         className="ni-job-ad-preview__textarea"
                         value={jobDescription}
                         onChange={(e) => {
@@ -2530,9 +2541,6 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                         rows={12}
                         dir="auto"
                         aria-label={t('newCampaign_jd_title')}
-                        // The criteria step's textarea rule (.ni-job-details-shell) hides overflow — a pasted
-                        // description longer than the box must still scroll.
-                        style={{ overflowY: 'auto', minHeight: '260px' }}
                     />
                 </div>
             </div>
@@ -2728,7 +2736,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                     <div className={`ni-job-ad-preview__body${isEditingJobAd ? ' ni-job-ad-preview__body--edit' : ''}`}>
                                     {isEditingJobAd ? (
                                 <textarea
-                                    ref={jobAdTextareaRef}
+                                    ref={jobAdEditorRef}
                                     className="ni-job-ad-preview__textarea"
                                     value={jobAdvertisement ?? ''}
                                     onChange={(e) => setJobAdvertisement(e.target.value)}
