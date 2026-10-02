@@ -1,0 +1,33 @@
+{
+  "_warning": "PUBLISHED 2026-10-02 22:55 UTC as n8n version 9c18a01c (rollback: publish 72f27440, the completion hardening). A patch record against 72f27440 (51 nodes) - not an importable workflow, never import this file. Verified by `npm run test:headhunter-serp-health`.",
+  "_publishNotes": "Owner approval 2026-10-03, in the owner's own words, answering \"adopt the zero-case recommendation, then the commits and the n8n publish?\": \"نعم ابدا الكومنت ونسق الامر مع ستيج 1\". Published alone, after the backend (accb5b3) and frontend (4c14cd0) parts were committed locally (neither deployed: until the backend deploys, the live backend drops the numbers-only serpHealth key without billing it). Pre-publish, checked twice (the second immediately before publishing): 0 live interviews, 0 running/waiting executions, production draft and active = live/ 72f27440; base archived byte for byte. One atomic update_workflow batch (setNodeParameter /jsCode on Merge Serp Results and Prepare Complete Search) gave draft 9c18a01c, which matched the tested rebuild on all 51 nodes, every connection and the settings, with both jsCode sha256 = the replacement files. Free pinned smoke tests on the draft: exec 2063 (phase 1 + phase 2, one answer with profiles and one with job boards only per phase: one completion \"sent 3 ... target was 20\" carrying serpHealth {calls:4, failed:0, ignoredFilter:2}, 3 sends) and exec 2064 (every SerpAPI call failed: the early close \"Search engine unavailable: all 2 page request(s) to SerpAPI failed.\" with serpHealth {calls:2, failed:2, ignoredFilter:0}, no enrichment, no send). The active version 9c18a01c was then verified byte-identical to the tested rebuild and live/ refreshed from it.",
+  "_scope": "Merge Serp Results (records each SerpAPI call's final state per search in sd.hhSerpHealth) and Prepare Complete Search (turns it into counts, adds serpHealth to the completion body, deletes it). No node added or removed, no connection changed.",
+  "_why": "A search can fall short because the search engine failed (SerpAPI 503: 3 of 11 saved real searches) or because Google ignored site:linkedin.com/in/ (5 of 43 page-1 calls with results came back without a single LinkedIn profile), and the recruiter is told neither. The workflow does not know the recruiter's language, so it sends counts only; the page words them (owner decisions 2026-10-02: only when the search fell short, never suggest searching again).",
+  "_expectedEffect": "The completion body gains serpHealth {calls, failed, ignoredFilter} whenever at least one SerpAPI call was made; every other field, every send, every paid call and every routing decision is unchanged. Counts are per distinct (query, page) in its final state, so a phase-1 503 that phase 2 retried with an answer is not counted as failed. No query text leaves n8n.",
+  "_knownLimits": "Nothing shows the counts until the backend stores serpHealth and the page displays it (separate, same delivery). Partial pages (some LinkedIn profiles among other results) count as answered, not as ignored. A Google 'no results' answer counts as answered (empty), not failed. sd.hhSerpHealth is pruned after 24 hours and deleted by the completion; a search that never completes leaves its entry until the prune.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "72f27440-b4bd-458f-9090-5a2f411f198f",
+  "baseNodeCount": 51,
+  "baseFile": "archive/headhunter--AI_Head_hunter--72f27440-before-serp-health.json",
+  "parameterEdits": [
+    {
+      "node": "Merge Serp Results",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-serp-health.merge-serp.node.js",
+      "expectBeforeContains": "const isPhase2 = Boolean(sd.hhPhase2 && sd.hhPhase2[searchId]);\n\n// EVERY page of PHASE 1 failed",
+      "expectAfterContains": "const health = sd.hhSerpHealth[searchId] || (sd.hhSerpHealth[searchId] = { at, calls: {} });",
+      "publishedSha256": "ae5c2bef7e0b87ab17f077e510e41e559c996a35d39a1e59977988dd93f64a0c"
+    },
+    {
+      "node": "Prepare Complete Search",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-serp-health.prepare-complete.node.js",
+      "expectBeforeContains": "return [{ json: { searchId, searchComplete: true } }];",
+      "expectAfterContains": "if (serpHealth) body.serpHealth = serpHealth;",
+      "publishedSha256": "d7d4c3d78d2962d25e95490eef9a5ecc2d31799b6c7758fb448d1e862749fcb7"
+    }
+  ],
+  "_rollback": "publish_workflow versionId 72f27440-b4bd-458f-9090-5a2f411f198f (the completion hardening, this record's base).",
+  "publishedVersionId": "9c18a01c-2298-4ee8-8ca9-a3219bd19813",
+  "publishedStructureSha256": "532dd08903bb2dc6c77c49d38d79610e30fd8c91af7bb762adc3411051e278d5"
+}
