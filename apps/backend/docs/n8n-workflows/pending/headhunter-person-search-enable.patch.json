@@ -1,0 +1,24 @@
+{
+  "_warning": "PUBLISHED 2026-10-03 as n8n version 899466d2 (rollback: publish 1f83d9b2, Person Search dark). A patch record against 1f83d9b2 (51 nodes) - not an importable workflow, never import this file. Verified by `npm run test:headhunter-person-search-enable`.",
+  "_publishNotes": "Owner, in the owner's own words: \"ليس لدينا مشتركين كثر عادي فعله بشكل عام حتى اجربه\". Pre-publish, checked twice: 0 live interviews, 0 running/waiting executions, production draft and active = live/ 1f83d9b2; base archived. One update_workflow (setNodeParameter /jsCode on Person Search Plan) gave draft 899466d2 = the tested rebuild on all 51 nodes, every connection and the settings. Free pinned smoke tests on the draft: exec 2067 (Person Search 20 links, one on iq., rewritten to www: route ps, 60 credits booked, Google phase 1 skipped, phase 1 fetched the 20 links marked __ps, phase 2 sent 3 Google queries and skipped the person Person Search had already fetched, one completion) and exec 2068 (Person Search answered 403: route google, 0 booked, Google phase 1 and 2 as before, one completion). Active 899466d2 verified equal to the tested rebuild; live/ refreshed from it.",
+  "_scope": "Person Search Plan only: CONFIG.enabled false -> true, orgAllowlist stays empty (every organisation), plus the matching header comment. No node added or removed, no connection or setting changed.",
+  "_why": "Owner decision 2026-10-03: \"ليس لدينا مشتركين كثر عادي فعله بشكل عام حتى اجربه\" - few subscribers yet, so switch it on for everyone and try it. The design, its measurement (2026-10-01) and its dark publish (a2b5cbec) are in headhunter-person-search.patch.json; the credential was attached in 1f83d9b2.",
+  "_expectedEffect": "Iraq searches with a plain-English title ask EnrichLayer Person Search (country=IQ, current role title, links only) first. When its links fill the target (20/40), Google phase 1 is skipped and Google stays the phase-2 backup; otherwise both run, Person Search links first. The whole search may use at most 120 (Tier 20) / 240 (Tier 40) EnrichLayer credits. Other searches run exactly as before.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "1f83d9b2-26f7-42fe-89b9-0fe611c5e662",
+  "baseNodeCount": 51,
+  "baseFile": "archive/headhunter--AI_Head_hunter--1f83d9b2-before-person-search-enable.json",
+  "parameterEdits": [
+    {
+      "node": "Person Search Plan",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-person-search-enable.plan.node.js",
+      "expectBeforeContains": "enabled: false, // dark launch",
+      "expectAfterContains": "enabled: true, // on for every organisation",
+      "publishedSha256": "45f30f5714b2b727d988956c90e93618e0f1cd5d182511404f67b37299f6b91d"
+    }
+  ],
+  "_rollback": "publish_workflow versionId 1f83d9b2-26f7-42fe-89b9-0fe611c5e662 (Person Search dark, credential attached).",
+  "publishedVersionId": "899466d2-1b84-4aa4-a7a0-34f8fd21a6a4",
+  "publishedStructureSha256": "532dd08903bb2dc6c77c49d38d79610e30fd8c91af7bb762adc3411051e278d5"
+}
