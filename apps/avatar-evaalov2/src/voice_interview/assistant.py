@@ -121,9 +121,11 @@ from voice_interview.jd_part_one import (
     JD_FOLLOWUP_SOURCES,
     JdQuestion,
     jd_clarification,
+    jd_followup_line,
     jd_max_followups,
     jd_part_one_max_turns,
     jd_transition_line,
+    without_transition_echo,
 )
 
 logger = logging.getLogger("agent")
@@ -1523,6 +1525,15 @@ class InterviewAssistant(Agent):
         advance_path_on_send: bool | None = None,
     ) -> str | None:
         mem = self._memory
+        if source in JD_FOLLOWUP_SOURCES and self._jd_active(mem) is not None:
+            # A description question's one follow-up is the owner's fixed line: it
+            # stays inside the situation the question described, where the generic
+            # probes («شنو أصعب جزء واجهته…», a tool the candidate named) ask about
+            # the past. Said as a follow-up, so it stays tied to that question.
+            question = jd_followup_line(self._locked_lang or self._jd_language)
+            response_mode = MODE_FOLLOW_UP
+            parent_question_id = parent_question_id or mem.sent_question_id or None
+            followup_type = followup_type or "jd_situation"
         mode = response_mode
         if mode is None:
             if source == "wait_for_completion":
@@ -3643,7 +3654,7 @@ class InterviewAssistant(Agent):
         if text.startswith(line):
             return text
         if self._jd_transition_turn == turn:
-            return f"{line} {text}"
+            return f"{line} {without_transition_echo(text)}"
         if mem.jd_transition_sent:
             return text
         if self._is_verbatim(text):
@@ -3665,7 +3676,7 @@ class InterviewAssistant(Agent):
         mem.jd_transition_sent = True
         mem.jd_part_closed = True
         logger.info("[jd-part-one] part one done — transition sentence on turn %d", turn)
-        return f"{line} {text}"
+        return f"{line} {without_transition_echo(text)}"
 
     def record_agent_reply(self, text: str) -> None:
         """Record assistant turn for loop prevention (called after TTS text is finalized)."""

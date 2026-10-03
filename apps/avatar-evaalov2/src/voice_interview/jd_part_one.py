@@ -148,16 +148,47 @@ def jd_clarification(q: JdQuestion, language: str) -> str:
     return f"{lead}، {ask}"
 
 
-# Spoken once, before the first question after part one. A statement (no «؟»), and
-# deliberately not one of the rotated framing openers, so no guard rewrites it.
-_TRANSITION = {
-    "ar": "هسه ننتقل لأسئلة عن خبرتك وشغلك بشكل عام.",
-    "en": "Now let's move on to some questions about your experience in general.",
+# The owner's wording (2026-10-04) for the three fixed lines of part one.
+#
+# Greeting lead: after «حياك الله <name>،», before question 1 (replaces «نبدأ من
+# خبرتك العملية», which promised a question about the past).
+_GREETING_LEAD = {
+    "ar": "خلّينا نبدأ بموقف بسيط من الشغل.",
+    "en": "Let's start with a simple situation from work.",
 }
+# Transition: spoken once, before the first question after part one. A statement
+# (no «؟»), added after the opener guard has run, so nothing rewrites it.
+_TRANSITION = {
+    "ar": "هسه خلّينا نحچي عن خبرتك وطريقة شغلك بشكل عام.",
+    "en": "Now let's talk about your experience and the way you work in general.",
+}
+# The one follow-up a description question gets: it stays in the situation the
+# question described («تتوقع»), where the generic probes asked about the past.
+_FOLLOWUP = {
+    "ar": "شنو تتوقع يكون أصعب جزء بهالموقف؟",
+    "en": "What do you expect would be the hardest part of that situation?",
+}
+
+
+def jd_greeting_lead(language: str) -> str:
+    return _GREETING_LEAD["en" if language == "en" else "ar"]
 
 
 def jd_transition_line(language: str) -> str:
     return _TRANSITION["en" if language == "en" else "ar"]
+
+
+def jd_followup_line(language: str) -> str:
+    return _FOLLOWUP["en" if language == "en" else "ar"]
+
+
+# The transition already says «خلّينا نحچي عن»; a question opening with the same
+# words right after it would repeat them. «حچيلي عن» takes the same noun.
+_SAME_OPENER = re.compile(r"^\s*خل[ّ]?ينا\s+نحچي\s+عن\s+")
+
+
+def without_transition_echo(question: str) -> str:
+    return _SAME_OPENER.sub("حچيلي عن ", question or "", count=1)
 
 
 # Plan sources that are a follow-up to the question on the table, not a new subject.

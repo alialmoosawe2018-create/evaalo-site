@@ -37,6 +37,8 @@ from voice_interview.heuristics import normalize_text
 from voice_interview.jd_part_one import (
     JdQuestion,
     jd_clarification,
+    jd_followup_line,
+    jd_greeting_lead,
     jd_transition_line,
     parse_jd_questions,
 )
@@ -238,8 +240,13 @@ def test_prompt_lists_no_anchors_and_no_three_plus_two_in_part_one_mode() -> Non
 
 def test_greeting_carries_question_one_and_the_bank_greeting_is_unchanged() -> None:
     meta = {"candidate_name": "Test", "language": "ar"}
-    assert worker._canned_initial_greeting(meta, first_question=JD[0].question).endswith(JD[0].question)
-    assert worker._canned_initial_greeting(meta) == worker._canned_initial_greeting(meta, first_question=None)
+    jd_greeting = worker._canned_initial_greeting(meta, first_question=JD[0].question)
+    # The owner's wording (2026-10-04), then the question as the recruiter approved it.
+    assert jd_greeting == f"حياك الله Test، {jd_greeting_lead('ar')} {JD[0].question}"
+    assert jd_greeting_lead("ar") == "خلّينا نبدأ بموقف بسيط من الشغل."
+    bank_greeting = worker._canned_initial_greeting(meta)
+    assert bank_greeting == worker._canned_initial_greeting(meta, first_question=None)
+    assert jd_greeting_lead("ar") not in bank_greeting and "نبدأ من خبرتك العملية" in bank_greeting
 
 
 # ── the opening part ─────────────────────────────────────────────────────────
@@ -292,6 +299,37 @@ def test_at_most_one_follow_up_per_question() -> None:
         assert run <= 1, sources
     assert [s for s in sources if s in ("q2", "q3")] == ["q2", "q3"], sources
     assert any(s not in ("q2", "q3", "competency_engine") for s in sources), "a follow-up must have fired"
+
+
+@pytest.mark.parametrize("answer", [STORY, RICH_WITH_HOOK])
+def test_the_one_follow_up_is_the_owner_s_line(answer) -> None:
+    """Whatever kind of follow-up the picker chose — the difficulty probe or one on a
+    tool the candidate named — a description question gets the fixed line."""
+    agent = _agent()
+    _greet(agent)
+    row = _turn(agent, answer)
+    assert row["plan"].response_mode == MODE_FOLLOW_UP
+    assert row["plan"].question == jd_followup_line("ar") == "شنو تتوقع يكون أصعب جزء بهالموقف؟"
+    assert row["spoken"] == jd_followup_line("ar")
+    assert not row["plan"].competency_key
+
+
+def test_after_part_one_follow_ups_are_the_usual_ones() -> None:
+    agent = _agent()
+    _greet(agent)
+    _run_until_competency(agent, [RICH])
+    later = [_turn(agent, STORY)["plan"] for _ in range(3)]
+    assert all(p is None or p.question != jd_followup_line("ar") for p in later)
+
+
+def test_the_transition_wording_and_no_echo_of_its_own_opener() -> None:
+    assert TRANSITION == "هسه خلّينا نحچي عن خبرتك وطريقة شغلك بشكل عام."
+    agent = _agent()
+    mem = agent._memory
+    mem.jd_asked_ids.update({"q1", "q2", "q3"})
+    out = agent._apply_jd_transition("خلّينا نحچي عن دقة الرواتب، شلون تتأكد من الأرقام؟")
+    assert out == f"{TRANSITION} حچيلي عن دقة الرواتب، شلون تتأكد من الأرقام؟"
+    assert out.count("نحچي عن") == 1
 
 
 def test_a_follow_up_turn_does_not_advertise_the_next_question() -> None:

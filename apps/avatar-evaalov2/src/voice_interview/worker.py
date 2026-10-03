@@ -63,7 +63,13 @@ from voice_interview.job_questions import (
 from voice_interview.entity_policy import build_role_glossary
 from voice_interview.experience_tracks import parse_experience_tracks, parse_interview_paths
 from voice_interview.keep_warm import is_keep_warm_job
-from voice_interview.jd_part_one import JdQuestion, jd_language, jd_part_one_enabled, parse_jd_questions
+from voice_interview.jd_part_one import (
+    JdQuestion,
+    jd_greeting_lead,
+    jd_language,
+    jd_part_one_enabled,
+    parse_jd_questions,
+)
 from voice_interview.lang import detect_lang_from_text
 from voice_interview.netutil import is_websocket_closing_error
 from voice_interview.transcript_hooks import attach_user_transcript_routing
@@ -667,7 +673,9 @@ def _canned_initial_greeting(meta: dict[str, Any], first_question: str | None = 
     """Short welcome + first bank question (or generic opener) — TTS only, no LLM round-trip.
 
     ``first_question`` replaces the bank's: the first description question when the
-    interview opens with them (part one), spoken as the recruiter approved it.
+    interview opens with them (part one), spoken as the recruiter approved it, after
+    the owner's lead «خلّينا نبدأ بموقف بسيط من الشغل.» in place of «نبدأ من خبرتك
+    العملية» — the question describes a situation, not the candidate's past.
     """
     name = str(meta.get("candidate_name") or "").strip()
     pos = str(meta.get("position") or "").strip()
@@ -688,9 +696,17 @@ def _canned_initial_greeting(meta: dict[str, Any], first_question: str | None = 
             mode,
         )
         first_q = None
+    # Part one: only when the greeting really carries the description question.
+    jd_lead = (
+        jd_greeting_lead("en" if mode in ("en", "english") else "ar")
+        if first_question and include_first_q and first_q
+        else ""
+    )
 
     if short_mode:
         if mode in ("en", "english"):
+            if jd_lead:
+                return f"Hello {name},".strip(", ") + f" {jd_lead} {first_q}"
             if include_first_q and first_q:
                 return f"Hello {name},".strip(", ") + f" let's begin. {first_q}"
             return f"Hello {name},".strip(", ") + " let's begin the interview."
@@ -707,10 +723,14 @@ def _canned_initial_greeting(meta: dict[str, Any], first_question: str | None = 
                 if name
                 else "حياك الله، نبدأ من خبرتك العملية."
             )
+            if jd_lead:
+                head_ar_short = f"حياك الله {name}، {jd_lead}" if name else f"حياك الله، {jd_lead}"
         else:
             head_ar_short = (
                 f"مرحباً {name}، لنبدأ المقابلة." if name else "مرحباً، لنبدأ المقابلة."
             )
+            if jd_lead:
+                head_ar_short = f"مرحباً {name}، {jd_lead}" if name else f"مرحباً، {jd_lead}"
         if include_first_q and first_q:
             return f"{head_ar_short} {first_q}"
         return head_ar_short
@@ -744,7 +764,7 @@ def _canned_initial_greeting(meta: dict[str, Any], first_question: str | None = 
     head_ar.append("معك المُقابِل اليوم.")
     if pos:
         head_ar.append(f"نناقش منصب {pos}.")
-    tail_ar = first_q if first_q else "لنبدأ المقابلة."
+    tail_ar = (f"{jd_lead} {first_q}" if jd_lead else first_q) if first_q else "لنبدأ المقابلة."
     return " ".join([*head_ar, tail_ar])
 
 
