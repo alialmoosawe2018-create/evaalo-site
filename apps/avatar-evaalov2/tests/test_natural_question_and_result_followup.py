@@ -162,6 +162,13 @@ def test_a_topic_never_goes_under_a_clause_opener():
         assert heads == {"خلّينا", "حچيلي"}, heads  # variety kept among the openers that fit
 
 
+def test_topic_openers_alternate_rather_than_pile_on_one():
+    """Jumping to "the next opener that fits" put «حچيلي عن» on 3 of every 4 turns."""
+    heads = [rotate_framing_opener("خلّينا نحچي عن قضايا الموظفين." + BODY, t).split(" ")[0] for t in range(8)]
+    assert heads.count("حچيلي") == 4 and heads.count("خلّينا") == 4, heads
+    assert all(a != b for a, b in zip(heads, heads[1:])), heads  # never the same twice in a row
+
+
 def test_a_broken_clause_opener_from_the_model_is_repaired():
     """The model sometimes writes the broken form itself; every turn repairs it."""
     for turn in range(4):

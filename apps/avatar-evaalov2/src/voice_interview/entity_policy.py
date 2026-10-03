@@ -348,17 +348,17 @@ def rotate_framing_opener(text: str, turn_index: int) -> str:
     if not matched:
         return text
     rest = raw[len(matched) :]
-    takes_clause = bool(_CLAUSE_OBJECT_RE.match(rest))
-    start = max(0, int(turn_index or 0))
-    # The assigned opener, or the next one in the cycle that fits what follows: a
-    # topic never goes under «أريد أفهم» / «يهمّني أعرف». A reply the model itself
-    # opened that way («يهمّني أعرف قضايا…») is repaired the same way.
-    target = next(
-        o
-        for k in range(len(_FRAMING_OPENERS))
-        for o in (_FRAMING_OPENERS[(start + k) % len(_FRAMING_OPENERS)],)
-        if takes_clause or o not in _CLAUSE_OPENERS
+    # A topic never goes under «أريد أفهم» / «يهمّني أعرف», so it rotates through
+    # the openers that take one; a clause rotates through all four. A reply the
+    # model itself opened the broken way («يهمّني أعرف قضايا…») is repaired too.
+    # (Skipping to the next opener that fits instead put «حچيلي عن» on 24 of 36
+    # turns in the voicing test: three of four turn slots landed on it.)
+    fitting = (
+        _FRAMING_OPENERS
+        if _CLAUSE_OBJECT_RE.match(rest)
+        else tuple(o for o in _FRAMING_OPENERS if o not in _CLAUSE_OPENERS)
     )
+    target = fitting[max(0, int(turn_index or 0)) % len(fitting)]
     if target == matched:
         return text
     # The swap can stutter when both phrases carry «عن»: «أريد أعرف عن خبرتك»
