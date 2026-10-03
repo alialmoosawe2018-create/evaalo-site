@@ -292,15 +292,22 @@ _STACKED_ASK_RE = re.compile(r"[،,]\s*(?:شنو|شلون|كيف|وين|متى|�
 _DOUBLED_WORD_RE = re.compile(r"(?<!\S)(\S+)\s+\1(?!\S)")
 
 
-# Interchangeable framing openers: each takes a bare noun phrase, so one can be
-# swapped for another without touching the grammar after it («خلّينا نحچي عن
-# التوافق مع قانون العمل» → «يهمّني أعرف التوافق مع قانون العمل»). Openers that
-# need a merged preposition («نجي لـ») are deliberately NOT here.
+# Framing openers the guard may swap for one another. Openers that need a merged
+# preposition («نجي لـ») are deliberately NOT here.
 _FRAMING_OPENERS: tuple[str, ...] = (
     "خلّينا نحچي عن",
     "أريد أفهم",
     "يهمّني أعرف",
     "حچيلي عن",
+)
+# They are NOT all interchangeable. «… عن» takes a topic («خلّينا نحچي عن قضايا
+# الموظفين»); «أريد أفهم» / «يهمّني أعرف» take a clause («شلون…») or the
+# candidate's own experience («خبرتك…»). Swapping a topic under them broke the
+# sentence: «يهمّني أعرف قضايا الموظفين» — 12 of 12 second questions in the
+# 2026-10-03 voicing test, and 7 of 183 agent lines in production since 09-18.
+_CLAUSE_OPENERS = frozenset({"أريد أفهم", "يهمّني أعرف"})
+_CLAUSE_OBJECT_RE = re.compile(
+    r"^\s*(?:عن\s+)?(?:شلون|اشلون|شنو|ليش|وين|منو|شكد|إذا|اذا|لو|خبرتك|تجربتك|رأيك|رايك)(?:\s|$|[،,.])"
 )
 # Spelling variants the model actually produces, mapped onto the canonical form.
 _FRAMING_ALIASES: tuple[str, ...] = (
@@ -340,7 +347,18 @@ def rotate_framing_opener(text: str, turn_index: int) -> str:
     )
     if not matched:
         return text
-    target = _FRAMING_OPENERS[max(0, int(turn_index or 0)) % len(_FRAMING_OPENERS)]
+    rest = raw[len(matched) :]
+    takes_clause = bool(_CLAUSE_OBJECT_RE.match(rest))
+    start = max(0, int(turn_index or 0))
+    # The assigned opener, or the next one in the cycle that fits what follows: a
+    # topic never goes under «أريد أفهم» / «يهمّني أعرف». A reply the model itself
+    # opened that way («يهمّني أعرف قضايا…») is repaired the same way.
+    target = next(
+        o
+        for k in range(len(_FRAMING_OPENERS))
+        for o in (_FRAMING_OPENERS[(start + k) % len(_FRAMING_OPENERS)],)
+        if takes_clause or o not in _CLAUSE_OPENERS
+    )
     if target == matched:
         return text
     # The swap can stutter when both phrases carry «عن»: «أريد أعرف عن خبرتك»

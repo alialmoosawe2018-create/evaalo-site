@@ -134,14 +134,45 @@ BODY = " أقصد مثلاً حالة غياب طويل. شنو صار وياك 
 def test_framing_opener_rotates_across_turns():
     """Prompt-level variety failed three times (told to vary, rotated examples,
     assigned opener) — the model opened 9-10 of 10 questions identically each
-    time. The swap is therefore mechanical."""
+    time. The swap is therefore mechanical. With a clause after the opener, all
+    four openers fit and all four rotate."""
     heads = []
     for turn in range(8):
-        out = rotate_framing_opener("خلّينا نحچي عن السياسات المكتوبة." + BODY, turn)
+        out = rotate_framing_opener("أريد أفهم شلون تتعامل ويا السياسات المكتوبة." + BODY, turn)
         heads.append(out.split(" ")[0])
-        assert "السياسات المكتوبة." + BODY in out  # nothing after the opener moved
+        assert "شلون تتعامل ويا السياسات المكتوبة." + BODY in out  # nothing after the opener moved
     assert len(set(heads)) == 4, heads
     assert heads[:4] == heads[4:]  # a stable cycle, not randomness
+
+
+# 2026-10-03: «خلّينا نحچي عن تنسيق عمليات HR…» was swapped to «يهمّني أعرف تنسيق
+# عمليات HR…» — broken Arabic — on 12 of 12 second questions in the voicing test,
+# and 7 of 183 agent lines in production read «يهمّني أعرف <topic>».
+TOPICS = ("السياسات المكتوبة.", "تنسيق عمليات HR بين الفروع.", "قضايا الموظفين.", "المصالحة البنكية.")
+
+
+def test_a_topic_never_goes_under_a_clause_opener():
+    for topic in TOPICS:
+        heads = set()
+        for turn in range(8):
+            out = rotate_framing_opener("خلّينا نحچي عن " + topic + BODY, turn)
+            assert not out.startswith(("يهمّني أعرف", "أريد أفهم")), (turn, out)
+            assert (topic + BODY) in out  # nothing after the opener moved
+            heads.add(out.split(" ")[0])
+        assert heads == {"خلّينا", "حچيلي"}, heads  # variety kept among the openers that fit
+
+
+def test_a_broken_clause_opener_from_the_model_is_repaired():
+    """The model sometimes writes the broken form itself; every turn repairs it."""
+    for turn in range(4):
+        out = rotate_framing_opener("يهمّني أعرف قضايا الموظفين." + BODY, turn)
+        assert out.startswith(("خلّينا نحچي عن قضايا الموظفين.", "حچيلي عن قضايا الموظفين.")), (turn, out)
+
+
+def test_a_clause_or_own_experience_still_takes_every_opener():
+    for rest in ("شلون رتّبت الجدول.", "خبرتك بالتقارير.", "إذا صار خلاف بين موظفين، شلون راح تتعامل؟"):
+        out = rotate_framing_opener("خلّينا نحچي عن " + rest, 2)
+        assert out.startswith("يهمّني أعرف " + rest), out
 
 
 def test_spelling_variants_are_recognised():
@@ -166,9 +197,12 @@ def test_an_unrecognised_opening_is_left_alone():
 def test_rotation_runs_on_the_production_guard_path():
     agent = _agent()
     agent._pick_next_competency_question(agent._memory)  # sets an ASK turn plan
-    agent._memory.turn_index = 1  # → «أريد أفهم»
+    agent._memory.turn_index = 1  # assigned «أريد أفهم», which cannot take a topic
     out = agent._apply_guard_to_agent_text("خلّينا نحچي عن قضايا الموظفين." + BODY)
-    assert out.startswith("أريد أفهم قضايا الموظفين.")
+    assert out.startswith("حچيلي عن قضايا الموظفين.")  # the next opener that fits
+    agent._memory.turn_index = 1
+    out = agent._apply_guard_to_agent_text("خلّينا نحچي عن شلون تتعامل ويا قضايا الموظفين." + BODY)
+    assert out.startswith("أريد أفهم شلون تتعامل ويا قضايا الموظفين.")
 
 
 # ── 1c. a question always carries a question mark ────────────────────────────
