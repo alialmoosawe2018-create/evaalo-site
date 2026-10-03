@@ -73,6 +73,7 @@
     "test:campaign-ad-context": "tsx src/scripts/campaign-ad-context-test.ts",
     "test:job-description-guard": "tsx src/scripts/job-description-guard-test.ts",
     "test:campaign-job-description": "tsx src/scripts/campaign-job-description-route-test.ts",
+    "test:jd-interview-questions": "tsx src/scripts/jd-interview-questions-test.ts",
     "test:stage1-structured-payload": "tsx src/scripts/stage1-structured-payload-test.ts",
     "test:application-submit-validation": "tsx src/scripts/application-submit-validation-test.ts",
     "test:form-template-immutability": "tsx src/scripts/form-template-immutability-test.ts",

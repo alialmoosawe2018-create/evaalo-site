@@ -92,6 +92,24 @@ export interface IRecruitmentCampaign extends Document {
     jobAdvertisement?: string; // إعلان الوظيفة المُولَّد تلقائياً
     /** «Job description & requirements» as the recruiter wrote it (≤ 5000). Context, never a criterion. */
     jobDescription?: string;
+    /**
+     * Part one of the video interview: three situational questions generated from
+     * `jobDescription` (services/jdInterviewQuestions.ts). Three or none — `ready`
+     * always holds exactly three. `frozenAt` is set when the first interview starts.
+     */
+    jdInterviewQuestions?: {
+        status: 'pending' | 'ready' | 'failed';
+        questions?: Array<{ id: string; question: string; clarifyHint: string; duty?: string }>;
+        source?: 'preview' | 'edited' | 'background';
+        language?: 'ar' | 'en';
+        jdHash?: string;
+        promptVersion?: string;
+        model?: string;
+        error?: string;
+        startedAt?: Date;
+        generatedAt?: Date;
+        frozenAt?: Date;
+    } | null;
     interviewType?: string; // process, video, audio
     /**
      * لغة المقابلة (الصوت والفيديو) — تُحدَّد عند إنشاء الوظيفة، ومرجعٌ وحيد.
@@ -240,6 +258,39 @@ const RecruitmentCampaignSchema = new Schema<IRecruitmentCampaign>({
         required: false,
         trim: true,
         maxlength: 5000,
+    },
+    jdInterviewQuestions: {
+        type: new Schema(
+            {
+                status: { type: String, enum: ['pending', 'ready', 'failed'], required: true },
+                questions: {
+                    type: [
+                        new Schema(
+                            {
+                                id: { type: String, required: true },
+                                question: { type: String, required: true, maxlength: 600 },
+                                clarifyHint: { type: String, required: true, maxlength: 600 },
+                                duty: { type: String, maxlength: 200 },
+                            },
+                            { _id: false }
+                        ),
+                    ],
+                    default: undefined,
+                },
+                source: { type: String, enum: ['preview', 'edited', 'background'] },
+                language: { type: String, enum: ['ar', 'en'] },
+                jdHash: { type: String },
+                promptVersion: { type: String },
+                model: { type: String },
+                error: { type: String, maxlength: 200 },
+                startedAt: { type: Date },
+                generatedAt: { type: Date },
+                frozenAt: { type: Date },
+            },
+            { _id: false }
+        ),
+        required: false,
+        default: undefined,
     },
     interviewType: {
         type: String,

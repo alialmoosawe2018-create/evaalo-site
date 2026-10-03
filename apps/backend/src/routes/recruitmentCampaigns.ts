@@ -52,7 +52,20 @@ import {
 } from '../services/webhookIdempotency.js';
 import { consumeCredits, adjustCredits } from '../services/billingRuntimeService.js';
 import { creditCostMicro } from '../services/billingEngine.js';
-import { normalizeInterviewLanguage } from '../services/interviewLanguage.js';
+import { normalizeInterviewLanguage, resolveCampaignInterviewLanguage } from '../services/interviewLanguage.js';
+import {
+    checkJdQuestionSet,
+    ensureJdInterviewQuestions,
+    generateJdInterviewQuestions,
+    isJdInterviewQuestionsEnabled,
+    isJdQuestionLanguageEnabled,
+    jdQuestionLanguages,
+    jdQuestionNames,
+    jdQuestionsHash,
+    jdQuestionsModel,
+    JD_QUESTIONS_PROMPT_VERSION,
+    readSubmittedJdQuestions,
+} from '../services/jdInterviewQuestions.js';
 
 const router = express.Router();
 
@@ -354,6 +367,109 @@ router.post(
     }
 );
 
+// ── Part one of the video interview: questions from the job description ────────
+// The recruiter sees the three questions BEFORE the job exists (preview), may edit
+// them, and the same set is stored when the job is created — so no candidate can
+// start before they are ready. Off unless JD_INTERVIEW_QUESTIONS=true.
+const JD_PREVIEW_WINDOW_MS = 60 * 60 * 1000;
+const JD_PREVIEW_MAX_PER_WINDOW = 20;
+const jdPreviewHits = new Map<string, number[]>();
+
+function jdPreviewRateLimited(organizationId: string): boolean {
+    const now = Date.now();
+    const hits = (jdPreviewHits.get(organizationId) || []).filter((t) => now - t < JD_PREVIEW_WINDOW_MS);
+    if (hits.length >= JD_PREVIEW_MAX_PER_WINDOW) {
+        jdPreviewHits.set(organizationId, hits);
+        return true;
+    }
+    hits.push(now);
+    jdPreviewHits.set(organizationId, hits);
+    return false;
+}
+
+// GET /api/recruitment-campaigns/jd-interview-questions/config — what the job form may show.
+router.get('/jd-interview-questions/config', conditionalRequireAuth(), (_req: Request, res: Response) => {
+    const enabled = isJdInterviewQuestionsEnabled();
+    res.json({ success: true, enabled, languages: enabled ? jdQuestionLanguages() : [] });
+});
+
+// POST /api/recruitment-campaigns/jd-interview-questions/preview — three questions or none.
+// Nothing is stored: the browser shows them, the recruiter may edit them, and they come
+// back with the create request, where they are checked again.
+router.post(
+    '/jd-interview-questions/preview',
+    conditionalRequireAuth(),
+    requirePermission('campaign.write'),
+    async (req: Request, res: Response) => {
+        try {
+            if (!isJdInterviewQuestionsEnabled()) {
+                return res.status(404).json({ success: false, error: 'FEATURE_DISABLED' });
+            }
+            const organizationId = getOrgId(req);
+            if (isMissingProductionOrg(organizationId)) {
+                return res.status(403).json({
+                    success: false,
+                    error: 'ORG_REQUIRED',
+                    message: 'You must create or select an organization first.',
+                });
+            }
+            const read = readJobDescription(req.body?.text);
+            if (!read.ok) {
+                return res.status(400).json({ success: false, error: read.code, message: read.message });
+            }
+            if (!read.value) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'JOB_DESCRIPTION_EMPTY',
+                    message: 'Write or paste the job description first.',
+                });
+            }
+            const language = normalizeInterviewLanguage(req.body?.interviewLanguage) ?? 'ar';
+            if (!isJdQuestionLanguageEnabled(language)) {
+                return res.status(409).json({
+                    success: false,
+                    error: 'LANGUAGE_NOT_ENABLED',
+                    message: 'Interview questions from the description are not available for this interview language yet.',
+                });
+            }
+            if (jdPreviewRateLimited(organizationId)) {
+                return res.status(429).json({
+                    success: false,
+                    error: 'RATE_LIMITED',
+                    message: 'Too many attempts in the last hour. Please try again later.',
+                });
+            }
+            const result = await generateJdInterviewQuestions({
+                jobDescription: read.value,
+                language,
+                names: jdQuestionNames(null, [req.body?.position, req.body?.company]),
+            });
+            logAudit(req, {
+                action: 'recruitmentCampaign.jdQuestionsPreview',
+                targetType: 'recruitmentCampaign',
+                metadata: { chars: read.value.length, language, attempts: result.attempts, ok: result.ok, reason: result.reason || null },
+            });
+            if (!result.ok) {
+                return res.status(422).json({
+                    success: false,
+                    error: 'GENERATION_FAILED',
+                    message:
+                        'The interview questions could not be prepared. You can try again, or continue: the interview will run without them.',
+                });
+            }
+            return res.json({
+                success: true,
+                language,
+                questions: result.questions,
+                promptVersion: JD_QUESTIONS_PROMPT_VERSION,
+            });
+        } catch (error: any) {
+            console.error('❌ Error previewing job-description interview questions:', error);
+            res.status(500).json({ success: false, error: 'PREVIEW_FAILED', message: error.message });
+        }
+    }
+);
+
 // POST /api/recruitment-campaigns/translate-ad - ترجمة إعلان الوظيفة إلى لغة أخرى
 router.post('/translate-ad', async (req: Request, res: Response) => {
     try {
@@ -456,6 +572,70 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
         const evaluationLanguage =
             shareLangRaw === 'en' ? 'en' : shareLangRaw === 'ar' || shareLangRaw === 'ku' ? 'ar' : 'ar';
         criteria.evaluationLanguage = evaluationLanguage;
+
+        /* Part one of the video interview (JD_INTERVIEW_QUESTIONS). The set the recruiter
+           saw in the preview comes back with the job and is checked again here — an edit
+           is free text — so a set that fails is refused with each question's reasons, and
+           no job is created. Three questions or none. «Continue without» is remembered
+           as `failed: skipped_by_owner` and never generated behind the recruiter's back.
+           Checked before anything below has side effects. */
+        let jdInterviewQuestionsField: Record<string, unknown> | undefined;
+        let generateJdQuestionsInBackground = false;
+        if (isJdInterviewQuestionsEnabled()) {
+            const description = jobDescriptionRead.value;
+            const jdLanguage =
+                interviewLanguage ?? resolveCampaignInterviewLanguage({ criteria }).language;
+            const submitted = readSubmittedJdQuestions(body.jdInterviewQuestions);
+            if (submitted) {
+                if (!description) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'JD_QUESTIONS_WITHOUT_DESCRIPTION',
+                        message: 'Interview questions need the job description they were made from.',
+                    });
+                }
+                if (!isJdQuestionLanguageEnabled(jdLanguage)) {
+                    return res.status(409).json({
+                        success: false,
+                        error: 'LANGUAGE_NOT_ENABLED',
+                        message: 'Interview questions from the description are not available for this interview language yet.',
+                    });
+                }
+                const check = checkJdQuestionSet(submitted, jdLanguage, jdQuestionNames(criteria));
+                if (!check.ok) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'JD_QUESTIONS_INVALID',
+                        problems: check.problems,
+                        setProblems: check.setProblems,
+                        message: 'Some interview questions need a change before the job can be created.',
+                    });
+                }
+                const source = body.jdInterviewQuestionsSource === 'edited' ? 'edited' : 'preview';
+                jdInterviewQuestionsField = {
+                    status: 'ready',
+                    questions: submitted,
+                    source,
+                    language: jdLanguage,
+                    jdHash: jdQuestionsHash(description, jdLanguage),
+                    promptVersion: JD_QUESTIONS_PROMPT_VERSION,
+                    model: source === 'preview' ? jdQuestionsModel() : undefined,
+                    generatedAt: new Date(),
+                };
+            } else if (description && body.jdInterviewQuestionsSkip === true) {
+                jdInterviewQuestionsField = {
+                    status: 'failed',
+                    error: 'skipped_by_owner',
+                    language: jdLanguage,
+                    jdHash: jdQuestionsHash(description, jdLanguage),
+                    promptVersion: JD_QUESTIONS_PROMPT_VERSION,
+                    generatedAt: new Date(),
+                };
+            } else if (description && isJdQuestionLanguageEnabled(jdLanguage)) {
+                // A job created without the preview (API, older page): fallback only.
+                generateJdQuestionsInBackground = true;
+            }
+        }
 
         /* Keys that say WHICH role this is, or how to process it — none of them
            is something a candidate can be measured against. The role picker
@@ -583,6 +763,7 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
             criteria,
             jobAdvertisement: jobAdvertisement || undefined,
             jobDescription: jobDescriptionRead.value,
+            jdInterviewQuestions: jdInterviewQuestionsField,
             interviewType: body.interviewType || undefined,
             interviewLanguage: interviewLanguage ?? undefined,
             templateType: body.templateType || undefined,
@@ -618,6 +799,11 @@ router.post('/', requirePermission('campaign.write'), async (req: Request, res: 
         ensureBlueprintForCampaign(campaignId).catch((err) => {
             console.error(`⚠️ ensureBlueprintForCampaign (campaign create) failed for ${campaignId} (non-blocking):`, err?.message || err);
         });
+        if (generateJdQuestionsInBackground) {
+            ensureJdInterviewQuestions(campaignId).catch((err) => {
+                console.error(`⚠️ ensureJdInterviewQuestions (campaign create) failed for ${campaignId} (non-blocking):`, err?.message || err);
+            });
+        }
 
         // إرجاع campaign ID للاستخدام في الرابط
         const shareLang =

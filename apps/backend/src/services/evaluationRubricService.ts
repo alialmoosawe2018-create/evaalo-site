@@ -130,6 +130,11 @@ export function stripRubricAndTemplateKeysFromCriteria(body: Record<string, unkn
         'jobAdvertisement',
         // The recruiter's free-text description: context, never a scored criterion.
         'jobDescription',
+        // Part-one interview questions from the preview, and how they were chosen.
+        // Left in `criteria` they would become scored Stage 1 items.
+        'jdInterviewQuestions',
+        'jdInterviewQuestionsSource',
+        'jdInterviewQuestionsSkip',
         'interviewType',
         // لغة المقابلة حقلٌ علوي في الحملة. لو بقيت هنا لصارت بنداً مُقيَّماً
         // («interviewLanguage: ar») في المرحلة الأولى، ولغيّرت بصمة المعايير.
