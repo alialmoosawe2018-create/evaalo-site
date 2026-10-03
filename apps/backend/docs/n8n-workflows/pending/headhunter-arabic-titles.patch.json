@@ -1,0 +1,33 @@
+{
+  "_warning": "PUBLISHED 2026-10-03 as n8n version 9e38c333 (rollback: publish 4496e0fe, the silent-competency fix). A patch record against 4496e0fe (51 nodes) - not an importable workflow, never import this file. Verified by `npm run test:headhunter-arabic-titles`.",
+  "_publishNotes": "Owner approval 2026-10-03 after the test, mutation and replay results were shown: \"انشر\" (published alone; the phase-2 send-all record waits for its own approval). Pre-publish, checked twice (the second immediately before publishing): 0 live interviews, 0 running/waiting executions, production draft and active = live/ 4496e0fe; base archived byte for byte. One atomic update_workflow batch (setNodeParameter /jsCode on Person Search Plan and Map Candidate Fields) gave draft 9e38c333, which matched the tested rebuild on all 51 nodes, every connection and the settings, with both jsCode equal to the replacement files. Free pinned smoke tests on the draft, an Arabic Iraq search with Translate Inputs pinned to \"Accountant\" and four synthetic \"Accountant\" profiles: exec 2071 (Person Search pinned to 20 links: Person Search Plan used the translation, current_role_title \"accountant\"; route ps; Map Candidate Fields kept 4 of 4 in both phases; 4 sends; one completion \"sent 4 ... target was 20\") and exec 2072 (Person Search pinned to 403: route google, nothing booked; phase 2 queried the English translation; same 4 sends and one completion). Both runs matched the engine prediction node by node (56 and 54 runs, same order and item counts); the base graph predicts 0 of 4 kept and 0 sends for the same search. The active version 9e38c333 was then verified equal to the tested rebuild and live/ refreshed from it.",
+  "_scope": "Map Candidate Fields (the title gate also matches the English translation of an Arabic title) and Person Search Plan (an Arabic title searches by its English translation instead of skipping). jsCode only; no node, connection or setting changed.",
+  "_why": "Owner decision 2026-10-03. An Arabic title reaches n8n raw (a typed title the catalog does not resolve). Google queries already used the translation, but the gate matched profile titles against the Arabic words only - live code kept 1 of [Accountant, Senior Accountant, محاسب, Sales Manager] for \"محاسب\" - and Person Search skipped. 0 of 41 logged searches had an Arabic title, so the defect was latent.",
+  "_expectedEffect": "An Arabic search keeps a profile when its titles match the Arabic words OR the English translation, and an Iraq search with an Arabic title uses Person Search through the translation. An English search is unchanged (one gate, as before; the translation is never read).",
+  "_knownLimits": "Relies on the existing LLM translation (Translate Inputs); a wrong translation can widen the gate or send Person Search to a wrong title - the AI scoring and the 120/240 ceiling still apply. Catalog Arabic labels are a separate review.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "4496e0fe-f527-4295-8eb9-9f3366a10c66",
+  "baseNodeCount": 51,
+  "baseFile": "archive/headhunter--AI_Head_hunter--4496e0fe-before-arabic-titles.json",
+  "parameterEdits": [
+    {
+      "node": "Map Candidate Fields",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-arabic-titles.map-candidate-fields.node.js",
+      "expectBeforeContains": "  if (!matchesPosition(profileTitles(profile, experiences))) {",
+      "expectAfterContains": "POSITION_MATCHERS.push(makePositionMatcher(translated));",
+      "publishedSha256": "9635dc2a5e10ea7d4f9c6427d6d3cafe08ef0584125c0626d1421abffa7a42a2"
+    },
+    {
+      "node": "Person Search Plan",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-arabic-titles.plan.node.js",
+      "expectBeforeContains": "  // The recruiter's own (catalog) title, never the LLM translation",
+      "expectAfterContains": "titleSource = String($('Apply Translation').first().json.position || '');",
+      "publishedSha256": "c551123bce8a3e5700b4b4c03c365f187570b85e741ef153a8132495de2c6101"
+    }
+  ],
+  "_rollback": "publish_workflow versionId 4496e0fe-f527-4295-8eb9-9f3366a10c66 (the silent-competency fix, this record's base).",
+  "publishedVersionId": "9e38c333-7dc6-4095-98ec-3a03d8d6008d",
+  "publishedStructureSha256": "532dd08903bb2dc6c77c49d38d79610e30fd8c91af7bb762adc3411051e278d5"
+}

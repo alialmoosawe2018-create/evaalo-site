@@ -215,6 +215,8 @@ export type Scenario = {
     ps?: string[] | null;             // Person Search switched on and returning these links
     pinned?: { google: Resp[]; enrich: string[]; ai: number[]; sends?: number };
     plan?: string;                    // Person Search Plan code override (switched on)
+    translation?: { position?: string; location?: string } | string; // Translate Inputs' answer (an Arabic search); a string is returned as the raw model text
+    profileTitle?: string;            // the title synthetic profiles carry (default: the searched position)
 };
 export const url = (slug: string, sub = 'www') => `https://${sub}.linkedin.com/in/${slug}`;
 export const slugOf = (link: string) => (String(link).match(/linkedin\.com\/in\/([^?#/]+)/i)?.[1] || '').toLowerCase();
@@ -235,7 +237,7 @@ export function serpItem(resp: Resp, q: string, start: number): Item {
 export function profileOf(slug: string, sc: Scenario): any {
     const v = sc.verdict[slug];
     const abroad = v === 'skip';
-    const position = String(sc.body.position);
+    const position = String(sc.profileTitle ?? sc.body.position);
     return {
         public_identifier: slug, linkedin_profile_url: url(slug), full_name: sc.nameless?.includes(slug) ? '' : `Synthetic ${slug}`,
         occupation: `${position} at Example Co`, headline: position, summary: '',
@@ -310,6 +312,9 @@ export function runSearch(wf: Wf, sc: Scenario, opts: RunOpts = {}): Run {
                 return serpItem(list[i] ?? list[list.length - 1] ?? 'none', it.json.q, it.json.start);
             })];
             if (sc.pinned) outputs = [sc.pinned.google.map((resp) => serpItem(resp, 'pinned', 0))];
+        } else if (name === 'Translate Inputs') {
+            const tr = sc.translation ?? { position: sc.body.position, location: sc.body.location };
+            outputs = [[{ json: { text: typeof tr === 'string' ? tr : JSON.stringify(tr) } }]];
         } else if (name === 'Build Search Query') {
             outputs = [[{ json: { text: `site:linkedin.com/in/ ("${sc.body.position}") AND ("Baghdad" OR "Iraq") llm` } }]];
         } else if (name === 'Person Search') {
