@@ -1,0 +1,24 @@
+{
+  "_warning": "PUBLISHED 2026-10-03 as n8n version 71b7970f (rollback: publish 9e38c333, the Arabic-titles publish). A patch record against 9e38c333 (51 nodes) - not an importable workflow, never import this file. Verified by `npm run test:headhunter-phase2-send-all`.",
+  "_publishNotes": "Owner decision 2026-10-03 (\"20 or more\" really, 6 credits per delivered candidate), then, after the results were shown and the Arabic-titles record was published: \"ج\" (publish this one). Built against 4496e0fe and rebased onto 9e38c333 before publishing (Finalize Phase 2 Send is identical in both). Pre-publish, checked twice (the second immediately before publishing): 0 live interviews, 0 running/waiting executions, production draft and active = live/ 9e38c333; base archived byte for byte. One update_workflow (setNodeParameter /jsCode on Finalize Phase 2 Send) gave draft 71b7970f, which matched the tested rebuild on all 51 nodes, every connection and the settings, with the jsCode equal to the replacement file. Free pinned smoke exec 2073 on the draft (Arabic Iraq search, Person Search pinned to 20 links): 56 runs, the same order and item counts as the engine prediction; the new Finalize Phase 2 Send ran once and closed with \"sent 4 ... target was 20\"; one completion. A pinned EnrichLayer node returns the same profiles in both phases, so a pinned smoke cannot reach a phase 2 with new qualified people; that branch (2069 shape 20 -> 22, the 39 / 79 bounds) is covered by the test on the real node code. The active version 71b7970f was then verified equal to the tested rebuild and live/ refreshed from it.",
+  "_scope": "Finalize Phase 2 Send only: phase 2 sends every new qualified candidate instead of cutting at the target. jsCode only.",
+  "_why": "Owner decision 2026-10-03: \"More than 20 / 40\" means 20 / 40 or more, and every delivered candidate is billed 6 credits. The UI and backend promise a minimum (\"Minimum candidates to return\", \"Return more than 20 candidates\"); phase 1 never capped, but phase 2 sent only the shortfall - exec 2069 found 5 qualified in phase 2, sent 3 and dropped 2 after paying EnrichLayer and the model for them.",
+  "_expectedEffect": "A search that reaches phase 2 can deliver more than its target; phase 1 is unchanged. Bounds: phase 2 fetches at most 20 / 40 profiles (and stays inside the shared 120 / 240 EnrichLayer ceiling), so a Tier 20 search delivers at most 19 + 20 = 39 and a Tier 40 one 39 + 40 = 79, each billed 6 credits. The credit pre-check (checkCredits) still covers only the target. Past the balance the backend still stores and shows a candidate but stops billing (applyHeadHunterInboundMerge persists before billNewHeadHunterCandidates, which returns at the first INSUFFICIENT_CREDITS), so extras past the balance are delivered free - existing behaviour, phase 1 already does it.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "9e38c333-7dc6-4095-98ec-3a03d8d6008d",
+  "baseNodeCount": 51,
+  "baseFile": "archive/headhunter--AI_Head_hunter--9e38c333-before-phase2-send-all.json",
+  "parameterEdits": [
+    {
+      "node": "Finalize Phase 2 Send",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-phase2-send-all.finalize-phase2.node.js",
+      "expectBeforeContains": ".slice(0, remaining);",
+      "expectAfterContains": "const toSend = shortlist.filter((j) => !sentKeys.has(profileKey(j)));",
+      "publishedSha256": "918d0f0f614639ce3f1a383b31a50f579f0d5b2d678cdf214251eaf42ae278e6"
+    }
+  ],
+  "_rollback": "publish_workflow versionId 9e38c333-7dc6-4095-98ec-3a03d8d6008d (the Arabic-titles publish, this record's base).",
+  "publishedVersionId": "71b7970f-6082-4f32-9d2a-996da47601c1",
+  "publishedStructureSha256": "532dd08903bb2dc6c77c49d38d79610e30fd8c91af7bb762adc3411051e278d5"
+}

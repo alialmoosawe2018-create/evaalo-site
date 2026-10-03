@@ -199,6 +199,7 @@
     "test:headhunter-person-search-enable": "tsx src/scripts/headhunter-person-search-enable-test.ts",
     "test:headhunter-silent-competency": "tsx src/scripts/headhunter-silent-competency-test.ts",
     "test:headhunter-arabic-titles": "tsx src/scripts/headhunter-arabic-titles-test.ts",
+    "test:headhunter-phase2-send-all": "tsx src/scripts/headhunter-phase2-send-all-test.ts",
     "test:headhunter-position-titles": "tsx src/scripts/headhunter-position-titles-test.ts",
     "test:headhunter-empty-chain-close": "tsx src/scripts/headhunter-empty-chain-close-test.ts",
     "test:headhunter-completion-hardening": "tsx src/scripts/headhunter-completion-hardening-test.ts",
