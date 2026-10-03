@@ -66,6 +66,12 @@ import { findApplicationForCallback } from '../services/candidateApplicationServ
 import { isApplicationOwnsCampaignStateEnabled } from '../config/applicationOwnership.js';
 import { recordMetricAsync } from '../services/siteMetricService.js';
 import { campaignAdForInterviewContext } from '../services/campaignAdContext.js';
+import {
+    applyJdQuestionsToLiveKit,
+    freezeJdQuestionsAtStart,
+    jdQuestionsSessionSnapshot,
+    loadJdQuestionsForDelivery,
+} from '../services/jdQuestionsDelivery.js';
 
 const router = express.Router();
 
@@ -175,6 +181,9 @@ const activeCandidateSessions = new Map<string, {
      *  0 means it was prepared blind, and /start must rebuild rather than reuse
      *  it once the blueprint has locked — see resolvePreparedSessionReuse. */
     blueprintCompetencyCount?: number;
+    /** Identity of the job-description question set this room was dispatched with
+     *  ('' = none). /start rebuilds instead of reusing a room whose set differs. */
+    jdQuestionsSetKey?: string;
 }>();
 
 const ACTIVE_SESSION_TTL_MS = 5 * 60 * 1000; // 5 دقائق
@@ -565,7 +574,13 @@ function resolvePreparedSessionReuse(
      * function is synchronous, so a delete here is fire-and-forget and races the
      * rebuild that follows. The async caller awaits them via retireStaleRoom.
      */
-    retire?: string[]
+    retire?: string[],
+    /**
+     * The job-description question set the room MUST carry (undefined = do not
+     * check, as /prepare does). A room prepared before the set was ready — or with
+     * another one — would open the interview without, or with the wrong, part one.
+     */
+    requiredJdSetKey?: string
 ): { roomName: string; token: string; sessionId: string } | null {
     cleanupExpiredSessions();
     const existing = activeCandidateSessions.get(candidateId);
@@ -596,6 +611,15 @@ function resolvePreparedSessionReuse(
         if (existing.roomName) retire?.push(existing.roomName);
         return null;
     }
+    if (requiredJdSetKey !== undefined && (existing.jdQuestionsSetKey || '') !== requiredJdSetKey) {
+        console.warn(
+            `♻️ In-memory prewarm for ${candidateId} carries another job-description question set — rebuilding`
+        );
+        activeCandidateSessions.delete(candidateId);
+        retireInterviewIdentity(existing.sessionId, 'prewarmed with another jd question set');
+        if (existing.roomName) retire?.push(existing.roomName);
+        return null;
+    }
     return {
         roomName: existing.roomName,
         token: existing.token,
@@ -615,7 +639,8 @@ function resolvePreparedSessionReuse(
 async function resolvePreparedSessionReuseDurable(
     candidateId: string,
     requestedCampaignId: string | undefined,
-    requiredCompetencyCount = 0
+    requiredCompetencyCount = 0,
+    requiredJdSetKey?: string
 ): Promise<{ roomName: string; token: string; sessionId: string } | null> {
     // Rooms the synchronous pass decided to retire, torn down here where it can
     // be AWAITED — the rebuild must not start while the old agent process lives.
@@ -625,7 +650,8 @@ async function resolvePreparedSessionReuseDurable(
         requestedCampaignId,
         undefined,
         requiredCompetencyCount,
-        retire
+        retire,
+        requiredJdSetKey
     );
     for (const roomName of retire) {
         await retireStaleRoom(roomName, 'in-memory prewarm superseded');
@@ -665,6 +691,17 @@ async function resolvePreparedSessionReuseDurable(
             await retireStaleRoom(row.roomName, 'prewarmed without competencies');
             return null;
         }
+        // Same rule for part one: the room must carry the campaign's question set
+        // as it is NOW (e.g. prepared while it was still being written).
+        if (requiredJdSetKey !== undefined && (row.jdQuestionsSetKey || '') !== requiredJdSetKey) {
+            console.warn(
+                `♻️ Prewarmed room for ${candidateId} carries another job-description question set — rebuilding`
+            );
+            await VideoPrewarmSession.deleteOne({ candidateId }).catch(() => undefined);
+            retireInterviewIdentity(row.sessionId, 'prewarmed with another jd question set (durable)');
+            await retireStaleRoom(row.roomName, 'prewarmed with another jd question set');
+            return null;
+        }
         const token = await createUserToken(row.roomName, `user-${candidateId}`);
         console.log(
             `♻️ Reusing prewarmed room from persisted handoff for candidate ${candidateId} (${row.roomName})`
@@ -682,7 +719,8 @@ async function persistPrewarmHandoff(
     roomName: string,
     sessionId: string,
     campaignId?: string,
-    blueprintCompetencyCount?: number
+    blueprintCompetencyCount?: number,
+    jdQuestionsSetKey?: string
 ): Promise<void> {
     try {
         await VideoPrewarmSession.findOneAndUpdate(
@@ -693,6 +731,7 @@ async function persistPrewarmHandoff(
                 sessionId,
                 campaignId,
                 blueprintCompetencyCount,
+                jdQuestionsSetKey: jdQuestionsSetKey || '',
                 createdAt: new Date(),
             },
             { upsert: true }
@@ -1008,6 +1047,10 @@ router.post('/prepare', async (req, res) => {
             ? null
             : await resolveBlueprintForStart(prepareCampaignId);
         const prepareBlueprintMeta = buildBlueprintMetadata(prepareBlueprintBundle);
+        // Part one's questions ride with the prewarmed room for the same reason — /start
+        // may reuse it. Recorded on the handoff; frozen only by /start (a candidate who
+        // prepares may never start).
+        const prepareJdDelivery = isTestMode ? null : await loadJdQuestionsForDelivery(prepareCampaignId);
         /*
          * من الحملة وحدها. ولأنها تُحسم دائماً إلى قيمة ملموسة، لا يبقى للوكيل
          * طريق إلى `INITIAL_GREETING_LANGUAGE`: `session_language()` في
@@ -1120,6 +1163,7 @@ router.post('/prepare', async (req, res) => {
                 }
                 // الطبقات 2/3/4 للمقابلة المتخصصة (إن وُجد Blueprint مقفل للحملة).
                 applyBlueprintMetadataToLiveKit(metadata, prepareBlueprintMeta);
+                applyJdQuestionsToLiveKit(metadata, prepareJdDelivery);
 
                 livekitToken = await createUserToken(livekitRoomName, `user-${candidateId}`, metadata);
                 if (typeof livekitToken !== 'string') {
@@ -1161,6 +1205,7 @@ router.post('/prepare', async (req, res) => {
                     blueprintCompetencyCount: prepareBlueprintMeta
                         ? (prepareBlueprintBundle?.blueprint?.competencies?.length ?? 0)
                         : 0,
+                    jdQuestionsSetKey: prepareJdDelivery?.setKey || '',
                 });
                 // Mirror the handoff so /start can still find it after a restart.
                 await persistPrewarmHandoff(
@@ -1171,7 +1216,8 @@ router.post('/prepare', async (req, res) => {
                     // What this room was ACTUALLY given. /start compares against it:
                     // a room dispatched blind must not be reused once the blueprint
                     // has since locked.
-                    prepareBlueprintMeta ? (prepareBlueprintBundle?.blueprint?.competencies?.length ?? 0) : 0
+                    prepareBlueprintMeta ? (prepareBlueprintBundle?.blueprint?.competencies?.length ?? 0) : 0,
+                    prepareJdDelivery?.setKey || ''
                 );
             } catch (error: any) {
                 console.error('⚠️ Failed to prepare LiveKit room:', error.message);
@@ -1381,10 +1427,16 @@ router.post('/start', async (req, res) => {
         // The count the room MUST already carry. A prewarmed room dispatched before
         // the blueprint locked carries none, and reusing it would reintroduce the
         // blind interview through the back door.
+        // Part one: the set to send now. A prewarmed room must carry exactly this one.
+        const startJdDelivery =
+            !isTestMode && normalizedCampaignIdEarly
+                ? await loadJdQuestionsForDelivery(normalizedCampaignIdEarly)
+                : null;
         const reusedStartSession = await resolvePreparedSessionReuseDurable(
             candidateId,
             normalizedCampaignIdEarly,
-            startReadiness.competencyCount
+            startReadiness.competencyCount,
+            startJdDelivery?.setKey || ''
         );
         if (reusedStartSession) {
             console.log(`ℹ️ Reusing existing session for candidate ${candidateId} (prevents duplicate avatar)`);
@@ -1464,6 +1516,10 @@ router.post('/start', async (req, res) => {
                             // prepared earlier.
                             blueprintReady: Boolean((reuseSnapshot as any)?.competencies?.length),
                             blueprintPinnedAt: new Date(),
+                            // The room was reused only because it carries exactly this set.
+                            ...(startJdDelivery
+                                ? { jdQuestionsSnapshot: jdQuestionsSessionSnapshot(startJdDelivery) }
+                                : {}),
                             ...(inheritedOrgId ? { organizationId: inheritedOrgId } : {}),
                             // Video billing snapshot — frozen at start; /end + sweep settle against it.
                             ...(reuseVideoBilling
@@ -1478,6 +1534,10 @@ router.post('/start', async (req, res) => {
                                   }
                                 : {}),
                         });
+                        // The interview really starts here: freeze the campaign's set
+                        // (the reuse branch must mirror the full /start — it did not,
+                        // once, for billing).
+                        await freezeJdQuestionsAtStart(normalizedCampaignIdEarly, startJdDelivery);
                     }
                 } catch (persistErr: any) {
                     console.warn(
@@ -1677,6 +1737,7 @@ router.post('/start', async (req, res) => {
             // to rewrite the past.
             blueprintReady: Boolean((blueprintSnapshot as any)?.competencies?.length),
             blueprintPinnedAt: new Date(),
+            ...(startJdDelivery ? { jdQuestionsSnapshot: jdQuestionsSessionSnapshot(startJdDelivery) } : {}),
             ...(inheritedOrgId ? { organizationId: inheritedOrgId } : {}),
             // Video billing snapshot — frozen at start; /end + sweep settle against it.
             ...(videoBilling
@@ -1693,6 +1754,7 @@ router.post('/start', async (req, res) => {
         // في وضع الاختبار، لا نحفظ في DB (أو نحفظ بدون candidateId)
         if (!isTestMode) {
             await session.save();
+            await freezeJdQuestionsAtStart(normalizedCampaignId, startJdDelivery);
         }
 
         // إنشاء LiveKit Room (إذا كان LiveKit مفعّل)
@@ -1762,6 +1824,7 @@ router.post('/start', async (req, res) => {
                 }
                 // الطبقات 2/3/4 للمقابلة المتخصصة (إن وُجد Blueprint مقفل للحملة).
                 applyBlueprintMetadataToLiveKit(metadata, startBlueprintMeta);
+                applyJdQuestionsToLiveKit(metadata, startJdDelivery);
                 // Server-enforced video cap — the agent must end the room at this
                 // limit; the backend sweep is the fallback if the agent/browser dies.
                 if (videoBilling) {
@@ -1809,13 +1872,15 @@ router.post('/start', async (req, res) => {
                     sessionId,
                     createdAt: Date.now(),
                     campaignId: normalizedCampaignId || undefined,
+                    jdQuestionsSetKey: startJdDelivery?.setKey || '',
                 });
                 await persistPrewarmHandoff(
                     candidateId,
                     livekitRoomName,
                     sessionId,
                     normalizedCampaignId || undefined,
-                    startBlueprintBundle?.blueprint?.competencies?.length ?? 0
+                    startBlueprintBundle?.blueprint?.competencies?.length ?? 0,
+                    startJdDelivery?.setKey || ''
                 );
             } catch (error: any) {
                 console.warn('⚠️ Failed to create LiveKit room (non-blocking):', error.message);

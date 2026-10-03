@@ -98,6 +98,15 @@ export interface IVideoInterviewSession extends Document {
         experienceTrackKeys?: string[];
         interviewPathKeys?: string[];
     };
+    /** The job-description question set this interview's agent was given (part one). */
+    jdQuestionsSnapshot?: {
+        setKey: string;
+        jdHash: string;
+        promptVersion: string;
+        language: string;
+        questions: Array<{ id: string; question: string; clarifyHint: string; duty: string }>;
+        deliveredAt: Date;
+    };
     startedAt: Date;
     endedAt?: Date;
     /**
@@ -236,6 +245,12 @@ const VideoInterviewSessionSchema = new Schema<IVideoInterviewSession>(
             default: undefined
         },
         blueprintSnapshot: {
+            type: Schema.Types.Mixed,
+            default: undefined
+        },
+        // Part one: the job-description question set THIS interview's agent was
+        // given (services/jdQuestionsDelivery.ts). Absent when none was sent.
+        jdQuestionsSnapshot: {
             type: Schema.Types.Mixed,
             default: undefined
         },

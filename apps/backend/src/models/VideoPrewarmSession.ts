@@ -30,6 +30,10 @@ export interface IVideoPrewarmSession extends Document {
      *  blueprint has since locked, or the candidate is interviewed without the
      *  competencies they will then be graded against. */
     blueprintCompetencyCount?: number;
+    /** Identity of the job-description question set the room was given ('' = none).
+     *  /start rebuilds rather than reuse a room whose set differs from the campaign's
+     *  now (services/jdQuestionsDelivery.ts) — same rule as the competencies. */
+    jdQuestionsSetKey?: string;
     createdAt: Date;
 }
 
@@ -39,6 +43,7 @@ const VideoPrewarmSessionSchema = new Schema<IVideoPrewarmSession>({
     sessionId: { type: String, required: true },
     campaignId: { type: String },
     blueprintCompetencyCount: { type: Number },
+    jdQuestionsSetKey: { type: String },
     // Mongo removes the row on its own once the handoff window has passed, so a
     // stale prewarm can never be reused for a later interview.
     createdAt: { type: Date, default: Date.now, expires: 300 },
