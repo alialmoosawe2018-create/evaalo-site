@@ -1,0 +1,25 @@
+{
+  "_warning": "PUBLISHED 2026-10-03 as n8n version 4496e0fe (rollback: publish 899466d2, Person Search on). A patch record against 899466d2 (51 nodes) - not an importable workflow, never import this file. Verified by `npm run test:headhunter-silent-competency`.",
+  "_publishNotes": "Owner: \"تغم أ\" (option A), then \"نعم\" to publish. Pre-publish, checked twice: 0 live interviews, 0 running/waiting executions, production draft and active = live/ 899466d2; base archived. One update_workflow (setNodeParameter /jsCode on Apply AI Analysis) gave draft 4496e0fe = the tested rebuild on all 51 nodes, every connection and the settings. Free pinned smoke exec 2070 (Person Search pinned to 403, Google/EnrichLayer/AI/sends pinned): Apply AI Analysis scored the three synthetic judgement sets 85 (title + location, 11 competencies silent), 92 (5 positive, 6 silent) and 100 (no role model), exactly the test's values; one completion. Active 4496e0fe verified equal to the tested rebuild; live/ refreshed from it.",
+  "_scope": "Apply AI Analysis only: how a competency the profile is silent on (kind neutral) counts. No other node, no connection or setting changed.",
+  "_why": "Owner decision 2026-10-03 (option A). Today a neutral competency is dropped, so with only title and location set a profile judged positive on both scores 100 whatever the role-model evidence: 13 of 20 delivered in exec 2069 (5 of them scored below 60 by the model), 34 of 78 computed evaluations in execs 2040-2069. A silent competency now counts half - the rule a silent set criterion already follows.",
+  "_expectedEffect": "Replayed with the live scoring code on the 78 recorded computed evaluations (replay == recorded 78/78): 100s 34 -> 6; title + location with no competency evidence -> 85; with evidence 88-98; 0 of 78 cross the 50 delivery bar either way, so who is delivered is unchanged on that data - the shown score and the order change. A search sent with no role model is unchanged.",
+  "_knownLimits": "Crossing the 50 bar is still possible in principle (e.g. a title judged warning lifted or lowered by silent competencies); none of the 78 recorded evaluations does. The model output and the prompt are unchanged.",
+  "workflowId": "GlhDGC23n5tT6jVv",
+  "baseVersionId": "899466d2-1b84-4aa4-a7a0-34f8fd21a6a4",
+  "baseNodeCount": 51,
+  "baseFile": "archive/headhunter--AI_Head_hunter--899466d2-before-silent-competency.json",
+  "parameterEdits": [
+    {
+      "node": "Apply AI Analysis",
+      "path": "parameters.jsCode",
+      "replaceWholeValueFromFile": "headhunter-silent-competency.apply-ai.node.js",
+      "expectBeforeContains": "  const judgedComp = competencies.filter((k) => k === 'positive' || k === 'warning');",
+      "expectAfterContains": "(k === 'positive' ? 1 : k === 'warning' ? 0 : SILENT_CREDIT)",
+      "publishedSha256": "b2b7792b68eba7c8817dc0f0fabeed8eb420df6a86af6239b90a03d1066ba767"
+    }
+  ],
+  "_rollback": "publish_workflow versionId 899466d2-1b84-4aa4-a7a0-34f8fd21a6a4 (Person Search on, old competency arithmetic).",
+  "publishedVersionId": "4496e0fe-f527-4295-8eb9-9f3366a10c66",
+  "publishedStructureSha256": "532dd08903bb2dc6c77c49d38d79610e30fd8c91af7bb762adc3411051e278d5"
+}
