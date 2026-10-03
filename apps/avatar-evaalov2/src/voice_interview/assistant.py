@@ -120,8 +120,10 @@ from voice_interview.turn_log import build_end_record, build_record as build_tur
 from voice_interview.jd_part_one import (
     JD_FOLLOWUP_SOURCES,
     JdQuestion,
+    build_jd_followup_messages,
+    clean_jd_followup,
     jd_clarification,
-    jd_followup_line,
+    jd_followup_timeout_s,
     jd_max_followups,
     jd_part_one_max_turns,
     jd_transition_line,
@@ -919,6 +921,9 @@ class InterviewAssistant(Agent):
         # The turn whose reply carries the transition sentence — both guard passes
         # of that turn (transcription_node + tts_node) must say it.
         self._jd_transition_turn: int = -1
+        # (turn_index, follow-up) decided for this turn's answer: the text, or "" for
+        # "nothing worth probing — next question". None when nothing was decided.
+        self._jd_followup_plan: tuple[int, str] | None = None
         self._turn_recommended: str | None = None
         self._turn_recommended_source: str = ""
         # What the decision frame told the model this turn — the turn's one pick.
@@ -1525,15 +1530,6 @@ class InterviewAssistant(Agent):
         advance_path_on_send: bool | None = None,
     ) -> str | None:
         mem = self._memory
-        if source in JD_FOLLOWUP_SOURCES and self._jd_active(mem) is not None:
-            # A description question's one follow-up is the owner's fixed line: it
-            # stays inside the situation the question described, where the generic
-            # probes («شنو أصعب جزء واجهته…», a tool the candidate named) ask about
-            # the past. Said as a follow-up, so it stays tied to that question.
-            question = jd_followup_line(self._locked_lang or self._jd_language)
-            response_mode = MODE_FOLLOW_UP
-            parent_question_id = parent_question_id or mem.sent_question_id or None
-            followup_type = followup_type or "jd_situation"
         mode = response_mode
         if mode is None:
             if source == "wait_for_completion":
@@ -2906,6 +2902,10 @@ class InterviewAssistant(Agent):
         if clarify_rec is not None:
             return clarify_rec
 
+        jd_follow = self._pick_jd_followup(mem)
+        if jd_follow is not None:
+            return jd_follow
+
         if is_open_status(mem.active_question_status):
             locked = self._active_question_locked_pick(diag, mem, link_policy)
             if locked is not None:
@@ -3157,6 +3157,95 @@ class InterviewAssistant(Agent):
         mem.jd_clarified.add(jd.id)
         return jd_clarification(jd, self._locked_lang or self._jd_language)
 
+    @staticmethod
+    def _jd_answer_turn(diag: dict[str, Any]) -> bool:
+        """Did the candidate answer (rather than ask, skip, pause or greet)?"""
+        for flag in (
+            "is_topic_change_request",
+            "is_incomplete_turn",
+            "is_answer_in_progress",
+            "resume_active",
+            "is_ask_for_guidance",
+            "is_ambiguous_clarify",
+            "claims_already_answered",
+        ):
+            if diag.get(flag):
+                return False
+        if diag.get("meta_request"):
+            return False
+        return bool(diag.get("is_substantive_answer") or diag.get("is_story_starter"))
+
+    async def _decide_jd_followup(self, answer: str, diag: dict[str, Any]) -> None:
+        """Write the one follow-up for this answer to a description question, or none.
+
+        Runs before the picker. Only the question and the answer are shown to the
+        model — never the next question. An unusable reply, a timeout or an error all
+        mean "none", and the interview moves to the next question.
+        """
+        self._jd_followup_plan = None
+        mem = self._memory
+        jd = self._jd_active(mem)
+        if jd is None or not self._jd_answer_turn(diag):
+            return
+        if mem.jd_followups.get(jd.id, 0) >= jd_max_followups():
+            self._jd_followup_plan = (mem.turn_index, "")
+            return
+        lang = self._locked_lang or self._jd_language
+        try:
+            raw = await asyncio.wait_for(
+                self._generate_jd_followup_text(
+                    build_jd_followup_messages(jd.question, answer, lang, self._candidate_gender)
+                ),
+                timeout=jd_followup_timeout_s(),
+            )
+        except Exception as ex:  # timeout, model error: move on rather than wait or invent
+            logger.info("[jd-part-one] follow-up decision failed (%s) — next question", type(ex).__name__)
+            raw = ""
+        text = clean_jd_followup(raw, lang, [q.question for q in self._jd_questions], answer)
+        self._jd_followup_plan = (mem.turn_index, text)
+        logger.info(
+            "[jd-part-one] %s follow-up: %s",
+            jd.id,
+            text if text else "none — next question",
+        )
+
+    async def _generate_jd_followup_text(self, messages: list[tuple[str, str]]) -> str:
+        """One small model call; replaced in tests (like _regenerate_framed_question)."""
+        session = getattr(self, "session", None)
+        model = getattr(session, "llm", None) if session is not None else None
+        if model is None:
+            return ""
+        ctx = ChatContext.empty()
+        for role, content in messages:
+            ctx.add_message(role=role, content=content)
+        parts: list[str] = []
+        stream = model.chat(chat_ctx=ctx)
+        try:
+            async for chunk in stream:
+                delta = getattr(getattr(chunk, "delta", None), "content", None)
+                if delta:
+                    parts.append(str(delta))
+        finally:
+            aclose = getattr(stream, "aclose", None)
+            if aclose is not None:
+                await aclose()
+        return "".join(parts).strip()
+
+    def _pick_jd_followup(self, mem: InterviewMemory) -> str | None:
+        """This turn's written follow-up, when one was decided and is usable."""
+        plan = self._jd_followup_plan
+        if plan is None or plan[0] != mem.turn_index or not plan[1]:
+            return None
+        if self._jd_active(mem) is None:
+            return None
+        return self._set_turn_recommendation(
+            plan[1],
+            source="jd_followup",
+            response_mode=MODE_FOLLOW_UP,
+            parent_question_id=mem.sent_question_id or None,
+            followup_type="jd_dynamic",
+        )
+
     def note_opening_question(self, text: str) -> bool:
         """The greeting carried the first description question: it has been asked.
 
@@ -3206,11 +3295,11 @@ class InterviewAssistant(Agent):
 
     def _competency_followup_budget_left(self, mem: InterviewMemory) -> bool:
         """False once the current competency has had its allowance of depth."""
-        jd = self._jd_active(mem)
-        if jd is not None:
-            # A description question is not a competency: its own budget, and no
-            # competency key is ever set or spent for it.
-            return mem.jd_followups.get(jd.id, 0) < jd_max_followups()
+        if self._jd_active(mem) is not None:
+            # A description question gets no GENERIC follow-up at all — no difficulty
+            # probe, no tool hook, no borrowed competency probe. Its one follow-up is
+            # written for the answer (_decide_jd_followup) or there is none.
+            return False
         ckey = (mem.current_competency_key or "").strip()
         if not ckey:
             return True
@@ -3354,6 +3443,12 @@ class InterviewAssistant(Agent):
         mode = (self._turn_plan.response_mode if self._turn_plan else None) or MODE_ASK
         previous = (mem.active_question_text or "").strip()
 
+        if mode == MODE_FOLLOW_UP and self._turn_plan is not None and self._turn_plan.source == "jd_followup":
+            return (
+                "SHORT FOLLOW-UP TURN — the follow-up below was written for what the candidate just said. "
+                "Say it exactly as written: no framing sentence, no example, no summary of their answer, "
+                "no second question.\n"
+            )
         if mode == MODE_FOLLOW_UP:
             return (
                 "SHORT FOLLOW-UP TURN — the opposite of a new question: you are pulling on the thread "
@@ -4346,6 +4441,7 @@ class InterviewAssistant(Agent):
                 if len(mem.candidate_turns) > 60:
                     del mem.candidate_turns[:-60]
 
+            await self._decide_jd_followup(text, diag)
             frame = self._build_decision_frame(diag)
             action = self._infer_action_from_frame(diag)
 

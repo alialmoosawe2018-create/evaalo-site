@@ -139,6 +139,7 @@ def build_record(
             "hook_followup",
             "competency_followup",
             "entity_followup",
+            "jd_followup",
         ),
         "followupSkipReason": _clip(followup_skip_reason, 60),
         "competencyBudgetSpent": dict(competency_budget or {}),

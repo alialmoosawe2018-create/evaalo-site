@@ -4,8 +4,11 @@ What the owner decided (2026-10-03), and what these tests hold the agent to:
   * the three questions REPLACE the three anchors and open every interview of the
     campaign, in order, whatever the career level — the senior/entry tracks
     otherwise swap anchors for universal openers;
-  * at most one follow-up per question, then the next one; a safety net of
-    eight utterances for the whole part;
+  * at most one follow-up per question — written for the candidate's answer by
+    a small model call that sees the question and the answer only (never the
+    next question), kept in the situation and the future tense; when there is
+    nothing worth probing, the next question instead of a generic probe (owner,
+    2026-10-04); a safety net of eight utterances for the whole part;
   * no competency key is set or spent during part one;
   * the greeting asks question 1, and it is not asked again;
   * «شنو تقصد؟» gets the question's own clarification first;
@@ -36,8 +39,9 @@ from voice_interview.entity_policy import collapse_to_single_question
 from voice_interview.heuristics import normalize_text
 from voice_interview.jd_part_one import (
     JdQuestion,
+    build_jd_followup_messages,
+    clean_jd_followup,
     jd_clarification,
-    jd_followup_line,
     jd_greeting_lead,
     jd_transition_line,
     parse_jd_questions,
@@ -88,6 +92,8 @@ STORY = "كان صعب شوية"
 CLARIFY = "شنو تقصد بالسؤال؟ ما فهمت"
 SKIP = "خلينا نغير السؤال"
 TRANSITION = jd_transition_line("ar")
+#: A follow-up the writer could produce for RICH (the owner's own example).
+FOLLOW = "وإذا السجلين مختلفين، شلون راح تحدد الصحيح؟"
 
 
 def _agent(
@@ -95,6 +101,8 @@ def _agent(
     jd: list[JdQuestion] | None = JD,
     bank: list[str] | None = None,
     pack: str = "",
+    followups: list[str] | None = None,
+    gender: str = "",
 ) -> InterviewAssistant:
     agent = InterviewAssistant(
         tts_router=_router(),
@@ -108,12 +116,23 @@ def _agent(
         jd_questions=jd,
         jd_language="ar" if jd else None,
         domain_pack_key=pack,
+        candidate_gender=gender or None,
     )
 
     async def keep(_bare: str) -> str:
         return ""
 
     agent._regenerate_framed_question = keep
+    # The follow-up writer (a model call in production): replies from `followups`
+    # in order, then "NONE". Every prompt it is shown is kept for the assertions.
+    queue = list(followups or [])
+    agent._jd_calls = []
+
+    async def write(messages):
+        agent._jd_calls.append(messages)
+        return queue.pop(0) if queue else "NONE"
+
+    agent._generate_jd_followup_text = write
     return agent
 
 
@@ -276,50 +295,178 @@ def test_without_the_greeting_question_one_is_asked_first() -> None:
     assert _jd_id(agent, row["plan"].question) == "q1"
 
 
-def test_at_most_one_follow_up_per_question() -> None:
-    agent = _agent()
+def test_one_written_follow_up_per_question_then_the_next_one() -> None:
+    agent = _agent(followups=[FOLLOW, FOLLOW, FOLLOW, FOLLOW])
     _greet(agent)
-    sources: list[str] = []
-    for answer in [STORY, STORY, STORY, RICH_WITH_HOOK, RICH_WITH_HOOK, STORY, STORY, RICH]:
-        row = _turn(agent, answer)
+    order: list[str] = []
+    for _ in range(8):
+        row = _turn(agent, RICH)
         plan = row["plan"]
-        if plan is None:
-            continue
-        jd = _jd_id(agent, plan.question) if plan.source in ("bank", "track_anchor") else ""
-        sources.append(jd or plan.source)
+        order.append(_jd_id(agent, plan.question) if plan.source == "track_anchor" else plan.source)
         if plan.source == "competency_engine":
             break
-    # Between two description questions, never two follow-ups.
-    run = 0
-    for s in sources:
-        if s in ("q1", "q2", "q3", "competency_engine"):
-            run = 0
-            continue
-        run += 1
-        assert run <= 1, sources
-    assert [s for s in sources if s in ("q2", "q3")] == ["q2", "q3"], sources
-    assert any(s not in ("q2", "q3", "competency_engine") for s in sources), "a follow-up must have fired"
+    assert order == [
+        "jd_followup", "q2", "jd_followup", "q3", "jd_followup", "competency_engine",
+    ], order
+    # The writer is asked once per question — never for the answer to its follow-up.
+    assert len(agent._jd_calls) == 3
+
+
+def test_the_follow_up_is_written_for_the_answer_and_said_as_written() -> None:
+    agent = _agent(followups=[FOLLOW])
+    _greet(agent)
+    row = _turn(agent, RICH)
+    assert row["plan"].source == "jd_followup"
+    assert row["plan"].response_mode == MODE_FOLLOW_UP
+    assert row["plan"].question == FOLLOW == row["spoken"]
+    assert not row["plan"].competency_key
+    assert "Say it exactly as written" in row["frame"]
+    system, user = agent._jd_calls[0]
+    assert JD[0].question in user[1] and RICH in user[1], "the question and the answer"
+    for later in JD[1:]:
+        assert later.question not in system[1] + user[1], "never the next question"
+    assert "راح" in system[1] and "NONE" in system[1]
+
+
+@pytest.mark.parametrize(
+    "written",
+    [
+        "NONE",
+        "",
+        "شلون سويتها بشغلك السابق؟",  # the past
+        "مثل ما سويت بشغلك السابق، شلون راح تحدد الصحيح؟",  # the past, even with «راح»
+        "مثل ما سويت بشغلك السابق، شلون راح تراجع سجلات البصمة؟",  # the past, tied to the answer
+        "هل راح تبلغ المدير المالي؟",  # yes/no
+        "شلون راح تتصرف وشنو راح تسوي بعدين؟",  # two asks
+        "شلون تحدد الصحيح؟",  # not the future
+        "وإذا السجلين مختلفين، شلون راح تحدد الصحيح؟ وليش؟",  # two question marks
+        JD[1].question,  # the next question recited
+        JD[0].question,  # the question restated
+    ],
+)
+def test_nothing_usable_means_the_next_question_not_a_generic_probe(written) -> None:
+    agent = _agent(followups=[written])
+    _greet(agent)
+    row = _turn(agent, RICH)
+    assert _jd_id(agent, row["plan"].question) == "q2", row["plan"].source
+
+
+def test_a_slow_or_failing_writer_means_the_next_question(monkeypatch) -> None:
+    monkeypatch.setenv("INTERVIEW_JD_FOLLOWUP_TIMEOUT_S", "1")
+    for behaviour in ("slow", "error"):
+        agent = _agent()
+
+        async def write(messages, behaviour=behaviour):
+            if behaviour == "slow":
+                await asyncio.sleep(2)
+                return FOLLOW
+            raise RuntimeError("model down")
+
+        agent._generate_jd_followup_text = write
+        _greet(agent)
+        row = _turn(agent, RICH)
+        assert _jd_id(agent, row["plan"].question) == "q2", behaviour
 
 
 @pytest.mark.parametrize("answer", [STORY, RICH_WITH_HOOK])
-def test_the_one_follow_up_is_the_owner_s_line(answer) -> None:
-    """Whatever kind of follow-up the picker chose — the difficulty probe or one on a
-    tool the candidate named — a description question gets the fixed line."""
-    agent = _agent()
+def test_no_generic_follow_up_in_part_one(answer) -> None:
+    """The answers that used to fire the difficulty probe or a tool hook."""
+    agent = _agent()  # the writer finds nothing
     _greet(agent)
     row = _turn(agent, answer)
-    assert row["plan"].response_mode == MODE_FOLLOW_UP
-    assert row["plan"].question == jd_followup_line("ar") == "شنو تتوقع يكون أصعب جزء بهالموقف؟"
-    assert row["spoken"] == jd_followup_line("ar")
-    assert not row["plan"].competency_key
+    assert _jd_id(agent, row["plan"].question) == "q2", row["plan"].source
 
 
-def test_after_part_one_follow_ups_are_the_usual_ones() -> None:
+@pytest.mark.parametrize("said", [CLARIFY, SKIP, "هلا، جاهز نبدي."])
+def test_a_non_answer_never_asks_the_writer(said) -> None:
+    agent = _agent(followups=[FOLLOW])
+    _greet(agent)
+    _turn(agent, said)
+    assert agent._jd_calls == []
+
+
+def test_after_part_one_the_writer_is_never_asked_and_competencies_follow_up_as_before() -> None:
     agent = _agent()
+    mem = agent._memory
     _greet(agent)
     _run_until_competency(agent, [RICH])
-    later = [_turn(agent, STORY)["plan"] for _ in range(3)]
-    assert all(p is None or p.question != jd_followup_line("ar") for p in later)
+    calls = len(agent._jd_calls)
+    for _ in range(3):
+        _turn(agent, STORY)
+    assert len(agent._jd_calls) == calls
+    assert agent._jd_active(mem) is None
+    mem.current_competency_key = "c0"
+    mem.competency_followup_counts.pop("c0", None)
+    assert agent._competency_followup_budget_left(mem), "the competency budget is back in force"
+
+
+def test_follow_up_cleaning_rules() -> None:
+    qs = [q.question for q in JD]
+    assert clean_jd_followup("«وإذا المدير رفض، شنو راح تسوي؟»", "ar", qs) == "وإذا المدير رفض، شنو راح تسوي؟"
+    assert clean_jd_followup(FOLLOW, "ar", qs) == FOLLOW
+    assert clean_jd_followup("none", "ar", qs) == ""
+    en = ["Payroll, if overtime was counted twice for a team, how would you handle it?"]
+    assert clean_jd_followup("If the two records disagree, which would you trust first?", "en", en)
+    assert clean_jd_followup("How did you handle it in your last job?", "en", en) == ""
+    assert clean_jd_followup("Would you tell the manager?", "en", en) == ""
+    messages = build_jd_followup_messages(JD[0].question, RICH, "ar")
+    assert [role for role, _ in messages] == ["system", "user"]
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        # Real model, 2026-10-04: two asks joined by a Levantine «وشو».
+        "شلون راح توثق كل خطوة، وشو راح تتأكد من دقتها؟",
+        "شنو راح تسوي إذا المدير رفض، وشلون راح تبلغه؟",
+        "شلون راح تبدي، وشگد وقت راح تحتاج؟",
+        "شو راح تسوي إذا المدير رفض؟",
+        "كيف راح تتعامل ويا الموقف؟",
+        # Real model, 2026-10-04: MSA inside an otherwise Iraqi follow-up.
+        "شلون راح تحل الموضوع إذا كان هناك اختلاف كبير بالساعات؟",
+        "شلون راح توثق كل خطوة قمت بيها خلال هالعملية؟",
+        "شنو الخطوات التي راح تتبعها؟",
+        "شنو راح تسوي إذا ما لگيت أحد هناك؟",
+    ],
+)
+def test_a_second_ask_or_a_non_iraqi_follow_up_is_dropped(raw) -> None:
+    assert clean_jd_followup(raw, "ar", [q.question for q in JD]) == ""
+
+
+def test_a_follow_up_must_pick_up_something_the_candidate_said() -> None:
+    qs = [q.question for q in JD]
+    platitude = "أتعامل ويا الموضوع باحترافية وأحاول أحله بأحسن طريقة ممكنة."
+    twist = "شنو راح تسوي إذا الموظف كان متوتر أو عصباني؟"
+    assert clean_jd_followup(twist, "ar", qs, platitude) == ""
+    assert clean_jd_followup(FOLLOW, "ar", qs, RICH) == FOLLOW
+
+
+def test_an_invented_follow_up_moves_to_the_next_question() -> None:
+    agent = _agent(followups=["شنو راح تسوي إذا الموظف كان متوتر أو عصباني؟"])
+    _greet(agent)
+    row = _turn(agent, RICH)
+    assert len(agent._jd_calls) == 1, "the writer was asked"
+    assert _jd_id(agent, row["plan"].question) == "q2", row["plan"].source
+
+
+@pytest.mark.parametrize(
+    "kept",
+    ["شلون راح ترتب الشغل إذا الوقت شوية؟", "شلون راح توزع الشغل وهلگد طلبات واصلة؟"],
+)
+def test_a_word_that_only_starts_like_a_question_word_is_not_a_second_ask(kept) -> None:
+    assert clean_jd_followup(kept, "ar", [q.question for q in JD]) == kept
+
+
+@pytest.mark.parametrize(("gender", "form"), [("", "masculine"), ("male", "masculine"), ("female", "feminine")])
+def test_the_writer_addresses_the_candidate_as_the_interview_does(gender, form) -> None:
+    """The follow-up is said as written. Real model, 2026-10-04: one in 36 used a
+    feminine verb for a candidate of unknown gender."""
+    agent = _agent(followups=[FOLLOW], gender=gender)
+    _greet(agent)
+    _turn(agent, RICH)
+    system = agent._jd_calls[0][0][1]
+    assert f"{form} second-person forms" in system
+    assert ("feminine" in system) == (form == "feminine")
 
 
 def test_the_transition_wording_and_no_echo_of_its_own_opener() -> None:
@@ -335,21 +482,20 @@ def test_the_transition_wording_and_no_echo_of_its_own_opener() -> None:
 def test_a_follow_up_turn_does_not_advertise_the_next_question() -> None:
     """Real model, 2026-10-04, 12 of 12 runs: shown «Suggested next bank anchor: q3»
     on a follow-up turn, it asked q3 instead — and the plan then asked q3 again."""
-    agent = _agent()
+    agent = _agent(followups=[FOLLOW])
     _greet(agent)
-    assert _jd_id(agent, _turn(agent, RICH)["plan"].question) == "q2"
-    row = _turn(agent, STORY)
-    assert row["plan"].response_mode == MODE_FOLLOW_UP
-    assert JD[2].question[:40] not in row["frame"], "q3 must not be in front of the model yet"
+    row = _turn(agent, RICH)
+    assert row["plan"].source == "jd_followup"
+    assert JD[1].question[:40] not in row["frame"], "q2 must not be in front of the model yet"
     assert "Suggested next bank anchor" not in row["frame"]
 
 
 def test_a_description_question_the_model_says_on_its_own_counts_as_asked() -> None:
-    agent = _agent()
+    agent = _agent(followups=["NONE", FOLLOW])
     mem = agent._memory
     _greet(agent)
-    _turn(agent, RICH)  # → q2
-    row = _turn(agent, STORY, model_says=JD[2].question)  # planned: a follow-up; said: q3
+    _turn(agent, RICH)  # nothing to probe → q2
+    row = _turn(agent, RICH, model_says=JD[2].question)  # planned: a follow-up; said: q3
     assert row["plan"].response_mode == MODE_FOLLOW_UP
     assert mem.jd_asked_ids == {"q1", "q2", "q3"} and mem.jd_active_id == "q3"
     nxt = _run_until_competency(agent, [RICH])
@@ -359,10 +505,10 @@ def test_a_description_question_the_model_says_on_its_own_counts_as_asked() -> N
 
 
 def test_no_competency_is_set_or_spent_during_part_one() -> None:
-    agent = _agent()
+    agent = _agent(followups=[FOLLOW, FOLLOW, FOLLOW])
     mem = agent._memory
     _greet(agent)
-    for answer in [STORY, RICH, RICH_WITH_HOOK, RICH]:
+    for answer in [STORY, RICH, RICH_WITH_HOOK, RICH, RICH, RICH, RICH]:
         row = _turn(agent, answer)
         if row["plan"] and row["plan"].source == "competency_engine":
             break
