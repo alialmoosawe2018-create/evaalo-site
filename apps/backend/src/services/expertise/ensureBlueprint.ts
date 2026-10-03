@@ -349,6 +349,10 @@ async function ensureBlueprintForCampaignUncached(
             generationSource: generated.generationSource,
             knowledgeDepth: generated.knowledgeDepth,
             blueprintContentVersion: generated.blueprintContentVersion,
+            // The stale check above reads the stamp from THIS document. Written only to
+            // the profile (whose schema drops it), every application retired the
+            // campaign's blueprint and generated a new one (prod logs, 2026-10-01).
+            styleVersion: BLUEPRINT_STYLE_VERSION,
             packVersion: generated.packVersion ?? undefined,
             blueprintGeneratedAt: generated.generatedAt
                 ? new Date(generated.generatedAt)

@@ -109,6 +109,7 @@
     "test:job-catalog-resolver": "tsx src/scripts/job-catalog-resolver-test.ts",
     "test:domain-packs-match": "tsx src/scripts/domain-packs-match-test.ts",
     "test:blueprint-version": "tsx src/scripts/blueprint-version-smoke-test.ts",
+    "test:blueprint-style-lifecycle": "tsx src/scripts/blueprint-style-lifecycle-test.ts",
     "test:taxonomy-l1": "tsx src/scripts/taxonomy-l1-smoke-test.ts",
     "test:taxonomy-l1-coverage": "tsx src/scripts/taxonomy-l1-coverage-test.ts",
     "test:wave-1a-packs": "tsx src/scripts/wave-1a-pack-smoke-test.ts",
