@@ -63,6 +63,7 @@ from voice_interview.job_questions import (
 from voice_interview.entity_policy import build_role_glossary
 from voice_interview.experience_tracks import parse_experience_tracks, parse_interview_paths
 from voice_interview.keep_warm import is_keep_warm_job
+from voice_interview.jd_part_one import JdQuestion, jd_language, jd_part_one_enabled, parse_jd_questions
 from voice_interview.lang import detect_lang_from_text
 from voice_interview.netutil import is_websocket_closing_error
 from voice_interview.transcript_hooks import attach_user_transcript_routing
@@ -320,11 +321,19 @@ def _format_blueprint_block(
     bp: dict[str, Any],
     expertise_prompt: str,
     domain_guidance: str,
+    *,
+    jd_part_one: bool = False,
 ) -> str:
     """Build the specialized interview block (layers 2/3/4) from the blueprint metadata.
 
     Layer 2 = domain_guidance, Layer 3 = expertise_prompt, Layer 4 = blueprint (anchors + competencies).
     Keeps the fair 3+2 model: 3 fixed anchor questions for all candidates + adaptive follow-ups.
+
+    ``jd_part_one``: the interview opens with the questions written from the job
+    description instead (jd_part_one.py). The anchors are then NOT listed — they are
+    not asked — and the 3+2 lines that would tell the model to ask them, with two
+    follow-ups each, give way to the opening rules. The questions themselves reach
+    the model one per turn through the decision frame, never as a list.
     """
     lines: list[str] = []
     dg = (domain_guidance or "").strip()
@@ -334,17 +343,30 @@ def _format_blueprint_block(
     if ep:
         lines.extend(["", "JOB EXPERTISE (how to think for THIS specific role):", ep])
 
-    anchors = [str(q).strip() for q in (bp.get("anchorQuestions") or []) if str(q).strip()]
-    lines.extend(
-        [
-            "",
-            "INTERVIEW BLUEPRINT — CORE QUESTIONS (fixed for ALL candidates of this campaign; "
-            "reshape into one short SPOKEN question in the candidate's language — never translate "
-            "word-for-word, never read verbatim):",
-        ]
-    )
-    for i, q in enumerate(anchors[:3], 1):
-        lines.append(f"  {i}. {q}")
+    if jd_part_one:
+        lines.extend(
+            [
+                "",
+                "INTERVIEW OPENING — QUESTIONS FROM THE JOB DESCRIPTION (fixed for ALL candidates of this campaign):",
+                "- The interview opens with situational questions written from this job's description. The "
+                "decision frame gives you one per turn as the recommended question.",
+                "- Each describes a work situation and asks what the candidate WILL do. Keep that situation and "
+                "that future ask («شلون راح…» / \"how would you…\"); never turn it into a question about the past.",
+                "- At most ONE short follow-up after each of them, then the next one.",
+            ]
+        )
+    else:
+        anchors = [str(q).strip() for q in (bp.get("anchorQuestions") or []) if str(q).strip()]
+        lines.extend(
+            [
+                "",
+                "INTERVIEW BLUEPRINT — CORE QUESTIONS (fixed for ALL candidates of this campaign; "
+                "reshape into one short SPOKEN question in the candidate's language — never translate "
+                "word-for-word, never read verbatim):",
+            ]
+        )
+        for i, q in enumerate(anchors[:3], 1):
+            lines.append(f"  {i}. {q}")
 
     competencies = bp.get("competencies") or []
     if isinstance(competencies, list) and competencies:
@@ -369,6 +391,17 @@ def _format_blueprint_block(
             if follow_ups:
                 lines.append(f"    Follow-up if needed: {' | '.join(follow_ups)}")
 
+    if jd_part_one:
+        lines.extend(
+            [
+                "",
+                "COMPETENCY GUIDANCE (after the opening questions):",
+                "- The competencies above then drive the interview, guided by their evidence/red-flags/follow-up rules.",
+                "- If an answer is generic, ask for a specific real example, the data/steps used, and the outcome.",
+                "- Evaluate on evidence, not confidence or answer length. Do not invent facts not in the role/domain context.",
+            ]
+        )
+        return "\n".join(lines)
     lines.extend(
         [
             "",
@@ -383,7 +416,7 @@ def _format_blueprint_block(
     return "\n".join(lines)
 
 
-def _build_interview_context(meta: dict[str, Any]) -> str:
+def _build_interview_context(meta: dict[str, Any], *, jd_part_one: bool = False) -> str:
     """Human-readable block from LiveKit job metadata (backend video-interview routes)."""
     if not meta:
         return ""
@@ -439,7 +472,11 @@ def _build_interview_context(meta: dict[str, Any]) -> str:
         knowledge_depth = str(meta.get("knowledge_depth") or "").strip()
         if knowledge_depth:
             logger.info("interview blueprint in use (knowledge_depth=%s)", knowledge_depth)
-        lines.append(_format_blueprint_block(blueprint, expertise_prompt, domain_guidance))
+        lines.append(
+            _format_blueprint_block(
+                blueprint, expertise_prompt, domain_guidance, jd_part_one=jd_part_one
+            )
+        )
     elif bank.has_bank:
         lines.append(format_questions_block(bank))
     else:
@@ -464,6 +501,17 @@ def _build_interview_context(meta: dict[str, Any]) -> str:
             ]
         )
     return "\n".join(lines)
+
+
+def resolve_jd_part_one(meta: dict[str, Any], blueprint: dict[str, Any] | None) -> list[JdQuestion]:
+    """The description questions this session opens with, or ``[]`` (today's interview).
+
+    Off unless INTERVIEW_JD_PART1 is on; and only with a blueprint, because without
+    one there are no competencies to hand over to after part one.
+    """
+    if not jd_part_one_enabled() or blueprint is None or not meta.get("jd_questions"):
+        return []
+    return parse_jd_questions(meta, session_language(meta))
 
 
 def _meta_bool(meta: dict[str, Any], key: str, default: bool = False) -> bool:
@@ -615,14 +663,21 @@ def _initial_greeting_instructions(meta: dict[str, Any]) -> str:
     return " ".join(parts)
 
 
-def _canned_initial_greeting(meta: dict[str, Any]) -> str:
-    """Short welcome + first bank question (or generic opener) — TTS only, no LLM round-trip."""
+def _canned_initial_greeting(meta: dict[str, Any], first_question: str | None = None) -> str:
+    """Short welcome + first bank question (or generic opener) — TTS only, no LLM round-trip.
+
+    ``first_question`` replaces the bank's: the first description question when the
+    interview opens with them (part one), spoken as the recruiter approved it.
+    """
     name = str(meta.get("candidate_name") or "").strip()
     pos = str(meta.get("position") or "").strip()
     if pos.upper() == "N/A":
         pos = ""
-    bank = resolve_livekit_questions(meta)
-    first_q = bank.questions[0] if bank.questions else None
+    if first_question and first_question.strip():
+        first_q = first_question.strip()
+    else:
+        bank = resolve_livekit_questions(meta)
+        first_q = bank.questions[0] if bank.questions else None
     mode = _greeting_mode(meta)
     short_mode = (os.getenv("INITIAL_GREETING_SHORT_MODE", "true").strip().lower() in ("1", "true", "yes"))
     include_first_q = _greeting_carries_first_question()
@@ -847,19 +902,27 @@ async def my_agent(ctx: JobContext):
         )
         return
 
-    interview_context = _build_interview_context(meta)
+    # Part one: questions from the job description, when sent, valid and switched on.
+    _blueprint = _parse_blueprint(meta)
+    jd_questions = resolve_jd_part_one(meta, _blueprint)
+    interview_context = _build_interview_context(meta, jd_part_one=bool(jd_questions))
     interview_state = _build_interview_state(meta)
     bank_res = resolve_livekit_questions(meta)
     bank_questions = bank_res.questions
     bank_key = bank_res.matched_key
     # Specialized path: prefer the locked blueprint's anchor questions for the agent's memory
     # pre-seed and first topic (fair 3-question backbone). Falls back to the legacy bank.
-    _blueprint = _parse_blueprint(meta)
     if _blueprint is not None:
         _anchors = [str(q).strip() for q in (_blueprint.get("anchorQuestions") or []) if str(q).strip()]
         if _anchors:
             bank_questions = _anchors[:3]
             bank_key = "blueprint"
+    jd_lang = jd_language(jd_questions)
+    if jd_questions:
+        # They take the anchors' place: same backbone role, written from the description.
+        bank_questions = [q.question for q in jd_questions]
+        bank_key = "jd_questions"
+        logger.info("jd part one | questions=%d language=%s", len(jd_questions), jd_lang)
     interview_position = str(meta.get("position") or "").strip()
     if interview_position.upper() == "N/A":
         interview_position = ""
@@ -1110,6 +1173,8 @@ async def my_agent(ctx: JobContext):
         knowledge_depth=str(meta.get("knowledge_depth") or ""),
         pack_match_confidence=str(meta.get("pack_match_confidence") or ""),
         role_key=str(meta.get("role_key") or ""),
+        jd_questions=jd_questions or None,
+        jd_language=jd_lang or None,
     )
     # Per-turn telemetry. The assistant deliberately has no room handle, so the
     # sink is built here (where ``ctx`` lives) and injected. Records go out on
@@ -1239,7 +1304,8 @@ async def my_agent(ctx: JobContext):
                 )
                 logger.debug("initial greeting: LLM path")
             else:
-                text = _canned_initial_greeting(meta).strip()
+                _jd_first = jd_questions[0].question if jd_questions else None
+                text = _canned_initial_greeting(meta, first_question=_jd_first).strip()
                 # INFO, not debug: the founder reported twice that no greeting was
                 # heard, the logs proved `greeting unblocked` and no failure, and
                 # every branch of _canned_initial_greeting returns a non-empty
@@ -1260,7 +1326,18 @@ async def my_agent(ctx: JobContext):
                     # the TTS character count matched the FIRST QUESTION in the
                     # transcript, not the greeting, in both.
                     interview_agent.mark_verbatim(text)
-                    await session.say(text, allow_interruptions=allow_interrupt)
+                    # Part one: the greeting asks the first description question, so it
+                    # is asked — noted BEFORE speaking, since an answer can complete
+                    # while the greeting is still playing; undone if it never plays.
+                    _noted_first = bool(_jd_first and _jd_first in text) and interview_agent.note_opening_question(
+                        _jd_first
+                    )
+                    try:
+                        await session.say(text, allow_interruptions=allow_interrupt)
+                    except Exception:
+                        if _noted_first:
+                            interview_agent.forget_opening_question(_jd_first)
+                        raise
                     logger.info("initial greeting: say() returned")
                 else:
                     logger.warning("initial greeting: EMPTY text — nothing spoken")

@@ -117,6 +117,14 @@ from voice_interview.subject_coverage import (
     subject_already_asked,
 )
 from voice_interview.turn_log import build_end_record, build_record as build_turn_log_record
+from voice_interview.jd_part_one import (
+    JD_FOLLOWUP_SOURCES,
+    JdQuestion,
+    jd_clarification,
+    jd_max_followups,
+    jd_part_one_max_turns,
+    jd_transition_line,
+)
 
 logger = logging.getLogger("agent")
 
@@ -448,6 +456,25 @@ class InterviewMemory:
     # never-spoken rewrite), this holds the delivered line, plus the blueprint
     # wording of any anchor that was delivered. See ``_delivered_coverage``.
     coverage_evidence: list[str] = field(default_factory=list)
+    # ── Part one: questions from the job description (empty/false without them) ──
+    # The description question on the table, e.g. "q2" — what a follow-up or a
+    # clarification is about. Cleared when a fresh non-description question is sent.
+    jd_active_id: str = ""
+    # Follow-ups spent on each description question (owner: at most one).
+    jd_followups: dict[str, int] = field(default_factory=dict)
+    # Agent utterances spent in part one — the safety net counts these.
+    jd_turns: int = 0
+    # Part one is over: no description question will be asked again.
+    jd_part_closed: bool = False
+    # The one transition sentence into the rest of the interview has been spoken
+    # (or cancelled by a closing).
+    jd_transition_sent: bool = False
+    # Description questions already clarified with their own example.
+    jd_clarified: set[str] = field(default_factory=set)
+    # Description questions the candidate has been asked — by the greeting, by a
+    # plan, by a guard swap, or by the model on its own. Part one's progress is
+    # counted HERE, not on ``anchor_questions_sent``, which only sees anchor plans.
+    jd_asked_ids: set[str] = field(default_factory=set)
 
     def record_opener_stem(self, stem: str, *, keep: int = 3) -> None:
         s = (stem or "").strip()
@@ -848,6 +875,8 @@ class InterviewAssistant(Agent):
         knowledge_depth: str | None = None,
         pack_match_confidence: str | None = None,
         role_key: str | None = None,
+        jd_questions: list[JdQuestion] | None = None,
+        jd_language: str | None = None,
     ) -> None:
         ai = (
             allow_interruptions
@@ -871,6 +900,23 @@ class InterviewAssistant(Agent):
         self._knowledge_depth = (knowledge_depth or "").strip()
         self._pack_match_confidence = (pack_match_confidence or "").strip()
         self._role_key = (role_key or "").strip()
+        # Part one (jd_part_one.py). Empty → every jd branch below is skipped and the
+        # interview is exactly what it was. When set, these ARE the bank questions:
+        # the worker passes their text as ``bank_questions`` in place of the anchors.
+        self._jd_questions: list[JdQuestion] = list(jd_questions or [])
+        if self._jd_questions:
+            # They replace the anchors — the old backbone must not come back as a filler.
+            self._bank_questions = [q.question for q in self._jd_questions]
+        self._jd_language = (jd_language or "ar").strip() or "ar"
+        self._jd_by_key: dict[str, JdQuestion] = {}
+        for _jq in self._jd_questions:
+            for _form in (_jq.question, collapse_to_single_question(_jq.question)):
+                _k = normalize_text(_form)
+                if _k:
+                    self._jd_by_key[_k] = _jq
+        # The turn whose reply carries the transition sentence — both guard passes
+        # of that turn (transcription_node + tts_node) must say it.
+        self._jd_transition_turn: int = -1
         self._turn_recommended: str | None = None
         self._turn_recommended_source: str = ""
         # What the decision frame told the model this turn — the turn's one pick.
@@ -1338,6 +1384,12 @@ class InterviewAssistant(Agent):
         )
 
     def _suggest_next_anchor_line(self) -> str:
+        if self._jd_part_one_active(self._memory):
+            # Measured with the real model (2026-10-04, 12 of 12 runs): shown the
+            # next description question here, it asked THAT instead of the planned
+            # follow-up — and the plan then asked it a second time. During part one
+            # the turn's recommended question is the only question it is given.
+            return ""
         nxt = self._pick_next_bank_anchor()
         if nxt:
             return f"Suggested next bank anchor (rephrase naturally, do not read verbatim): \"{nxt[:200]}\""
@@ -1770,7 +1822,26 @@ class InterviewAssistant(Agent):
             question_id=mem.sent_question_id or None,
         )
 
+    def _clarify_challenge_text(self) -> tuple[str, str]:
+        jd_text = self._jd_clarification_for_active()
+        if jd_text:
+            return jd_text, "jd_hint"
+        return clarify_challenge_reply(
+            self._domain_pack_key, last_question=self._memory.active_question_text or ""
+        )
+
     def _clarify_for_current_pack(self, last_question: str) -> tuple[str, str]:
+        # A description question carries its own clarification, written with it
+        # and seen by the recruiter: the first «شنو تقصد؟» gets that example. A
+        # second one falls back to the general simplifier, so it is not repeated.
+        jd_text = self._jd_clarification_for_active()
+        if jd_text:
+            return jd_text, "jd_hint"
+        jd = self._jd_active(self._memory)
+        if jd is not None:
+            # The active text is now the example already given; simplifying THAT
+            # would hand the same example back. Simplify the question itself.
+            last_question = jd.question
         return simplify_clarify_for_pack(
             last_question,
             variant=self._memory.clarify_count,
@@ -1854,9 +1925,7 @@ class InterviewAssistant(Agent):
         if not same:
             return None
         if meta == "clarify_challenge":
-            text, src = clarify_challenge_reply(
-                self._domain_pack_key, last_question=self._memory.active_question_text or ""
-            )
+            text, src = self._clarify_challenge_text()
             return self._set_turn_recommendation(
                 collapse_to_single_question(text),
                 source="clarify_challenge",
@@ -2455,6 +2524,14 @@ class InterviewAssistant(Agent):
         return "".join(parts).strip()
 
     async def reframe_bare_question(self, text: str) -> str:
+        """The last step before a reply is spoken and recorded (all three call sites).
+
+        The framing reframe below, then — after it, so a rewrite can never drop it —
+        part one's one transition sentence (no-op without description questions).
+        """
+        return self._apply_jd_transition(await self._reframe_bare_question(text))
+
+    async def _reframe_bare_question(self, text: str) -> str:
         """Regenerate a question that arrived without the framing sentence.
 
         ⚠️ 2026-09-10, reported from real interviews: the question was sometimes
@@ -2558,6 +2635,12 @@ class InterviewAssistant(Agent):
             logger.info("experience track updated: %s -> %s", prev or "(none)", new_track)
 
     def _pick_track_aware_anchor(self, mem: InterviewMemory) -> str | None:
+        if self._jd_part_one_active(mem):
+            # The description questions open EVERY interview of the campaign. The
+            # senior/entry tracks otherwise swap the anchors for universal openers.
+            jd_next = self._pick_next_bank_anchor()
+            if jd_next:
+                return jd_next
         track = (mem.active_experience_track or "").strip()
         if not track or track == "experienced":
             return self._pick_next_bank_anchor()
@@ -2768,6 +2851,12 @@ class InterviewAssistant(Agent):
             if is_open_status(mem.active_question_status):
                 self._reject_active_question(mem)
             mem.topic_change_count += 1
+            if self._jd_part_one_active(mem):
+                # «خلّينا نغيّر السؤال» during part one: the next description
+                # question, not a jump into the competencies.
+                jd_next = self._pick_next_bank_anchor()
+                if jd_next:
+                    return self._set_turn_recommendation(jd_next, source="track_anchor")
             hook_follow = self._pick_hook_or_entity_followup(diag, link_policy)
             if hook_follow:
                 return self._set_turn_recommendation(hook_follow, source="hook_followup")
@@ -2828,9 +2917,7 @@ class InterviewAssistant(Agent):
             return None
 
         if meta == "clarify_challenge":
-            text, src = clarify_challenge_reply(
-                self._domain_pack_key, last_question=self._memory.active_question_text or ""
-            )
+            text, src = self._clarify_challenge_text()
             return self._set_turn_recommendation(
                 collapse_to_single_question(text),
                 source="clarify_challenge",
@@ -2858,7 +2945,12 @@ class InterviewAssistant(Agent):
                 )
             return self._set_turn_recommendation(anchor, source="bank")
 
-        if self._should_offer_path_step(diag) and not is_open_status(mem.active_question_status):
+        if (
+            self._should_offer_path_step(diag)
+            and not is_open_status(mem.active_question_status)
+            # A pack's path step would cut in ahead of the description questions.
+            and not self._jd_part_one_active(mem)
+        ):
             path_q = self._pick_path_step_recommendation(mem)
             if path_q:
                 mem.pending_path_advance = True
@@ -2993,14 +3085,121 @@ class InterviewAssistant(Agent):
 
     def _anchor_intro_pending(self, mem: InterviewMemory) -> bool:
         """True while the fixed anchor backbone is still being asked."""
+        if self._jd_questions:
+            # All description questions open the interview (whatever
+            # INTERVIEW_ANCHOR_INTRO_COUNT says), unless the safety net closed part one.
+            return (
+                self._jd_part_one_active(mem)
+                and len(mem.jd_asked_ids) < len(self._jd_questions)
+            )
         if not self._bank_questions:
             return False
         return mem.anchor_questions_sent < min(
             _anchor_intro_count(), len(self._bank_questions)
         )
 
+    # ── Part one: questions from the job description ─────────────────────────
+    def _jd_part_one_active(self, mem: InterviewMemory) -> bool:
+        return bool(self._jd_questions) and not mem.jd_part_closed
+
+    def _jd_question_for(self, text: str | None) -> JdQuestion | None:
+        if not self._jd_questions or not text:
+            return None
+        return self._jd_by_key.get(normalize_text(text)) or self._jd_by_key.get(
+            normalize_text(collapse_to_single_question(text))
+        )
+
+    def _jd_spoken_in(self, text: str, exclude: set[str]) -> JdQuestion | None:
+        """The description question a spoken line plainly carries, if any.
+
+        Most of a question's own words must be there (half, and at least four):
+        a follow-up that echoes a word or two of its question is not a new question.
+        """
+        if not text:
+            return None
+        best: JdQuestion | None = None
+        best_ratio = 0.0
+        for q in self._jd_questions:
+            if q.id in exclude:
+                continue
+            total = shared_term_count(q.question, q.question)
+            if total < 4:
+                continue
+            shared = shared_term_count(q.question, text)
+            ratio = shared / total
+            if shared >= 4 and ratio >= 0.5 and ratio > best_ratio:
+                best, best_ratio = q, ratio
+        return best
+
+    def _jd_active(self, mem: InterviewMemory) -> JdQuestion | None:
+        """The description question on the table, while part one runs."""
+        if not self._jd_part_one_active(mem) or not mem.jd_active_id:
+            return None
+        return next((q for q in self._jd_questions if q.id == mem.jd_active_id), None)
+
+    def _jd_clarification_for_active(self) -> str | None:
+        """The question's own clarification, the first time it is asked about."""
+        mem = self._memory
+        jd = self._jd_active(mem)
+        if jd is None or jd.id in mem.jd_clarified:
+            return None
+        mem.jd_clarified.add(jd.id)
+        return jd_clarification(jd, self._locked_lang or self._jd_language)
+
+    def note_opening_question(self, text: str) -> bool:
+        """The greeting carried the first description question: it has been asked.
+
+        Called by the worker just before the greeting is spoken. Without this the
+        greeting's question is recorded only as greeting text, and the first
+        answer would be met with the same question again.
+        """
+        mem = self._memory
+        jd = self._jd_question_for(text)
+        if jd is None or mem.jd_asked_ids or mem.jd_active_id:
+            return False
+        asked = collapse_to_single_question(jd.question).strip()
+        key = normalize_text(asked)
+        for k in (normalize_text(jd.question), key):
+            if k:
+                mem.asked_question_keys.add(k)
+        qid = make_bank_question_id(self._domain_pack_key or "default", key[:80])
+        mem.sent_question_guard.add(qid)
+        mem.sent_question_id = qid
+        mem.anchor_questions_sent += 1
+        mem.active_question_text = asked
+        mem.active_question_status = STATUS_AWAITING_ANSWER
+        mem.last_sent_question_norm = key
+        mem.current_topic = mem.last_sample = jd.question
+        mem.jd_active_id = jd.id
+        mem.jd_asked_ids.add(jd.id)
+        return True
+
+    def forget_opening_question(self, text: str) -> None:
+        """Undo ``note_opening_question`` when the greeting could not be spoken."""
+        mem = self._memory
+        jd = self._jd_question_for(text)
+        if jd is None or mem.jd_active_id != jd.id or mem.jd_asked_ids != {jd.id}:
+            return
+        asked = collapse_to_single_question(jd.question).strip()
+        key = normalize_text(asked)
+        for k in (normalize_text(jd.question), key):
+            mem.asked_question_keys.discard(k)
+        mem.sent_question_guard.discard(make_bank_question_id(self._domain_pack_key or "default", key[:80]))
+        mem.sent_question_id = ""
+        mem.anchor_questions_sent = 0
+        mem.active_question_text = ""
+        mem.active_question_status = STATUS_IDLE
+        mem.last_sent_question_norm = ""
+        mem.jd_active_id = ""
+        mem.jd_asked_ids.clear()
+
     def _competency_followup_budget_left(self, mem: InterviewMemory) -> bool:
         """False once the current competency has had its allowance of depth."""
+        jd = self._jd_active(mem)
+        if jd is not None:
+            # A description question is not a competency: its own budget, and no
+            # competency key is ever set or spent for it.
+            return mem.jd_followups.get(jd.id, 0) < jd_max_followups()
         ckey = (mem.current_competency_key or "").strip()
         if not ckey:
             return True
@@ -3316,6 +3515,10 @@ class InterviewAssistant(Agent):
 
     def _pick_next_bank_anchor(self, recent: list[str] | None = None) -> str | None:
         mem = self._memory
+        if self._jd_questions and not self._jd_part_one_active(mem):
+            # The bank IS the description questions: once part one is over, none of
+            # them comes back as a filler later in the interview.
+            return None
         used = mem.asked_question_keys
         pack = self._domain_pack_key or "default"
         for i, q in enumerate(self._bank_questions):
@@ -3339,23 +3542,130 @@ class InterviewAssistant(Agent):
                 b in mem.closed_question_ids or b in mem.sent_question_guard for b in bank_ids
             ):
                 continue
-            # Skip a bank question that is a near-duplicate of a recent one —
-            # lexically OR by HR topic — since the bank clusters several
-            # questions per topic, so the plain unused-key check alone still
-            # surfaced repeats.
-            if recent and (
-                is_semantic_duplicate_question(q, recent) or is_topic_repeat(q, recent)
-            ):
-                continue
-            # And skip it when its SUBJECT is closed — evidenced already, or
-            # asked twice and still thin. This is the cross-bank block: the
-            # subject may have been covered by a competency question, which
-            # leaves no trace in any of the bank's own "used" structures.
-            if mem.subject_coverage.should_skip(q):
-                continue
+            # The description questions are the campaign's fixed backbone — every
+            # candidate hears all three — so neither overlap check below may drop one.
+            if not self._jd_questions:
+                # Skip a bank question that is a near-duplicate of a recent one —
+                # lexically OR by HR topic — since the bank clusters several
+                # questions per topic, so the plain unused-key check alone still
+                # surfaced repeats.
+                if recent and (
+                    is_semantic_duplicate_question(q, recent) or is_topic_repeat(q, recent)
+                ):
+                    continue
+                # And skip it when its SUBJECT is closed — evidenced already, or
+                # asked twice and still thin. This is the cross-bank block: the
+                # subject may have been covered by a competency question, which
+                # leaves no trace in any of the bank's own "used" structures.
+                if mem.subject_coverage.should_skip(q):
+                    continue
             mem.bank_cursor = i
             return collapsed
         return None
+
+    def _jd_record_reply(
+        self, guarded: str, plan: TurnPlan | None, question_text: str = ""
+    ) -> tuple[str, str]:
+        """Part one bookkeeping for one recorded utterance.
+
+        Returns ``(part, jdQuestionId)`` for the turn log: ``("", "")`` without
+        description questions, ``"jd"`` for an utterance of part one (the question,
+        its follow-up or clarification), ``"competencies"`` after it.
+        """
+        if not self._jd_questions:
+            return "", ""
+        mem = self._memory
+        if mem.jd_part_closed:
+            return "competencies", ""
+        mem.jd_turns += 1
+        mode = (plan.response_mode if plan else None) or MODE_ASK
+        has_q = count_question_marks(guarded) >= 1
+        anchor_plan = plan is not None and plan.source in ("bank", "track_anchor")
+        planned = self._jd_question_for(plan.question) if anchor_plan else None
+        swapped = self._delivered_anchor
+        delivered = (
+            self._jd_question_for(swapped[1])
+            if swapped is not None and swapped[0] == mem.turn_index
+            else None
+        )
+        jd = delivered or planned
+        if plan is not None and has_q:
+            asked: JdQuestion | None = jd if (jd is not None and mode == MODE_ASK) else None
+            if asked is None:
+                # The model may say a description question the plan did not ask for
+                # (it did, in place of a follow-up, until the next one stopped being
+                # advertised). What was SAID is what the candidate has been asked.
+                skip = set(mem.jd_asked_ids)
+                if mem.jd_active_id:
+                    skip.add(mem.jd_active_id)
+                asked = self._jd_spoken_in(question_text or guarded, skip)
+            if asked is not None:
+                if asked.id not in mem.jd_asked_ids:
+                    mem.jd_asked_ids.add(asked.id)
+                    if planned is None or planned.id != asked.id:
+                        # No anchor plan records it below: mark it used here.
+                        for form in (asked.question, collapse_to_single_question(asked.question)):
+                            key = normalize_text(form)
+                            if key:
+                                mem.asked_question_keys.add(key)
+                mem.jd_active_id = asked.id
+            elif plan.source in JD_FOLLOWUP_SOURCES:
+                if mem.jd_active_id:
+                    mem.jd_followups[mem.jd_active_id] = mem.jd_followups.get(mem.jd_active_id, 0) + 1
+            elif mode == MODE_ASK:
+                # A fresh question that is not from the description: part one is over.
+                mem.jd_active_id = ""
+                if len(mem.jd_asked_ids) >= len(self._jd_questions):
+                    mem.jd_part_closed = True
+        label = ("competencies", "") if mem.jd_part_closed else ("jd", mem.jd_active_id)
+        if not mem.jd_part_closed and mem.jd_turns >= jd_part_one_max_turns():
+            mem.jd_part_closed = True
+            logger.info(
+                "[jd-part-one] safety net: %d utterances in part one — on to the competencies",
+                mem.jd_turns,
+            )
+        return label
+
+    def _apply_jd_transition(self, text: str) -> str:
+        """Say the transition sentence once, before the first question after part one.
+
+        Code text, not a model instruction: the model is free with wording and the
+        opener guard rewrites the start of a reply, so a requested sentence would not
+        survive reliably. Deferred while the turn is a clarification, follow-up or
+        wait; cancelled for good by the closing lines. Both guard passes of the turn
+        return the same text, and a text that already carries it is left alone.
+        """
+        if not self._jd_questions or not text:
+            return text
+        mem = self._memory
+        turn = mem.turn_index
+        line = jd_transition_line(self._locked_lang or self._jd_language)
+        if text.startswith(line):
+            return text
+        if self._jd_transition_turn == turn:
+            return f"{line} {text}"
+        if mem.jd_transition_sent:
+            return text
+        if self._is_verbatim(text):
+            return text
+        if self._winddown_turn == turn and self._winddown_line is not None:
+            mem.jd_transition_sent = True  # the interview is closing: no transition
+            return text
+        plan = self._turn_plan
+        mode = (plan.response_mode if plan else None) or MODE_ASK
+        if mode != MODE_ASK or count_question_marks(text) < 1:
+            return text
+        if not (mem.jd_part_closed or len(mem.jd_asked_ids) >= len(self._jd_questions)):
+            return text
+        if plan is not None and plan.source in JD_FOLLOWUP_SOURCES:
+            return text  # a follow-up on the last description question
+        if plan is not None and plan.source in ("bank", "track_anchor") and self._jd_question_for(plan.question):
+            return text
+        self._jd_transition_turn = turn
+        mem.jd_transition_sent = True
+        mem.jd_part_closed = True
+        logger.info("[jd-part-one] part one done — transition sentence on turn %d", turn)
+        return f"{line} {text}"
 
     def record_agent_reply(self, text: str) -> None:
         """Record assistant turn for loop prevention (called after TTS text is finalized)."""
@@ -3384,6 +3694,9 @@ class InterviewAssistant(Agent):
             mem.subject_coverage.record_asked(
                 question_text, competency_key=(plan.competency_key if plan else "")
             )
+
+        # Part one bookkeeping, before _delivered_coverage consumes the delivered anchor.
+        jd_part, jd_question_id = self._jd_record_reply(guarded, plan, question_text)
 
         swap = self._guard_swap
         self._guard_swap = None
@@ -3419,6 +3732,8 @@ class InterviewAssistant(Agent):
                         attempted_competency_count=attempted,
                         delivered_competency_count=delivered,
                         guard_swap=this_turn_swap,
+                        part=jd_part,
+                        jd_question_id=jd_question_id,
                     )
                 )
             except Exception as _tl_err:  # pragma: no cover - never break a turn

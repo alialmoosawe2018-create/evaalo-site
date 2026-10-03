@@ -74,6 +74,8 @@ def build_record(
     guard_swap: dict[str, str] | None = None,
     attempted_competency_count: int = 0,
     delivered_competency_count: int = 0,
+    part: str = "",
+    jd_question_id: str = "",
 ) -> dict[str, Any]:
     """Flatten one agent turn into a JSON-safe record.
 
@@ -94,6 +96,11 @@ def build_record(
     counts and competencyBudgetSpent) is therefore not directly comparable
     across that change.
 
+    ``part`` / ``jdQuestionId`` exist only in an interview that opens with questions
+    from the job description (jd_part_one.py): ``"jd"`` for an utterance of that
+    opening part — with the description question it belongs to — and
+    ``"competencies"`` after it. Every other record is unchanged.
+
     ``guardSwap`` is set when the reply guard threw the model's question away
     («to»: bank_anchor / competency / bridge, and why). A competency swap
     installs a new plan, so ``competencyKey`` then names the REPLACEMENT and
@@ -103,7 +110,7 @@ def build_record(
     g = guard_swap or {}
     source = getattr(plan, "source", "") or ""
     competency_key = getattr(plan, "competency_key", "") or ""
-    return {
+    record = {
         "turnIndex": int(turn_index),
         "competencyKey": competency_key,
         "planSource": source,
@@ -158,6 +165,10 @@ def build_record(
         ),
         "kind": "turn",
     }
+    if part:
+        record["part"] = _clip(part, 20)
+        record["jdQuestionId"] = _clip(jd_question_id, 10)
+    return record
 
 
 #: Sentinel turn index for the single end-of-interview record, so it dedupes
