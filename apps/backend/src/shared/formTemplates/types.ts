@@ -119,7 +119,6 @@ export const PRESET_RUBRIC_KEYS = new Set([
     'position',
     'location',
     'job',
-    'company',
     'age',
     'gender',
     'educationLevel',
@@ -133,6 +132,24 @@ export const PRESET_RUBRIC_KEYS = new Set([
     'certifications',
     'industryType',
 ]);
+
+/**
+ * Criteria removed from Stage 1. A job that still carries one keeps the value in
+ * `criteria`, but it is never scored, never sent to the evaluator, and never
+ * stored on a new job.
+ *
+ * `company` ("candidates from a specific company") was read as "the hiring
+ * company": 3 of 71 production jobs used it (2026-10-03), and two of them held
+ * the employer's own name. So the evaluator marked every applicant "missing: no
+ * mention of <the employer>". It had zero weight, so no score moved, but the
+ * report showed a false unmet criterion.
+ *
+ * ⚠️ Removing a key from PRESET_RUBRIC_KEYS alone is NOT enough.
+ * `deriveLegacyRubricFromCriteria` turns any non-preset key into a CUSTOM criterion,
+ * and custom criteria score at the default weight (8). Every derivation must skip
+ * these keys explicitly.
+ */
+export const RETIRED_CRITERION_KEYS = new Set(['company']);
 
 /**
  * Keys that live in a campaign's `criteria` but are NOT hiring criteria: job

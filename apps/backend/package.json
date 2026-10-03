@@ -169,6 +169,7 @@
     "test:role-resolution-matrix": "tsx src/scripts/role-resolution-matrix-test.ts",
     "test:stage1-parity": "tsx src/scripts/stage1-parity-test.ts",
     "test:stage1-rubric-meta-keys": "tsx src/scripts/stage1-rubric-meta-keys-test.ts",
+    "test:stage1-retired-company-criterion": "tsx src/scripts/stage1-retired-company-criterion-test.ts",
     "test:voice-clarify-praise": "tsx src/scripts/voice-clarify-praise-test.ts",
     "test:voice-deflection-probe": "tsx src/scripts/voice-deflection-probe-test.ts",
     "test:voice-evidence-gate": "tsx src/scripts/voice-evidence-gate-test.ts",

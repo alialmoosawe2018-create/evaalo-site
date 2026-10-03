@@ -31,6 +31,7 @@ import {
     type InterviewPolicyIntent,
 } from '../evaalo-only-voice/questionEngine.js';
 import { resolveCvFields, isCvFieldId, type CvField } from '../shared/candidateCvFields.js';
+import { RETIRED_CRITERION_KEYS } from '../shared/formTemplates/types.js';
 
 let _openai: OpenAI | null | undefined = undefined;
 
@@ -2030,7 +2031,7 @@ export interface SuggestedCriterion {
  */
 const SUGGESTIBLE_PRESETS: Array<{ key: string; label: string }> = [
     { key: 'job', label: 'Job Level' },
-    { key: 'company', label: 'Preferred / target company' },
+    // 'company' was retired from Stage 1: see RETIRED_CRITERION_KEYS.
     { key: 'industryType', label: 'Industry Type' },
     { key: 'educationLevel', label: 'Education Level' },
     { key: 'experienceYears', label: 'Experience Years' },
@@ -2120,6 +2121,9 @@ Rules:
         for (const item of rawList) {
             if (!item || typeof item !== 'object') continue;
             const o = item as Record<string, unknown>;
+            // A retired preset is no longer in presetKeys, so the line below would
+            // turn it into a CUSTOM suggestion that scores at full weight. Drop it.
+            if (typeof o.key === 'string' && RETIRED_CRITERION_KEYS.has(o.key)) continue;
             const label = String(o.label ?? '').trim().slice(0, 80);
             const expectation = String(o.expectation ?? '').trim().slice(0, 500);
             if (!expectation) continue;

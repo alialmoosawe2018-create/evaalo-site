@@ -70,7 +70,6 @@ const AVAILABLE_CRITERIA = [
     { id: 'salaryMin', label: 'Salary Min', placeholder: 'Enter minimum salary', type: 'text' },
     { id: 'salaryMax', label: 'Salary Max', placeholder: 'Enter maximum salary', type: 'text' },
     { id: 'salaryCurrency', label: 'Salary Currency', placeholder: 'USD or IQD only', type: 'text' },
-    { id: 'company', label: 'Company', placeholder: "If you're looking for candidates from a specific company", type: 'text' },
     { id: 'skills', label: 'Required Skills', placeholder: 'Pick a skill or type your own (▼)', type: 'text' },
     { id: 'languages', label: 'Required Languages', placeholder: 'Pick languages or type (comma-separated) (▼)', type: 'text' },
     { id: 'certifications', label: 'Certifications', placeholder: 'Enter required certifications', type: 'text' }
@@ -127,7 +126,7 @@ function criterionCardLabel(criterion, t) {
 
 /** تجميع معايير قائمة الإضافة — لعرض منظم بأقسام */
 const CRITERION_MENU_GROUPS = [
-    { id: 'role', labelKey: 'newCampaign_criterionGroupRole', ids: ['position', 'location', 'job', 'company', 'industryType'] },
+    { id: 'role', labelKey: 'newCampaign_criterionGroupRole', ids: ['position', 'location', 'job', 'industryType'] },
     { id: 'requirements', labelKey: 'newCampaign_criterionGroupRequirements', ids: ['age', 'gender', 'educationLevel', 'experienceYears'] },
     // salaryMax لا يُعرض في القائمة: يُضاف تلقائياً مع salaryMin كبطاقة نطاق واحدة
     { id: 'compensation', labelKey: 'newCampaign_criterionGroupCompensation', ids: ['salaryMin', 'salaryCurrency', 'availability'] },
@@ -144,8 +143,6 @@ function CriterionMenuIcon({ id }) {
             return <svg {...common}><path {...stroke} d="M12 21s7-4.5 7-11a7 7 0 10-14 0c0 6.5 7 11 7 11z"/><circle {...stroke} cx="12" cy="10" r="2.5"/></svg>;
         case 'job':
             return <svg {...common}><path {...stroke} d="M9 5H7a2 2 0 00-2 2v12h14V7a2 2 0 00-2-2h-2"/><rect {...stroke} x="9" y="3" width="6" height="4" rx="1"/></svg>;
-        case 'company':
-            return <svg {...common}><path {...stroke} d="M3 21h18"/><path {...stroke} d="M5 21V7l7-4 7 4v14"/><path {...stroke} d="M9 21v-6h6v6"/></svg>;
         case 'industryType':
             return <svg {...common}><path {...stroke} d="M2 20h20M4 20V10l5 3V10l5 3V6h6v14"/><path {...stroke} d="M9 20v-3h3v3"/></svg>;
         case 'age':

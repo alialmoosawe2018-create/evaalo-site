@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import {
     PRESET_RUBRIC_KEYS,
     NON_CRITERION_META_KEYS,
+    RETIRED_CRITERION_KEYS,
     buildRubricDraftsFromCampaignInput,
     buildRubricItemsFromDrafts,
     sanitizeRubricText,
@@ -139,6 +140,8 @@ export function stripRubricAndTemplateKeysFromCriteria(body: Record<string, unkn
         'timestamp',
     ];
     for (const k of remove) delete criteria[k];
+    // A browser tab opened before the removal, or a saved template, can still send one.
+    for (const k of RETIRED_CRITERION_KEYS) delete criteria[k];
     return criteria;
 }
 
@@ -149,6 +152,9 @@ export function deriveLegacyRubricFromCriteria(criteria: Record<string, unknown>
         // Catalog plumbing and the report language are not things a candidate
         // can meet; without this the scorer was handed 4 unanswerable criteria.
         if (NON_CRITERION_META_KEYS.has(k)) continue;
+        // No longer preset, so without this line a retired key would come back as
+        // a CUSTOM criterion, scored at full weight. See RETIRED_CRITERION_KEYS.
+        if (RETIRED_CRITERION_KEYS.has(k)) continue;
         if (v == null || !String(v).trim()) continue;
         customItems.push({ label: k, expectation: String(v).trim() });
     }

@@ -30,7 +30,7 @@ import {
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
 import { findApplicationForCallback } from './candidateApplicationService.js';
 import { extractTextFromCv, CvExtractionError } from './cvTextExtractor.js';
-import { CV_ACCEPTED_MIME_TYPES } from '../shared/formTemplates/types.js';
+import { CV_ACCEPTED_MIME_TYPES, RETIRED_CRITERION_KEYS } from '../shared/formTemplates/types.js';
 import { DEFAULT_SALARY_CURRENCY } from '../shared/salaryCurrency.js';
 import { deriveCertificateTitle } from './certificateTitle.js';
 import {
@@ -129,6 +129,16 @@ export function stripVacancyGender(
 ): Record<string, unknown> {
     if (!criteria || typeof criteria !== 'object') return {};
     const { gender: _vacancyGender, ...rest } = criteria as Record<string, unknown>;
+    return rest;
+}
+
+/**
+ * Removes Stage 1's retired criteria (RETIRED_CRITERION_KEYS) from the list sent to
+ * the evaluator. The value stays on the job; only the evaluator stops seeing it.
+ */
+export function stripRetiredCriteria(criteria: Record<string, unknown>): Record<string, unknown> {
+    const rest = { ...criteria };
+    for (const k of RETIRED_CRITERION_KEYS) delete rest[k];
     return rest;
 }
 
@@ -564,7 +574,7 @@ const sendToN8NImpl = async (candidateData: CandidateData, campaignId?: string):
         }
         // نفس سبب المرحلة الثانية: جنس الشاغر ليس صفةً للمتقدّم، ووزنه صفر في
         // التسجيل — فلا إشارة تُفقد بإسقاطه، ويُدفع احتمال أن يُقرأ وصفاً للشخص.
-        const criteria = criteriaObjectToList(stripVacancyGender(criteriaRaw));
+        const criteria = criteriaObjectToList(stripRetiredCriteria(stripVacancyGender(criteriaRaw)));
 
         // تحضير البيانات للإرسال
         const candidateId = candidateData._id?.toString?.() || candidateData._id || candidateData.id?.toString?.() || candidateData.id;

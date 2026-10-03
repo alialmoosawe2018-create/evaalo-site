@@ -5,6 +5,7 @@ import type {
     RubricResultValue,
 } from '../shared/formTemplates/types.js';
 import { getAllowedFieldIds } from '../shared/formTemplates/snapshot.js';
+import { RETIRED_CRITERION_KEYS } from '../shared/formTemplates/types.js';
 import { deriveLegacyRubricFromCriteria } from './evaluationRubricService.js';
 import { resolveCampaignFormBinding } from './publicCampaignService.js';
 import type { CampaignFormContext } from '../types/campaignFormContext.js';
@@ -159,7 +160,10 @@ export function resolveCampaignEvaluationRubric(
 ): EvaluationRubricItem[] {
     const stored = campaign.evaluationRubric;
     if (Array.isArray(stored) && stored.length > 0) {
-        return stored as EvaluationRubricItem[];
+        // A job stored before a criterion was retired still lists it; stop sending it.
+        return (stored as EvaluationRubricItem[]).filter(
+            (item) => !(item?.key && RETIRED_CRITERION_KEYS.has(item.key))
+        );
     }
     const criteria = (campaign.criteria || {}) as Record<string, unknown>;
     return deriveLegacyRubricFromCriteria(criteria);
