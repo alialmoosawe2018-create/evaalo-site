@@ -47,6 +47,27 @@ import { buildCandidateInterviewQuery } from '../utils/interviewShareLink.js';
 import apiClient, { ApiError } from '../services/apiClient';
 import { fillI18nTemplate } from '../utils/i18nTemplate.js';
 import { useAutoGrowTextarea } from '../hooks/useAutoGrowTextarea.js';
+import JdInterviewQuestionsPreview from './JdInterviewQuestionsPreview.jsx';
+import {
+    JD_QUESTIONS_CONFIG_OFF,
+    applyJdQuestionEdit,
+    buildJdQuestionsPreviewBody,
+    emptyJdQuestionsDraft,
+    isJdDraftEdited,
+    jdDraftFailed,
+    jdDraftFromPreview,
+    jdDraftView,
+    jdPreviewErrorCode,
+    jdQuestionsApplicability,
+    jdQuestionsCreateDecision,
+    jdQuestionsFlowSupported,
+    jdQuestionsSourceKey,
+    jdWaitMessageKey,
+    loadingJdQuestionsDraft,
+    normalizeJdQuestionsConfig,
+    readJdQuestionsRejection,
+    skippedJdQuestionsDraft,
+} from '../utils/jdInterviewQuestions.js';
 import '../design-styles.css';
 
 /**
@@ -667,6 +688,37 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         if (descriptionProposal === null && !descriptionRewriteError) return;
         descriptionFeedbackRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
     }, [descriptionProposal, descriptionRewriteError]);
+    /** Part one of the video interview (backend flag JD_INTERVIEW_QUESTIONS): three opening questions
+     *  written from the description, previewed and editable before the job is created. While the
+     *  backend says off, none of it renders and nothing extra is sent. See utils/jdInterviewQuestions.js. */
+    const [jdQuestionsConfig, setJdQuestionsConfig] = useState(JD_QUESTIONS_CONFIG_OFF);
+    const [jdQuestionsDraft, setJdQuestionsDraft] = useState(emptyJdQuestionsDraft);
+    /** Why creating is waiting on the questions (shown in their section). */
+    const [jdQuestionsNotice, setJdQuestionsNotice] = useState('');
+    /** Only the newest preview request may land — an older answer is for an older text. */
+    const jdQuestionsRequestRef = useRef(0);
+    const jdQuestionsSectionRef = useRef(null);
+    /** Back to nothing prepared; an answer still in flight is dropped when it lands. */
+    const resetJdQuestions = () => {
+        jdQuestionsRequestRef.current += 1;
+        setJdQuestionsDraft(emptyJdQuestionsDraft());
+        setJdQuestionsNotice('');
+    };
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        let cancelled = false;
+        apiClient
+            .get('/api/recruitment-campaigns/jd-interview-questions/config')
+            .then((result) => {
+                if (!cancelled) setJdQuestionsConfig(normalizeJdQuestionsConfig(result));
+            })
+            .catch(() => {
+                if (!cancelled) setJdQuestionsConfig(JD_QUESTIONS_CONFIG_OFF);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen]);
     /** لغة المقابلة — إلزامية بلا افتراض (قرار المالك ٢٠٢٦-٠٩-٢٣): تُحدَّد هنا عند
      *  إنشاء الوظيفة وحدها، ولا يقرّرها بعدها رابطٌ ولا متصفّح. '' = لم يُختر بعد. */
     const [interviewLanguage, setInterviewLanguage] = useState('');
@@ -1191,6 +1243,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         setDescriptionProposal(null);
         setDescriptionUndo(null);
         setDescriptionRewriteError('');
+        jdQuestionsRequestRef.current += 1;
+        setJdQuestionsDraft(emptyJdQuestionsDraft());
+        setJdQuestionsNotice('');
         setAdLanguage('English');
         setAdCurrentLanguage('English');
         setShowAdLangMenu(false);
@@ -1300,6 +1355,23 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     const isSpecificAudioOrVideo =
         (selectedInterviewType === 'audio' && audioFlowTab === 'specific') ||
         (selectedInterviewType === 'video' && videoFlowTab === 'specific');
+
+    /** Part one of the video interview: shown for options 1, 2 and 4 while the backend has it on. */
+    const jdQuestionsShown = jdQuestionsConfig.enabled && jdQuestionsFlowSupported(selectedInterviewType);
+    /** The description box: always on the job forms (1, 2); on video (4) only with part one, which it feeds.
+     *  Never on voice (3) — and its text is sent only where the box is on screen. */
+    const showsJobDescriptionBox =
+        (selectedInterviewType !== 'audio' && selectedInterviewType !== 'video') ||
+        (selectedInterviewType === 'video' && jdQuestionsShown);
+    const jdApplicability = jdQuestionsApplicability({
+        config: jdQuestionsConfig,
+        interviewType: selectedInterviewType,
+        jobDescription,
+        interviewLanguage,
+    });
+    const jdCurrentKey = jdQuestionsSourceKey(jobDescription, interviewLanguage);
+    const jdView = jdDraftView(jdQuestionsDraft, jdCurrentKey);
+    const jdQuestionsLoading = jdApplicability === 'on' && jdView === 'loading';
 
     /**
      * معايير Job Criteria:
@@ -1786,6 +1858,80 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         }
     };
 
+    /** Three opening questions from the description as it is now. Nothing is stored until the job is created. */
+    const requestJdQuestions = async () => {
+        if (jdApplicability !== 'on') return;
+        const key = jdCurrentKey;
+        const requestId = ++jdQuestionsRequestRef.current;
+        setJdQuestionsNotice('');
+        setJdQuestionsDraft(loadingJdQuestionsDraft(key));
+        try {
+            const result = await apiClient.post(
+                '/api/recruitment-campaigns/jd-interview-questions/preview',
+                buildJdQuestionsPreviewBody({
+                    jobDescription,
+                    interviewLanguage,
+                    // The names the create route will refuse in a question — so the preview avoids them too.
+                    position: jobDetails.position || jobDetails.position_applied_for || generalPosition,
+                    company: jobDetails.company_applied_to,
+                })
+            );
+            if (requestId !== jdQuestionsRequestRef.current) return;
+            setJdQuestionsDraft(jdDraftFromPreview(result, key));
+        } catch (err) {
+            if (requestId !== jdQuestionsRequestRef.current) return;
+            setJdQuestionsDraft(jdDraftFailed(key, jdPreviewErrorCode(err)));
+        }
+    };
+
+    const handleRegenerateJdQuestions = () => {
+        if (isJdDraftEdited(jdQuestionsDraft) && !window.confirm(t('newCampaign_jdq_confirmRegenerate'))) return;
+        requestJdQuestions();
+    };
+
+    /** «Continue without them»: the job is created with an explicit skip, never generated behind the recruiter's back. */
+    const handleSkipJdQuestions = () => {
+        jdQuestionsRequestRef.current += 1;
+        setJdQuestionsDraft(skippedJdQuestionsDraft());
+        setJdQuestionsNotice('');
+    };
+
+    const handleEditJdQuestion = (index, field, value) => {
+        setJdQuestionsDraft((draft) => applyJdQuestionEdit(draft, index, field, value));
+        setJdQuestionsNotice('');
+    };
+
+    /**
+     * What to send with the job for part one — or null when creating must wait (the
+     * questions are still being written, were never prepared for this text, or failed and
+     * the recruiter has not chosen). The section says why, and an unprepared set starts now.
+     */
+    const resolveJdQuestionsForCreate = () => {
+        if (!jdQuestionsShown) return {};
+        const decision = jdQuestionsCreateDecision(jdQuestionsDraft, {
+            applicability: jdApplicability,
+            currentKey: jdCurrentKey,
+        });
+        if (decision.allowed) {
+            setJdQuestionsNotice('');
+            return decision.fields;
+        }
+        if (decision.reason === 'needs_generate') requestJdQuestions();
+        setJdQuestionsNotice(t(jdWaitMessageKey(decision.reason)));
+        jdQuestionsSectionRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+        return null;
+    };
+
+    /** The server re-checks the questions on create; a refusal puts its notes under each question. No job was made. */
+    const showJdQuestionsRejection = (data) => {
+        const rejection = readJdQuestionsRejection(data);
+        if (!rejection) return false;
+        setJdQuestionsDraft((draft) => ({ ...draft, problems: rejection.problems, setProblems: rejection.setProblems }));
+        setErrors((prev) => ({ ...prev, general: t('newCampaign_jdq_errFix') }));
+        jdQuestionsSectionRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+        return true;
+    };
+
     const validateForm = () => {
         const newErrors = {};
         // التحقق من أن جميع المعايير المختارة لها قيم
@@ -2049,6 +2195,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         setDescriptionProposal(null);
         setDescriptionUndo(null);
         setDescriptionRewriteError('');
+        resetJdQuestions();
         setErrors({});
         setGeneralPosition('');
         setPublicScreeningLink(null);
@@ -2063,6 +2210,9 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
      */
     const handleGenerateVideoPublicLink = async () => {
         if (!requireInterviewLanguage()) return;
+        // The link waits for part one: questions the recruiter has seen, or an explicit «continue without».
+        const jdFields = resolveJdQuestionsForCreate();
+        if (jdFields === null) return;
         setGeneratingPublicLink(true);
         setErrors(prev => ({ ...prev, general: null }));
         setPublicLinkCopied(false);
@@ -2074,8 +2224,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                 interviewType: 'video',
                 interviewLanguage,
                 templateType: 'video',
+                ...jdFields,
             };
             if (jobAdvertisement.trim()) campaignPayload.jobAdvertisement = jobAdvertisement.trim();
+            if (showsJobDescriptionBox && jobDescription.trim()) campaignPayload.jobDescription = jobDescription.trim();
             const result = await apiClient.post('/api/recruitment-campaigns', campaignPayload);
             if (!result.success || !result.campaignId) {
                 setErrors(prev => ({ ...prev, general: result.message || result.error || 'Failed to create campaign' }));
@@ -2096,6 +2248,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             setSendSuccess(true);
             setTimeout(() => setSendSuccess(false), 3000);
         } catch (err) {
+            if (err instanceof ApiError && showJdQuestionsRejection(err.data)) return;
             console.error('Error generating video public link:', err);
             const msg =
                 err instanceof ApiError
@@ -2126,6 +2279,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         setDescriptionProposal(null);
         setDescriptionUndo(null);
         setDescriptionRewriteError('');
+        resetJdQuestions();
         setErrors({});
         setGeneralPosition('');
         setPublicScreeningLink(null);
@@ -2159,6 +2313,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
         setAwaitingCreate(true);
         setShowJobDetailsForm(false);
         setShowFormLink(true);
+        // Part one is written now, while the recruiter reviews the job, so it is on screen
+        // before «Create Job» — not generated after it behind their back.
+        setJdQuestionsNotice('');
+        if (jdApplicability === 'on' && (jdView === 'idle' || jdView === 'stale')) requestJdQuestions();
     };
 
     const createCampaign = async () => {
@@ -2170,10 +2328,12 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             return;
         }
         if (validateForm()) {
+            const jdFields = resolveJdQuestionsForCreate();
+            if (jdFields === null) return;
             setSendingToN8N(true);
             try {
                 const payload = isScreeningFlow
-                    ? buildScreeningCampaignCreateBody({
+                    ? { ...buildScreeningCampaignCreateBody({
                           jobDetails,
                           selectedCriteria,
                           certificationRows,
@@ -2187,13 +2347,15 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                           jobDescription,
                           language: currentLang,
                           interviewLanguage,
-                      })
+                      }), ...jdFields }
                     : (() => {
-                          const body = { ...buildCriteriaPayload() };
+                          const body = { ...buildCriteriaPayload(), ...jdFields };
                           // لغة المقابلة حقلٌ علوي في الحملة — الخادم ينزعها من المعايير فلا تُقيَّم.
                           body.interviewLanguage = interviewLanguage;
                           if (jobAdvertisement.trim()) body.jobAdvertisement = jobAdvertisement.trim();
-                          if (jobDescription.trim()) body.jobDescription = jobDescription.trim();
+                          // Only where the box is on screen: a description typed under another option
+                          // must not ride along with a voice job (option 3 has no box).
+                          if (showsJobDescriptionBox && jobDescription.trim()) body.jobDescription = jobDescription.trim();
                           return body;
                       })();
                 const result = await apiClient.post('/api/recruitment-campaigns', payload);
@@ -2300,6 +2462,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                     }));
                 }
             } catch (error) {
+                if (error instanceof ApiError && showJdQuestionsRejection(error.data)) return;
                 console.error('❌ Error creating campaign:', error);
                 setErrors((prev) => ({
                     ...prev,
@@ -2318,6 +2481,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
     };
 
     const handleOptionClick = (optionId) => {
+        resetJdQuestions();
         if (optionId === 'start-process') {
             setCurrentTemplateType('process');
             setSelectedInterviewType('process');
@@ -2335,6 +2499,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             setLanguageRows(['']);
             setAiCompareEmailRows(['']);
             setErrors({});
+            setJobDescription('');
+            setDescriptionProposal(null);
+            setDescriptionUndo(null);
+            setDescriptionRewriteError('');
             setCurrentTemplateType('video');
             setSelectedInterviewType('video');
             setShowJobDetailsForm(true);
@@ -2355,6 +2523,10 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
             setLanguageRows(['']);
             setAiCompareEmailRows(['']);
             setErrors({});
+            setJobDescription('');
+            setDescriptionProposal(null);
+            setDescriptionUndo(null);
+            setDescriptionRewriteError('');
             setCurrentTemplateType('audio');
             setSelectedInterviewType('audio');
             setShowJobDetailsForm(true);
@@ -2473,7 +2645,12 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                     </button>
                 </div>
                 <p className="ni-job-ad-desc" style={{ fontSize: '13px', margin: 0 }}>
-                    {t('newCampaign_jd_hint')}
+                    {/* The box only says it writes interview questions when it does (backend on). */}
+                    {selectedInterviewType === 'video'
+                        ? t('newCampaign_jd_hintVideo')
+                        : jdQuestionsShown
+                          ? `${t('newCampaign_jd_hint')} ${t('newCampaign_jd_hintInterview')}`
+                          : t('newCampaign_jd_hint')}
                 </p>
             </div>
             <div ref={descriptionFeedbackRef} aria-live="polite">
@@ -2579,6 +2756,26 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                 </span>
             </div>
         </div>
+    );
+
+    /** Part one of the video interview — renders nothing unless the backend has it on (applicability 'off'). */
+    const renderJdQuestionsPreview = () => (
+        <JdInterviewQuestionsPreview
+            t={t}
+            uiLang={currentLang}
+            applicability={jdApplicability}
+            view={jdView}
+            draft={jdQuestionsDraft}
+            interviewLanguage={interviewLanguage}
+            notice={jdQuestionsNotice}
+            sectionRef={jdQuestionsSectionRef}
+            busy={sendingToN8N || generatingPublicLink}
+            onPrepare={requestJdQuestions}
+            onRegenerate={handleRegenerateJdQuestions}
+            onSkip={handleSkipJdQuestions}
+            onUndoSkip={resetJdQuestions}
+            onEdit={handleEditJdQuestion}
+        />
     );
 
     /** Job-ad generator: heading + language picker + Generate + preview/edit. */
@@ -4265,7 +4462,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                         {/* Job form flows: «Job description & requirements» takes the old place of the ad generator,
                             which moved to the review step (after Continue, before «Create Job») so the ad is created
                             with the job. General voice/video links keep the ad generator here. */}
-                        {usesCreateJobStep && renderJobDescriptionBox()}
+                        {showsJobDescriptionBox && renderJobDescriptionBox()}
+                        {selectedInterviewType === 'video' && renderJdQuestionsPreview()}
                         {isGeneralPublic && renderJobAdGenerator()}
 
                         </div>
@@ -4276,7 +4474,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                             <button
                                 type="button"
                                 onClick={isGeneralVideo ? handleGenerateVideoPublicLink : isGeneralAudio ? handleGeneratePublicLink : handleContinue}
-                                disabled={isGeneralPublic && generatingPublicLink}
+                                disabled={(isGeneralPublic && generatingPublicLink) || (selectedInterviewType === 'video' && jdQuestionsLoading)}
                                 className="workflow-btn-primary ni-continue-btn"
                                 style={{
                                     display: 'inline-flex',
@@ -4286,8 +4484,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                     padding: '14px 28px',
                                     fontSize: '1.05rem',
                                     fontWeight: '600',
-                                    cursor: (isGeneralPublic && generatingPublicLink) ? 'not-allowed' : 'pointer',
-                                    opacity: (isGeneralPublic && generatingPublicLink) ? 0.6 : 1
+                                    cursor: (isGeneralPublic && generatingPublicLink) || (selectedInterviewType === 'video' && jdQuestionsLoading) ? 'not-allowed' : 'pointer',
+                                    opacity: (isGeneralPublic && generatingPublicLink) || (selectedInterviewType === 'video' && jdQuestionsLoading) ? 0.6 : 1
                                 }}
                             >
                                 <span style={{ fontSize: '1.25rem' }}>▶</span>
@@ -4321,6 +4519,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                 </div>
                             )}
                             {renderJobAdGenerator()}
+                            {renderJdQuestionsPreview()}
                         </div>
                         <div className="ni-continue-footer ni-campaign-ready-footer">
                             <div
@@ -4346,7 +4545,7 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                 <button
                                     type="button"
                                     onClick={createCampaign}
-                                    disabled={sendingToN8N || generatingAd}
+                                    disabled={sendingToN8N || generatingAd || jdQuestionsLoading}
                                     className="workflow-btn-primary ni-continue-btn ni-create-job-btn"
                                     style={{
                                         display: 'inline-flex',
@@ -4357,8 +4556,8 @@ const NewInterviewSidebar = ({ isOpen, onClose, onSelectOption, initialPosition 
                                         fontSize: '1.05rem',
                                         fontWeight: '600',
                                         marginInlineStart: 'auto',
-                                        cursor: sendingToN8N || generatingAd ? 'not-allowed' : 'pointer',
-                                        opacity: sendingToN8N || generatingAd ? 0.6 : 1,
+                                        cursor: sendingToN8N || generatingAd || jdQuestionsLoading ? 'not-allowed' : 'pointer',
+                                        opacity: sendingToN8N || generatingAd || jdQuestionsLoading ? 0.6 : 1,
                                     }}
                                 >
                                     <span>{sendingToN8N ? t('newCampaign_loadingCampaign') : t('dashboardSvc_newCampaign')}</span>

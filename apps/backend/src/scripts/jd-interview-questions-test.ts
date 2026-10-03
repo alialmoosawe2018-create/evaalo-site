@@ -164,6 +164,22 @@ async function main(): Promise<void> {
             assert.ok(!codes.includes('graphic'), `${q}: ${JSON.stringify(codes)}`);
         }
     });
+    await test('the names a question must avoid: title and company — never the career level', () => {
+        // The preview and the create check must agree, or the recruiter is refused a set
+        // the preview had just approved. "manager" is a career level, not a title.
+        assert.deepEqual(
+            svc.jdQuestionNames({ position: 'Payroll Specialist', job: 'manager', company: 'Acme Trading' }),
+            ['Payroll Specialist', 'Acme Trading']
+        );
+        // A single-candidate video job names them differently.
+        assert.deepEqual(
+            svc.jdQuestionNames({ position_applied_for: 'Storekeeper', company_applied_to: 'Acme Trading' }),
+            ['Storekeeper', 'Acme Trading']
+        );
+        const names = svc.jdQuestionNames({ position: 'Payroll Specialist', job: 'manager' });
+        const q = { question: 'Payroll, if overtime was wrong, how would you tell your manager?', clarifyHint: 'For example a double-counted hour' };
+        assert.ok(!check(q, 'en', names).includes('names_company_or_title'), JSON.stringify(check(q, 'en', names)));
+    });
     await test('the hint: no question mark and Iraqi words only', () => {
         assert.ok(check({ ...GOOD_AR[0], clarifyHint: 'مثلاً شلون تتأكد؟' }, 'ar').includes('hint_question_mark'));
         assert.ok(check({ ...GOOD_AR[0], clarifyHint: 'مثلاً كيف تحسب الساعات' }, 'ar').includes('hint_not_iraqi'));
@@ -436,6 +452,11 @@ async function main(): Promise<void> {
             assert.equal(await svc.ensureUncached(id), 'busy_or_done');
             assert.equal(sent.length, 0);
         });
+        // Defence in depth, recorded from the mutation run (M14): making the create route ALSO
+        // start the background job after storing a preview set or a skip (`else if` → `if`)
+        // leaves every test green, because this claim refuses any campaign whose field is
+        // `ready` or `failed` — the second layer catches what the first one drops. If that
+        // claim rule ever loosens, M14 becomes a live second generation; this test guards it.
         await test('ready and failed sets are never regenerated', async () => {
             const ready = await bare({ jdInterviewQuestions: { status: 'ready', questions: GOOD_AR.map((q, i) => ({ id: `q${i + 1}`, ...q })) } });
             const failed = await bare({ jdInterviewQuestions: { status: 'failed', error: 'checks_failed' } });

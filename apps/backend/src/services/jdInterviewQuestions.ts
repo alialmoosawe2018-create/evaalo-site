@@ -434,10 +434,15 @@ export function readSubmittedJdQuestions(raw: unknown): JdQuestion[] | null {
     }));
 }
 
-/** Words that must not appear in a question: the job title and the company, as the campaign states them. */
+/**
+ * Words that must not appear in a question: the job title and the company, as the campaign states them
+ * (`position_applied_for` / `company_applied_to` are the same two on a single-candidate video job).
+ * Not the career level (`job`): "manager" or "senior" are ordinary words in a question, so naming
+ * them refused sets the preview had just approved.
+ */
 export function jdQuestionNames(criteria: Record<string, unknown> | null | undefined, extra: unknown[] = []): string[] {
     const c = criteria || {};
-    return [c.position, c.company, c.job, ...extra]
+    return [c.position, c.position_applied_for, c.company, c.company_applied_to, ...extra]
         .map((v) => (typeof v === 'string' ? v.trim() : ''))
         .filter((v) => v.length >= 3 && v.toLowerCase() !== 'general screening');
 }
