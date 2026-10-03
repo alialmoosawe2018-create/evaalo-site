@@ -2,10 +2,10 @@
   "id": "GlhDGC23n5tT6jVv",
   "name": "AI Head hunter",
   "active": true,
-  "versionId": "9c18a01c-2298-4ee8-8ca9-a3219bd19813",
-  "activeVersionId": "9c18a01c-2298-4ee8-8ca9-a3219bd19813",
+  "versionId": "1f83d9b2-26f7-42fe-89b9-0fe611c5e662",
+  "activeVersionId": "1f83d9b2-26f7-42fe-89b9-0fe611c5e662",
   "createdAt": "2026-05-08T09:48:20.089Z",
-  "updatedAt": "2026-10-02T22:51:51.336Z",
+  "updatedAt": "2026-10-03T10:49:19.873Z",
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
@@ -853,14 +853,6 @@
       ]
     },
     {
-      "id": "e03c35a2-912a-438b-8a4e-4604781ecdfc",
-      "name": "Needs Translation?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        200,
-        -360
-      ],
       "parameters": {
         "conditions": {
           "combinator": "and",
@@ -884,17 +876,17 @@
           }
         },
         "options": {}
-      }
+      },
+      "id": "e03c35a2-912a-438b-8a4e-4604781ecdfc",
+      "name": "Needs Translation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        200,
+        -360
+      ]
     },
     {
-      "id": "9ce02860-a101-449f-b25f-534643b39639",
-      "name": "All Serp Pages Failed?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        384,
-        112
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -918,9 +910,20 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "9ce02860-a101-449f-b25f-534643b39639",
+      "name": "All Serp Pages Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        384,
+        112
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "/**\n * Person Search Plan - should this search ask EnrichLayer Person Search first?\n *\n * Owner-approved design (2026-10-01, measured the same day: 10 of 10 profiles in Iraq,\n * 80-90% passed our evaluation against 43-58% on the Google path, and 0 of 20 overlapped\n * with what Google had found). Person Search returns profile LINKS only (3 credits per\n * result returned); they join the existing path in front of Filter New URLs, so dedupe,\n * the enrichment cap, the loop, the evaluation, sending and billing all stay as they are -\n * the one addition is the shared ceiling below, which Filter New URLs enforces.\n *\n *   - Iraq searches only (the same four location words Map Candidate Fields uses), an\n *     English (ASCII) title only - Arabic titles are a separate, later change.\n *   - It asks for as many links as the search wants (20 / 40). Google's phase 1 is skipped\n *     only when Person Search fills that number by itself; otherwise both run together.\n *   - It opens a spend record: the WHOLE search may use at most 120 (Tier 20) / 240\n *     (Tier 40) EnrichLayer credits. Filter New URLs enforces it in both phases.\n *   - CONFIG.orgAllowlist empty means EVERY organisation: switch `enabled` on together\n *     with an allowlist until the general rollout.\n *\n * Any failure here falls back to the Google path exactly as it was. This node never throws.\n */\nconst CONFIG = {\n  enabled: false, // dark launch: switched on only by a separate, owner-approved publish\n  orgAllowlist: [], // empty = every organisation; otherwise only these organizationIds\n  ceiling: { 20: 120, 40: 240 }, // EnrichLayer credits for the whole search\n};\nconst DAY_MS = 24 * 60 * 60 * 1000;\n// Same definition `Map Candidate Fields` uses.\nconst IRAQ_WORDS = ['iraq', 'baghdad', 'عراق', 'بغداد'];\n\nlet decision = { usePs: false, reason: '', target: 20, query: null };\ntry {\n  const wh = $('Webhook').first().json.body || {};\n  const searchId = String(wh.searchId || '');\n  const tier = $('Resolve Search Tier').first().json || {};\n  const target = Number(tier.minCount) >= 40 ? 40 : 20;\n  // The recruiter's own (catalog) title, never the LLM translation: it must be plain English anyway.\n  const rawPosition = String(wh.position || '');\n  const location = String(wh.location || '').toLowerCase();\n  const title = rawPosition\n    .replace(/[\"“”]/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n    .toLowerCase()\n    .slice(0, 80)\n    .trim();\n  const org = String(wh.organizationId || '');\n  const ascii = (s) => /^[\\x20-\\x7e]*$/.test(s);\n  decision.target = target;\n\n  if (!CONFIG.enabled) decision.reason = 'disabled';\n  else if (!searchId) decision.reason = 'no searchId';\n  else if (CONFIG.orgAllowlist.length && !CONFIG.orgAllowlist.includes(org)) decision.reason = 'organisation not in the allowlist';\n  else if (!IRAQ_WORDS.some((w) => location.includes(w))) decision.reason = 'not an Iraq search';\n  else if (!title || !/[a-z]/.test(title) || !ascii(title) || !ascii(rawPosition)) decision.reason = 'title is not plain English';\n  else {\n    decision.usePs = true;\n    decision.reason = 'person search first';\n    decision.query = {\n      country: 'IQ',\n      current_role_title: '\"' + title + '\"',\n      enrich_profiles: 'skip',\n      page_size: String(target),\n    };\n    const sd = $getWorkflowStaticData('global');\n    const now = Date.now();\n    for (const key of ['hhSpend', 'hhPersonSearch', 'hhPsLinks']) {\n      sd[key] = sd[key] || {};\n      for (const [id, rec] of Object.entries(sd[key])) {\n        const at = rec && typeof rec.at === 'number' ? rec.at : 0;\n        if (now - at > DAY_MS) delete sd[key][id];\n      }\n    }\n    sd.hhSpend[searchId] = { ceiling: CONFIG.ceiling[target], spent: 0, at: now };\n  }\n} catch (e) {\n  decision = { usePs: false, reason: 'plan error: ' + String((e && e.message) || e).slice(0, 200), target: decision.target, query: null };\n}\n\nreturn [{ json: decision }];\n"
+      },
       "id": "f6cfcf6c-73fd-496a-acbd-808ae8120e7d",
       "name": "Person Search Plan",
       "type": "n8n-nodes-base.code",
@@ -928,20 +931,9 @@
       "position": [
         640,
         -560
-      ],
-      "parameters": {
-        "jsCode": "/**\n * Person Search Plan - should this search ask EnrichLayer Person Search first?\n *\n * Owner-approved design (2026-10-01, measured the same day: 10 of 10 profiles in Iraq,\n * 80-90% passed our evaluation against 43-58% on the Google path, and 0 of 20 overlapped\n * with what Google had found). Person Search returns profile LINKS only (3 credits per\n * result returned); they join the existing path in front of Filter New URLs, so dedupe,\n * the enrichment cap, the loop, the evaluation, sending and billing all stay as they are -\n * the one addition is the shared ceiling below, which Filter New URLs enforces.\n *\n *   - Iraq searches only (the same four location words Map Candidate Fields uses), an\n *     English (ASCII) title only - Arabic titles are a separate, later change.\n *   - It asks for as many links as the search wants (20 / 40). Google's phase 1 is skipped\n *     only when Person Search fills that number by itself; otherwise both run together.\n *   - It opens a spend record: the WHOLE search may use at most 120 (Tier 20) / 240\n *     (Tier 40) EnrichLayer credits. Filter New URLs enforces it in both phases.\n *   - CONFIG.orgAllowlist empty means EVERY organisation: switch `enabled` on together\n *     with an allowlist until the general rollout.\n *\n * Any failure here falls back to the Google path exactly as it was. This node never throws.\n */\nconst CONFIG = {\n  enabled: false, // dark launch: switched on only by a separate, owner-approved publish\n  orgAllowlist: [], // empty = every organisation; otherwise only these organizationIds\n  ceiling: { 20: 120, 40: 240 }, // EnrichLayer credits for the whole search\n};\nconst DAY_MS = 24 * 60 * 60 * 1000;\n// Same definition `Map Candidate Fields` uses.\nconst IRAQ_WORDS = ['iraq', 'baghdad', 'عراق', 'بغداد'];\n\nlet decision = { usePs: false, reason: '', target: 20, query: null };\ntry {\n  const wh = $('Webhook').first().json.body || {};\n  const searchId = String(wh.searchId || '');\n  const tier = $('Resolve Search Tier').first().json || {};\n  const target = Number(tier.minCount) >= 40 ? 40 : 20;\n  // The recruiter's own (catalog) title, never the LLM translation: it must be plain English anyway.\n  const rawPosition = String(wh.position || '');\n  const location = String(wh.location || '').toLowerCase();\n  const title = rawPosition\n    .replace(/[\"“”]/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim()\n    .toLowerCase()\n    .slice(0, 80)\n    .trim();\n  const org = String(wh.organizationId || '');\n  const ascii = (s) => /^[\\x20-\\x7e]*$/.test(s);\n  decision.target = target;\n\n  if (!CONFIG.enabled) decision.reason = 'disabled';\n  else if (!searchId) decision.reason = 'no searchId';\n  else if (CONFIG.orgAllowlist.length && !CONFIG.orgAllowlist.includes(org)) decision.reason = 'organisation not in the allowlist';\n  else if (!IRAQ_WORDS.some((w) => location.includes(w))) decision.reason = 'not an Iraq search';\n  else if (!title || !/[a-z]/.test(title) || !ascii(title) || !ascii(rawPosition)) decision.reason = 'title is not plain English';\n  else {\n    decision.usePs = true;\n    decision.reason = 'person search first';\n    decision.query = {\n      country: 'IQ',\n      current_role_title: '\"' + title + '\"',\n      enrich_profiles: 'skip',\n      page_size: String(target),\n    };\n    const sd = $getWorkflowStaticData('global');\n    const now = Date.now();\n    for (const key of ['hhSpend', 'hhPersonSearch', 'hhPsLinks']) {\n      sd[key] = sd[key] || {};\n      for (const [id, rec] of Object.entries(sd[key])) {\n        const at = rec && typeof rec.at === 'number' ? rec.at : 0;\n        if (now - at > DAY_MS) delete sd[key][id];\n      }\n    }\n    sd.hhSpend[searchId] = { ceiling: CONFIG.ceiling[target], spent: 0, at: now };\n  }\n} catch (e) {\n  decision = { usePs: false, reason: 'plan error: ' + String((e && e.message) || e).slice(0, 200), target: decision.target, query: null };\n}\n\nreturn [{ json: decision }];\n"
-      }
+      ]
     },
     {
-      "id": "f8bc5576-258a-467c-9248-4706cc42ff24",
-      "name": "Try Person Search?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        800,
-        -560
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -965,9 +957,35 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "f8bc5576-258a-467c-9248-4706cc42ff24",
+      "name": "Try Person Search?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        -560
+      ]
     },
     {
+      "parameters": {
+        "url": "https://enrichlayer.com/api/v2/search/person",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={{ JSON.stringify($json.query) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 60000
+        },
+        "method": "GET"
+      },
       "id": "65ced51e-5922-46d2-bd48-b9a30edabbaf",
       "name": "Person Search",
       "type": "n8n-nodes-base.httpRequest",
@@ -976,27 +994,12 @@
         960,
         -640
       ],
-      "parameters": {
-        "method": "GET",
-        "url": "https://enrichlayer.com/api/v2/search/person",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendQuery": true,
-        "specifyQuery": "json",
-        "jsonQuery": "={{ JSON.stringify($json.query) }}",
-        "options": {
-          "timeout": 60000,
-          "response": {
-            "response": {
-              "fullResponse": true,
-              "neverError": true
-            }
-          }
-        }
-      },
       "onError": "continueRegularOutput"
     },
     {
+      "parameters": {
+        "jsCode": "/**\n * Person Search Links - read the Person Search answer and pick the phase-1 route.\n *\n * The request asked for links only (enrich_profiles=skip), as many as the search wants.\n * EnrichLayer bills 3 credits per result returned (measured 2026-10-01: 11 single-result\n * calls cost 33 credits). Results without a usable URL were never seen; they are billed\n * here too, to keep the spend record on the high side.\n *\n *   route 'ps'     - the links alone fill the search (>= 20 / 40): Google's phase 1 is\n *                    skipped; Google stays the phase-2 backup if candidates fall short.\n *   route 'google' - fewer links than the search wants, an error, 403/503 or nothing:\n *                    Google's phase 1 runs exactly as before, and whatever links we did\n *                    get are put in front of Google's (Add Person Search Links).\n *\n * Every link is rewritten to https://www.linkedin.com/in/<slug>: the search already\n * filtered by country=IQ, and Filter New URLs would otherwise drop a two-letter country\n * subdomain (ae., qa. ...) AFTER the route was chosen on it - a 'ps' route left with no\n * profile would end the search with no completion.\n *\n * A request that never got an answer (timeout, network) books the worst case, 3 x the\n * links asked for: EnrichLayer may still have billed it. If the Person Search node failed\n * as a whole, n8n passes this node its INPUT (the plan item): no request went out, nothing\n * is booked, and the reason is recorded. Links are kept in static data for this execution;\n * Add Person Search Links hands them on once and deletes them. This node never throws.\n */\nlet out = { __psRoute: 'google', links: 0, returned: 0, total: null, status: 0, error: '' };\ntry {\n  const wh = $('Webhook').first().json.body || {};\n  const searchId = String(wh.searchId || '');\n  const plan = $('Person Search Plan').first().json || {};\n  const target = Number(plan.target) >= 40 ? 40 : 20;\n  const res = $input.first().json || {};\n  const status = Number(res.statusCode || 0);\n  const body = res.body && typeof res.body === 'object' ? res.body : {};\n  const results = Array.isArray(body.results) ? body.results : null;\n  const now = Date.now();\n  let error = '';\n  let booked = 0;\n  if (res.error) {\n    error = String(res.error.message || res.error).slice(0, 200);\n    booked = 3 * target;\n  } else if (!status && Object.prototype.hasOwnProperty.call(res, 'usePs')) {\n    error = 'person search node failed (its input was passed on)';\n  } else if (status !== 200) {\n    error = 'person search answered ' + status;\n  }\n\n  const links = [];\n  const seen = new Set();\n  if (status === 200 && results) {\n    for (const r of results) {\n      const m = String((r && r.linkedin_profile_url) || '').trim().match(/linkedin\\.com\\/in\\/([^?#/]+)/i);\n      if (!m) continue;\n      let slug = m[1];\n      try { slug = decodeURIComponent(slug); } catch (e) {}\n      slug = slug.trim().toLowerCase();\n      if (!slug || seen.has(slug)) continue;\n      seen.add(slug);\n      links.push('https://www.linkedin.com/in/' + m[1]);\n    }\n    booked = 3 * results.length;\n  }\n  const returned = status === 200 && results ? results.length : 0;\n  const route = links.length >= target ? 'ps' : 'google';\n  const total = typeof body.total_result_count === 'number' ? body.total_result_count : null;\n\n  const sd = $getWorkflowStaticData('global');\n  if (searchId) {\n    if (sd.hhSpend && sd.hhSpend[searchId]) {\n      sd.hhSpend[searchId].spent = Number(sd.hhSpend[searchId].spent || 0) + booked;\n    }\n    sd.hhPsLinks = sd.hhPsLinks || {};\n    if (links.length) sd.hhPsLinks[searchId] = { at: now, links };\n    else delete sd.hhPsLinks[searchId];\n    sd.hhPersonSearch = sd.hhPersonSearch || {};\n    sd.hhPersonSearch[searchId] = { at: now, status, total, returned, links: links.length, route, booked, error };\n  }\n  out = { __psRoute: route, links: links.length, returned, total, status, booked, error };\n} catch (e) {\n  out = { __psRoute: 'google', links: 0, returned: 0, total: null, status: 0, error: 'links error: ' + String((e && e.message) || e).slice(0, 200) };\n}\n\nreturn [{ json: out }];\n"
+      },
       "id": "20fd4cbb-eede-4331-85b3-20984180f44f",
       "name": "Person Search Links",
       "type": "n8n-nodes-base.code",
@@ -1004,20 +1007,9 @@
       "position": [
         1120,
         -640
-      ],
-      "parameters": {
-        "jsCode": "/**\n * Person Search Links - read the Person Search answer and pick the phase-1 route.\n *\n * The request asked for links only (enrich_profiles=skip), as many as the search wants.\n * EnrichLayer bills 3 credits per result returned (measured 2026-10-01: 11 single-result\n * calls cost 33 credits). Results without a usable URL were never seen; they are billed\n * here too, to keep the spend record on the high side.\n *\n *   route 'ps'     - the links alone fill the search (>= 20 / 40): Google's phase 1 is\n *                    skipped; Google stays the phase-2 backup if candidates fall short.\n *   route 'google' - fewer links than the search wants, an error, 403/503 or nothing:\n *                    Google's phase 1 runs exactly as before, and whatever links we did\n *                    get are put in front of Google's (Add Person Search Links).\n *\n * Every link is rewritten to https://www.linkedin.com/in/<slug>: the search already\n * filtered by country=IQ, and Filter New URLs would otherwise drop a two-letter country\n * subdomain (ae., qa. ...) AFTER the route was chosen on it - a 'ps' route left with no\n * profile would end the search with no completion.\n *\n * A request that never got an answer (timeout, network) books the worst case, 3 x the\n * links asked for: EnrichLayer may still have billed it. If the Person Search node failed\n * as a whole, n8n passes this node its INPUT (the plan item): no request went out, nothing\n * is booked, and the reason is recorded. Links are kept in static data for this execution;\n * Add Person Search Links hands them on once and deletes them. This node never throws.\n */\nlet out = { __psRoute: 'google', links: 0, returned: 0, total: null, status: 0, error: '' };\ntry {\n  const wh = $('Webhook').first().json.body || {};\n  const searchId = String(wh.searchId || '');\n  const plan = $('Person Search Plan').first().json || {};\n  const target = Number(plan.target) >= 40 ? 40 : 20;\n  const res = $input.first().json || {};\n  const status = Number(res.statusCode || 0);\n  const body = res.body && typeof res.body === 'object' ? res.body : {};\n  const results = Array.isArray(body.results) ? body.results : null;\n  const now = Date.now();\n  let error = '';\n  let booked = 0;\n  if (res.error) {\n    error = String(res.error.message || res.error).slice(0, 200);\n    booked = 3 * target;\n  } else if (!status && Object.prototype.hasOwnProperty.call(res, 'usePs')) {\n    error = 'person search node failed (its input was passed on)';\n  } else if (status !== 200) {\n    error = 'person search answered ' + status;\n  }\n\n  const links = [];\n  const seen = new Set();\n  if (status === 200 && results) {\n    for (const r of results) {\n      const m = String((r && r.linkedin_profile_url) || '').trim().match(/linkedin\\.com\\/in\\/([^?#/]+)/i);\n      if (!m) continue;\n      let slug = m[1];\n      try { slug = decodeURIComponent(slug); } catch (e) {}\n      slug = slug.trim().toLowerCase();\n      if (!slug || seen.has(slug)) continue;\n      seen.add(slug);\n      links.push('https://www.linkedin.com/in/' + m[1]);\n    }\n    booked = 3 * results.length;\n  }\n  const returned = status === 200 && results ? results.length : 0;\n  const route = links.length >= target ? 'ps' : 'google';\n  const total = typeof body.total_result_count === 'number' ? body.total_result_count : null;\n\n  const sd = $getWorkflowStaticData('global');\n  if (searchId) {\n    if (sd.hhSpend && sd.hhSpend[searchId]) {\n      sd.hhSpend[searchId].spent = Number(sd.hhSpend[searchId].spent || 0) + booked;\n    }\n    sd.hhPsLinks = sd.hhPsLinks || {};\n    if (links.length) sd.hhPsLinks[searchId] = { at: now, links };\n    else delete sd.hhPsLinks[searchId];\n    sd.hhPersonSearch = sd.hhPersonSearch || {};\n    sd.hhPersonSearch[searchId] = { at: now, status, total, returned, links: links.length, route, booked, error };\n  }\n  out = { __psRoute: route, links: links.length, returned, total, status, booked, error };\n} catch (e) {\n  out = { __psRoute: 'google', links: 0, returned: 0, total: null, status: 0, error: 'links error: ' + String((e && e.message) || e).slice(0, 200) };\n}\n\nreturn [{ json: out }];\n"
-      }
+      ]
     },
     {
-      "id": "9c5a7d34-bd8c-495e-b3d6-2c9fb6a8d3d8",
-      "name": "Skip Google?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1280,
-        -640
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -1040,9 +1032,20 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "9c5a7d34-bd8c-495e-b3d6-2c9fb6a8d3d8",
+      "name": "Skip Google?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        -640
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "/**\n * Add Person Search Links - put the Person Search links in front of the phase-1 list.\n *\n * Sits between Filter LinkedIn URLs and Filter New URLs, and is reached two ways in\n * phase 1 (only one per search):\n *   - from Skip Google? when Person Search filled the search by itself: the input is a\n *     control item, the output is the Person Search links alone;\n *   - from Filter LinkedIn URLs after Google's phase 1: the Person Search links (if any)\n *     go FIRST - they passed our evaluation far more often - then Google's.\n * Each Person Search link is marked __ps so Enrichlayer Profile Fetch asks for the\n * cached profile (use_cache=if-present, 1 credit instead of 2). The links are handed on\n * once and deleted. Phase 2 passes through untouched.\n */\nconst wh = $('Webhook').first().json.body || {};\nconst searchId = String(wh.searchId || '');\nconst sd = $getWorkflowStaticData('global');\nconst items = $input.all();\n\nif (sd.hhPhase2 && sd.hhPhase2[searchId]) return items;\n\nconst isLink = (j) => /linkedin\\.com\\/in\\//i.test(String((j && (j.link || j.url)) || ''));\nconst rec = sd.hhPsLinks && sd.hhPsLinks[searchId];\nconst psLinks = rec && Array.isArray(rec.links) ? rec.links : [];\nif (sd.hhPsLinks) delete sd.hhPsLinks[searchId];\n\nconst fromSearch = psLinks.map((link) => ({ json: { link, __ps: true } }));\nreturn [...fromSearch, ...items.filter((i) => isLink(i.json))];\n"
+      },
       "id": "a5cd2838-825d-47bd-9f68-d12946368f50",
       "name": "Add Person Search Links",
       "type": "n8n-nodes-base.code",
@@ -1050,20 +1053,9 @@
       "position": [
         616,
         -160
-      ],
-      "parameters": {
-        "jsCode": "/**\n * Add Person Search Links - put the Person Search links in front of the phase-1 list.\n *\n * Sits between Filter LinkedIn URLs and Filter New URLs, and is reached two ways in\n * phase 1 (only one per search):\n *   - from Skip Google? when Person Search filled the search by itself: the input is a\n *     control item, the output is the Person Search links alone;\n *   - from Filter LinkedIn URLs after Google's phase 1: the Person Search links (if any)\n *     go FIRST - they passed our evaluation far more often - then Google's.\n * Each Person Search link is marked __ps so Enrichlayer Profile Fetch asks for the\n * cached profile (use_cache=if-present, 1 credit instead of 2). The links are handed on\n * once and deleted. Phase 2 passes through untouched.\n */\nconst wh = $('Webhook').first().json.body || {};\nconst searchId = String(wh.searchId || '');\nconst sd = $getWorkflowStaticData('global');\nconst items = $input.all();\n\nif (sd.hhPhase2 && sd.hhPhase2[searchId]) return items;\n\nconst isLink = (j) => /linkedin\\.com\\/in\\//i.test(String((j && (j.link || j.url)) || ''));\nconst rec = sd.hhPsLinks && sd.hhPsLinks[searchId];\nconst psLinks = rec && Array.isArray(rec.links) ? rec.links : [];\nif (sd.hhPsLinks) delete sd.hhPsLinks[searchId];\n\nconst fromSearch = psLinks.map((link) => ({ json: { link, __ps: true } }));\nreturn [...fromSearch, ...items.filter((i) => isLink(i.json))];\n"
-      }
+      ]
     },
     {
-      "id": "e43a01e5-19ac-443d-9266-05dd30ddc78c",
-      "name": "Nothing To Enrich?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        704,
-        128
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -1087,17 +1079,17 @@
           ]
         },
         "options": {}
-      }
-    },
-    {
-      "id": "443dceb2-6788-41f9-a92e-ea94dba4dfdc",
-      "name": "Phase 2 Found Nothing?",
+      },
+      "id": "e43a01e5-19ac-443d-9266-05dd30ddc78c",
+      "name": "Nothing To Enrich?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2336,
-        240
-      ],
+        704,
+        128
+      ]
+    },
+    {
       "parameters": {
         "conditions": {
           "options": {
@@ -1121,7 +1113,15 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "443dceb2-6788-41f9-a92e-ea94dba4dfdc",
+      "name": "Phase 2 Found Nothing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2336,
+        240
+      ]
     }
   ],
   "connections": {
